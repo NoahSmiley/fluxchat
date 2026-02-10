@@ -131,7 +131,7 @@ pub async fn sign_up(
 
     // Set cookie header
     let cookie = format!(
-        "better-auth.session_token={}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000",
+        "better-auth.session_token={}; HttpOnly; SameSite=None; Path=/; Max-Age=2592000",
         session_token
     );
 
@@ -145,6 +145,7 @@ pub async fn sign_up(
             username,
             image: None,
         },
+        token: Some(session_token),
     };
 
     (StatusCode::OK, headers, Json(body)).into_response()
@@ -244,7 +245,7 @@ pub async fn sign_in(
     .await;
 
     let cookie = format!(
-        "better-auth.session_token={}; HttpOnly; SameSite=Lax; Path=/; Max-Age=2592000",
+        "better-auth.session_token={}; HttpOnly; SameSite=None; Path=/; Max-Age=2592000",
         session_token
     );
 
@@ -258,6 +259,7 @@ pub async fn sign_in(
             username,
             image,
         },
+        token: Some(session_token),
     };
 
     (StatusCode::OK, headers, Json(body)).into_response()
@@ -268,25 +270,28 @@ pub async fn sign_out(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
-    let cookie_header = headers
+    let token_from_header = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|t| t.to_string());
+
+    let token_from_cookie = headers
         .get("cookie")
         .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-
-    let token = cookie_header
+        .unwrap_or("")
         .split(';')
         .filter_map(|c| {
             let c = c.trim();
             if c.starts_with("better-auth.session_token=") {
-                Some(
-                    c.trim_start_matches("better-auth.session_token=")
-                        .to_string(),
-                )
+                Some(c.trim_start_matches("better-auth.session_token=").to_string())
             } else {
                 None
             }
         })
         .next();
+
+    let token = token_from_header.or(token_from_cookie);
 
     if let Some(token) = token {
         let _ = sqlx::query(r#"DELETE FROM "session" WHERE token = ?"#)
@@ -297,7 +302,7 @@ pub async fn sign_out(
 
     // Clear cookie
     let cookie =
-        "better-auth.session_token=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0".to_string();
+        "better-auth.session_token=; HttpOnly; SameSite=None; Path=/; Max-Age=0".to_string();
 
     let mut resp_headers = HeaderMap::new();
     resp_headers.insert("set-cookie", cookie.parse().unwrap());
@@ -310,25 +315,29 @@ pub async fn get_session(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
-    let cookie_header = headers
+    // Try Authorization: Bearer <token> first, then fall back to cookie
+    let token_from_header = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|t| t.to_string());
+
+    let token_from_cookie = headers
         .get("cookie")
         .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-
-    let token = cookie_header
+        .unwrap_or("")
         .split(';')
         .filter_map(|c| {
             let c = c.trim();
             if c.starts_with("better-auth.session_token=") {
-                Some(
-                    c.trim_start_matches("better-auth.session_token=")
-                        .to_string(),
-                )
+                Some(c.trim_start_matches("better-auth.session_token=").to_string())
             } else {
                 None
             }
         })
         .next();
+
+    let token = token_from_header.or(token_from_cookie);
 
     let token = match token {
         Some(t) if !t.is_empty() => t,

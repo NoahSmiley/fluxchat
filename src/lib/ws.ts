@@ -1,6 +1,7 @@
 import type { WSClientEvent, WSServerEvent } from "../types/shared.js";
 import { WS_HEARTBEAT_INTERVAL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from "../types/shared.js";
 import { getGatewayUrl } from "./serverUrl.js";
+import { getStoredToken } from "./api.js";
 
 type EventHandler = (event: WSServerEvent) => void;
 
@@ -17,7 +18,13 @@ class FluxWebSocket {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) return;
 
     this.shouldReconnect = true;
-    const url = getGatewayUrl();
+    let url = getGatewayUrl();
+    // Attach token as query param for cross-origin auth (WebSocket can't send custom headers)
+    const token = getStoredToken();
+    if (token) {
+      const sep = url.includes("?") ? "&" : "?";
+      url = `${url}${sep}token=${encodeURIComponent(token)}`;
+    }
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {

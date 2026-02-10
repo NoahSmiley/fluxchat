@@ -15,32 +15,53 @@ use crate::ws::gateway::ClientId;
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
+    query: axum::extract::Query<std::collections::HashMap<String, String>>,
     headers: axum::http::HeaderMap,
 ) -> impl IntoResponse {
-    // Extract session from cookie
-    let auth_user = extract_session_from_headers(&state, &headers).await;
+    // Extract session from query param, Authorization header, or cookie
+    let auth_user = extract_session(&state, &headers, &query).await;
 
     ws.on_upgrade(move |socket| handle_socket(socket, state, auth_user))
 }
 
-async fn extract_session_from_headers(
+async fn extract_session(
     state: &AppState,
     headers: &axum::http::HeaderMap,
+    query: &std::collections::HashMap<String, String>,
 ) -> Option<AuthUser> {
-    let cookie_header = headers.get("cookie")?.to_str().ok()?;
+    // 1. Try query param ?token=...
+    let token_from_query = query.get("token").map(|t| t.as_str());
 
-    // Parse cookie to find session token
-    let token = cookie_header
+    // 2. Try Authorization: Bearer <token>
+    let auth_header = headers.get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|t| t.to_string());
+
+    // 3. Try cookie
+    let token_from_cookie = headers.get("cookie")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
         .split(';')
         .filter_map(|c| {
             let c = c.trim();
             if c.starts_with("better-auth.session_token=") {
-                Some(c.trim_start_matches("better-auth.session_token="))
+                Some(c.trim_start_matches("better-auth.session_token=").to_string())
             } else {
                 None
             }
         })
-        .next()?;
+        .next();
+
+    let token = token_from_query
+        .map(|t| t.to_string())
+        .or(auth_header)
+        .or(token_from_cookie)?;
+
+    if token.is_empty() {
+        return None;
+    }
+    let token = token.as_str();
 
     let row = sqlx::query_as::<_, (String, String, String)>(
         r#"SELECT u.id, u.username, s.expiresAt
