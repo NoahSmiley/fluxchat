@@ -1,5 +1,6 @@
 import type { WSClientEvent, WSServerEvent } from "../types/shared.js";
 import { WS_HEARTBEAT_INTERVAL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from "../types/shared.js";
+import { getGatewayUrl } from "./serverUrl.js";
 
 type EventHandler = (event: WSServerEvent) => void;
 
@@ -16,8 +17,7 @@ class FluxWebSocket {
     if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) return;
 
     this.shouldReconnect = true;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${protocol}//${window.location.host}/gateway`;
+    const url = getGatewayUrl();
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {

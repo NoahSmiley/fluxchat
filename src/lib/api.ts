@@ -11,7 +11,9 @@ import type {
   DMMessage,
 } from "../types/shared.js";
 
-const BASE_URL = "/api";
+import { API_BASE } from "./serverUrl.js";
+
+const BASE_URL = API_BASE;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { ...options?.headers as Record<string, string> };
