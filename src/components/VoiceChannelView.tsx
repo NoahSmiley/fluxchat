@@ -233,7 +233,6 @@ export function VoiceChannelView() {
   } = useVoiceStore();
 
   const [showSettings, setShowSettings] = useState(false);
-
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
 
@@ -321,7 +320,7 @@ export function VoiceChannelView() {
             </button>
             <button
               className={`voice-control-btn ${isScreenSharing ? "active" : ""}`}
-              onClick={toggleScreenShare}
+              onClick={() => toggleScreenShare()}
               title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
             >
               {isScreenSharing ? "Stop Share" : "Screen"}
@@ -345,6 +344,7 @@ export function VoiceChannelView() {
           {showSettings && <AudioSettingsPanel />}
         </>
       )}
+
     </div>
   );
 }

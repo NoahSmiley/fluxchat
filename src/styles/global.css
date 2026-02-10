@@ -1932,3 +1932,167 @@ input:focus {
   background: var(--text-muted);
   flex-shrink: 0;
 }
+
+/* ── Screen Share Picker ── */
+
+.screenshare-picker {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 680px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalIn 0.15s ease-out;
+}
+
+.screenshare-picker-header {
+  padding: 20px 24px 0;
+}
+
+.screenshare-picker-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.screenshare-picker-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 16px 24px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.screenshare-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.screenshare-tab:hover {
+  color: var(--text-primary);
+}
+
+.screenshare-tab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+.screenshare-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 16px 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 200px;
+}
+
+.screenshare-picker-loading,
+.screenshare-picker-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.screenshare-picker-loading .spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.screenshare-source {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.screenshare-source:hover {
+  background: var(--bg-input);
+}
+
+.screenshare-source.selected {
+  border-color: var(--accent);
+  background: var(--bg-input);
+}
+
+.screenshare-source-thumb {
+  aspect-ratio: 16 / 9;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.screenshare-source-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.screenshare-source-placeholder {
+  color: var(--text-muted);
+}
+
+.screenshare-source-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.screenshare-picker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.screenshare-audio-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.screenshare-audio-toggle input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.screenshare-picker-actions {
+  display: flex;
+  gap: 8px;
+}

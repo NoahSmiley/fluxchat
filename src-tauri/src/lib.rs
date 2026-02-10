@@ -1,10 +1,9 @@
+mod capture;
+
 use tauri::Manager;
 
 #[tauri::command]
 fn set_titlebar_color(window: tauri::Window, color: String) {
-    // On Windows, we can set the title bar color via the webview
-    // For now this is a no-op placeholder that will be implemented
-    // when we add custom titlebar support
     let _ = (window, color);
 }
 
@@ -12,7 +11,6 @@ fn set_titlebar_color(window: tauri::Window, color: String) {
 async fn open_popout_window(app: tauri::AppHandle, window_type: String) -> Result<(), String> {
     let label = format!("popout-{}", window_type);
 
-    // Check if window already exists
     if app.get_webview_window(&label).is_some() {
         return Ok(());
     }
@@ -37,6 +35,11 @@ async fn close_popout_window(app: tauri::AppHandle, window_type: String) -> Resu
     Ok(())
 }
 
+#[tauri::command]
+fn get_capture_sources() -> Vec<capture::CaptureSource> {
+    capture::get_sources()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -45,6 +48,7 @@ pub fn run() {
             set_titlebar_color,
             open_popout_window,
             close_popout_window,
+            get_capture_sources,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

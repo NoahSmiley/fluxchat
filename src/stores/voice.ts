@@ -189,7 +189,7 @@ interface VoiceState {
   toggleDeafen: () => void;
   updateAudioSetting: (key: keyof AudioSettings, value: boolean | number) => void;
   applyBitrate: (bitrate: number) => void;
-  toggleScreenShare: () => Promise<void>;
+  toggleScreenShare: (displaySurface?: "monitor" | "window") => Promise<void>;
   setParticipantVolume: (participantId: string, volume: number) => void;
   watchScreenShare: (participantId: string) => void;
   stopWatchingScreenShare: () => void;
@@ -251,7 +251,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       const channelBitrate = channel?.bitrate ?? DEFAULT_BITRATE;
 
       const room = new Room({
-        adaptiveStream: true,
+        // Disable adaptive stream so subscribers always receive max quality
+        // (otherwise LiveKit auto-downgrades based on video element size)
+        adaptiveStream: false,
         dynacast: true,
         audioCaptureDefaults: {
           echoCancellation: audioSettings.echoCancellation,
@@ -266,12 +268,20 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           },
           dtx: audioSettings.dtx,
           red: true,
+          forceStereo: true,
           stopMicTrackOnMute: false,
+          videoCodec: "vp9",
           screenShareEncoding: {
             maxBitrate: 20_000_000,
             maxFramerate: 60,
+            priority: "high",
           },
           screenShareSimulcastLayers: [],
+          // L1T3 = 1 spatial layer (no resolution downscaling ever),
+          // 3 temporal layers (server can only reduce framerate for slow viewers)
+          scalabilityMode: "L1T3",
+          degradationPreference: "maintain-resolution",
+          backupCodec: { codec: "vp8" },
         },
       });
 
@@ -540,7 +550,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     }
   },
 
-  toggleScreenShare: async () => {
+  toggleScreenShare: async (displaySurface?: "monitor" | "window") => {
     const { room, isScreenSharing } = get();
     if (!room) return;
 
@@ -549,15 +559,31 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         await room.localParticipant.setScreenShareEnabled(false);
         set({ isScreenSharing: false });
       } else {
-        await room.localParticipant.setScreenShareEnabled(true, {
-          audio: true,
-          contentHint: "detail",
-          resolution: { width: 3840, height: 2160, frameRate: 60 },
-          preferCurrentTab: false,
-          selfBrowserSurface: "exclude",
-          surfaceSwitching: "include",
-          systemAudio: "include",
-        });
+        await room.localParticipant.setScreenShareEnabled(true,
+          // Capture options
+          {
+            audio: true,
+            contentHint: "detail",
+            resolution: { width: 3840, height: 2160, frameRate: 60 },
+            preferCurrentTab: false,
+            selfBrowserSurface: "exclude",
+            surfaceSwitching: "include",
+            systemAudio: "include",
+            ...(displaySurface ? { displaySurface } : {}),
+          },
+          // Publish options
+          {
+            videoCodec: "vp9",
+            screenShareEncoding: {
+              maxBitrate: 20_000_000,
+              maxFramerate: 60,
+              priority: "high",
+            },
+            scalabilityMode: "L1T3",
+            degradationPreference: "maintain-resolution",
+            backupCodec: { codec: "vp8" },
+          },
+        );
         set({ isScreenSharing: true });
       }
       get()._updateScreenSharers();
