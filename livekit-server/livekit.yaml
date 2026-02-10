@@ -1,0 +1,33 @@
+port: 7880
+
+# Use the same API key/secret as the Flux server
+keys:
+  APIuC63SXBtVYqW: k8NWj5otVskjXf3h7sOIQHe48EgkorRP8sclPDMdoNy
+
+rtc:
+  port_range_start: 50000
+  port_range_end: 50001
+  tcp_port: 7881
+  # Discover public IP via STUN (needed for internet access)
+  use_external_ip: true
+
+room:
+  auto_create: true
+  empty_timeout: 300
+  departure_timeout: 20
+  enabled_codecs:
+    - mime: audio/opus
+    - mime: video/vp9
+    - mime: video/vp8
+    - mime: video/av1
+    - mime: video/h264
+  sync_streams: true
+
+# No per-track bitrate cap — let the client decide
+limit:
+  num_tracks: -1
+  bytes_per_sec: -1
+
+logging:
+  level: info
+  pion_level: error
