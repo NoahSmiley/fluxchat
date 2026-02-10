@@ -1,0 +1,51 @@
+use tauri::Manager;
+
+#[tauri::command]
+fn set_titlebar_color(window: tauri::Window, color: String) {
+    // On Windows, we can set the title bar color via the webview
+    // For now this is a no-op placeholder that will be implemented
+    // when we add custom titlebar support
+    let _ = (window, color);
+}
+
+#[tauri::command]
+async fn open_popout_window(app: tauri::AppHandle, window_type: String) -> Result<(), String> {
+    let label = format!("popout-{}", window_type);
+
+    // Check if window already exists
+    if app.get_webview_window(&label).is_some() {
+        return Ok(());
+    }
+
+    let url = format!("/?popout={}", window_type);
+    let _window = tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App(url.into()))
+        .title(format!("Flux - {}", window_type))
+        .inner_size(800.0, 600.0)
+        .min_inner_size(400.0, 300.0)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn close_popout_window(app: tauri::AppHandle, window_type: String) -> Result<(), String> {
+    let label = format!("popout-{}", window_type);
+    if let Some(window) = app.get_webview_window(&label) {
+        window.close().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .invoke_handler(tauri::generate_handler![
+            set_titlebar_color,
+            open_popout_window,
+            close_popout_window,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
