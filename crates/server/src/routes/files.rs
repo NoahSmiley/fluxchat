@@ -290,19 +290,21 @@ pub async fn link_preview(
 
     let now = chrono::Utc::now().to_rfc3339();
 
-    // Upsert cache
-    let _ = sqlx::query(
-        r#"INSERT OR REPLACE INTO link_previews (url, title, description, image, domain, fetched_at)
-           VALUES (?, ?, ?, ?, ?, ?)"#,
-    )
-    .bind(&url)
-    .bind(&title)
-    .bind(&description)
-    .bind(&image)
-    .bind(&domain)
-    .bind(&now)
-    .execute(&state.db)
-    .await;
+    // Only cache if we got at least some data (avoid caching empty results)
+    if title.is_some() || description.is_some() || image.is_some() {
+        let _ = sqlx::query(
+            r#"INSERT OR REPLACE INTO link_previews (url, title, description, image, domain, fetched_at)
+               VALUES (?, ?, ?, ?, ?, ?)"#,
+        )
+        .bind(&url)
+        .bind(&title)
+        .bind(&description)
+        .bind(&image)
+        .bind(&domain)
+        .bind(&now)
+        .execute(&state.db)
+        .await;
+    }
 
     Json(serde_json::json!({
         "url": url,

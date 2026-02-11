@@ -2085,13 +2085,14 @@ input:focus {
 
 .message-edit-actions {
   display: flex;
-  gap: 4px;
-  font-size: 11px;
+  gap: 6px;
+  font-size: 12px;
 }
 
 .message-edit-actions .btn-small {
-  padding: 2px 8px;
-  font-size: 11px;
+  padding: 4px 12px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .edit-btn {

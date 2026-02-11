@@ -53,6 +53,8 @@ interface AudioPipeline {
   highPass: BiquadFilterNode;
   lowPass: BiquadFilterNode;
   gain: GainNode;
+  analyser: AnalyserNode;
+  analyserData: Float32Array;
 }
 
 const audioPipelines = new Map<string, AudioPipeline>();
@@ -78,14 +80,28 @@ function createAudioPipeline(
   const gain = context.createGain();
   gain.gain.setValueAtTime(volume, context.currentTime);
 
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 256;
+  const analyserData = new Float32Array(analyser.fftSize);
+
   source.connect(highPass);
   highPass.connect(lowPass);
-  lowPass.connect(gain);
+  lowPass.connect(analyser);
+  analyser.connect(gain);
   gain.connect(context.destination);
 
-  const pipeline: AudioPipeline = { context, source, highPass, lowPass, gain };
+  const pipeline: AudioPipeline = { context, source, highPass, lowPass, gain, analyser, analyserData };
   audioPipelines.set(trackSid, pipeline);
   return pipeline;
+}
+
+function getPipelineLevel(pipeline: AudioPipeline): number {
+  pipeline.analyser.getFloatTimeDomainData(pipeline.analyserData);
+  let sum = 0;
+  for (let i = 0; i < pipeline.analyserData.length; i++) {
+    sum += pipeline.analyserData[i] * pipeline.analyserData[i];
+  }
+  return Math.sqrt(sum / pipeline.analyserData.length);
 }
 
 function destroyAudioPipeline(trackSid: string) {
@@ -149,7 +165,10 @@ function setupLocalAnalyser(room: any) {
       return;
     }
 
-    localAnalyserCtx = new AudioContext();
+    // Match the track's sample rate (DTLN outputs 16kHz, normal mic is 48kHz)
+    const trackSettings = mediaStreamTrack.getSettings();
+    const sampleRate = trackSettings.sampleRate || 48000;
+    localAnalyserCtx = new AudioContext({ sampleRate });
     // Resume in case it's suspended (browser autoplay policy)
     if (localAnalyserCtx.state === "suspended") {
       localAnalyserCtx.resume();
@@ -215,8 +234,13 @@ function startAudioLevelPolling() {
     const levels: Record<string, number> = {};
     const localLevel = getLocalMicLevel();
     levels[room.localParticipant.identity] = localLevel;
+
+    // Use pipeline analysers for remote participants (more reliable than p.audioLevel)
+    const { participantTrackMap } = state;
     for (const p of room.remoteParticipants.values()) {
-      levels[p.identity] = p.audioLevel ?? 0;
+      const trackSid = participantTrackMap[p.identity];
+      const pipeline = trackSid ? audioPipelines.get(trackSid) : undefined;
+      levels[p.identity] = pipeline ? getPipelineLevel(pipeline) : (p.audioLevel ?? 0);
     }
     useVoiceStore.setState({ audioLevels: levels });
 
