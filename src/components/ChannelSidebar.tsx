@@ -3,9 +3,10 @@ import type { Channel, ChannelType } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
-import { Settings, Volume2, Copy, Check, Monitor, MicOff, HeadphoneOff } from "lucide-react";
+import { Settings, Volume2, Monitor, MicOff, HeadphoneOff, ChevronDown } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
+import { ServerSettingsModal } from "./ServerSettingsModal.js";
 
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, channelsLoaded, members } = useChatStore();
@@ -18,33 +19,14 @@ export function ChannelSidebar() {
 
   const [createModalType, setCreateModalType] = useState<ChannelType | null>(null);
   const [settingsChannel, setSettingsChannel] = useState<Channel | null>(null);
-  const [showInvite, setShowInvite] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  function copyInviteCode() {
-    if (!server?.inviteCode) return;
-    navigator.clipboard.writeText(server.inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
+  const [showServerSettings, setShowServerSettings] = useState(false);
 
   return (
     <div className="channel-sidebar">
-      <div className="channel-sidebar-header" onClick={() => setShowInvite(!showInvite)} style={{ cursor: "pointer" }}>
+      <div className="channel-sidebar-header" onClick={() => setShowServerSettings(true)} style={{ cursor: "pointer" }}>
         <h3>{server?.name ?? "Server"}</h3>
+        <ChevronDown size={16} className="server-header-chevron" />
       </div>
-
-      {showInvite && server?.inviteCode && (
-        <div className="invite-code-bar">
-          <span className="invite-code-label">Invite Code</span>
-          <div className="invite-code-value">
-            <code>{server.inviteCode}</code>
-            <button className="invite-copy-btn" onClick={copyInviteCode} title={copied ? "Copied!" : "Copy"}>
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="channel-list">
         {textChannels.length > 0 && (
@@ -173,6 +155,13 @@ export function ChannelSidebar() {
           channel={settingsChannel}
           serverId={activeServerId}
           onClose={() => setSettingsChannel(null)}
+        />
+      )}
+
+      {showServerSettings && activeServerId && (
+        <ServerSettingsModal
+          serverId={activeServerId}
+          onClose={() => setShowServerSettings(false)}
         />
       )}
     </div>

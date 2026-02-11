@@ -232,7 +232,15 @@ export function VoiceChannelView() {
                   speaking={user.speaking}
                   large
                 />
-                <span className="voice-tile-name">{user.username}</span>
+                <span className="voice-tile-name">
+                  {user.username}
+                  {(user.isMuted || user.isDeafened) && (
+                    <span className="voice-tile-status-icons">
+                      {user.isMuted && <MicOff size={14} className="voice-tile-status-icon" />}
+                      {user.isDeafened && <HeadphoneOff size={14} className="voice-tile-status-icon" />}
+                    </span>
+                  )}
+                </span>
                 {user.userId !== room?.localParticipant?.identity && (
                   <div className="voice-tile-volume">
                     <input

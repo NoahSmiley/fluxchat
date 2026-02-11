@@ -150,6 +150,21 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
         }
     }
 
+    // Send current activities of all online users
+    let activities = state.gateway.get_all_activities().await;
+    for (uid, activity) in activities {
+        state
+            .gateway
+            .send_to(
+                client_id,
+                &ServerEvent::ActivityUpdate {
+                    user_id: uid,
+                    activity: Some(activity),
+                },
+            )
+            .await;
+    }
+
     // Task to forward messages from mpsc to WebSocket
     let send_task = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
@@ -211,6 +226,18 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
             )
             .await;
     }
+
+    // Clear activity on disconnect
+    state
+        .gateway
+        .broadcast_all(
+            &ServerEvent::ActivityUpdate {
+                user_id: user.id.clone(),
+                activity: None,
+            },
+            None,
+        )
+        .await;
 
     // Broadcast offline presence
     state
@@ -276,17 +303,6 @@ async fn handle_client_event(
 
             if result.is_err() {
                 return;
-            }
-
-            // Try to index in FTS
-            if let Ok(decoded) = base64_decode(&ciphertext) {
-                let _ = sqlx::query(
-                    "INSERT INTO messages_fts (message_id, plaintext) VALUES (?, ?)",
-                )
-                .bind(&id)
-                .bind(&decoded)
-                .execute(&state.db)
-                .await;
             }
 
             // Link attachments to this message
@@ -384,23 +400,6 @@ async fn handle_client_event(
             .execute(&state.db)
             .await;
 
-            // Update FTS
-            if let Ok(decoded) = base64_decode(&ciphertext) {
-                let _ = sqlx::query(
-                    "DELETE FROM messages_fts WHERE message_id = ?",
-                )
-                .bind(&message_id)
-                .execute(&state.db)
-                .await;
-                let _ = sqlx::query(
-                    "INSERT INTO messages_fts (message_id, plaintext) VALUES (?, ?)",
-                )
-                .bind(&message_id)
-                .bind(&decoded)
-                .execute(&state.db)
-                .await;
-            }
-
             state
                 .gateway
                 .broadcast_channel(
@@ -442,12 +441,6 @@ async fn handle_client_event(
                     .await;
                 return;
             }
-
-            // Delete FTS entry
-            let _ = sqlx::query("DELETE FROM messages_fts WHERE message_id = ?")
-                .bind(&message_id)
-                .execute(&state.db)
-                .await;
 
             // Delete the message (attachments cascade)
             let _ = sqlx::query("DELETE FROM messages WHERE id = ?")
@@ -677,38 +670,67 @@ async fn handle_client_event(
             let other_user_id = if user.id == user1 { &user2 } else { &user1 };
             state.gateway.send_to_user(other_user_id, &event).await;
         }
+        ClientEvent::UpdateActivity { activity } => {
+            state.gateway.set_activity(client_id, activity.clone()).await;
+            state
+                .gateway
+                .broadcast_all(
+                    &ServerEvent::ActivityUpdate {
+                        user_id: user.id.clone(),
+                        activity,
+                    },
+                    None,
+                )
+                .await;
+        }
+        ClientEvent::ShareServerKey {
+            server_id,
+            user_id: target_user_id,
+            encrypted_key,
+        } => {
+            // Store the wrapped key for the target user
+            let now = chrono::Utc::now().to_rfc3339();
+            let _ = sqlx::query(
+                "INSERT INTO server_keys (server_id, user_id, encrypted_key, sender_id, created_at) VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(server_id, user_id) DO UPDATE SET encrypted_key = excluded.encrypted_key, sender_id = excluded.sender_id",
+            )
+            .bind(&server_id)
+            .bind(&target_user_id)
+            .bind(&encrypted_key)
+            .bind(&user.id)
+            .bind(&now)
+            .execute(&state.db)
+            .await;
+
+            // Send to the target user
+            state
+                .gateway
+                .send_to_user(
+                    &target_user_id,
+                    &ServerEvent::ServerKeyShared {
+                        server_id,
+                        encrypted_key,
+                        sender_id: user.id.clone(),
+                    },
+                )
+                .await;
+        }
+        ClientEvent::RequestServerKey { server_id } => {
+            // Broadcast to all so any member with the key can share it
+            state
+                .gateway
+                .broadcast_all(
+                    &ServerEvent::ServerKeyRequested {
+                        server_id,
+                        user_id: user.id.clone(),
+                    },
+                    Some(client_id),
+                )
+                .await;
+        }
         ClientEvent::Ping => {
             // No-op — just keeps connection alive
         }
     }
 }
 
-fn base64_decode(input: &str) -> Result<String, ()> {
-    // Simple base64 decode (atob equivalent)
-    use std::str;
-    // Use a basic approach: the data is encoded with btoa() which is standard base64
-    let bytes = base64_decode_bytes(input)?;
-    str::from_utf8(&bytes).map(|s| s.to_string()).map_err(|_| ())
-}
-
-fn base64_decode_bytes(input: &str) -> Result<Vec<u8>, ()> {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    let input = input.trim_end_matches('=');
-    let mut output = Vec::with_capacity(input.len() * 3 / 4);
-    let mut buf: u32 = 0;
-    let mut bits: u32 = 0;
-
-    for &byte in input.as_bytes() {
-        let val = TABLE.iter().position(|&c| c == byte).ok_or(())? as u32;
-        buf = (buf << 6) | val;
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            output.push((buf >> bits) as u8);
-            buf &= (1 << bits) - 1;
-        }
-    }
-
-    Ok(output)
-}

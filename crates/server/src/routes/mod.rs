@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod dms;
 pub mod files;
+pub mod keys;
 pub mod messages;
 pub mod servers;
 pub mod users;
@@ -24,6 +25,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/servers", get(servers::list_servers))
         .route("/servers/join", post(servers::join_server))
         .route("/servers/{serverId}", get(servers::get_server))
+        .route("/servers/{serverId}", patch(servers::update_server))
+        .route("/servers/{serverId}", delete(servers::delete_server))
+        .route("/servers/{serverId}/members/me", delete(servers::leave_server))
         .route("/servers/{serverId}/channels", get(servers::list_channels))
         .route("/servers/{serverId}/channels", post(servers::create_channel))
         .route("/servers/{serverId}/channels/{channelId}", patch(servers::update_channel))
@@ -37,10 +41,17 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/dms", get(dms::list_dms))
         .route("/dms", post(dms::create_dm))
         .route("/dms/{dmChannelId}/messages", get(dms::list_dm_messages))
+        .route("/dms/{dmChannelId}/messages/search", get(dms::search_dm_messages))
         .route("/users/search", get(dms::search_users))
         // Users
         .route("/users/me", get(users::get_me))
         .route("/users/me", patch(users::update_me))
+        // E2EE Keys
+        .route("/users/me/public-key", axum::routing::put(keys::set_public_key))
+        .route("/users/{userId}/public-key", get(keys::get_public_key))
+        .route("/servers/{serverId}/keys", post(keys::store_server_key))
+        .route("/servers/{serverId}/keys/me", get(keys::get_my_server_key))
+        .route("/servers/{serverId}/keys/{userId}", post(keys::share_server_key))
         // Voice
         .route("/voice/token", post(voice::get_token))
         // Files

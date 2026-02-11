@@ -149,6 +149,11 @@ pub struct JoinServerRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct UpdateServerRequest {
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct SignUpRequest {
     pub email: String,
     pub password: String,
@@ -201,6 +206,19 @@ pub struct LinkPreview {
     pub image: Option<String>,
     pub domain: Option<String>,
     pub fetched_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetPublicKeyRequest {
+    pub public_key: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoreServerKeyRequest {
+    pub encrypted_key: String,
+    pub sender_id: String,
 }
 
 #[derive(Debug, Clone)]

@@ -2,6 +2,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{Attachment, DmMessage, Message, VoiceParticipant};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActivityInfo {
+    pub name: String,
+    #[serde(rename = "activityType")]
+    pub activity_type: String,
+}
+
 // ── Client → Server Events ──
 
 #[derive(Debug, Deserialize)]
@@ -70,6 +77,21 @@ pub enum ClientEvent {
     LeaveDm {
         #[serde(rename = "dmChannelId")]
         dm_channel_id: String,
+    },
+    UpdateActivity {
+        activity: Option<ActivityInfo>,
+    },
+    ShareServerKey {
+        #[serde(rename = "serverId")]
+        server_id: String,
+        #[serde(rename = "userId")]
+        user_id: String,
+        #[serde(rename = "encryptedKey")]
+        encrypted_key: String,
+    },
+    RequestServerKey {
+        #[serde(rename = "serverId")]
+        server_id: String,
     },
     Ping,
 }
@@ -150,6 +172,40 @@ pub enum ServerEvent {
         user_id: String,
         username: Option<String>,
         image: Option<Option<String>>,
+    },
+    ActivityUpdate {
+        #[serde(rename = "userId")]
+        user_id: String,
+        activity: Option<ActivityInfo>,
+    },
+    ServerUpdated {
+        #[serde(rename = "serverId")]
+        server_id: String,
+        name: String,
+    },
+    ServerDeleted {
+        #[serde(rename = "serverId")]
+        server_id: String,
+    },
+    MemberLeft {
+        #[serde(rename = "serverId")]
+        server_id: String,
+        #[serde(rename = "userId")]
+        user_id: String,
+    },
+    ServerKeyShared {
+        #[serde(rename = "serverId")]
+        server_id: String,
+        #[serde(rename = "encryptedKey")]
+        encrypted_key: String,
+        #[serde(rename = "senderId")]
+        sender_id: String,
+    },
+    ServerKeyRequested {
+        #[serde(rename = "serverId")]
+        server_id: String,
+        #[serde(rename = "userId")]
+        user_id: String,
     },
     Error {
         message: String,

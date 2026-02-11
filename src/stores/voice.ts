@@ -1,11 +1,13 @@
 import { create } from "zustand";
-import { Room, RoomEvent, Track, VideoPreset, VideoQuality } from "livekit-client";
+import { Room, RoomEvent, Track, VideoPreset, VideoQuality, ExternalE2EEKeyProvider } from "livekit-client";
 import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
 import { DtlnTrackProcessor } from "../lib/dtln/DtlnTrackProcessor.js";
 import { useKeybindsStore } from "./keybinds.js";
+import { useCryptoStore } from "./crypto.js";
+import { exportKeyAsBase64 } from "../lib/crypto.js";
 
 // ── Sound Effects ──
 
@@ -43,6 +45,22 @@ function playScreenShareStartSound() {
 
 function playScreenShareStopSound() {
   playTone([880, 660], 0.06);
+}
+
+function playMuteSound() {
+  playTone([480, 320], 0.05);
+}
+
+function playUnmuteSound() {
+  playTone([320, 480], 0.05);
+}
+
+function playDeafenSound() {
+  playTone([400, 280, 200], 0.04);
+}
+
+function playUndeafenSound() {
+  playTone([200, 280, 400], 0.04);
 }
 
 // ── Audio Pipeline (Web Audio API) ──
@@ -434,6 +452,26 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       const channel = chatState.channels.find((c) => c.id === channelId);
       const channelBitrate = channel?.bitrate ?? DEFAULT_BITRATE;
 
+      // E2EE: get server encryption key for voice
+      const cryptoState = useCryptoStore.getState();
+      const serverId = chatState.activeServerId;
+      const serverKey = serverId ? cryptoState.getServerKey(serverId) : null;
+
+      let e2eeOptions: { keyProvider: ExternalE2EEKeyProvider; worker: Worker } | undefined;
+      if (serverKey) {
+        try {
+          const keyProvider = new ExternalE2EEKeyProvider();
+          const keyBase64 = await exportKeyAsBase64(serverKey);
+          await keyProvider.setKey(keyBase64);
+          e2eeOptions = {
+            keyProvider,
+            worker: new Worker(new URL("livekit-client/e2ee-worker", import.meta.url), { type: "module" }),
+          };
+        } catch (e) {
+          console.warn("Voice E2EE setup failed, continuing without:", e);
+        }
+      }
+
       const room = new Room({
         // Disable adaptive stream so subscribers always receive max quality
         // (otherwise LiveKit auto-downgrades based on video element size)
@@ -466,6 +504,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           degradationPreference: "maintain-resolution",
           backupCodec: { codec: "vp8" },
         },
+        ...(e2eeOptions ? { e2ee: e2eeOptions } : {}),
       });
 
       room.on(RoomEvent.ParticipantConnected, () => get()._updateParticipants());
@@ -480,12 +519,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       // Attach remote audio tracks with Web Audio pipeline
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
         if (track.kind === Track.Kind.Audio) {
-          // Attach element to start WebRTC media flow, silence it via volume=0
-          // (audio is routed exclusively through the Web Audio pipeline for volume/filter control)
+          // Call attach() to create WebRTC consumer, but do NOT append to DOM.
+          // Audio is routed exclusively through the Web Audio pipeline for volume/filter control.
+          // Keeping the element reference prevents GC, keeping the consumer alive.
           const el = track.attach();
-          el.id = `lk-audio-${track.sid}`;
-          el.volume = 0;
-          document.body.appendChild(el);
+          (el as any).__lkKeepAlive = true; // prevent GC
 
           const { audioSettings: settings, participantVolumes, isDeafened } = get();
           const volume = isDeafened ? 0 : (participantVolumes[participant.identity] ?? 1.0);
@@ -656,6 +694,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     const { room, isMuted } = get();
     if (!room) return;
     room.localParticipant.setMicrophoneEnabled(isMuted);
+    if (isMuted) playUnmuteSound(); else playMuteSound();
     set({ isMuted: !isMuted });
     get()._updateParticipants();
   },
@@ -675,11 +714,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     const newDeafened = !isDeafened;
 
     if (newDeafened) {
+      playDeafenSound();
       // Mute all audio via gain nodes
       for (const pipeline of audioPipelines.values()) {
         pipeline.gain.gain.setValueAtTime(0, pipeline.context.currentTime);
       }
     } else {
+      playUndeafenSound();
       // Restore per-user volumes
       for (const [identity, trackSid] of Object.entries(participantTrackMap)) {
         const pipeline = audioPipelines.get(trackSid);
@@ -719,7 +760,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       const pipeline = audioPipelines.get(trackSid);
       if (pipeline) {
         if (pipeline.context.state === "suspended") pipeline.context.resume();
-        pipeline.gain.gain.setValueAtTime(volume, pipeline.context.currentTime);
+        pipeline.gain.gain.value = volume;
       }
     }
   },

@@ -4,6 +4,7 @@ import type {
   Message,
   PaginatedResponse,
   CreateServerRequest,
+  UpdateServerRequest,
   CreateChannelRequest,
   UpdateChannelRequest,
   MemberWithUser,
@@ -125,6 +126,25 @@ export async function joinServer(inviteCode: string) {
   });
 }
 
+export async function updateServer(serverId: string, data: UpdateServerRequest) {
+  return request<Server>(`/servers/${serverId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteServer(serverId: string) {
+  return request<void>(`/servers/${serverId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function leaveServer(serverId: string) {
+  return request<void>(`/servers/${serverId}/members/me`, {
+    method: "DELETE",
+  });
+}
+
 export async function getServerMembers(serverId: string) {
   return request<MemberWithUser[]>(`/servers/${serverId}/members`);
 }
@@ -194,8 +214,45 @@ export async function getDMMessages(dmChannelId: string, cursor?: string) {
   return request<PaginatedResponse<DMMessage>>(`/dms/${dmChannelId}/messages${params}`);
 }
 
+export async function searchDMMessages(dmChannelId: string, query: string) {
+  return request<{ items: DMMessage[] }>(
+    `/dms/${dmChannelId}/messages/search?q=${encodeURIComponent(query)}`
+  );
+}
+
 export async function searchUsers(query: string) {
   return request<{ id: string; username: string }[]>(`/users/search?q=${encodeURIComponent(query)}`);
+}
+
+// ── E2EE Keys ──
+
+export async function setPublicKey(publicKey: string) {
+  return request<void>("/users/me/public-key", {
+    method: "PUT",
+    body: JSON.stringify({ publicKey }),
+  });
+}
+
+export async function getPublicKey(userId: string) {
+  return request<{ publicKey: string | null }>(`/users/${userId}/public-key`);
+}
+
+export async function storeServerKey(serverId: string, encryptedKey: string, senderId: string) {
+  return request<void>(`/servers/${serverId}/keys`, {
+    method: "POST",
+    body: JSON.stringify({ encryptedKey, senderId }),
+  });
+}
+
+export async function getMyServerKey(serverId: string) {
+  return request<{ encryptedKey: string; senderId: string } | null>(`/servers/${serverId}/keys/me`);
+}
+
+export async function shareServerKeyWith(serverId: string, userId: string, encryptedKey: string, senderId: string) {
+  return request<void>(`/servers/${serverId}/keys/${userId}`, {
+    method: "POST",
+    body: JSON.stringify({ encryptedKey, senderId }),
+  });
 }
 
 // ── Voice ──

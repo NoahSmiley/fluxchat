@@ -3,7 +3,7 @@ import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 
 export function MemberList() {
-  const { members, onlineUsers, openDM, showDMs } = useChatStore();
+  const { members, onlineUsers, userActivities, openDM, showDMs } = useChatStore();
   const { user } = useAuthStore();
 
   const { online, offline } = useMemo(() => {
@@ -23,21 +23,31 @@ export function MemberList() {
       {online.length > 0 && (
         <>
           <div className="member-list-category">Online — {online.length}</div>
-          {online.map((m) => (
-            <div key={m.userId} className="member-list-item" onClick={() => handleMemberClick(m.userId)}>
-              <div className="member-avatar-wrapper">
-                <div className="member-avatar">
-                  {m.image ? (
-                    <img src={m.image} alt={m.username} className="avatar-img-sm" />
-                  ) : (
-                    m.username.charAt(0).toUpperCase()
+          {online.map((m) => {
+            const activity = userActivities[m.userId];
+            return (
+              <div key={m.userId} className="member-list-item" onClick={() => handleMemberClick(m.userId)}>
+                <div className="member-avatar-wrapper">
+                  <div className="member-avatar">
+                    {m.image ? (
+                      <img src={m.image} alt={m.username} className="avatar-img-sm" />
+                    ) : (
+                      m.username.charAt(0).toUpperCase()
+                    )}
+                  </div>
+                  <span className="member-status-dot" />
+                </div>
+                <div className="member-info">
+                  <span className="member-name">{m.username}</span>
+                  {activity && (
+                    <span className="member-activity">
+                      {activity.activityType === "playing" ? "Playing" : "Listening to"} <strong>{activity.name}</strong>
+                    </span>
                   )}
                 </div>
-                <span className="member-status-dot" />
               </div>
-              <span className="member-name">{m.username}</span>
-            </div>
-          ))}
+            );
+          })}
         </>
       )}
       {offline.length > 0 && (
@@ -54,7 +64,9 @@ export function MemberList() {
                   )}
                 </div>
               </div>
-              <span className="member-name">{m.username}</span>
+              <div className="member-info">
+                <span className="member-name">{m.username}</span>
+              </div>
             </div>
           ))}
         </>

@@ -353,6 +353,62 @@ input:focus {
 
 .channel-sidebar-header h3 {
   font-size: 16px;
+  flex: 1;
+}
+
+.server-header-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.channel-sidebar-header:hover .server-header-chevron {
+  color: var(--text-primary);
+}
+
+/* ── Server Settings Modal ── */
+
+.server-settings-modal {
+  width: 440px;
+}
+
+.server-settings-value {
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+.server-settings-invite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-tertiary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.server-settings-invite code {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-primary);
+  user-select: all;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.btn-icon:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .invite-code-bar {
@@ -955,6 +1011,21 @@ input:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.voice-tile-status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.voice-tile-status-icon {
+  color: var(--text-muted);
+  opacity: 0.8;
 }
 
 .voice-tile-volume {
@@ -1929,31 +2000,13 @@ input:focus {
   text-decoration: underline;
 }
 
-/* ── Copy Feedback ── */
+/* ── Sender & Time (selectable text) ── */
 .message-sender {
-  cursor: pointer;
-  transition: color 0.15s;
-}
-
-.message-sender:hover {
-  text-decoration: underline;
-}
-
-.message-sender.copied {
-  color: #43b581;
+  user-select: text;
 }
 
 .message-time {
-  cursor: pointer;
-  transition: color 0.15s;
-}
-
-.message-time:hover {
-  color: var(--text-secondary);
-}
-
-.message-time.copied {
-  color: #43b581;
+  user-select: text;
 }
 
 /* ── Reactions ── */
@@ -2313,6 +2366,12 @@ input:focus {
   border: 2px solid var(--bg-secondary);
 }
 
+.member-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .member-name {
   font-size: 12px;
   color: var(--text-primary);
@@ -2321,13 +2380,69 @@ input:focus {
   text-overflow: ellipsis;
 }
 
-.mention-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
+.member-activity {
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-activity strong {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mention-avatar {
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--text-muted);
   flex-shrink: 0;
+  object-fit: cover;
+}
+
+.mention-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mention-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mention-status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
+}
+
+.mention-status-dot.online {
+  background: #43b581;
+}
+
+.mention-status-dot.offline {
+  background: #747f8d;
+}
+
+.mention-username {
+  flex: 1;
+  min-width: 0;
+}
+
+.mention-offline-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
 }
 
 /* ── Screen Share Picker ── */

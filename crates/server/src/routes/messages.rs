@@ -161,7 +161,7 @@ pub async fn search_messages(
     Path(channel_id): Path<String>,
     Query(query): Query<SearchQuery>,
 ) -> impl IntoResponse {
-    let q = match query.q.as_deref() {
+    let _q = match query.q.as_deref() {
         Some(q) if !q.trim().is_empty() => q.trim().to_string(),
         _ => {
             return (
@@ -210,56 +210,14 @@ pub async fn search_messages(
             .into_response();
     }
 
-    // Try FTS5 search
-    let safe_query = q.replace(['\'', '"'], "");
-    let fts_ids: Vec<String> = sqlx::query_scalar::<_, String>(
-        "SELECT message_id FROM messages_fts WHERE plaintext MATCH ? LIMIT 50",
-    )
-    .bind(&safe_query)
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
-
-    if !fts_ids.is_empty() {
-        // Build IN clause
-        let placeholders: Vec<String> = fts_ids.iter().map(|_| "?".to_string()).collect();
-        let in_clause = placeholders.join(",");
-        let sql = format!(
-            "SELECT * FROM messages WHERE channel_id = ? AND id IN ({}) ORDER BY created_at DESC LIMIT 50",
-            in_clause
-        );
-
-        let mut query_builder = sqlx::query_as::<_, Message>(&sql).bind(&channel_id);
-        for id in &fts_ids {
-            query_builder = query_builder.bind(id);
-        }
-
-        let items = query_builder.fetch_all(&state.db).await.unwrap_or_default();
-
-        return Json(serde_json::json!({"items": items})).into_response();
-    }
-
-    // Fallback: load recent messages and filter in-memory by decoding base64
-    let all_msgs = sqlx::query_as::<_, Message>(
+    // Return raw messages for client-side decryption and filtering (E2EE)
+    let mut items = sqlx::query_as::<_, Message>(
         "SELECT * FROM messages WHERE channel_id = ? ORDER BY created_at DESC LIMIT 500",
     )
     .bind(&channel_id)
     .fetch_all(&state.db)
     .await
     .unwrap_or_default();
-
-    let lower_query = q.to_lowercase();
-    let mut items: Vec<Message> = all_msgs
-        .into_iter()
-        .filter(|msg| {
-            if let Ok(decoded) = base64_decode(&msg.ciphertext) {
-                decoded.to_lowercase().contains(&lower_query)
-            } else {
-                false
-            }
-        })
-        .take(50)
-        .collect();
 
     items.reverse();
 
@@ -302,32 +260,3 @@ pub async fn get_reactions(
     Json(items).into_response()
 }
 
-fn base64_decode(input: &str) -> Result<String, ()> {
-    let bytes = base64_decode_bytes(input)?;
-    std::str::from_utf8(&bytes)
-        .map(|s| s.to_string())
-        .map_err(|_| ())
-}
-
-fn base64_decode_bytes(input: &str) -> Result<Vec<u8>, ()> {
-    const TABLE: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-    let input = input.trim_end_matches('=');
-    let mut output = Vec::with_capacity(input.len() * 3 / 4);
-    let mut buf: u32 = 0;
-    let mut bits: u32 = 0;
-
-    for &byte in input.as_bytes() {
-        let val = TABLE.iter().position(|&c| c == byte).ok_or(())? as u32;
-        buf = (buf << 6) | val;
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            output.push((buf >> bits) as u8);
-            buf &= (1 << bits) - 1;
-        }
-    }
-
-    Ok(output)
-}

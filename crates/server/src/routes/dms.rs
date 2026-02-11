@@ -227,6 +227,59 @@ pub async fn list_dm_messages(
     .into_response()
 }
 
+/// GET /api/dms/:dmChannelId/messages/search
+pub async fn search_dm_messages(
+    State(state): State<Arc<AppState>>,
+    user: AuthUser,
+    Path(dm_channel_id): Path<String>,
+    Query(query): Query<UserSearchQuery>,
+) -> impl IntoResponse {
+    let _q = match query.q.as_deref() {
+        Some(q) if !q.trim().is_empty() => q.trim().to_string(),
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "Missing query"})),
+            )
+                .into_response()
+        }
+    };
+
+    // Verify user is participant
+    let channel = sqlx::query_as::<_, (String, String)>(
+        "SELECT user1_id, user2_id FROM dm_channels WHERE id = ?",
+    )
+    .bind(&dm_channel_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    match channel {
+        Some((u1, u2)) if u1 == user.id || u2 == user.id => {}
+        _ => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Not a participant"})),
+            )
+                .into_response()
+        }
+    }
+
+    // Return raw messages for client-side decryption and filtering (E2EE)
+    let mut items = sqlx::query_as::<_, DmMessage>(
+        "SELECT * FROM dm_messages WHERE dm_channel_id = ? ORDER BY created_at DESC LIMIT 500",
+    )
+    .bind(&dm_channel_id)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    items.reverse();
+
+    Json(serde_json::json!({"items": items})).into_response()
+}
+
 /// GET /api/users/search
 pub async fn search_users(
     State(state): State<Arc<AppState>>,

@@ -157,3 +157,13 @@ CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
     content='',
     tokenize='porter unicode61'
 );
+
+-- E2EE: server encryption keys (group key wrapped per-member)
+CREATE TABLE IF NOT EXISTS "server_keys" (
+    server_id TEXT NOT NULL REFERENCES "servers"(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    encrypted_key TEXT NOT NULL,
+    sender_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (server_id, user_id)
+);

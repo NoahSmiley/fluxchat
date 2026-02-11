@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use tokio::sync::{mpsc, RwLock};
 
 use crate::models::VoiceParticipant;
-use crate::ws::events::ServerEvent;
+use crate::ws::events::{ActivityInfo, ServerEvent};
 
 pub type ClientId = u64;
 
@@ -13,6 +13,7 @@ pub struct ConnectedClient {
     pub subscribed_channels: HashSet<String>,
     pub subscribed_dms: HashSet<String>,
     pub voice_channel_id: Option<String>,
+    pub activity: Option<ActivityInfo>,
 }
 
 pub struct GatewayState {
@@ -56,6 +57,7 @@ impl GatewayState {
             subscribed_channels: HashSet::new(),
             subscribed_dms: HashSet::new(),
             voice_channel_id: None,
+            activity: None,
         };
         self.clients.write().await.insert(client_id, client);
     }
@@ -330,5 +332,27 @@ impl GatewayState {
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// Update a client's activity status
+    pub async fn set_activity(&self, client_id: ClientId, activity: Option<ActivityInfo>) {
+        if let Some(client) = self.clients.write().await.get_mut(&client_id) {
+            client.activity = activity;
+        }
+    }
+
+    /// Get all current activities (user_id → ActivityInfo) for online users
+    pub async fn get_all_activities(&self) -> Vec<(String, ActivityInfo)> {
+        let clients = self.clients.read().await;
+        let mut seen = HashSet::new();
+        let mut activities = Vec::new();
+        for client in clients.values() {
+            if let Some(ref activity) = client.activity {
+                if seen.insert(client.user_id.clone()) {
+                    activities.push((client.user_id.clone(), activity.clone()));
+                }
+            }
+        }
+        activities
     }
 }

@@ -29,18 +29,16 @@ function renderDMContent(text: string): ReactNode[] {
   return segments.length > 0 ? segments : [text];
 }
 
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {});
-}
-
 export function DMChatView() {
   const {
     dmMessages, sendDM, loadMoreDMMessages, dmHasMore, loadingMessages,
     dmChannels, activeDMChannelId, onlineUsers,
+    searchDMMessages, dmSearchResults, dmSearchQuery, clearDMSearch,
+    decryptedCache,
   } = useChatStore();
   const { user } = useAuthStore();
   const [input, setInput] = useState("");
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -64,7 +62,9 @@ export function DMChatView() {
     }
   }
 
-  function decodeContent(ciphertext: string): string {
+  function decodeContent(msgId: string, ciphertext: string): string {
+    const cached = decryptedCache[msgId];
+    if (cached !== undefined) return cached;
     try {
       return atob(ciphertext);
     } catch {
@@ -72,11 +72,14 @@ export function DMChatView() {
     }
   }
 
-  function handleCopy(text: string, id: string) {
-    copyToClipboard(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1500);
+  function handleSearchSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (searchInput.trim()) {
+      searchDMMessages(searchInput.trim());
+    }
   }
+
+  const displayMessages = dmSearchResults ?? dmMessages;
 
   return (
     <div className="chat-view">
@@ -89,16 +92,37 @@ export function DMChatView() {
             </>
           )}
         </span>
+        <div className="chat-header-actions">
+          <form className="search-bar" onSubmit={handleSearchSubmit}>
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+            {dmSearchResults && (
+              <button type="button" className="btn-small" onClick={() => { clearDMSearch(); setSearchInput(""); }}>
+                Clear
+              </button>
+            )}
+          </form>
+        </div>
       </div>
+
+      {dmSearchResults && (
+        <div className="search-results-banner">
+          {dmSearchResults.length} result{dmSearchResults.length !== 1 ? "s" : ""} for &quot;{dmSearchQuery}&quot;
+        </div>
+      )}
 
       <div className="messages-container" ref={containerRef} onScroll={handleScroll}>
         {loadingMessages && <div className="loading-messages">Loading...</div>}
 
-        {dmMessages.map((msg) => {
+        {displayMessages.map((msg) => {
           const isOwn = msg.senderId === user?.id;
           const senderName = isOwn ? (user?.username ?? "You") : (dm?.otherUser.username ?? msg.senderId.slice(0, 8));
           const senderImage = isOwn ? (user?.image ?? null) : (dm?.otherUser.image ?? null);
-          const decoded = decodeContent(msg.ciphertext);
+          const decoded = decodeContent(msg.id, msg.ciphertext);
 
           return (
             <div key={msg.id} className={`message ${isOwn ? "own" : ""}`}>
@@ -111,20 +135,8 @@ export function DMChatView() {
               </div>
               <div className="message-content">
                 <div className="message-header">
-                  <span
-                    className={`message-sender ${copiedId === `s-${msg.id}` ? "copied" : ""}`}
-                    onClick={() => handleCopy(senderName, `s-${msg.id}`)}
-                    title="Click to copy username"
-                  >
-                    {senderName}
-                  </span>
-                  <span
-                    className={`message-time ${copiedId === `t-${msg.id}` ? "copied" : ""}`}
-                    onClick={() => handleCopy(new Date(msg.createdAt).toLocaleString(), `t-${msg.id}`)}
-                    title="Click to copy timestamp"
-                  >
-                    {new Date(msg.createdAt).toLocaleTimeString()}
-                  </span>
+                  <span className="message-sender">{senderName}</span>
+                  <span className="message-time">{new Date(msg.createdAt).toLocaleTimeString()}</span>
                 </div>
                 <div className="message-body">
                   {renderDMContent(decoded)}

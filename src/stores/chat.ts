@@ -1,9 +1,10 @@
 import { create } from "zustand";
-import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment } from "../types/shared.js";
+import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment, ActivityInfo } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
 import { playMessageSound, showDesktopNotification } from "../lib/notifications.js";
+import { useCryptoStore } from "./crypto.js";
 
 interface ChatState {
   servers: (Server & { role: string })[];
@@ -11,6 +12,7 @@ interface ChatState {
   messages: Message[];
   members: MemberWithUser[];
   onlineUsers: Set<string>;
+  userActivities: Record<string, ActivityInfo>;
   activeServerId: string | null;
   activeChannelId: string | null;
   hasMoreMessages: boolean;
@@ -37,6 +39,11 @@ interface ChatState {
   dmMessages: DMMessage[];
   dmHasMore: boolean;
   dmCursor: string | null;
+  dmSearchQuery: string;
+  dmSearchResults: DMMessage[] | null;
+
+  // E2EE: decrypted message cache (messageId → plaintext)
+  decryptedCache: Record<string, string>;
 
   loadServers: () => Promise<void>;
   selectServer: (serverId: string) => Promise<void>;
@@ -49,6 +56,9 @@ interface ChatState {
   removePendingAttachment: (id: string) => void;
   createServer: (name: string) => Promise<void>;
   joinServer: (inviteCode: string) => Promise<void>;
+  updateServer: (serverId: string, name: string) => Promise<void>;
+  deleteServer: (serverId: string) => Promise<void>;
+  leaveServer: (serverId: string) => Promise<void>;
   addReaction: (messageId: string, emoji: string) => void;
   removeReaction: (messageId: string, emoji: string) => void;
   searchMessages: (query: string) => Promise<void>;
@@ -59,6 +69,8 @@ interface ChatState {
   openDM: (userId: string) => Promise<void>;
   sendDM: (content: string) => void;
   loadMoreDMMessages: () => Promise<void>;
+  searchDMMessages: (query: string) => Promise<void>;
+  clearDMSearch: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -67,6 +79,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   members: [],
   onlineUsers: new Set(),
+  userActivities: {},
   activeServerId: null,
   activeChannelId: null,
   hasMoreMessages: false,
@@ -85,6 +98,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   dmMessages: [],
   dmHasMore: false,
   dmCursor: null,
+  dmSearchQuery: "",
+  dmSearchResults: null,
+  decryptedCache: {},
 
   loadServers: async () => {
     set({ loadingServers: true });
@@ -97,25 +113,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectServer: async (serverId) => {
+    // Immediately switch context without clearing existing content
     set({
       activeServerId: serverId,
-      activeChannelId: null,
       showingDMs: false,
       activeDMChannelId: null,
-      channels: [],
-      messages: [],
-      members: [],
-      reactions: {},
       searchQuery: "",
       searchResults: null,
       dmMessages: [],
-      channelsLoaded: false,
     });
+
+    // Load new data, then swap in all at once
     const [channels, members] = await Promise.all([
       api.getChannels(serverId),
       api.getServerMembers(serverId),
     ]);
-    set({ channels, members, channelsLoaded: true });
+
+    // Only apply if we're still viewing this server
+    if (get().activeServerId !== serverId) return;
+
+    set({ channels, members, channelsLoaded: true, activeChannelId: null, messages: [], reactions: {} });
 
     // Auto-select first text channel
     const textChannel = channels.find((c) => c.type === "text");
@@ -135,11 +152,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       activeChannelId: channelId,
       activeDMChannelId: null,
-      messages: [],
       hasMoreMessages: false,
       messageCursor: null,
       loadingMessages: false,
-      reactions: {},
       searchQuery: "",
       searchResults: null,
       dmMessages: [],
@@ -149,7 +164,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Only fetch messages for text channels
     if (channel?.type === "text") {
-      set({ loadingMessages: true });
       try {
         const result = await api.getMessages(channelId);
         set({
@@ -158,6 +172,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           messageCursor: result.cursor,
           loadingMessages: false,
         });
+
+        // Decrypt all loaded messages
+        const cryptoState = useCryptoStore.getState();
+        const serverKey = get().activeServerId ? cryptoState.getServerKey(get().activeServerId!) : null;
+        decryptMessages(result.items, serverKey);
 
         // Load reactions for the fetched messages
         if (result.items.length > 0) {
@@ -195,21 +214,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messageCursor: result.cursor,
         loadingMessages: false,
       }));
+      // Decrypt loaded messages
+      const cryptoState = useCryptoStore.getState();
+      const serverKey = get().activeServerId ? cryptoState.getServerKey(get().activeServerId!) : null;
+      decryptMessages(result.items, serverKey);
     } catch {
       set({ loadingMessages: false });
     }
   },
 
-  sendMessage: (content) => {
-    const { activeChannelId, pendingAttachments } = get();
+  sendMessage: async (content) => {
+    const { activeChannelId, activeServerId, pendingAttachments } = get();
     if (!activeChannelId || (!content.trim() && pendingAttachments.length === 0)) return;
+
+    const cryptoState = useCryptoStore.getState();
+    const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
+    let ciphertext: string;
+    let mlsEpoch: number;
+    if (key) {
+      ciphertext = await cryptoState.encryptMessage(content || " ", key);
+      mlsEpoch = 1;
+    } else {
+      ciphertext = btoa(content || " ");
+      mlsEpoch = 0;
+    }
 
     const attachmentIds = pendingAttachments.map((a) => a.id);
     gateway.send({
       type: "send_message",
       channelId: activeChannelId,
-      ciphertext: btoa(content || " "),
-      mlsEpoch: 0,
+      ciphertext,
+      mlsEpoch,
       ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
     });
     if (pendingAttachments.length > 0) {
@@ -217,12 +252,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  editMessage: (messageId, newContent) => {
+  editMessage: async (messageId, newContent) => {
     if (!newContent.trim()) return;
+    const { activeServerId } = get();
+    const cryptoState = useCryptoStore.getState();
+    const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
+    const ciphertext = key
+      ? await cryptoState.encryptMessage(newContent, key)
+      : btoa(newContent);
     gateway.send({
       type: "edit_message",
       messageId,
-      ciphertext: btoa(newContent),
+      ciphertext,
     });
   },
 
@@ -233,11 +274,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
   createServer: async (name) => {
     const server = await api.createServer({ name });
     set((state) => ({ servers: [...state.servers, { ...server, role: "owner" }] }));
+    // Generate and store the encryption group key for this server
+    await useCryptoStore.getState().createAndStoreServerKey(server.id);
   },
 
   joinServer: async (inviteCode) => {
     const server = await api.joinServer(inviteCode);
     set((state) => ({ servers: [...state.servers, { ...server, role: "member" }] }));
+    // Request the encryption key from online members
+    useCryptoStore.getState().requestServerKey(server.id);
+  },
+
+  updateServer: async (serverId, name) => {
+    const updated = await api.updateServer(serverId, { name });
+    set((state) => ({
+      servers: state.servers.map((s) =>
+        s.id === serverId ? { ...s, name: updated.name } : s
+      ),
+    }));
+  },
+
+  deleteServer: async (serverId) => {
+    await api.deleteServer(serverId);
+    set((state) => ({
+      servers: state.servers.filter((s) => s.id !== serverId),
+      ...(state.activeServerId === serverId
+        ? { activeServerId: null, activeChannelId: null, channels: [], messages: [], members: [] }
+        : {}),
+    }));
+  },
+
+  leaveServer: async (serverId) => {
+    await api.leaveServer(serverId);
+    set((state) => ({
+      servers: state.servers.filter((s) => s.id !== serverId),
+      ...(state.activeServerId === serverId
+        ? { activeServerId: null, activeChannelId: null, channels: [], messages: [], members: [] }
+        : {}),
+    }));
   },
 
   uploadFile: async (file) => {
@@ -275,12 +349,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   searchMessages: async (query) => {
-    const { activeChannelId } = get();
+    const { activeChannelId, activeServerId } = get();
     if (!activeChannelId || !query.trim()) return;
     set({ searchQuery: query });
     try {
       const result = await api.searchMessages(activeChannelId, query);
-      set({ searchResults: result.items });
+      // Client-side decryption and filtering for E2EE
+      const cryptoState = useCryptoStore.getState();
+      const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
+      const lowerQuery = query.toLowerCase();
+      const matched: Message[] = [];
+      for (const msg of result.items) {
+        const text = await cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch);
+        if (text.toLowerCase().includes(lowerQuery)) {
+          matched.push(msg);
+          // Cache the decrypted text
+          useChatStore.setState((s) => ({
+            decryptedCache: { ...s.decryptedCache, [msg.id]: text },
+          }));
+        }
+        if (matched.length >= 50) break;
+      }
+      set({ searchResults: matched });
     } catch {
       set({ searchResults: [] });
     }
@@ -299,10 +389,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       showingDMs: true,
       activeServerId: null,
       activeChannelId: null,
-      channels: [],
-      messages: [],
-      members: [],
-      reactions: {},
       searchQuery: "",
       searchResults: null,
     });
@@ -354,6 +440,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         dmCursor: result.cursor,
         loadingMessages: false,
       });
+      // Decrypt DM messages
+      const dm = get().dmChannels.find((d) => d.id === dmChannelId);
+      if (dm) {
+        const cryptoState = useCryptoStore.getState();
+        try {
+          const key = cryptoState.keyPair ? await cryptoState.getDMKey(dmChannelId, dm.otherUser.id) : null;
+          decryptMessages(result.items, key);
+        } catch {
+          decryptMessages(result.items, null);
+        }
+      }
     } catch {
       set({ loadingMessages: false });
     }
@@ -372,15 +469,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendDM: (content) => {
-    const { activeDMChannelId } = get();
+  sendDM: async (content) => {
+    const { activeDMChannelId, dmChannels } = get();
     if (!activeDMChannelId || !content.trim()) return;
+
+    const dm = dmChannels.find((d) => d.id === activeDMChannelId);
+    const cryptoState = useCryptoStore.getState();
+    let ciphertext: string;
+    let mlsEpoch: number;
+    try {
+      if (dm && cryptoState.keyPair) {
+        const key = await cryptoState.getDMKey(activeDMChannelId, dm.otherUser.id);
+        ciphertext = await cryptoState.encryptMessage(content, key);
+        mlsEpoch = 1;
+      } else {
+        ciphertext = btoa(content);
+        mlsEpoch = 0;
+      }
+    } catch {
+      ciphertext = btoa(content);
+      mlsEpoch = 0;
+    }
 
     gateway.send({
       type: "send_dm",
       dmChannelId: activeDMChannelId,
-      ciphertext: btoa(content),
-      mlsEpoch: 0,
+      ciphertext,
+      mlsEpoch,
     });
   },
 
@@ -397,9 +512,58 @@ export const useChatStore = create<ChatState>((set, get) => ({
         dmCursor: result.cursor,
         loadingMessages: false,
       }));
+      // Decrypt loaded DM messages
+      const dm = get().dmChannels.find((d) => d.id === activeDMChannelId);
+      if (dm) {
+        const cryptoState = useCryptoStore.getState();
+        try {
+          const key = cryptoState.keyPair ? await cryptoState.getDMKey(activeDMChannelId, dm.otherUser.id) : null;
+          decryptMessages(result.items, key);
+        } catch {
+          decryptMessages(result.items, null);
+        }
+      }
     } catch {
       set({ loadingMessages: false });
     }
+  },
+
+  searchDMMessages: async (query) => {
+    const { activeDMChannelId, dmChannels } = get();
+    if (!activeDMChannelId || !query.trim()) return;
+    set({ dmSearchQuery: query });
+    try {
+      const result = await api.searchDMMessages(activeDMChannelId, query);
+      // Client-side decryption and filtering for E2EE
+      const cryptoState = useCryptoStore.getState();
+      const dm = dmChannels.find((d) => d.id === activeDMChannelId);
+      let key: CryptoKey | null = null;
+      try {
+        if (dm && cryptoState.keyPair) {
+          key = await cryptoState.getDMKey(activeDMChannelId, dm.otherUser.id);
+        }
+      } catch { /* no key available */ }
+
+      const lowerQuery = query.toLowerCase();
+      const matched: DMMessage[] = [];
+      for (const msg of result.items) {
+        const text = await cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch);
+        if (text.toLowerCase().includes(lowerQuery)) {
+          matched.push(msg);
+          useChatStore.setState((s) => ({
+            decryptedCache: { ...s.decryptedCache, [msg.id]: text },
+          }));
+        }
+        if (matched.length >= 50) break;
+      }
+      set({ dmSearchResults: matched });
+    } catch {
+      set({ dmSearchResults: [] });
+    }
+  },
+
+  clearDMSearch: () => {
+    set({ dmSearchQuery: "", dmSearchResults: null });
   },
 }));
 
@@ -421,16 +585,59 @@ export function getUserImageMap(members: MemberWithUser[]): Record<string, strin
   return map;
 }
 
+// Bulk-decrypt messages into the cache
+async function decryptMessages(messages: (Message | DMMessage)[], key: CryptoKey | null) {
+  const cryptoState = useCryptoStore.getState();
+  const cache: Record<string, string> = {};
+  await Promise.all(
+    messages.map(async (msg) => {
+      cache[msg.id] = await cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch);
+    }),
+  );
+  useChatStore.setState((s) => ({
+    decryptedCache: { ...s.decryptedCache, ...cache },
+  }));
+}
+
 // Lazy ref to auth store to avoid circular imports
 let authStoreRef: typeof import("../stores/auth.js").useAuthStore | null = null;
 import("../stores/auth.js").then((m) => { authStoreRef = m.useAuthStore; });
 
 // On WS connect/reconnect: clear stale presence, mark self online
+let activityPollInterval: ReturnType<typeof setInterval> | null = null;
+let lastActivityName: string | null = null;
+
 gateway.onConnect(() => {
   const user = authStoreRef?.getState()?.user;
   useChatStore.setState({
     onlineUsers: new Set(user ? [user.id] : []),
+    userActivities: {},
   });
+
+  // Initialize E2EE crypto
+  useCryptoStore.getState().initialize().catch((e) => console.error("Crypto init failed:", e));
+
+  // Start activity polling (detect running games/apps via Tauri)
+  if (activityPollInterval) clearInterval(activityPollInterval);
+  lastActivityName = null;
+
+  async function pollActivity() {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const result = await invoke<{ name: string; activityType: string } | null>("detect_activity");
+      const newName = result?.name ?? null;
+      if (newName !== lastActivityName) {
+        lastActivityName = newName;
+        gateway.send({
+          type: "update_activity",
+          activity: result ? { name: result.name, activityType: result.activityType as "playing" | "listening" } : null,
+        });
+      }
+    } catch { /* Tauri not available or command failed */ }
+  }
+
+  pollActivity();
+  activityPollInterval = setInterval(pollActivity, 15_000);
 });
 
 // Listen for WebSocket events
@@ -447,17 +654,25 @@ gateway.on((event) => {
           messages: [...s.messages, msg],
         }));
       }
-      // Notification for messages not in active channel or when window unfocused
-      const authUser = authStoreRef?.getState()?.user;
-      if (authUser && msg.senderId !== authUser.id) {
-        if (msg.channelId !== state.activeChannelId || !document.hasFocus()) {
-          const usernameMap = getUsernameMap(state.members);
-          const senderName = usernameMap[msg.senderId] ?? "Someone";
-          let text: string;
-          try { text = atob(msg.ciphertext); } catch { text = "New message"; }
-          playMessageSound();
-          showDesktopNotification(senderName, text);
-        }
+      // Decrypt and cache
+      {
+        const cryptoState = useCryptoStore.getState();
+        const key = state.activeServerId ? cryptoState.getServerKey(state.activeServerId) : null;
+        cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch).then((text) => {
+          useChatStore.setState((s) => ({
+            decryptedCache: { ...s.decryptedCache, [msg.id]: text },
+          }));
+          // Notification
+          const authUser = authStoreRef?.getState()?.user;
+          if (authUser && msg.senderId !== authUser.id) {
+            if (msg.channelId !== state.activeChannelId || !document.hasFocus()) {
+              const usernameMap = getUsernameMap(state.members);
+              const senderName = usernameMap[msg.senderId] ?? "Someone";
+              playMessageSound();
+              showDesktopNotification(senderName, text);
+            }
+          }
+        });
       }
       break;
     }
@@ -474,6 +689,18 @@ gateway.on((event) => {
       });
       break;
 
+    case "activity_update":
+      useChatStore.setState((s) => {
+        const activities = { ...s.userActivities };
+        if (event.activity) {
+          activities[event.userId] = event.activity;
+        } else {
+          delete activities[event.userId];
+        }
+        return { userActivities: activities };
+      });
+      break;
+
     case "message_edit": {
       useChatStore.setState((s) => ({
         messages: s.messages.map((m) =>
@@ -487,6 +714,18 @@ gateway.on((event) => {
             : m
         ) ?? null,
       }));
+      // Re-decrypt edited message
+      {
+        const cryptoState = useCryptoStore.getState();
+        const key = state.activeServerId ? cryptoState.getServerKey(state.activeServerId) : null;
+        // Edited messages use mlsEpoch 1 if encrypted
+        const epoch = key ? 1 : 0;
+        cryptoState.decryptMessage(event.ciphertext, key, epoch).then((text) => {
+          useChatStore.setState((s) => ({
+            decryptedCache: { ...s.decryptedCache, [event.messageId]: text },
+          }));
+        });
+      }
       break;
     }
 
@@ -549,6 +788,46 @@ gateway.on((event) => {
           }));
         }
       }
+      // Auto-share server encryption key with new member
+      useCryptoStore.getState().handleKeyRequested(event.serverId, event.userId);
+      break;
+    }
+
+    case "server_key_shared": {
+      useCryptoStore.getState().handleKeyShared(event.serverId, event.encryptedKey, event.senderId);
+      break;
+    }
+
+    case "server_key_requested": {
+      useCryptoStore.getState().handleKeyRequested(event.serverId, event.userId);
+      break;
+    }
+
+    case "member_left": {
+      if (event.serverId === state.activeServerId) {
+        useChatStore.setState((s) => ({
+          members: s.members.filter((m) => m.userId !== event.userId),
+        }));
+      }
+      break;
+    }
+
+    case "server_updated": {
+      useChatStore.setState((s) => ({
+        servers: s.servers.map((sv) =>
+          sv.id === event.serverId ? { ...sv, name: event.name } : sv
+        ),
+      }));
+      break;
+    }
+
+    case "server_deleted": {
+      useChatStore.setState((s) => ({
+        servers: s.servers.filter((sv) => sv.id !== event.serverId),
+        ...(s.activeServerId === event.serverId
+          ? { activeServerId: null, activeChannelId: null, channels: [], messages: [], members: [] }
+          : {}),
+      }));
       break;
     }
 
@@ -589,17 +868,31 @@ gateway.on((event) => {
           dmMessages: [...s.dmMessages, event.message],
         }));
       }
-      // DM notification
-      const dmAuthUser = authStoreRef?.getState()?.user;
-      if (dmAuthUser && event.message.senderId !== dmAuthUser.id) {
-        if (event.message.dmChannelId !== state.activeDMChannelId || !document.hasFocus()) {
-          const dm = state.dmChannels.find((d) => d.id === event.message.dmChannelId);
-          const senderName = dm?.otherUser.username ?? "Someone";
-          let text: string;
-          try { text = atob(event.message.ciphertext); } catch { text = "New message"; }
-          playMessageSound();
-          showDesktopNotification(senderName, text);
-        }
+      // Decrypt and cache + notification
+      {
+        const dm = state.dmChannels.find((d) => d.id === event.message.dmChannelId);
+        const cryptoState = useCryptoStore.getState();
+        (async () => {
+          let key: CryptoKey | null = null;
+          try {
+            if (dm && cryptoState.keyPair) {
+              key = await cryptoState.getDMKey(event.message.dmChannelId, dm.otherUser.id);
+            }
+          } catch { /* no key */ }
+          const text = await cryptoState.decryptMessage(event.message.ciphertext, key, event.message.mlsEpoch);
+          useChatStore.setState((s) => ({
+            decryptedCache: { ...s.decryptedCache, [event.message.id]: text },
+          }));
+          // DM notification
+          const dmAuthUser = authStoreRef?.getState()?.user;
+          if (dmAuthUser && event.message.senderId !== dmAuthUser.id) {
+            if (event.message.dmChannelId !== state.activeDMChannelId || !document.hasFocus()) {
+              const senderName = dm?.otherUser.username ?? "Someone";
+              playMessageSound();
+              showDesktopNotification(senderName, text);
+            }
+          }
+        })();
       }
       break;
     }

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type ReactNode, type KeyboardEvent, type DragEvent, type ClipboardEvent } from "react";
 import { useChatStore, getUsernameMap, getUserImageMap } from "../stores/chat.js";
+import { useCryptoStore } from "../stores/crypto.js";
 import { useAuthStore } from "../stores/auth.js";
 import { ArrowUpRight, Pencil, Trash2, Paperclip, X } from "lucide-react";
 import { MessageAttachments } from "./MessageAttachments.js";
@@ -66,23 +67,19 @@ function extractUrls(text: string): string[] {
   return urls;
 }
 
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {});
-}
 
 export function ChatView() {
   const {
     messages, sendMessage, editMessage, deleteMessage, loadMoreMessages, hasMoreMessages, loadingMessages,
-    members, reactions, addReaction, removeReaction,
+    members, onlineUsers, reactions, addReaction, removeReaction,
     searchMessages, searchResults, searchQuery, clearSearch,
-    channels, activeChannelId,
+    channels, activeChannelId, decryptedCache,
     pendingAttachments, uploadProgress, uploadFile, removePendingAttachment,
   } = useChatStore();
   const { user } = useAuthStore();
   const [input, setInput] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editInput, setEditInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -167,7 +164,10 @@ export function ChatView() {
     }
   }
 
-  function decodeContent(ciphertext: string): string {
+  function decodeContent(msgId: string, ciphertext: string): string {
+    // Use pre-decrypted cache (populated by chat store on message load/receive)
+    if (decryptedCache[msgId]) return decryptedCache[msgId];
+    // Fallback for legacy messages
     try {
       return atob(ciphertext);
     } catch {
@@ -179,11 +179,6 @@ export function ChatView() {
     import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_popout_window", { windowType: "chat" })).catch(() => {});
   }
 
-  function handleCopy(text: string, id: string) {
-    copyToClipboard(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1500);
-  }
 
   function handleSearchSubmit(e: FormEvent) {
     e.preventDefault();
@@ -300,7 +295,7 @@ export function ChatView() {
           const senderName = usernameMap[msg.senderId] ?? (msg.senderId === user?.id ? (user?.username ?? msg.senderId.slice(0, 8)) : msg.senderId.slice(0, 8));
           const senderImage = imageMap[msg.senderId] ?? null;
           const msgReactions = reactions[msg.id] ?? [];
-          const decoded = decodeContent(msg.ciphertext);
+          const decoded = decodeContent(msg.id, msg.ciphertext);
 
           return (
             <div key={msg.id} className={`message ${msg.senderId === user?.id ? "own" : ""}`}>
@@ -313,20 +308,8 @@ export function ChatView() {
               </div>
               <div className="message-content">
               <div className="message-header">
-                <span
-                  className={`message-sender ${copiedId === `s-${msg.id}` ? "copied" : ""}`}
-                  onClick={() => handleCopy(senderName, `s-${msg.id}`)}
-                  title="Click to copy username"
-                >
-                  {senderName}
-                </span>
-                <span
-                  className={`message-time ${copiedId === `t-${msg.id}` ? "copied" : ""}`}
-                  onClick={() => handleCopy(new Date(msg.createdAt).toLocaleString(), `t-${msg.id}`)}
-                  title="Click to copy timestamp"
-                >
-                  {new Date(msg.createdAt).toLocaleTimeString()}
-                </span>
+                <span className="message-sender">{senderName}</span>
+                <span className="message-time">{new Date(msg.createdAt).toLocaleTimeString()}</span>
               </div>
               <div className="message-body">
                 {editingMsgId === msg.id ? (
@@ -444,8 +427,16 @@ export function ChatView() {
                 className={`mention-option ${i === mentionIndex ? "selected" : ""}`}
                 onMouseDown={(e) => { e.preventDefault(); insertMention(m.username); }}
               >
-                <span className="mention-dot" />
-                {m.username}
+                <div className="mention-avatar-wrapper">
+                  {m.image ? (
+                    <img src={m.image} alt={m.username} className="mention-avatar" />
+                  ) : (
+                    <span className="mention-avatar mention-avatar-fallback">{m.username.charAt(0).toUpperCase()}</span>
+                  )}
+                  <span className={`mention-status-dot ${onlineUsers.has(m.userId) ? "online" : "offline"}`} />
+                </div>
+                <span className="mention-username">{m.username}</span>
+                {!onlineUsers.has(m.userId) && <span className="mention-offline-label">Offline</span>}
               </button>
             ))}
           </div>

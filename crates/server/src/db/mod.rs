@@ -34,6 +34,12 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         }
     }
 
+    // Migrations: add columns that may not exist in older databases
+    sqlx::query(r#"ALTER TABLE "user" ADD COLUMN public_key TEXT"#)
+        .execute(&pool)
+        .await
+        .ok(); // ignore if column already exists
+
     tracing::info!("Database initialized at {}", database_path);
     Ok(pool)
 }

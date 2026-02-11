@@ -83,6 +83,11 @@ export interface VoiceParticipant {
   username: string;
 }
 
+export interface ActivityInfo {
+  name: string;
+  activityType: "playing" | "listening";
+}
+
 export type WSClientEvent =
   | { type: "send_message"; channelId: string; ciphertext: string; mlsEpoch: number; attachmentIds?: string[] }
   | { type: "typing_start"; channelId: string }
@@ -96,7 +101,10 @@ export type WSClientEvent =
   | { type: "delete_message"; messageId: string }
   | { type: "send_dm"; dmChannelId: string; ciphertext: string; mlsEpoch: number }
   | { type: "join_dm"; dmChannelId: string }
-  | { type: "leave_dm"; dmChannelId: string };
+  | { type: "leave_dm"; dmChannelId: string }
+  | { type: "update_activity"; activity: ActivityInfo | null }
+  | { type: "share_server_key"; serverId: string; userId: string; encryptedKey: string }
+  | { type: "request_server_key"; serverId: string };
 
 export type WSServerEvent =
   | { type: "message"; message: Message; attachments?: Attachment[] }
@@ -104,6 +112,8 @@ export type WSServerEvent =
   | { type: "presence"; userId: string; status: PresenceStatus }
   | { type: "member_joined"; serverId: string; userId: string; username: string; image: string | null; role: string }
   | { type: "member_left"; serverId: string; userId: string }
+  | { type: "server_updated"; serverId: string; name: string }
+  | { type: "server_deleted"; serverId: string }
   | { type: "channel_update"; channelId: string; bitrate: number | null }
   | { type: "profile_update"; userId: string; username?: string; image?: string | null }
   | { type: "voice_state"; channelId: string; participants: VoiceParticipant[] }
@@ -112,6 +122,9 @@ export type WSServerEvent =
   | { type: "message_edit"; messageId: string; ciphertext: string; editedAt: string }
   | { type: "message_delete"; messageId: string; channelId: string }
   | { type: "dm_message"; message: DMMessage }
+  | { type: "activity_update"; userId: string; activity: ActivityInfo | null }
+  | { type: "server_key_shared"; serverId: string; encryptedKey: string; senderId: string }
+  | { type: "server_key_requested"; serverId: string; userId: string }
   | { type: "error"; message: string };
 
 export type PresenceStatus = "online" | "idle" | "offline";
@@ -124,6 +137,10 @@ export interface CreateChannelRequest {
   name: string;
   type: ChannelType;
   bitrate?: number;
+}
+
+export interface UpdateServerRequest {
+  name?: string;
 }
 
 export interface UpdateChannelRequest {

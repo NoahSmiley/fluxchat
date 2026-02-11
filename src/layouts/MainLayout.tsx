@@ -97,12 +97,12 @@ export function MainLayout() {
           ) : (
             <ChatView />
           )
-        ) : !activeServerId ? (
+        ) : (
           <div className="empty-state">
-            <h2>Welcome, {user?.username}</h2>
-            <p>Select a server and channel to get started</p>
+            {!activeServerId && <h2>Welcome, {user?.username}</h2>}
+            <p>{activeServerId ? "" : "Select a server and channel to get started"}</p>
           </div>
-        ) : null}
+        )}
       </main>
 
       {showMembers && (

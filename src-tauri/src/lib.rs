@@ -1,3 +1,4 @@
+mod activity;
 mod capture;
 
 use tauri::Manager;
@@ -40,6 +41,11 @@ fn get_capture_sources() -> Vec<capture::CaptureSource> {
     capture::get_sources()
 }
 
+#[tauri::command]
+fn detect_activity() -> Option<activity::DetectedActivity> {
+    activity::detect_activity()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -49,6 +55,7 @@ pub fn run() {
             open_popout_window,
             close_popout_window,
             get_capture_sources,
+            detect_activity,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
