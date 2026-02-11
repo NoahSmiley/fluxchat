@@ -20,7 +20,6 @@ export class DtlnTrackProcessor
   private dtlnContext: AudioContext | null = null;
   private dtlnNode: AudioWorkletNode | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
-  private stereoMixer: GainNode | null = null;
   private destinationNode: MediaStreamAudioDestinationNode | null = null;
 
   async init(opts: AudioProcessorOptions): Promise<void> {
@@ -53,20 +52,13 @@ export class DtlnTrackProcessor
       };
     });
 
-    // Wire up: source → dtln → stereoMixer → destination
+    // Wire up: source → dtln → destination
     const stream = new MediaStream([track]);
     this.sourceNode = this.dtlnContext.createMediaStreamSource(stream);
     this.destinationNode = this.dtlnContext.createMediaStreamDestination();
 
-    // DTLN outputs mono — upmix to stereo so both ears get audio
-    this.stereoMixer = this.dtlnContext.createGain();
-    this.stereoMixer.channelCount = 2;
-    this.stereoMixer.channelCountMode = "explicit";
-    this.stereoMixer.channelInterpretation = "speakers";
-
     this.sourceNode.connect(this.dtlnNode);
-    this.dtlnNode.connect(this.stereoMixer);
-    this.stereoMixer.connect(this.destinationNode);
+    this.dtlnNode.connect(this.destinationNode);
 
     this.processedTrack = this.destinationNode.stream.getAudioTracks()[0];
   }
@@ -83,9 +75,6 @@ export class DtlnTrackProcessor
     try {
       this.dtlnNode?.disconnect();
     } catch {}
-    try {
-      this.stereoMixer?.disconnect();
-    } catch {}
 
     if (this.dtlnContext && this.dtlnContext.state !== "closed") {
       try {
@@ -95,7 +84,6 @@ export class DtlnTrackProcessor
 
     this.sourceNode = null;
     this.dtlnNode = null;
-    this.stereoMixer = null;
     this.destinationNode = null;
     this.dtlnContext = null;
     this.processedTrack = undefined;

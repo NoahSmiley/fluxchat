@@ -49,7 +49,7 @@ function playScreenShareStopSound() {
 
 interface AudioPipeline {
   context: AudioContext;
-  source: MediaElementAudioSourceNode;
+  source: MediaStreamAudioSourceNode;
   highPass: BiquadFilterNode;
   lowPass: BiquadFilterNode;
   gain: GainNode;
@@ -60,14 +60,15 @@ interface AudioPipeline {
 const audioPipelines = new Map<string, AudioPipeline>();
 
 function createAudioPipeline(
-  audioElement: HTMLAudioElement,
+  mediaStreamTrack: MediaStreamTrack,
   trackSid: string,
   settings: AudioSettings,
   volume: number,
 ): AudioPipeline {
   const context = new AudioContext();
   if (context.state === "suspended") context.resume();
-  const source = context.createMediaElementSource(audioElement);
+  const stream = new MediaStream([mediaStreamTrack]);
+  const source = context.createMediaStreamSource(stream);
 
   const highPass = context.createBiquadFilter();
   highPass.type = "highpass";
@@ -443,7 +444,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           },
           dtx: audioSettings.dtx,
           red: true,
-          forceStereo: true,
           stopMicTrackOnMute: false,
           videoCodec: "vp9",
           screenShareEncoding: {
@@ -472,14 +472,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       // Attach remote audio tracks with Web Audio pipeline
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
         if (track.kind === Track.Kind.Audio) {
+          // Attach element for LiveKit bookkeeping but mute it —
+          // audio is routed exclusively through the Web Audio pipeline
           const el = track.attach();
           el.id = `lk-audio-${track.sid}`;
+          el.muted = true;
           document.body.appendChild(el);
 
-          // Create audio pipeline for filtering + volume
+          // Create audio pipeline from the raw MediaStreamTrack for filtering + volume
           const { audioSettings: settings, participantVolumes, isDeafened } = get();
           const volume = isDeafened ? 0 : (participantVolumes[participant.identity] ?? 1.0);
-          createAudioPipeline(el, track.sid!, settings, volume);
+          createAudioPipeline(track.mediaStreamTrack, track.sid!, settings, volume);
 
           // Track participant → track mapping
           set((state) => ({
