@@ -96,7 +96,7 @@ function ToggleSwitch({ checked, onChange }: {
   );
 }
 
-function KrispBadge() {
+function RNNoiseBadge() {
   return (
     <span className="krisp-badge">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
@@ -105,7 +105,7 @@ function KrispBadge() {
           fill="currentColor"
         />
       </svg>
-      Krisp
+      RNNoise
     </span>
   );
 }
@@ -183,7 +183,7 @@ export function SettingsModal() {
             <div className="settings-row">
               <div className="settings-row-info">
                 <span className="settings-row-label">
-                  AI Noise Suppression <KrispBadge />
+                  AI Noise Suppression <RNNoiseBadge />
                 </span>
                 <span className="settings-row-desc">
                   Uses machine learning to remove background noise

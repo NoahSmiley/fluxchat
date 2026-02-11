@@ -4,7 +4,7 @@ import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
-import { KrispNoiseFilter, isKrispNoiseFilterSupported } from "@livekit/krisp-noise-filter";
+import { DenoiseTrackProcessor } from "@cc-livekit/denoise-plugin";
 import { useKeybindsStore } from "./keybinds.js";
 
 // ── Sound Effects ──
@@ -101,22 +101,22 @@ function destroyAllPipelines() {
   }
 }
 
-// ── Krisp Noise Filter ──
+// ── RNNoise Denoise Filter ──
 
-let krispProcessor: ReturnType<typeof KrispNoiseFilter> | null = null;
-const krispSupported = isKrispNoiseFilterSupported();
+let denoiseProcessor: DenoiseTrackProcessor | null = null;
+const denoiseSupported = DenoiseTrackProcessor.isSupported();
 
-function getOrCreateKrisp() {
-  if (!krispProcessor) {
-    krispProcessor = KrispNoiseFilter();
+function getOrCreateDenoise() {
+  if (!denoiseProcessor) {
+    denoiseProcessor = new DenoiseTrackProcessor();
   }
-  return krispProcessor;
+  return denoiseProcessor;
 }
 
-async function destroyKrisp() {
-  if (krispProcessor) {
-    await krispProcessor.destroy();
-    krispProcessor = null;
+async function destroyDenoise() {
+  if (denoiseProcessor) {
+    await denoiseProcessor.destroy();
+    denoiseProcessor = null;
   }
 }
 
@@ -512,17 +512,19 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       await room.connect(url, token);
       await room.localParticipant.setMicrophoneEnabled(true);
 
-      // Set up Krisp noise filter on the microphone track
-      if (krispSupported && audioSettings.krispEnabled) {
+      // Set up RNNoise denoise filter on the microphone track
+      if (denoiseSupported && audioSettings.krispEnabled) {
         try {
-          const krisp = getOrCreateKrisp();
+          const denoise = getOrCreateDenoise();
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
           if (micPub?.track) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await micPub.track.setProcessor(krisp as any);
+            await micPub.track.setProcessor(denoise as any);
           }
         } catch (e) {
-          console.warn("Failed to enable Krisp:", e);
+          console.warn("Failed to enable noise filter:", e);
+          destroyDenoise();
+          set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
         }
       }
 
@@ -568,8 +570,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     playLeaveSound();
     stopAudioLevelPolling();
 
-    // Clean up Krisp processor
-    destroyKrisp();
+    // Clean up denoise processor
+    destroyDenoise();
 
     // Destroy all audio pipelines
     destroyAllPipelines();
@@ -703,20 +705,24 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       return;
     }
 
-    // Krisp toggle
+    // Denoise toggle
     if (key === "krispEnabled") {
-      if (!room || !krispSupported) return;
+      if (!room || !denoiseSupported) return;
       const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
       if (!micPub?.track) return;
 
       if (value) {
-        // Enable Krisp
-        const krisp = getOrCreateKrisp();
+        // Enable RNNoise denoise
+        const denoise = getOrCreateDenoise();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        micPub.track.setProcessor(krisp as any).catch((e: unknown) => console.warn("Failed to enable Krisp:", e));
+        micPub.track.setProcessor(denoise as any).catch((e: unknown) => {
+          console.warn("Failed to enable noise filter:", e);
+          destroyDenoise();
+          set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
+        });
       } else {
-        // Disable Krisp — remove processor from track
-        micPub.track.stopProcessor().catch((e) => console.warn("Failed to disable Krisp:", e));
+        // Disable denoise — remove processor from track
+        micPub.track.stopProcessor().catch((e) => console.warn("Failed to disable noise filter:", e));
       }
       return;
     }

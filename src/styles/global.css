@@ -431,12 +431,10 @@ input:focus {
 }
 
 .channel-item:hover {
-  background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
 }
 
 .channel-item.active {
-  background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
 }
 
@@ -719,6 +717,8 @@ input:focus {
   background: var(--accent);
   flex-shrink: 0;
   overflow: hidden;
+  border: 2.5px solid var(--accent);
+  transform: translateZ(0);
 }
 
 .profile-avatar-img {
@@ -1695,10 +1695,21 @@ input:focus {
 .channel-item-wrapper {
   display: flex;
   align-items: center;
+  margin: 1px 8px;
+  border-radius: 4px;
+}
+
+.channel-item-wrapper:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.channel-item-wrapper:has(.channel-item.active) {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .channel-item-wrapper .channel-item {
   flex: 1;
+  padding: 8px 8px;
 }
 
 .channel-settings-btn {
