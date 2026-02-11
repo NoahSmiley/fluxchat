@@ -480,9 +480,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       // Attach remote audio tracks with Web Audio pipeline
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
         if (track.kind === Track.Kind.Audio) {
-          // Skip track.attach() — no HTML <audio> element needed.
-          // Audio is routed exclusively through the Web Audio pipeline
-          // to avoid doubling (muted elements can still leak audio in some webviews).
+          // Attach element to start WebRTC media flow, silence it via volume=0
+          // (audio is routed exclusively through the Web Audio pipeline for volume/filter control)
+          const el = track.attach();
+          el.id = `lk-audio-${track.sid}`;
+          el.volume = 0;
+          document.body.appendChild(el);
+
           const { audioSettings: settings, participantVolumes, isDeafened } = get();
           const volume = isDeafened ? 0 : (participantVolumes[participant.identity] ?? 1.0);
           createAudioPipeline(track.mediaStreamTrack, track.sid!, settings, volume);
@@ -511,7 +515,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             });
           }
         }
-        // Detach any HTML elements (video tracks)
+        // Detach any HTML elements (audio + video tracks)
         track.detach().forEach((el) => el.remove());
         if (track.kind === Track.Kind.Video) {
           get()._updateScreenSharers();
