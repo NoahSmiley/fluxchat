@@ -169,8 +169,8 @@ export function SettingsModal() {
 
             <div className="settings-row">
               <div className="settings-row-info">
-                <span className="settings-row-label">Krisp Noise Cancellation</span>
-                <span className="settings-row-desc">AI-powered noise cancellation by Krisp</span>
+                <span className="settings-row-label">Noise Cancellation</span>
+                <span className="settings-row-desc">AI-powered noise cancellation</span>
               </div>
               <ToggleSwitch
                 checked={audioSettings.krispEnabled}

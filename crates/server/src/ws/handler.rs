@@ -248,6 +248,7 @@ async fn handle_client_event(
             channel_id,
             ciphertext,
             mls_epoch,
+            attachment_ids,
         } => {
             if let Err(e) = flux_shared::validation::validate_message_content(&ciphertext) {
                 state
@@ -288,6 +289,35 @@ async fn handle_client_event(
                 .await;
             }
 
+            // Link attachments to this message
+            let mut attachments = Vec::new();
+            if !attachment_ids.is_empty() {
+                for att_id in &attachment_ids {
+                    let _ = sqlx::query(
+                        "UPDATE attachments SET message_id = ? WHERE id = ? AND uploader_id = ? AND message_id IS NULL",
+                    )
+                    .bind(&id)
+                    .bind(att_id)
+                    .bind(&user.id)
+                    .execute(&state.db)
+                    .await;
+                }
+
+                // Fetch the linked attachments
+                let placeholders: Vec<String> = attachment_ids.iter().map(|_| "?".to_string()).collect();
+                let in_clause = placeholders.join(",");
+                let sql = format!(
+                    "SELECT * FROM attachments WHERE id IN ({}) AND message_id = ?",
+                    in_clause
+                );
+                let mut query = sqlx::query_as::<_, crate::models::Attachment>(&sql);
+                for att_id in &attachment_ids {
+                    query = query.bind(att_id);
+                }
+                query = query.bind(&id);
+                attachments = query.fetch_all(&state.db).await.unwrap_or_default();
+            }
+
             let message = crate::models::Message {
                 id,
                 channel_id: channel_id.clone(),
@@ -300,7 +330,7 @@ async fn handle_client_event(
 
             state
                 .gateway
-                .broadcast_channel(&channel_id, &ServerEvent::Message { message }, None)
+                .broadcast_channel(&channel_id, &ServerEvent::Message { message, attachments }, None)
                 .await;
         }
         ClientEvent::EditMessage {
@@ -379,6 +409,59 @@ async fn handle_client_event(
                         message_id,
                         ciphertext,
                         edited_at: now,
+                    },
+                    None,
+                )
+                .await;
+        }
+        ClientEvent::DeleteMessage { message_id } => {
+            // Verify ownership
+            let row = sqlx::query_as::<_, (String, String)>(
+                "SELECT sender_id, channel_id FROM messages WHERE id = ?",
+            )
+            .bind(&message_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
+
+            let (sender_id, channel_id) = match row {
+                Some(r) => r,
+                None => return,
+            };
+
+            if sender_id != user.id {
+                state
+                    .gateway
+                    .send_to(
+                        client_id,
+                        &ServerEvent::Error {
+                            message: "Not your message".into(),
+                        },
+                    )
+                    .await;
+                return;
+            }
+
+            // Delete FTS entry
+            let _ = sqlx::query("DELETE FROM messages_fts WHERE message_id = ?")
+                .bind(&message_id)
+                .execute(&state.db)
+                .await;
+
+            // Delete the message (attachments cascade)
+            let _ = sqlx::query("DELETE FROM messages WHERE id = ?")
+                .bind(&message_id)
+                .execute(&state.db)
+                .await;
+
+            state
+                .gateway
+                .broadcast_channel(
+                    &channel_id,
+                    &ServerEvent::MessageDelete {
+                        message_id,
+                        channel_id: channel_id.clone(),
                     },
                     None,
                 )

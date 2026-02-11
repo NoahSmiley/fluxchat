@@ -128,6 +128,28 @@ CREATE TABLE IF NOT EXISTS "dm_messages" (
 );
 CREATE INDEX IF NOT EXISTS idx_dm_messages_channel_time ON dm_messages(dm_channel_id, created_at);
 
+-- Attachments
+CREATE TABLE IF NOT EXISTS "attachments" (
+    id TEXT PRIMARY KEY,
+    message_id TEXT REFERENCES "messages"(id) ON DELETE CASCADE,
+    uploader_id TEXT NOT NULL REFERENCES "user"(id),
+    filename TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);
+
+-- Link preview cache
+CREATE TABLE IF NOT EXISTS "link_previews" (
+    url TEXT PRIMARY KEY,
+    title TEXT,
+    description TEXT,
+    image TEXT,
+    domain TEXT,
+    fetched_at TEXT NOT NULL
+);
+
 -- Full-text search
 CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
     message_id,

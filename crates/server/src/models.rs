@@ -181,6 +181,28 @@ pub struct UpdateUserRequest {
     pub image: Option<serde_json::Value>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct Attachment {
+    pub id: String,
+    pub message_id: Option<String>,
+    pub uploader_id: String,
+    pub filename: String,
+    pub content_type: String,
+    pub size: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct LinkPreview {
+    pub url: String,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub image: Option<String>,
+    pub domain: Option<String>,
+    pub fetched_at: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub id: String,

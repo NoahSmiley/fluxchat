@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Server, Channel, Message, MemberWithUser, DMMessage } from "../types/shared.js";
+import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
@@ -26,6 +26,10 @@ interface ChatState {
   searchQuery: string;
   searchResults: Message[] | null;
 
+  // File uploads
+  pendingAttachments: Attachment[];
+  uploadProgress: Record<string, number>;
+
   // DMs
   showingDMs: boolean;
   dmChannels: { id: string; otherUser: { id: string; username: string; image: string | null }; createdAt: string }[];
@@ -40,6 +44,9 @@ interface ChatState {
   loadMoreMessages: () => Promise<void>;
   sendMessage: (content: string) => void;
   editMessage: (messageId: string, newContent: string) => void;
+  deleteMessage: (messageId: string) => void;
+  uploadFile: (file: File) => Promise<void>;
+  removePendingAttachment: (id: string) => void;
   createServer: (name: string) => Promise<void>;
   joinServer: (inviteCode: string) => Promise<void>;
   addReaction: (messageId: string, emoji: string) => void;
@@ -70,6 +77,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   reactions: {},
   searchQuery: "",
   searchResults: null,
+  pendingAttachments: [],
+  uploadProgress: {},
   showingDMs: false,
   dmChannels: [],
   activeDMChannelId: null,
@@ -192,15 +201,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: (content) => {
-    const { activeChannelId } = get();
-    if (!activeChannelId || !content.trim()) return;
+    const { activeChannelId, pendingAttachments } = get();
+    if (!activeChannelId || (!content.trim() && pendingAttachments.length === 0)) return;
 
+    const attachmentIds = pendingAttachments.map((a) => a.id);
     gateway.send({
       type: "send_message",
       channelId: activeChannelId,
-      ciphertext: btoa(content),
+      ciphertext: btoa(content || " "),
       mlsEpoch: 0,
+      ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
     });
+    if (pendingAttachments.length > 0) {
+      set({ pendingAttachments: [], uploadProgress: {} });
+    }
   },
 
   editMessage: (messageId, newContent) => {
@@ -212,6 +226,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
   },
 
+  deleteMessage: (messageId) => {
+    gateway.send({ type: "delete_message", messageId });
+  },
+
   createServer: async (name) => {
     const server = await api.createServer({ name });
     set((state) => ({ servers: [...state.servers, { ...server, role: "owner" }] }));
@@ -220,6 +238,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
   joinServer: async (inviteCode) => {
     const server = await api.joinServer(inviteCode);
     set((state) => ({ servers: [...state.servers, { ...server, role: "member" }] }));
+  },
+
+  uploadFile: async (file) => {
+    const filename = file.name;
+    set((s) => ({ uploadProgress: { ...s.uploadProgress, [filename]: 0 } }));
+    try {
+      const attachment = await api.uploadFile(file, (pct) => {
+        set((s) => ({ uploadProgress: { ...s.uploadProgress, [filename]: pct } }));
+      });
+      set((s) => ({
+        pendingAttachments: [...s.pendingAttachments, attachment],
+        uploadProgress: { ...s.uploadProgress, [filename]: 100 },
+      }));
+    } catch {
+      set((s) => {
+        const progress = { ...s.uploadProgress };
+        delete progress[filename];
+        return { uploadProgress: progress };
+      });
+    }
+  },
+
+  removePendingAttachment: (id) => {
+    set((s) => ({
+      pendingAttachments: s.pendingAttachments.filter((a) => a.id !== id),
+    }));
   },
 
   addReaction: (messageId, emoji) => {
@@ -395,19 +439,22 @@ gateway.on((event) => {
 
   switch (event.type) {
     case "message": {
-      if (event.message.channelId === state.activeChannelId) {
+      const msg = event.attachments?.length
+        ? { ...event.message, attachments: event.attachments }
+        : event.message;
+      if (msg.channelId === state.activeChannelId) {
         useChatStore.setState((s) => ({
-          messages: [...s.messages, event.message],
+          messages: [...s.messages, msg],
         }));
       }
       // Notification for messages not in active channel or when window unfocused
       const authUser = authStoreRef?.getState()?.user;
-      if (authUser && event.message.senderId !== authUser.id) {
-        if (event.message.channelId !== state.activeChannelId || !document.hasFocus()) {
+      if (authUser && msg.senderId !== authUser.id) {
+        if (msg.channelId !== state.activeChannelId || !document.hasFocus()) {
           const usernameMap = getUsernameMap(state.members);
-          const senderName = usernameMap[event.message.senderId] ?? "Someone";
+          const senderName = usernameMap[msg.senderId] ?? "Someone";
           let text: string;
-          try { text = atob(event.message.ciphertext); } catch { text = "New message"; }
+          try { text = atob(msg.ciphertext); } catch { text = "New message"; }
           playMessageSound();
           showDesktopNotification(senderName, text);
         }
@@ -439,6 +486,14 @@ gateway.on((event) => {
             ? { ...m, ciphertext: event.ciphertext, editedAt: event.editedAt }
             : m
         ) ?? null,
+      }));
+      break;
+    }
+
+    case "message_delete": {
+      useChatStore.setState((s) => ({
+        messages: s.messages.filter((m) => m.id !== event.messageId),
+        searchResults: s.searchResults?.filter((m) => m.id !== event.messageId) ?? null,
       }));
       break;
     }

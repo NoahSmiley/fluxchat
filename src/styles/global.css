@@ -2098,6 +2098,15 @@ input:focus {
   font-size: 12px !important;
 }
 
+.delete-btn {
+  font-size: 12px !important;
+}
+
+.delete-btn:hover {
+  color: #f04747 !important;
+  background: rgba(240, 71, 71, 0.1) !important;
+}
+
 /* ── Mentions ── */
 .mention {
   color: #5dadec;
@@ -2781,4 +2790,264 @@ input:focus {
 .keybind-clear:hover {
   color: #ed4245;
   background: rgba(237, 66, 69, 0.1);
+}
+
+/* ── File Attachments ── */
+
+.attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.attachment-image {
+  max-width: 400px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.attachment-image img {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: block;
+}
+
+.attachment-image img:hover {
+  opacity: 0.9;
+}
+
+.attachment-video {
+  max-width: 480px;
+}
+
+.attachment-video video {
+  max-width: 100%;
+  max-height: 360px;
+  border-radius: 8px;
+}
+
+.attachment-audio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attachment-audio audio {
+  height: 32px;
+}
+
+.attachment-audio-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.attachment-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 13px;
+  max-width: 300px;
+  transition: background 0.15s;
+}
+
+.attachment-file:hover {
+  background: var(--bg-input);
+}
+
+.attachment-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.attachment-file-size {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* ── Link Embeds ── */
+
+.message-embeds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.link-embed {
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-left: 3px solid var(--text-muted);
+  border-radius: 0 8px 8px 0;
+  max-width: 480px;
+}
+
+.link-embed-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.link-embed-domain {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.link-embed-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #5b9bd5;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-embed-title:hover {
+  text-decoration: underline;
+}
+
+.link-embed-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link-embed-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Pending Attachments & Upload ── */
+
+.pending-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 4px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.pending-attachment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.pending-attachment.uploading {
+  opacity: 0.7;
+}
+
+.pending-attachment-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-attachment-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.pending-attachment-remove:hover {
+  color: var(--danger);
+  background: rgba(255, 68, 68, 0.1);
+}
+
+.upload-progress {
+  width: 60px;
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.upload-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.2s;
+}
+
+/* ── Drag Overlay ── */
+
+.messages-container.drag-active {
+  position: relative;
+}
+
+.drag-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 2px dashed var(--text-muted);
+  border-radius: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* ── File Attach Button ── */
+
+.btn-attach {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.btn-attach:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.file-input-hidden {
+  display: none;
 }

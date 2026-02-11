@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect, useMemo, type FormEvent, type ReactNode, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type ReactNode, type KeyboardEvent, type DragEvent, type ClipboardEvent } from "react";
 import { useChatStore, getUsernameMap, getUserImageMap } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
-import { ArrowUpRight, Pencil } from "lucide-react";
+import { ArrowUpRight, Pencil, Trash2, Paperclip, X } from "lucide-react";
+import { MessageAttachments } from "./MessageAttachments.js";
+import { LinkEmbed } from "./LinkEmbed.js";
 
 const QUICK_EMOJIS = ["👍", "👎", "❤️", "😂", "😮", "😢", "🔥", "🎉", "👀", "🗿"];
 
@@ -54,16 +56,27 @@ function renderMessageContent(text: string, memberUsernames: Set<string>): React
   return segments.length > 0 ? segments : [text];
 }
 
+function extractUrls(text: string): string[] {
+  URL_REGEX.lastIndex = 0;
+  const urls: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = URL_REGEX.exec(text)) !== null) {
+    urls.push(match[0]);
+  }
+  return urls;
+}
+
 function copyToClipboard(text: string) {
   navigator.clipboard.writeText(text).catch(() => {});
 }
 
 export function ChatView() {
   const {
-    messages, sendMessage, editMessage, loadMoreMessages, hasMoreMessages, loadingMessages,
+    messages, sendMessage, editMessage, deleteMessage, loadMoreMessages, hasMoreMessages, loadingMessages,
     members, reactions, addReaction, removeReaction,
     searchMessages, searchResults, searchQuery, clearSearch,
     channels, activeChannelId,
+    pendingAttachments, uploadProgress, uploadFile, removePendingAttachment,
   } = useChatStore();
   const { user } = useAuthStore();
   const [input, setInput] = useState("");
@@ -80,6 +93,8 @@ export function ChatView() {
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   const usernameMap = useMemo(() => getUsernameMap(members), [members]);
   const imageMap = useMemo(() => getUserImageMap(members), [members]);
@@ -107,10 +122,42 @@ export function ChatView() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() && pendingAttachments.length === 0) return;
     sendMessage(input);
     setInput("");
     setMentionActive(false);
+  }
+
+  function handleFiles(files: FileList | File[]) {
+    for (const file of Array.from(files)) {
+      uploadFile(file);
+    }
+  }
+
+  const handleDragOver = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
+  }, []);
+
+  function handlePaste(e: ClipboardEvent<HTMLInputElement>) {
+    const files = e.clipboardData?.files;
+    if (files && files.length > 0) {
+      e.preventDefault();
+      handleFiles(files);
+    }
   }
 
   function handleScroll() {
@@ -238,7 +285,15 @@ export function ChatView() {
         </div>
       )}
 
-      <div className="messages-container" ref={containerRef} onScroll={handleScroll}>
+      <div
+        className={`messages-container ${dragging ? "drag-active" : ""}`}
+        ref={containerRef}
+        onScroll={handleScroll}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {dragging && <div className="drag-overlay">Drop files to upload</div>}
         {loadingMessages && <div className="loading-messages">Loading...</div>}
 
         {displayMessages.map((msg) => {
@@ -300,6 +355,21 @@ export function ChatView() {
                 )}
               </div>
 
+              {msg.attachments && msg.attachments.length > 0 && (
+                <MessageAttachments attachments={msg.attachments} />
+              )}
+
+              {(() => {
+                const urls = extractUrls(decoded);
+                return urls.length > 0 ? (
+                  <div className="message-embeds">
+                    {urls.slice(0, 3).map((url) => (
+                      <LinkEmbed key={url} url={url} />
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+
               {msgReactions.length > 0 && (
                 <div className="message-reactions">
                   {msgReactions.map(({ emoji, userIds }) => (
@@ -321,13 +391,22 @@ export function ChatView() {
 
               <div className="message-actions">
                 {msg.senderId === user?.id && (
-                  <button
-                    className="reaction-add-btn edit-btn"
-                    onClick={() => startEditing(msg.id, decoded)}
-                    title="Edit message"
-                  >
-                    <Pencil size={12} />
-                  </button>
+                  <>
+                    <button
+                      className="reaction-add-btn edit-btn"
+                      onClick={() => startEditing(msg.id, decoded)}
+                      title="Edit message"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      className="reaction-add-btn delete-btn"
+                      onClick={() => deleteMessage(msg.id)}
+                      title="Delete message"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </>
                 )}
                 <button
                   className="reaction-add-btn"
@@ -371,7 +450,47 @@ export function ChatView() {
             ))}
           </div>
         )}
+        {(pendingAttachments.length > 0 || Object.keys(uploadProgress).length > 0) && (
+          <div className="pending-attachments">
+            {pendingAttachments.map((att) => (
+              <div key={att.id} className="pending-attachment">
+                <span className="pending-attachment-name">{att.filename}</span>
+                <button className="pending-attachment-remove" onClick={() => removePendingAttachment(att.id)}>
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+            {Object.entries(uploadProgress)
+              .filter(([name]) => !pendingAttachments.some((a) => a.filename === name))
+              .map(([name, pct]) => (
+                <div key={name} className="pending-attachment uploading">
+                  <span className="pending-attachment-name">{name}</span>
+                  <div className="upload-progress">
+                    <div className="upload-progress-bar" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
         <form className="message-input-form" onSubmit={handleSubmit}>
+          <button
+            type="button"
+            className="btn-attach"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach file"
+          >
+            <Paperclip size={18} />
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="file-input-hidden"
+            onChange={(e) => {
+              if (e.target.files) handleFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
           <input
             ref={inputRef}
             type="text"
@@ -380,9 +499,10 @@ export function ChatView() {
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleInputKeyDown}
+            onPaste={handlePaste}
             autoFocus
           />
-          <button type="submit" className="btn-send" disabled={!input.trim()}>
+          <button type="submit" className="btn-send" disabled={!input.trim() && pendingAttachments.length === 0}>
             Send
           </button>
         </form>

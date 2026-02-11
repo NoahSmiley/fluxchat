@@ -32,6 +32,11 @@ async fn main() {
 
     let config = Config::from_env();
 
+    // Create upload directory
+    tokio::fs::create_dir_all(&config.upload_dir)
+        .await
+        .expect("Failed to create upload directory");
+
     // Initialize database
     let pool = db::init_pool(&config.database_path)
         .await

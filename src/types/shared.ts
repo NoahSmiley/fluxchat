@@ -35,6 +35,21 @@ export interface MemberWithUser {
 
 export type MemberRole = "owner" | "admin" | "member";
 
+export interface Attachment {
+  id: string;
+  filename: string;
+  contentType: string;
+  size: number;
+}
+
+export interface LinkPreview {
+  url: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  domain?: string;
+}
+
 export interface Message {
   id: string;
   channelId: string;
@@ -43,6 +58,7 @@ export interface Message {
   mlsEpoch: number;
   createdAt: string;
   editedAt?: string;
+  attachments?: Attachment[];
 }
 
 export interface Reaction {
@@ -68,7 +84,7 @@ export interface VoiceParticipant {
 }
 
 export type WSClientEvent =
-  | { type: "send_message"; channelId: string; ciphertext: string; mlsEpoch: number }
+  | { type: "send_message"; channelId: string; ciphertext: string; mlsEpoch: number; attachmentIds?: string[] }
   | { type: "typing_start"; channelId: string }
   | { type: "typing_stop"; channelId: string }
   | { type: "join_channel"; channelId: string }
@@ -77,12 +93,13 @@ export type WSClientEvent =
   | { type: "add_reaction"; messageId: string; emoji: string }
   | { type: "remove_reaction"; messageId: string; emoji: string }
   | { type: "edit_message"; messageId: string; ciphertext: string }
+  | { type: "delete_message"; messageId: string }
   | { type: "send_dm"; dmChannelId: string; ciphertext: string; mlsEpoch: number }
   | { type: "join_dm"; dmChannelId: string }
   | { type: "leave_dm"; dmChannelId: string };
 
 export type WSServerEvent =
-  | { type: "message"; message: Message }
+  | { type: "message"; message: Message; attachments?: Attachment[] }
   | { type: "typing"; channelId: string; userId: string; active: boolean }
   | { type: "presence"; userId: string; status: PresenceStatus }
   | { type: "member_joined"; serverId: string; userId: string; username: string; image: string | null; role: string }
@@ -93,6 +110,7 @@ export type WSServerEvent =
   | { type: "reaction_add"; messageId: string; userId: string; emoji: string }
   | { type: "reaction_remove"; messageId: string; userId: string; emoji: string }
   | { type: "message_edit"; messageId: string; ciphertext: string; editedAt: string }
+  | { type: "message_delete"; messageId: string; channelId: string }
   | { type: "dm_message"; message: DMMessage }
   | { type: "error"; message: string };
 

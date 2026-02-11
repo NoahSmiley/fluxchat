@@ -4,11 +4,20 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::models::{AuthUser, Message, PaginatedResponse, Reaction};
+use crate::models::{Attachment, AuthUser, Message, Reaction};
 use crate::AppState;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MessageWithAttachments {
+    #[serde(flatten)]
+    message: Message,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    attachments: Vec<Attachment>,
+}
 
 #[derive(Deserialize)]
 pub struct MessageQuery {
@@ -103,11 +112,45 @@ pub async fn list_messages(
 
     let cursor = items.first().map(|m| m.created_at.clone());
 
-    Json(PaginatedResponse {
-        items,
-        cursor,
-        has_more,
-    })
+    // Batch-fetch attachments for all messages
+    let mut attachment_map: std::collections::HashMap<String, Vec<Attachment>> =
+        std::collections::HashMap::new();
+    if !items.is_empty() {
+        let msg_ids: Vec<&str> = items.iter().map(|m| m.id.as_str()).collect();
+        let placeholders: Vec<String> = msg_ids.iter().map(|_| "?".to_string()).collect();
+        let in_clause = placeholders.join(",");
+        let sql = format!(
+            "SELECT * FROM attachments WHERE message_id IN ({})",
+            in_clause
+        );
+        let mut query = sqlx::query_as::<_, Attachment>(&sql);
+        for id in &msg_ids {
+            query = query.bind(id);
+        }
+        let all_attachments = query.fetch_all(&state.db).await.unwrap_or_default();
+        for att in all_attachments {
+            if let Some(ref mid) = att.message_id {
+                attachment_map.entry(mid.clone()).or_default().push(att);
+            }
+        }
+    }
+
+    let items_with_attachments: Vec<MessageWithAttachments> = items
+        .into_iter()
+        .map(|msg| {
+            let attachments = attachment_map.remove(&msg.id).unwrap_or_default();
+            MessageWithAttachments {
+                message: msg,
+                attachments,
+            }
+        })
+        .collect();
+
+    Json(serde_json::json!({
+        "items": items_with_attachments,
+        "cursor": cursor,
+        "hasMore": has_more,
+    }))
     .into_response()
 }
 

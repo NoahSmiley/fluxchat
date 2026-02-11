@@ -9,6 +9,8 @@ pub struct Config {
     pub livekit_api_key: String,
     pub livekit_api_secret: String,
     pub livekit_url: String,
+    pub upload_dir: String,
+    pub max_upload_bytes: u64,
 }
 
 impl Config {
@@ -26,6 +28,11 @@ impl Config {
             livekit_api_secret: env::var("LIVEKIT_API_SECRET").unwrap_or_default(),
             livekit_url: env::var("LIVEKIT_URL")
                 .unwrap_or_else(|_| "ws://localhost:7880".into()),
+            upload_dir: env::var("UPLOAD_DIR").unwrap_or_else(|_| "./uploads".into()),
+            max_upload_bytes: env::var("MAX_UPLOAD_BYTES")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1_073_741_824), // 1GB
         }
     }
 }

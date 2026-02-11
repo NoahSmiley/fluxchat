@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::{DmMessage, Message, VoiceParticipant};
+use crate::models::{Attachment, DmMessage, Message, VoiceParticipant};
 
 // ── Client → Server Events ──
 
@@ -13,6 +13,8 @@ pub enum ClientEvent {
         ciphertext: String,
         #[serde(rename = "mlsEpoch")]
         mls_epoch: i64,
+        #[serde(default, rename = "attachmentIds")]
+        attachment_ids: Vec<String>,
     },
     EditMessage {
         #[serde(rename = "messageId")]
@@ -57,6 +59,10 @@ pub enum ClientEvent {
         #[serde(rename = "mlsEpoch")]
         mls_epoch: i64,
     },
+    DeleteMessage {
+        #[serde(rename = "messageId")]
+        message_id: String,
+    },
     JoinDm {
         #[serde(rename = "dmChannelId")]
         dm_channel_id: String,
@@ -75,6 +81,8 @@ pub enum ClientEvent {
 pub enum ServerEvent {
     Message {
         message: Message,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        attachments: Vec<Attachment>,
     },
     MessageEdit {
         #[serde(rename = "messageId")]
@@ -113,6 +121,12 @@ pub enum ServerEvent {
         #[serde(rename = "userId")]
         user_id: String,
         emoji: String,
+    },
+    MessageDelete {
+        #[serde(rename = "messageId")]
+        message_id: String,
+        #[serde(rename = "channelId")]
+        channel_id: String,
     },
     DmMessage {
         message: DmMessage,

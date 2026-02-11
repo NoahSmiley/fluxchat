@@ -9,6 +9,8 @@ import type {
   MemberWithUser,
   Reaction,
   DMMessage,
+  Attachment,
+  LinkPreview,
 } from "../types/shared.js";
 
 import { API_BASE } from "./serverUrl.js";
@@ -203,4 +205,39 @@ export async function getVoiceToken(channelId: string, viewer?: boolean) {
     method: "POST",
     body: JSON.stringify({ channelId, ...(viewer ? { viewer: true } : {}) }),
   });
+}
+
+// ── Files ──
+
+export function uploadFile(file: File, onProgress?: (pct: number) => void): Promise<Attachment> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const token = getStoredToken();
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${BASE_URL}/upload`);
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress((e.loaded / e.total) * 100);
+    };
+    xhr.onload = () => {
+      if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
+      else reject(new Error(`Upload failed: ${xhr.status}`));
+    };
+    xhr.onerror = () => reject(new Error("Upload failed"));
+    xhr.send(formData);
+  });
+}
+
+export function getFileUrl(id: string, filename: string): string {
+  return `${BASE_URL}/files/${id}/${encodeURIComponent(filename)}`;
+}
+
+export async function getLinkPreview(url: string): Promise<LinkPreview | null> {
+  try {
+    return await request<LinkPreview>(`/link-preview?url=${encodeURIComponent(url)}`);
+  } catch {
+    return null;
+  }
 }

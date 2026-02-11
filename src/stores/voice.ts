@@ -4,7 +4,7 @@ import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
-import { KrispNoiseFilter, isKrispNoiseFilterSupported } from "@livekit/krisp-noise-filter";
+import { DtlnTrackProcessor } from "../lib/dtln/DtlnTrackProcessor.js";
 import { useKeybindsStore } from "./keybinds.js";
 
 // ── Sound Effects ──
@@ -102,19 +102,22 @@ function destroyAllPipelines() {
   }
 }
 
-// ── Krisp Noise Filter ──
+// ── DTLN Noise Filter (dtln-rs WASM) ──
 
-let krispProcessor: ReturnType<typeof KrispNoiseFilter> | null = null;
+let dtlnProcessor: DtlnTrackProcessor | null = null;
 
-function getOrCreateKrisp() {
-  if (!krispProcessor) {
-    krispProcessor = KrispNoiseFilter();
+function getOrCreateDtln() {
+  if (!dtlnProcessor) {
+    dtlnProcessor = new DtlnTrackProcessor();
   }
-  return krispProcessor;
+  return dtlnProcessor;
 }
 
-function destroyKrisp() {
-  krispProcessor = null;
+function destroyDtln() {
+  if (dtlnProcessor) {
+    dtlnProcessor.destroy();
+    dtlnProcessor = null;
+  }
 }
 
 // ── Audio Level Polling + Noise Gate ──
@@ -509,17 +512,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       await room.connect(url, token);
       await room.localParticipant.setMicrophoneEnabled(true);
 
-      // Set up Krisp noise filter on the microphone track
-      if (isKrispNoiseFilterSupported() && audioSettings.krispEnabled) {
+      // Set up DTLN noise filter on the microphone track
+      if (audioSettings.krispEnabled) {
         try {
-          const krisp = getOrCreateKrisp();
+          const dtln = getOrCreateDtln();
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
           if (micPub?.track) {
-            await micPub.track.setProcessor(krisp);
+            await micPub.track.setProcessor(dtln);
           }
         } catch (e) {
-          console.warn("Failed to enable Krisp noise filter:", e);
-          destroyKrisp();
+          console.warn("Failed to enable noise filter:", e);
+          destroyDtln();
           set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
         }
       }
@@ -567,7 +570,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     stopAudioLevelPolling();
 
     // Clean up Krisp processor
-    destroyKrisp();
+    destroyDtln();
 
     // Destroy all audio pipelines
     destroyAllPipelines();
@@ -702,22 +705,22 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       return;
     }
 
-    // Krisp noise filter toggle
+    // DTLN noise filter toggle
     if (key === "krispEnabled") {
-      if (!room || !isKrispNoiseFilterSupported()) return;
+      if (!room) return;
       const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
       if (!micPub?.track) return;
 
       if (value) {
-        const krisp = getOrCreateKrisp();
-        micPub.track.setProcessor(krisp).catch((e: unknown) => {
-          console.warn("Failed to enable Krisp noise filter:", e);
-          destroyKrisp();
+        const dtln = getOrCreateDtln();
+        micPub.track.setProcessor(dtln).catch((e: unknown) => {
+          console.warn("Failed to enable noise filter:", e);
+          destroyDtln();
           set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
         });
       } else {
-        micPub.track.stopProcessor().catch((e) => console.warn("Failed to disable Krisp noise filter:", e));
-        destroyKrisp();
+        micPub.track.stopProcessor().catch((e) => console.warn("Failed to disable noise filter:", e));
+        destroyDtln();
       }
       return;
     }

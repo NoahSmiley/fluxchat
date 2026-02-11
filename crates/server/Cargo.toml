@@ -7,7 +7,7 @@ edition = "2021"
 flux-shared = { path = "../shared" }
 
 # Web framework
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8", features = ["ws", "multipart"] }
 axum-extra = { version = "0.10", features = ["typed-header", "cookie"] }
 tokio = { version = "1", features = ["full"] }
 tower = "0.5"
@@ -43,6 +43,16 @@ dotenvy = "0.15"
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP client (link previews)
+reqwest = { version = "0.12", features = ["rustls-tls"] }
+
+# URL parsing / encoding
+url = "2"
+urlencoding = "2"
+
+# Stream adapter
+tokio-util = { version = "0.7", features = ["io"] }
 
 # Futures for WebSocket
 futures = "0.3"

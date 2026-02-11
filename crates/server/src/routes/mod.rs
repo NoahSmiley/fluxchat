@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod dms;
+pub mod files;
 pub mod messages;
 pub mod servers;
 pub mod users;
@@ -41,7 +42,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/users/me", get(users::get_me))
         .route("/users/me", patch(users::update_me))
         // Voice
-        .route("/voice/token", post(voice::get_token));
+        .route("/voice/token", post(voice::get_token))
+        // Files
+        .route("/upload", post(files::upload))
+        .route("/files/{id}/{filename}", get(files::serve_file))
+        .route("/link-preview", get(files::link_preview));
 
     Router::new()
         .nest("/api/auth", auth_routes)
