@@ -70,6 +70,14 @@ function createAudioPipeline(
   const stream = new MediaStream([mediaStreamTrack]);
   const source = context.createMediaStreamSource(stream);
 
+  // Explicit mono→stereo: duplicate channel 0 to both L and R
+  // so audio always plays through both ears regardless of source channel count
+  const splitter = context.createChannelSplitter(1);
+  const merger = context.createChannelMerger(2);
+  source.connect(splitter);
+  splitter.connect(merger, 0, 0); // → left
+  splitter.connect(merger, 0, 1); // → right
+
   const highPass = context.createBiquadFilter();
   highPass.type = "highpass";
   highPass.frequency.value = settings.highPassFrequency > 0 ? settings.highPassFrequency : 0;
@@ -85,7 +93,7 @@ function createAudioPipeline(
   analyser.fftSize = 256;
   const analyserData = new Float32Array(analyser.fftSize);
 
-  source.connect(highPass);
+  merger.connect(highPass);
   highPass.connect(lowPass);
   lowPass.connect(analyser);
   analyser.connect(gain);
@@ -472,14 +480,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       // Attach remote audio tracks with Web Audio pipeline
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
         if (track.kind === Track.Kind.Audio) {
-          // Attach element for LiveKit bookkeeping but mute it —
-          // audio is routed exclusively through the Web Audio pipeline
-          const el = track.attach();
-          el.id = `lk-audio-${track.sid}`;
-          el.muted = true;
-          document.body.appendChild(el);
-
-          // Create audio pipeline from the raw MediaStreamTrack for filtering + volume
+          // Skip track.attach() — no HTML <audio> element needed.
+          // Audio is routed exclusively through the Web Audio pipeline
+          // to avoid doubling (muted elements can still leak audio in some webviews).
           const { audioSettings: settings, participantVolumes, isDeafened } = get();
           const volume = isDeafened ? 0 : (participantVolumes[participant.identity] ?? 1.0);
           createAudioPipeline(track.mediaStreamTrack, track.sid!, settings, volume);
@@ -508,6 +511,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             });
           }
         }
+        // Detach any HTML elements (video tracks)
         track.detach().forEach((el) => el.remove());
         if (track.kind === Track.Kind.Video) {
           get()._updateScreenSharers();
@@ -746,8 +750,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
         });
       } else {
-        micPub.track.stopProcessor().catch((e) => console.warn("Failed to disable noise filter:", e));
-        destroyDtln();
+        micPub.track.stopProcessor()
+          .then(() => destroyDtln())
+          .catch((e) => {
+            console.warn("Failed to disable noise filter:", e);
+            destroyDtln();
+          });
       }
       return;
     }
