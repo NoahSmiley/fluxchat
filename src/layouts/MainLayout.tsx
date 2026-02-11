@@ -10,6 +10,7 @@ import { DMSidebar } from "../components/DMSidebar.js";
 import { DMChatView } from "../components/DMChatView.js";
 import { MemberList } from "../components/MemberList.js";
 import { requestNotificationPermission } from "../lib/notifications.js";
+import { SettingsModal } from "../components/SettingsModal.js";
 
 export function MainLayout() {
   const { loadServers, activeServerId, activeChannelId, channels, showingDMs, activeDMChannelId, members } = useChatStore();
@@ -59,6 +60,7 @@ export function MainLayout() {
       </main>
 
       {activeServerId && members.length > 0 && !showingDMs && <MemberList />}
+      <SettingsModal />
     </div>
   );
 }

@@ -85,8 +85,10 @@ export type WSServerEvent =
   | { type: "message"; message: Message }
   | { type: "typing"; channelId: string; userId: string; active: boolean }
   | { type: "presence"; userId: string; status: PresenceStatus }
-  | { type: "member_joined"; serverId: string; userId: string }
+  | { type: "member_joined"; serverId: string; userId: string; username: string; image: string | null; role: string }
   | { type: "member_left"; serverId: string; userId: string }
+  | { type: "channel_update"; channelId: string; bitrate: number | null }
+  | { type: "profile_update"; userId: string; username?: string; image?: string | null }
   | { type: "voice_state"; channelId: string; participants: VoiceParticipant[] }
   | { type: "reaction_add"; messageId: string; userId: string; emoji: string }
   | { type: "reaction_remove"; messageId: string; userId: string; emoji: string }

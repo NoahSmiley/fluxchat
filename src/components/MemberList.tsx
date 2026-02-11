@@ -25,8 +25,15 @@ export function MemberList() {
           <div className="member-list-category">Online — {online.length}</div>
           {online.map((m) => (
             <div key={m.userId} className="member-list-item" onClick={() => handleMemberClick(m.userId)}>
-              <div className="member-avatar online">
-                {m.username.charAt(0).toUpperCase()}
+              <div className="member-avatar-wrapper">
+                <div className="member-avatar">
+                  {m.image ? (
+                    <img src={m.image} alt={m.username} className="avatar-img-sm" />
+                  ) : (
+                    m.username.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <span className="member-status-dot" />
               </div>
               <span className="member-name">{m.username}</span>
             </div>
@@ -38,8 +45,14 @@ export function MemberList() {
           <div className="member-list-category">Offline — {offline.length}</div>
           {offline.map((m) => (
             <div key={m.userId} className="member-list-item offline" onClick={() => handleMemberClick(m.userId)}>
-              <div className="member-avatar">
-                {m.username.charAt(0).toUpperCase()}
+              <div className="member-avatar-wrapper">
+                <div className="member-avatar">
+                  {m.image ? (
+                    <img src={m.image} alt={m.username} className="avatar-img-sm" />
+                  ) : (
+                    m.username.charAt(0).toUpperCase()
+                  )}
+                </div>
               </div>
               <span className="member-name">{m.username}</span>
             </div>

@@ -1,25 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useVoiceStore } from "../stores/voice.js";
 import { useChatStore } from "../stores/chat.js";
+import { useUIStore } from "../stores/ui.js";
 import { ArrowUpRight, Volume2, Settings } from "lucide-react";
-import type { ScreenShareQuality } from "../stores/voice.js";
-
-const QUALITY_DIMENSIONS: Record<ScreenShareQuality, { width: number; height: number }> = {
-  high: { width: 3840, height: 2160 },
-  medium: { width: 1920, height: 1080 },
-  low: { width: 1280, height: 720 },
-};
-
-function applyQuality(pub: RemoteTrackPublication, quality: ScreenShareQuality) {
-  pub.setVideoDimensions(QUALITY_DIMENSIONS[quality]);
+function applyMaxQuality(pub: RemoteTrackPublication) {
+  pub.setVideoDimensions({ width: 3840, height: 2160 });
   pub.setVideoQuality(VideoQuality.HIGH);
 }
 
 function ScreenShareViewer() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pubRef = useRef<RemoteTrackPublication | null>(null);
-  const { room, watchingScreenShare, screenSharers, stopWatchingScreenShare, screenShareQuality, setScreenShareQuality } = useVoiceStore();
+  const { room, watchingScreenShare, screenSharers, stopWatchingScreenShare } = useVoiceStore();
 
   const sharer = screenSharers.find((s) => s.participantId === watchingScreenShare);
 
@@ -51,10 +44,10 @@ function ScreenShareViewer() {
 
     if (track && videoRef.current) {
       track.attach(videoRef.current);
-      // Apply quality after attach so adaptive stream has the element dimensions
+      // Always request max quality — streamer controls publishing quality
       if (pubRef.current) {
         const pub = pubRef.current;
-        requestAnimationFrame(() => applyQuality(pub, screenShareQuality));
+        requestAnimationFrame(() => applyMaxQuality(pub));
       }
     }
 
@@ -68,9 +61,9 @@ function ScreenShareViewer() {
 
   useEffect(() => {
     if (pubRef.current) {
-      applyQuality(pubRef.current, screenShareQuality);
+      applyMaxQuality(pubRef.current);
     }
-  }, [screenShareQuality]);
+  }, []);
 
   if (!sharer) return null;
 
@@ -81,15 +74,6 @@ function ScreenShareViewer() {
           {sharer.username}'s screen
         </span>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <select
-            className="quality-select"
-            value={screenShareQuality}
-            onChange={(e) => setScreenShareQuality(e.target.value as ScreenShareQuality)}
-          >
-            <option value="high">Source</option>
-            <option value="medium">1080p</option>
-            <option value="low">720p</option>
-          </select>
           <button className="btn-small popout-btn" onClick={() => import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_popout_window", { windowType: "screenshare" })).catch(() => {})} title="Pop out">
             <ArrowUpRight size={14} />
           </button>
@@ -120,70 +104,6 @@ function ScreenShareNotifications() {
           </button>
         </div>
       ))}
-    </div>
-  );
-}
-
-function AudioSettingsPanel() {
-  const { audioSettings, updateAudioSetting } = useVoiceStore();
-
-  const booleanSettings = [
-    { key: "noiseSuppression" as const, label: "Noise Suppression" },
-    { key: "echoCancellation" as const, label: "Echo Cancellation" },
-    { key: "autoGainControl" as const, label: "Auto Gain Control" },
-    { key: "dtx" as const, label: "Silence Detection (DTX)" },
-  ];
-
-  return (
-    <div className="audio-settings">
-      {booleanSettings.map(({ key, label }) => (
-        <label key={key} className="audio-setting-row">
-          <span>{label}</span>
-          <input
-            type="checkbox"
-            checked={audioSettings[key] as boolean}
-            onChange={(e) => updateAudioSetting(key, e.target.checked)}
-          />
-        </label>
-      ))}
-
-      <div className="audio-settings-divider" />
-
-      <div className="audio-setting-slider-row">
-        <div className="audio-setting-slider-label">
-          <span>High-Pass Filter</span>
-          <span className="audio-setting-value">
-            {audioSettings.highPassFrequency === 0 ? "Off" : `${audioSettings.highPassFrequency} Hz`}
-          </span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="2000"
-          step="10"
-          value={audioSettings.highPassFrequency}
-          onChange={(e) => updateAudioSetting("highPassFrequency", parseInt(e.target.value))}
-          className="settings-slider"
-        />
-      </div>
-
-      <div className="audio-setting-slider-row">
-        <div className="audio-setting-slider-label">
-          <span>Low-Pass Filter</span>
-          <span className="audio-setting-value">
-            {audioSettings.lowPassFrequency === 0 ? "Off" : `${audioSettings.lowPassFrequency} Hz`}
-          </span>
-        </div>
-        <input
-          type="range"
-          min="0"
-          max="20000"
-          step="100"
-          value={audioSettings.lowPassFrequency}
-          onChange={(e) => updateAudioSetting("lowPassFrequency", parseInt(e.target.value))}
-          className="settings-slider"
-        />
-      </div>
     </div>
   );
 }
@@ -232,7 +152,7 @@ export function VoiceChannelView() {
     setParticipantVolume,
   } = useVoiceStore();
 
-  const [showSettings, setShowSettings] = useState(false);
+  const { openSettings, settingsOpen } = useUIStore();
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
 
@@ -326,8 +246,8 @@ export function VoiceChannelView() {
               {isScreenSharing ? "Stop Share" : "Screen"}
             </button>
             <button
-              className={`voice-control-btn ${showSettings ? "active" : ""}`}
-              onClick={() => setShowSettings(!showSettings)}
+              className={`voice-control-btn ${settingsOpen ? "active" : ""}`}
+              onClick={openSettings}
               title="Settings"
             >
               <Settings size={14} />
@@ -341,7 +261,6 @@ export function VoiceChannelView() {
             </button>
           </div>
 
-          {showSettings && <AudioSettingsPanel />}
         </>
       )}
 

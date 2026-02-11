@@ -475,6 +475,56 @@ gateway.on((event) => {
       });
       break;
 
+    case "member_joined": {
+      if (event.serverId === state.activeServerId) {
+        const alreadyExists = state.members.some((m) => m.userId === event.userId);
+        if (!alreadyExists) {
+          useChatStore.setState((s) => ({
+            members: [...s.members, {
+              userId: event.userId,
+              serverId: event.serverId,
+              username: event.username,
+              image: event.image,
+              role: event.role as "owner" | "admin" | "member",
+              joinedAt: new Date().toISOString(),
+            }],
+          }));
+        }
+      }
+      break;
+    }
+
+    case "channel_update": {
+      useChatStore.setState((s) => ({
+        channels: s.channels.map((c) =>
+          c.id === event.channelId ? { ...c, bitrate: event.bitrate } : c
+        ),
+      }));
+      // Apply bitrate change if connected to this voice channel
+      import("./voice.js").then((mod) => {
+        const voiceState = mod.useVoiceStore.getState();
+        if (voiceState.connectedChannelId === event.channelId && event.bitrate != null) {
+          voiceState.applyBitrate(event.bitrate);
+        }
+      });
+      break;
+    }
+
+    case "profile_update": {
+      useChatStore.setState((s) => ({
+        members: s.members.map((m) =>
+          m.userId === event.userId
+            ? {
+                ...m,
+                ...(event.username !== undefined ? { username: event.username } : {}),
+                ...(event.image !== undefined ? { image: event.image } : {}),
+              }
+            : m
+        ),
+      }));
+      break;
+    }
+
     case "dm_message": {
       if (event.message.dmChannelId === state.activeDMChannelId) {
         useChatStore.setState((s) => ({

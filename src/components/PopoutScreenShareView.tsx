@@ -3,16 +3,8 @@ import { Room, RoomEvent, Track, VideoQuality, type RemoteTrackPublication } fro
 import { onStateUpdate, sendCommand, type VoiceStateMessage } from "../lib/broadcast.js";
 import * as api from "../lib/api.js";
 
-type PopoutQuality = "high" | "medium" | "low";
-
-const QUALITY_DIMENSIONS: Record<PopoutQuality, { width: number; height: number }> = {
-  high: { width: 3840, height: 2160 },
-  medium: { width: 1920, height: 1080 },
-  low: { width: 1280, height: 720 },
-};
-
-function applyQuality(pub: RemoteTrackPublication, quality: PopoutQuality) {
-  pub.setVideoDimensions(QUALITY_DIMENSIONS[quality]);
+function applyMaxQuality(pub: RemoteTrackPublication) {
+  pub.setVideoDimensions({ width: 3840, height: 2160 });
   pub.setVideoQuality(VideoQuality.HIGH);
 }
 
@@ -22,16 +14,6 @@ export function PopoutScreenShareView() {
   const pubRef = useRef<RemoteTrackPublication | null>(null);
   const [status, setStatus] = useState("Waiting for screen share...");
   const [sharerName, setSharerName] = useState<string | null>(null);
-  const [quality, setQuality] = useState<PopoutQuality>("high");
-  const qualityRef = useRef<PopoutQuality>("high");
-  qualityRef.current = quality;
-
-  // Update quality on the active publication when selection changes
-  useEffect(() => {
-    if (pubRef.current) {
-      applyQuality(pubRef.current, quality);
-    }
-  }, [quality]);
 
   useEffect(() => {
     let currentChannelId: string | null = null;
@@ -45,7 +27,7 @@ export function PopoutScreenShareView() {
       if (msg.type !== "voice-state") return;
       const voiceMsg = msg as VoiceStateMessage;
 
-      // If no screen share info, disconnect
+      // If no screen share info, disconnect and close popout
       if (!voiceMsg.connectedChannelId || !voiceMsg.screenSharerParticipantId) {
         if (roomRef.current) {
           roomRef.current.disconnect();
@@ -54,8 +36,8 @@ export function PopoutScreenShareView() {
         pubRef.current = null;
         currentChannelId = null;
         currentSharerPid = null;
-        setStatus("Screen share ended");
-        setSharerName(null);
+        // Auto-close the popout window when stream ends
+        import("@tauri-apps/api/window").then((m) => m.getCurrentWindow().close()).catch(() => {});
         return;
       }
 
@@ -99,7 +81,7 @@ export function PopoutScreenShareView() {
             track.attach(videoRef.current);
             const remotePub = publication as RemoteTrackPublication;
             requestAnimationFrame(() => {
-              applyQuality(remotePub, qualityRef.current);
+              applyMaxQuality(remotePub);
             });
             pubRef.current = remotePub;
             setStatus("Watching");
@@ -129,7 +111,7 @@ export function PopoutScreenShareView() {
                 pub.track.attach(videoRef.current);
                 const remotePub = pub as RemoteTrackPublication;
                 requestAnimationFrame(() => {
-                  applyQuality(remotePub, qualityRef.current);
+                  applyMaxQuality(remotePub);
                 });
                 pubRef.current = remotePub;
                 setStatus("Watching");
@@ -159,18 +141,7 @@ export function PopoutScreenShareView() {
     <div className="popout-screenshare">
       <div className="popout-header">
         <span>{sharerName ? `${sharerName}'s screen` : "Screen Share"}</span>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <select
-            className="quality-select"
-            value={quality}
-            onChange={(e) => setQuality(e.target.value as PopoutQuality)}
-          >
-            <option value="high">Source</option>
-            <option value="medium">1080p</option>
-            <option value="low">720p</option>
-          </select>
-          <span className="popout-status">{status}</span>
-        </div>
+        <span className="popout-status">{status}</span>
       </div>
       <video ref={videoRef} autoPlay playsInline className="popout-screenshare-video" />
     </div>

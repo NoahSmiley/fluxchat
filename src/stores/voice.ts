@@ -4,6 +4,7 @@ import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
+import { KrispNoiseFilter, isKrispNoiseFilterSupported } from "@livekit/krisp-noise-filter";
 
 // ── Sound Effects ──
 
@@ -99,22 +100,156 @@ function destroyAllPipelines() {
   }
 }
 
-// ── Audio Level Polling ──
+// ── Krisp Noise Filter ──
+
+let krispProcessor: ReturnType<typeof KrispNoiseFilter> | null = null;
+const krispSupported = isKrispNoiseFilterSupported();
+
+function getOrCreateKrisp() {
+  if (!krispProcessor) {
+    krispProcessor = KrispNoiseFilter();
+  }
+  return krispProcessor;
+}
+
+async function destroyKrisp() {
+  if (krispProcessor) {
+    await krispProcessor.destroy();
+    krispProcessor = null;
+  }
+}
+
+// ── Audio Level Polling + Noise Gate ──
 
 let audioLevelInterval: ReturnType<typeof setInterval> | null = null;
+let gatedSilentSince: number | null = null; // timestamp when audio dropped below threshold
+let isGated = false; // whether the noise gate is currently muting the mic
+
+// Local mic analyser for real-time level metering
+let localAnalyserCtx: AudioContext | null = null;
+let localAnalyser: AnalyserNode | null = null;
+let localAnalyserSource: MediaStreamAudioSourceNode | null = null;
+let localAnalyserData: Float32Array | null = null;
+
+function setupLocalAnalyser(room: any) {
+  teardownLocalAnalyser();
+  try {
+    let mediaStreamTrack: MediaStreamTrack | undefined;
+    for (const pub of room.localParticipant.audioTrackPublications.values()) {
+      console.log("[analyser] found audio pub:", pub.source, "has track:", !!pub.track);
+      if (pub.source === Track.Source.Microphone && pub.track) {
+        mediaStreamTrack = pub.track.mediaStreamTrack;
+        console.log("[analyser] mic mediaStreamTrack:", mediaStreamTrack?.kind, "readyState:", mediaStreamTrack?.readyState);
+        break;
+      }
+    }
+    if (!mediaStreamTrack) {
+      console.warn("[analyser] no mic track found, pubs count:", room.localParticipant.audioTrackPublications.size);
+      return;
+    }
+
+    localAnalyserCtx = new AudioContext();
+    // Resume in case it's suspended (browser autoplay policy)
+    if (localAnalyserCtx.state === "suspended") {
+      localAnalyserCtx.resume();
+    }
+    localAnalyser = localAnalyserCtx.createAnalyser();
+    localAnalyser.fftSize = 256;
+    localAnalyserData = new Float32Array(localAnalyser.fftSize);
+
+    const stream = new MediaStream([mediaStreamTrack]);
+    localAnalyserSource = localAnalyserCtx.createMediaStreamSource(stream);
+    localAnalyserSource.connect(localAnalyser);
+    console.log("[analyser] setup complete, ctx state:", localAnalyserCtx.state);
+  } catch (e) {
+    console.error("[analyser] Failed to setup:", e);
+    teardownLocalAnalyser();
+  }
+}
+
+function teardownLocalAnalyser() {
+  localAnalyserSource?.disconnect();
+  localAnalyserSource = null;
+  localAnalyser = null;
+  localAnalyserData = null;
+  if (localAnalyserCtx) {
+    localAnalyserCtx.close().catch(() => {});
+    localAnalyserCtx = null;
+  }
+}
+
+function getLocalMicLevel(): number {
+  if (!localAnalyser || !localAnalyserData) return 0;
+  localAnalyser.getFloatTimeDomainData(localAnalyserData);
+  let sum = 0;
+  for (let i = 0; i < localAnalyserData.length; i++) {
+    sum += localAnalyserData[i] * localAnalyserData[i];
+  }
+  return Math.sqrt(sum / localAnalyserData.length); // RMS level (0-1)
+}
+
+// Convert sensitivity (0-100) to an audio level threshold (0.0-1.0)
+// Sensitivity 0 = threshold 0 (everything passes), 100 = threshold ~0.15 (aggressive gate)
+function sensitivityToThreshold(sensitivity: number): number {
+  return (sensitivity / 100) * 0.15;
+}
 
 function startAudioLevelPolling() {
   stopAudioLevelPolling();
-  audioLevelInterval = setInterval(() => {
+
+  // Delay analyser setup slightly to ensure mic track is published
+  setTimeout(() => {
     const { room } = useVoiceStore.getState();
+    if (room) setupLocalAnalyser(room);
+  }, 500);
+
+  audioLevelInterval = setInterval(() => {
+    const state = useVoiceStore.getState();
+    const { room } = state;
     if (!room) return;
 
+    // Set up analyser if not yet ready (mic track may arrive late)
+    if (!localAnalyser) setupLocalAnalyser(room);
+
     const levels: Record<string, number> = {};
-    levels[room.localParticipant.identity] = room.localParticipant.audioLevel ?? 0;
+    const localLevel = getLocalMicLevel();
+    levels[room.localParticipant.identity] = localLevel;
     for (const p of room.remoteParticipants.values()) {
       levels[p.identity] = p.audioLevel ?? 0;
     }
     useVoiceStore.setState({ audioLevels: levels });
+
+    // ── Noise gate logic ──
+    const { audioSettings, isMuted } = state;
+    if (!audioSettings.inputSensitivityEnabled || isMuted) {
+      // If gate was active, release it
+      if (isGated) {
+        isGated = false;
+        gatedSilentSince = null;
+        room.localParticipant.setMicrophoneEnabled(true);
+      }
+      return;
+    }
+
+    const threshold = sensitivityToThreshold(audioSettings.inputSensitivity);
+
+    if (localLevel < threshold) {
+      // Audio below threshold
+      if (!gatedSilentSince) {
+        gatedSilentSince = Date.now();
+      } else if (!isGated && Date.now() - gatedSilentSince > 200) {
+        // Silent for 200ms — gate the mic
+        isGated = true;
+        room.localParticipant.setMicrophoneEnabled(false);
+      }
+    } else {
+      // Audio above threshold — open gate immediately
+      gatedSilentSince = null;
+      if (isGated) {
+        isGated = false;
+        room.localParticipant.setMicrophoneEnabled(true);
+      }
+    }
   }, 50); // 20fps for smooth visuals
 }
 
@@ -123,6 +258,9 @@ function stopAudioLevelPolling() {
     clearInterval(audioLevelInterval);
     audioLevelInterval = null;
   }
+  teardownLocalAnalyser();
+  isGated = false;
+  gatedSilentSince = null;
 }
 
 // ── Types ──
@@ -140,6 +278,9 @@ interface AudioSettings {
   dtx: boolean;
   highPassFrequency: number;
   lowPassFrequency: number;
+  inputSensitivity: number; // 0-100, where 0 = always transmit, 100 = most aggressive gate
+  inputSensitivityEnabled: boolean; // false = always transmit (no gate)
+  krispEnabled: boolean; // AI noise suppression via Krisp
 }
 
 interface ScreenShareInfo {
@@ -208,6 +349,9 @@ const DEFAULT_SETTINGS: AudioSettings = {
   dtx: false,
   highPassFrequency: 0,
   lowPassFrequency: 0,
+  inputSensitivity: 40,
+  inputSensitivityEnabled: false,
+  krispEnabled: true,
 };
 
 const DEFAULT_BITRATE = 256_000;
@@ -361,6 +505,20 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       await room.connect(url, token);
       await room.localParticipant.setMicrophoneEnabled(true);
 
+      // Set up Krisp noise filter on the microphone track
+      if (krispSupported && audioSettings.krispEnabled) {
+        try {
+          const krisp = getOrCreateKrisp();
+          const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          if (micPub?.track) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await micPub.track.setProcessor(krisp as any);
+          }
+        } catch (e) {
+          console.warn("Failed to enable Krisp:", e);
+        }
+      }
+
       set({
         room,
         connectedChannelId: channelId,
@@ -394,6 +552,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     playLeaveSound();
     stopAudioLevelPolling();
+
+    // Clean up Krisp processor
+    destroyKrisp();
 
     // Destroy all audio pipelines
     destroyAllPipelines();
@@ -501,6 +662,35 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     const { room, audioSettings } = get();
     const newSettings = { ...audioSettings, [key]: value } as AudioSettings;
     set({ audioSettings: newSettings });
+
+    // Input sensitivity settings are handled by the polling loop, no action needed
+    if (key === "inputSensitivity" || key === "inputSensitivityEnabled") {
+      // If disabling the gate, release it immediately
+      if (key === "inputSensitivityEnabled" && !value && isGated && room) {
+        isGated = false;
+        gatedSilentSince = null;
+        room.localParticipant.setMicrophoneEnabled(true);
+      }
+      return;
+    }
+
+    // Krisp toggle
+    if (key === "krispEnabled") {
+      if (!room || !krispSupported) return;
+      const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      if (!micPub?.track) return;
+
+      if (value) {
+        // Enable Krisp
+        const krisp = getOrCreateKrisp();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        micPub.track.setProcessor(krisp as any).catch((e: unknown) => console.warn("Failed to enable Krisp:", e));
+      } else {
+        // Disable Krisp — remove processor from track
+        micPub.track.stopProcessor().catch((e) => console.warn("Failed to disable Krisp:", e));
+      }
+      return;
+    }
 
     // Apply filter changes instantly to all pipelines
     if (key === "highPassFrequency") {

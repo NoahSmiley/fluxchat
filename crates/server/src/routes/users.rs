@@ -155,13 +155,32 @@ pub async fn update_me(
     .flatten();
 
     match profile {
-        Some((id, username, email, image)) => Json(serde_json::json!({
-            "id": id,
-            "username": username,
-            "email": email,
-            "image": image,
-        }))
-        .into_response(),
+        Some((id, username, email, image)) => {
+            // Broadcast profile update to all connected clients
+            state
+                .gateway
+                .broadcast_all(
+                    &crate::ws::events::ServerEvent::ProfileUpdate {
+                        user_id: id.clone(),
+                        username: body.username.as_ref().map(|u| u.trim().to_string()),
+                        image: body.image.as_ref().map(|v| match v {
+                            serde_json::Value::Null => None,
+                            serde_json::Value::String(s) => Some(s.clone()),
+                            _ => None,
+                        }),
+                    },
+                    None,
+                )
+                .await;
+
+            Json(serde_json::json!({
+                "id": id,
+                "username": username,
+                "email": email,
+                "image": image,
+            }))
+            .into_response()
+        }
         None => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": "Failed to fetch updated profile"})),

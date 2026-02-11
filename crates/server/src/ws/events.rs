@@ -117,6 +117,26 @@ pub enum ServerEvent {
     DmMessage {
         message: DmMessage,
     },
+    MemberJoined {
+        #[serde(rename = "serverId")]
+        server_id: String,
+        #[serde(rename = "userId")]
+        user_id: String,
+        username: String,
+        image: Option<String>,
+        role: String,
+    },
+    ChannelUpdate {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        bitrate: Option<i64>,
+    },
+    ProfileUpdate {
+        #[serde(rename = "userId")]
+        user_id: String,
+        username: Option<String>,
+        image: Option<Option<String>>,
+    },
     Error {
         message: String,
     },

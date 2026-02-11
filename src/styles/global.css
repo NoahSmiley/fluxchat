@@ -463,6 +463,13 @@ input:focus {
   object-fit: cover;
 }
 
+.avatar-img-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .avatar-fallback {
   width: 36px;
   height: 36px;
@@ -736,6 +743,35 @@ input:focus {
   margin-top: 20px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+}
+
+/* ── Avatar Crop Modal ── */
+.crop-modal {
+  width: 380px;
+}
+
+.crop-canvas-container {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+}
+
+.crop-canvas-container canvas {
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.crop-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.crop-zoom-row .settings-slider {
+  flex: 1;
 }
 
 .btn-danger {
@@ -1132,6 +1168,33 @@ input:focus {
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
+}
+
+/* ── Input Sensitivity Slider ── */
+.sensitivity-slider-container {
+  position: relative;
+  width: 100%;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.sensitivity-level-meter {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  background: var(--accent);
+  opacity: 0.4;
+  border-radius: 2px;
+  pointer-events: none;
+  transition: width 0.05s linear;
+}
+
+.sensitivity-slider {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Per-User Volume ── */
@@ -1897,6 +1960,11 @@ input:focus {
   opacity: 0.4;
 }
 
+.member-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .member-avatar {
   width: 32px;
   height: 32px;
@@ -1908,12 +1976,18 @@ input:focus {
   font-weight: 600;
   font-size: 13px;
   flex-shrink: 0;
-  border: 2px solid transparent;
-  transition: border-color 0.15s;
+  overflow: hidden;
 }
 
-.member-avatar.online {
-  border-color: #43b581;
+.member-status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #43b581;
+  border: 2px solid var(--bg-secondary);
 }
 
 .member-name {
@@ -2095,4 +2169,250 @@ input:focus {
 .screenshare-picker-actions {
   display: flex;
   gap: 8px;
+}
+
+/* ── Settings Modal ── */
+.settings-modal {
+  width: 540px;
+  max-width: 90vw;
+  max-height: 80vh;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settings-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 12px;
+  flex-shrink: 0;
+}
+
+.settings-modal-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.settings-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.settings-modal-close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.settings-modal-body {
+  padding: 0 24px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Settings Sections ── */
+.settings-section {
+  margin-bottom: 28px;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+.settings-section-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+
+/* ── Settings Rows ── */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-row-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-row-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.settings-slider-row {
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.settings-slider-value {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Toggle Switch ── */
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  border: none;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.toggle-switch.on {
+  background: #43b581;
+}
+
+.toggle-switch.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toggle-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.toggle-switch.on .toggle-switch-thumb {
+  transform: translateX(18px);
+}
+
+/* ── Krisp Badge ── */
+.krisp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 4px;
+  background: rgba(93, 173, 236, 0.12);
+  color: #5dadec;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+/* ── Settings Sensitivity Meter ── */
+/* ── Sensitivity Meter Bar ── */
+.sensitivity-meter-bar {
+  position: relative;
+  width: 100%;
+  height: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  overflow: visible;
+}
+
+.sensitivity-meter-fill {
+  height: 100%;
+  background: #43b581;
+  border-radius: 6px;
+  transition: width 0.05s linear;
+  min-width: 0;
+}
+
+.sensitivity-meter-threshold {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  background: var(--text-primary);
+  border-radius: 1.5px;
+  pointer-events: none;
+  transition: left 0.1s ease;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Sidebar Settings Button ── */
+.server-sidebar-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.server-sidebar-settings-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.server-sidebar-settings-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }

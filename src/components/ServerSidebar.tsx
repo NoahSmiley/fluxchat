@@ -2,7 +2,9 @@ import { useState, useRef } from "react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { FluxLogo } from "./FluxLogo.js";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Settings } from "lucide-react";
+import { AvatarCropModal } from "./AvatarCropModal.js";
+import { useUIStore } from "../stores/ui.js";
 
 export function ServerSidebar() {
   const { servers, activeServerId, showingDMs, selectServer, createServer, joinServer, showDMs } = useChatStore();
@@ -16,6 +18,7 @@ export function ServerSidebar() {
   const [usernameInput, setUsernameInput] = useState("");
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [cropImage, setCropImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit() {
@@ -52,7 +55,7 @@ export function ServerSidebar() {
     }
   }
 
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -60,27 +63,27 @@ export function ServerSidebar() {
       setProfileError("Please select an image file");
       return;
     }
-    if (file.size > 500_000) {
-      setProfileError("Image must be under 500KB");
-      return;
-    }
 
+    setProfileError(null);
+    const reader = new FileReader();
+    reader.onload = () => setCropImage(reader.result as string);
+    reader.onerror = () => setProfileError("Failed to read image");
+    reader.readAsDataURL(file);
+
+    // Reset file input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleCropConfirm(croppedDataUrl: string) {
+    setCropImage(null);
     setProfileSaving(true);
     setProfileError(null);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      await updateProfile({ image: dataUrl });
+      await updateProfile({ image: croppedDataUrl });
     } catch (err) {
       setProfileError(err instanceof Error ? err.message : "Failed to upload image");
     } finally {
       setProfileSaving(false);
-      // Reset file input so the same file can be re-selected
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -142,6 +145,16 @@ export function ServerSidebar() {
       </button>
 
       <div className="server-sidebar-spacer" />
+
+      <div className="server-sidebar-settings">
+        <button
+          className="server-sidebar-settings-btn"
+          onClick={() => useUIStore.getState().openSettings()}
+          title="User Settings"
+        >
+          <Settings size={18} />
+        </button>
+      </div>
 
       <div className="server-sidebar-user" onClick={openProfile} title={user?.username}>
         <div className="server-user-avatar">
@@ -245,6 +258,14 @@ export function ServerSidebar() {
             </div>
           </div>
         </div>
+      )}
+
+      {cropImage && (
+        <AvatarCropModal
+          imageUrl={cropImage}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropImage(null)}
+        />
       )}
 
       {showModal && (

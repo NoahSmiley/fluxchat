@@ -206,6 +206,32 @@ pub async fn join_server(
     .execute(&state.db)
     .await;
 
+    // Look up joining user's profile for broadcast
+    let profile = sqlx::query_as::<_, (String, Option<String>)>(
+        r#"SELECT username, image FROM "user" WHERE id = ?"#,
+    )
+    .bind(&user.id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    if let Some((username, image)) = profile {
+        state
+            .gateway
+            .broadcast_all(
+                &crate::ws::events::ServerEvent::MemberJoined {
+                    server_id: server.id.clone(),
+                    user_id: user.id.clone(),
+                    username,
+                    image,
+                    role: "member".into(),
+                },
+                None,
+            )
+            .await;
+    }
+
     Json(server).into_response()
 }
 
@@ -389,13 +415,27 @@ pub async fn update_channel(
         .await;
 
     let updated = Channel {
-        id: channel.id,
+        id: channel.id.clone(),
         server_id: channel.server_id,
         name: new_name.to_string(),
         channel_type: channel.channel_type,
         bitrate: new_bitrate,
         created_at: channel.created_at,
     };
+
+    // Broadcast channel update to all subscribers so bitrate changes apply to everyone
+    let ch_id = channel.id.clone();
+    state
+        .gateway
+        .broadcast_channel(
+            &ch_id,
+            &crate::ws::events::ServerEvent::ChannelUpdate {
+                channel_id: ch_id.clone(),
+                bitrate: new_bitrate,
+            },
+            None,
+        )
+        .await;
 
     Json(updated).into_response()
 }
