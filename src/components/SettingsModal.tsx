@@ -96,19 +96,6 @@ function ToggleSwitch({ checked, onChange }: {
   );
 }
 
-function RNNoiseBadge() {
-  return (
-    <span className="krisp-badge">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-5-5 1.41-1.41L11 14.17l7.59-7.59L20 8l-9 9z"
-          fill="currentColor"
-        />
-      </svg>
-      RNNoise
-    </span>
-  );
-}
 
 const ACTION_LABELS: Record<KeybindAction, string> = {
   "push-to-talk": "Push to Talk",
@@ -182,23 +169,8 @@ export function SettingsModal() {
 
             <div className="settings-row">
               <div className="settings-row-info">
-                <span className="settings-row-label">
-                  AI Noise Suppression <RNNoiseBadge />
-                </span>
-                <span className="settings-row-desc">
-                  Uses machine learning to remove background noise
-                </span>
-              </div>
-              <ToggleSwitch
-                checked={audioSettings.krispEnabled}
-                onChange={(v) => updateAudioSetting("krispEnabled", v)}
-              />
-            </div>
-
-            <div className="settings-row">
-              <div className="settings-row-info">
                 <span className="settings-row-label">Noise Suppression</span>
-                <span className="settings-row-desc">Browser-native noise reduction</span>
+                <span className="settings-row-desc">Reduce background noise from your microphone</span>
               </div>
               <ToggleSwitch
                 checked={audioSettings.noiseSuppression}

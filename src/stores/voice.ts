@@ -4,7 +4,6 @@ import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
-import { DenoiseTrackProcessor } from "@cc-livekit/denoise-plugin";
 import { useKeybindsStore } from "./keybinds.js";
 
 // ── Sound Effects ──
@@ -64,6 +63,7 @@ function createAudioPipeline(
   volume: number,
 ): AudioPipeline {
   const context = new AudioContext();
+  if (context.state === "suspended") context.resume();
   const source = context.createMediaElementSource(audioElement);
 
   const highPass = context.createBiquadFilter();
@@ -75,7 +75,7 @@ function createAudioPipeline(
   lowPass.frequency.value = settings.lowPassFrequency > 0 ? settings.lowPassFrequency : 24000;
 
   const gain = context.createGain();
-  gain.gain.value = volume;
+  gain.gain.setValueAtTime(volume, context.currentTime);
 
   source.connect(highPass);
   highPass.connect(lowPass);
@@ -101,24 +101,6 @@ function destroyAllPipelines() {
   }
 }
 
-// ── RNNoise Denoise Filter ──
-
-let denoiseProcessor: DenoiseTrackProcessor | null = null;
-const denoiseSupported = DenoiseTrackProcessor.isSupported();
-
-function getOrCreateDenoise() {
-  if (!denoiseProcessor) {
-    denoiseProcessor = new DenoiseTrackProcessor();
-  }
-  return denoiseProcessor;
-}
-
-async function destroyDenoise() {
-  if (denoiseProcessor) {
-    await denoiseProcessor.destroy();
-    denoiseProcessor = null;
-  }
-}
 
 // ── Audio Level Polling + Noise Gate ──
 
@@ -512,22 +494,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       await room.connect(url, token);
       await room.localParticipant.setMicrophoneEnabled(true);
 
-      // Set up RNNoise denoise filter on the microphone track
-      if (denoiseSupported && audioSettings.krispEnabled) {
-        try {
-          const denoise = getOrCreateDenoise();
-          const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-          if (micPub?.track) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await micPub.track.setProcessor(denoise as any);
-          }
-        } catch (e) {
-          console.warn("Failed to enable noise filter:", e);
-          destroyDenoise();
-          set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
-        }
-      }
-
       set({
         room,
         connectedChannelId: channelId,
@@ -569,9 +535,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     playLeaveSound();
     stopAudioLevelPolling();
-
-    // Clean up denoise processor
-    destroyDenoise();
 
     // Destroy all audio pipelines
     destroyAllPipelines();
@@ -643,14 +606,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     if (newDeafened) {
       // Mute all audio via gain nodes
       for (const pipeline of audioPipelines.values()) {
-        pipeline.gain.gain.value = 0;
+        pipeline.gain.gain.setValueAtTime(0, pipeline.context.currentTime);
       }
     } else {
       // Restore per-user volumes
       for (const [identity, trackSid] of Object.entries(participantTrackMap)) {
         const pipeline = audioPipelines.get(trackSid);
         if (pipeline) {
-          pipeline.gain.gain.value = participantVolumes[identity] ?? 1.0;
+          pipeline.gain.gain.setValueAtTime(participantVolumes[identity] ?? 1.0, pipeline.context.currentTime);
         }
       }
     }
@@ -684,7 +647,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     if (trackSid) {
       const pipeline = audioPipelines.get(trackSid);
       if (pipeline) {
-        pipeline.gain.gain.value = volume;
+        if (pipeline.context.state === "suspended") pipeline.context.resume();
+        pipeline.gain.gain.setValueAtTime(volume, pipeline.context.currentTime);
       }
     }
   },
@@ -705,27 +669,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       return;
     }
 
-    // Denoise toggle
-    if (key === "krispEnabled") {
-      if (!room || !denoiseSupported) return;
-      const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-      if (!micPub?.track) return;
-
-      if (value) {
-        // Enable RNNoise denoise
-        const denoise = getOrCreateDenoise();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        micPub.track.setProcessor(denoise as any).catch((e: unknown) => {
-          console.warn("Failed to enable noise filter:", e);
-          destroyDenoise();
-          set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
-        });
-      } else {
-        // Disable denoise — remove processor from track
-        micPub.track.stopProcessor().catch((e) => console.warn("Failed to disable noise filter:", e));
-      }
-      return;
-    }
+    // krispEnabled is no longer used (noise suppression handled by browser-native setting)
+    if (key === "krispEnabled") return;
 
     // Apply filter changes instantly to all pipelines
     if (key === "highPassFrequency") {
