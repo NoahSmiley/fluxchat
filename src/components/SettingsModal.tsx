@@ -169,8 +169,19 @@ export function SettingsModal() {
 
             <div className="settings-row">
               <div className="settings-row-info">
+                <span className="settings-row-label">Krisp Noise Cancellation</span>
+                <span className="settings-row-desc">AI-powered noise cancellation by Krisp</span>
+              </div>
+              <ToggleSwitch
+                checked={audioSettings.krispEnabled}
+                onChange={(v) => updateAudioSetting("krispEnabled", v)}
+              />
+            </div>
+
+            <div className="settings-row">
+              <div className="settings-row-info">
                 <span className="settings-row-label">Noise Suppression</span>
-                <span className="settings-row-desc">Reduce background noise from your microphone</span>
+                <span className="settings-row-desc">Browser-native noise reduction</span>
               </div>
               <ToggleSwitch
                 checked={audioSettings.noiseSuppression}

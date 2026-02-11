@@ -4,6 +4,7 @@ import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
+import { KrispNoiseFilter, isKrispNoiseFilterSupported } from "@livekit/krisp-noise-filter";
 import { useKeybindsStore } from "./keybinds.js";
 
 // ── Sound Effects ──
@@ -101,6 +102,20 @@ function destroyAllPipelines() {
   }
 }
 
+// ── Krisp Noise Filter ──
+
+let krispProcessor: ReturnType<typeof KrispNoiseFilter> | null = null;
+
+function getOrCreateKrisp() {
+  if (!krispProcessor) {
+    krispProcessor = KrispNoiseFilter();
+  }
+  return krispProcessor;
+}
+
+function destroyKrisp() {
+  krispProcessor = null;
+}
 
 // ── Audio Level Polling + Noise Gate ──
 
@@ -494,6 +509,21 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       await room.connect(url, token);
       await room.localParticipant.setMicrophoneEnabled(true);
 
+      // Set up Krisp noise filter on the microphone track
+      if (isKrispNoiseFilterSupported() && audioSettings.krispEnabled) {
+        try {
+          const krisp = getOrCreateKrisp();
+          const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          if (micPub?.track) {
+            await micPub.track.setProcessor(krisp);
+          }
+        } catch (e) {
+          console.warn("Failed to enable Krisp noise filter:", e);
+          destroyKrisp();
+          set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
+        }
+      }
+
       set({
         room,
         connectedChannelId: channelId,
@@ -535,6 +565,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     playLeaveSound();
     stopAudioLevelPolling();
+
+    // Clean up Krisp processor
+    destroyKrisp();
 
     // Destroy all audio pipelines
     destroyAllPipelines();
@@ -669,8 +702,25 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       return;
     }
 
-    // krispEnabled is no longer used (noise suppression handled by browser-native setting)
-    if (key === "krispEnabled") return;
+    // Krisp noise filter toggle
+    if (key === "krispEnabled") {
+      if (!room || !isKrispNoiseFilterSupported()) return;
+      const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      if (!micPub?.track) return;
+
+      if (value) {
+        const krisp = getOrCreateKrisp();
+        micPub.track.setProcessor(krisp).catch((e: unknown) => {
+          console.warn("Failed to enable Krisp noise filter:", e);
+          destroyKrisp();
+          set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
+        });
+      } else {
+        micPub.track.stopProcessor().catch((e) => console.warn("Failed to disable Krisp noise filter:", e));
+        destroyKrisp();
+      }
+      return;
+    }
 
     // Apply filter changes instantly to all pipelines
     if (key === "highPassFrequency") {
