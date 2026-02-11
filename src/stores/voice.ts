@@ -4,7 +4,7 @@ import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
-import { KrispTrackProcessor } from "../lib/krisp/KrispTrackProcessor.js";
+import { KrispNoiseFilter, isKrispNoiseFilterSupported } from "@livekit/krisp-noise-filter";
 import { useKeybindsStore } from "./keybinds.js";
 
 // ── Sound Effects ──
@@ -102,22 +102,19 @@ function destroyAllPipelines() {
   }
 }
 
-// ── Krisp Noise Filter (Standalone SDK) ──
+// ── Krisp Noise Filter ──
 
-let krispProcessor: KrispTrackProcessor | null = null;
+let krispProcessor: ReturnType<typeof KrispNoiseFilter> | null = null;
 
 function getOrCreateKrisp() {
   if (!krispProcessor) {
-    krispProcessor = new KrispTrackProcessor();
+    krispProcessor = KrispNoiseFilter();
   }
   return krispProcessor;
 }
 
 function destroyKrisp() {
-  if (krispProcessor) {
-    krispProcessor.destroy();
-    krispProcessor = null;
-  }
+  krispProcessor = null;
 }
 
 // ── Audio Level Polling + Noise Gate ──
@@ -513,7 +510,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       await room.localParticipant.setMicrophoneEnabled(true);
 
       // Set up Krisp noise filter on the microphone track
-      if (audioSettings.krispEnabled) {
+      if (isKrispNoiseFilterSupported() && audioSettings.krispEnabled) {
         try {
           const krisp = getOrCreateKrisp();
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
@@ -707,7 +704,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     // Krisp noise filter toggle
     if (key === "krispEnabled") {
-      if (!room) return;
+      if (!room || !isKrispNoiseFilterSupported()) return;
       const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
       if (!micPub?.track) return;
 
