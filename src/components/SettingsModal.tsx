@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useVoiceStore } from "../stores/voice.js";
 import { useUIStore } from "../stores/ui.js";
+import { useKeybindsStore, type KeybindAction, type KeybindEntry } from "../stores/keybinds.js";
 import { X } from "lucide-react";
 
 function useMicLevel(enabled: boolean): { level: number; status: string } {
@@ -109,10 +110,55 @@ function KrispBadge() {
   );
 }
 
+const ACTION_LABELS: Record<KeybindAction, string> = {
+  "push-to-talk": "Push to Talk",
+  "push-to-mute": "Push to Mute",
+  "toggle-mute": "Toggle Mute",
+  "toggle-deafen": "Toggle Deafen",
+};
+
+const ACTION_DESCRIPTIONS: Record<KeybindAction, string> = {
+  "push-to-talk": "Hold key to unmute, release to mute",
+  "push-to-mute": "Hold key to mute, release to unmute",
+  "toggle-mute": "Press to toggle microphone mute",
+  "toggle-deafen": "Press to toggle deafen (mutes all audio)",
+};
+
+function KeybindButton({ entry }: { entry: KeybindEntry }) {
+  const { recording, startRecording, stopRecording, clearKeybind } = useKeybindsStore();
+  const isRecording = recording === entry.action;
+
+  return (
+    <div className="keybind-button-group">
+      <button
+        className={`keybind-button ${isRecording ? "recording" : ""}`}
+        onClick={() => isRecording ? stopRecording() : startRecording(entry.action)}
+      >
+        {isRecording ? "Press a key..." : (entry.label ?? "Not set")}
+      </button>
+      {entry.key && (
+        <button
+          className="keybind-clear"
+          onClick={() => clearKeybind(entry.action)}
+          title="Clear keybind"
+        >
+          <X size={12} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function SettingsModal() {
   const { settingsOpen, closeSettings } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
+  const { keybinds } = useKeybindsStore();
   const { level: micLevel } = useMicLevel(settingsOpen && audioSettings.inputSensitivityEnabled);
+
+  // Stop recording keybind when modal closes
+  useEffect(() => {
+    return () => { useKeybindsStore.getState().stopRecording(); };
+  }, []);
 
   if (!settingsOpen) return null;
 
@@ -283,6 +329,24 @@ export function SettingsModal() {
                 className="settings-slider"
               />
             </div>
+          </div>
+
+          {/* Keybinds */}
+          <div className="settings-section">
+            <h3 className="settings-section-title">Keybinds</h3>
+            <p className="settings-section-desc">
+              Set keyboard shortcuts for voice controls. Active only when connected to voice.
+            </p>
+
+            {keybinds.map((entry) => (
+              <div className="settings-row" key={entry.action}>
+                <div className="settings-row-info">
+                  <span className="settings-row-label">{ACTION_LABELS[entry.action]}</span>
+                  <span className="settings-row-desc">{ACTION_DESCRIPTIONS[entry.action]}</span>
+                </div>
+                <KeybindButton entry={entry} />
+              </div>
+            ))}
           </div>
         </div>
       </div>

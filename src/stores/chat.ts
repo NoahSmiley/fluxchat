@@ -17,6 +17,7 @@ interface ChatState {
   messageCursor: string | null;
   loadingServers: boolean;
   loadingMessages: boolean;
+  channelsLoaded: boolean;
 
   // Reactions: messageId -> grouped reactions
   reactions: Record<string, { emoji: string; userIds: string[] }[]>;
@@ -27,7 +28,7 @@ interface ChatState {
 
   // DMs
   showingDMs: boolean;
-  dmChannels: { id: string; otherUser: { id: string; username: string }; createdAt: string }[];
+  dmChannels: { id: string; otherUser: { id: string; username: string; image: string | null }; createdAt: string }[];
   activeDMChannelId: string | null;
   dmMessages: DMMessage[];
   dmHasMore: boolean;
@@ -65,6 +66,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messageCursor: null,
   loadingServers: false,
   loadingMessages: false,
+  channelsLoaded: false,
   reactions: {},
   searchQuery: "",
   searchResults: null,
@@ -98,12 +100,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       searchQuery: "",
       searchResults: null,
       dmMessages: [],
+      channelsLoaded: false,
     });
     const [channels, members] = await Promise.all([
       api.getChannels(serverId),
       api.getServerMembers(serverId),
     ]);
-    set({ channels, members });
+    set({ channels, members, channelsLoaded: true });
 
     // Auto-select first text channel
     const textChannel = channels.find((c) => c.type === "text");

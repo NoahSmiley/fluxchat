@@ -97,7 +97,7 @@ export function DMChatView() {
         {dmMessages.map((msg) => {
           const isOwn = msg.senderId === user?.id;
           const senderName = isOwn ? (user?.username ?? "You") : (dm?.otherUser.username ?? msg.senderId.slice(0, 8));
-          const senderImage = isOwn ? (user?.image ?? null) : null;
+          const senderImage = isOwn ? (user?.image ?? null) : (dm?.otherUser.image ?? null);
           const decoded = decodeContent(msg.ciphertext);
 
           return (

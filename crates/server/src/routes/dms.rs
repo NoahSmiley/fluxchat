@@ -42,8 +42,8 @@ pub async fn list_dms(
             &user1_id
         };
 
-        let other = sqlx::query_as::<_, (String, String)>(
-            r#"SELECT id, username FROM "user" WHERE id = ?"#,
+        let other = sqlx::query_as::<_, (String, String, Option<String>)>(
+            r#"SELECT id, username, image FROM "user" WHERE id = ?"#,
         )
         .bind(other_user_id)
         .fetch_optional(&state.db)
@@ -51,12 +51,13 @@ pub async fn list_dms(
         .ok()
         .flatten();
 
-        if let Some((oid, ousername)) = other {
+        if let Some((oid, ousername, oimage)) = other {
             result.push(DmChannelResponse {
                 id,
                 other_user: DmOtherUser {
                     id: oid,
                     username: ousername,
+                    image: oimage,
                 },
                 created_at,
             });
@@ -81,8 +82,8 @@ pub async fn create_dm(
     }
 
     // Check target exists
-    let target = sqlx::query_as::<_, (String, String)>(
-        r#"SELECT id, username FROM "user" WHERE id = ?"#,
+    let target = sqlx::query_as::<_, (String, String, Option<String>)>(
+        r#"SELECT id, username, image FROM "user" WHERE id = ?"#,
     )
     .bind(&body.user_id)
     .fetch_optional(&state.db)
@@ -90,7 +91,7 @@ pub async fn create_dm(
     .ok()
     .flatten();
 
-    let (target_id, target_username) = match target {
+    let (target_id, target_username, target_image) = match target {
         Some(t) => t,
         None => {
             return (
@@ -125,6 +126,7 @@ pub async fn create_dm(
             other_user: DmOtherUser {
                 id: target_id,
                 username: target_username,
+                image: target_image,
             },
             created_at,
         })
@@ -150,6 +152,7 @@ pub async fn create_dm(
         other_user: DmOtherUser {
             id: target_id,
             username: target_username,
+            image: target_image,
         },
         created_at: now,
     })

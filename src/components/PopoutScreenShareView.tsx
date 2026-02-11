@@ -19,6 +19,8 @@ export function PopoutScreenShareView() {
     let currentChannelId: string | null = null;
     let currentSharerPid: string | null = null;
     let connecting = false;
+    let hasConnected = false;
+    let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Request initial state from main window
     sendCommand({ type: "request-state" });
@@ -27,7 +29,7 @@ export function PopoutScreenShareView() {
       if (msg.type !== "voice-state") return;
       const voiceMsg = msg as VoiceStateMessage;
 
-      // If no screen share info, disconnect and close popout
+      // If no screen share info, handle gracefully
       if (!voiceMsg.connectedChannelId || !voiceMsg.screenSharerParticipantId) {
         if (roomRef.current) {
           roomRef.current.disconnect();
@@ -36,9 +38,22 @@ export function PopoutScreenShareView() {
         pubRef.current = null;
         currentChannelId = null;
         currentSharerPid = null;
-        // Auto-close the popout window when stream ends
-        import("@tauri-apps/api/window").then((m) => m.getCurrentWindow().close()).catch(() => {});
+
+        // Only auto-close if we previously had a connection (stream genuinely ended)
+        // Use a debounce to handle transient state updates
+        if (hasConnected && !closeTimer) {
+          setStatus("Screen share ended");
+          closeTimer = setTimeout(() => {
+            import("@tauri-apps/api/window").then((m) => m.getCurrentWindow().close()).catch(() => {});
+          }, 2000);
+        }
         return;
+      }
+
+      // Valid state received — cancel any pending close
+      if (closeTimer) {
+        clearTimeout(closeTimer);
+        closeTimer = null;
       }
 
       setSharerName(voiceMsg.screenSharerUsername);
@@ -102,6 +117,7 @@ export function PopoutScreenShareView() {
         });
 
         await room.connect(url, token);
+        hasConnected = true;
 
         // Check if sharer is already publishing
         for (const participant of room.remoteParticipants.values()) {
@@ -129,6 +145,7 @@ export function PopoutScreenShareView() {
 
     return () => {
       cleanup();
+      if (closeTimer) clearTimeout(closeTimer);
       if (roomRef.current) {
         roomRef.current.disconnect();
         roomRef.current = null;

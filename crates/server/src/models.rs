@@ -94,6 +94,7 @@ pub struct DmChannelResponse {
 pub struct DmOtherUser {
     pub id: String,
     pub username: String,
+    pub image: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

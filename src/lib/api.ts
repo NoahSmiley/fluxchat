@@ -177,11 +177,11 @@ export async function getReactions(messageIds: string[]) {
 // ── Direct Messages ──
 
 export async function getDMChannels() {
-  return request<{ id: string; otherUser: { id: string; username: string }; createdAt: string }[]>("/dms");
+  return request<{ id: string; otherUser: { id: string; username: string; image: string | null }; createdAt: string }[]>("/dms");
 }
 
 export async function createDM(userId: string) {
-  return request<{ id: string; otherUser: { id: string; username: string }; createdAt: string }>("/dms", {
+  return request<{ id: string; otherUser: { id: string; username: string; image: string | null }; createdAt: string }>("/dms", {
     method: "POST",
     body: JSON.stringify({ userId }),
   });

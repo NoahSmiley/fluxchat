@@ -5,6 +5,7 @@ import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
 import { KrispNoiseFilter, isKrispNoiseFilterSupported } from "@livekit/krisp-noise-filter";
+import { useKeybindsStore } from "./keybinds.js";
 
 // ── Sound Effects ──
 
@@ -269,6 +270,8 @@ interface VoiceUser {
   userId: string;
   username: string;
   speaking: boolean;
+  isMuted: boolean;
+  isDeafened: boolean;
 }
 
 interface AudioSettings {
@@ -314,7 +317,8 @@ interface VoiceState {
   // Screen share
   isScreenSharing: boolean;
   screenSharers: ScreenShareInfo[];
-  watchingScreenShare: string | null;
+  pinnedScreenShare: string | null;
+  theatreMode: boolean;
   screenShareQuality: ScreenShareQuality;
 
   // Participants in the current room (from LiveKit)
@@ -328,12 +332,14 @@ interface VoiceState {
   leaveVoiceChannel: () => void;
   toggleMute: () => void;
   toggleDeafen: () => void;
+  setMuted: (muted: boolean) => void;
   updateAudioSetting: (key: keyof AudioSettings, value: boolean | number) => void;
   applyBitrate: (bitrate: number) => void;
   toggleScreenShare: (displaySurface?: "monitor" | "window") => Promise<void>;
   setParticipantVolume: (participantId: string, volume: number) => void;
-  watchScreenShare: (participantId: string) => void;
-  stopWatchingScreenShare: () => void;
+  pinScreenShare: (participantId: string) => void;
+  unpinScreenShare: () => void;
+  toggleTheatreMode: () => void;
   setScreenShareQuality: (quality: ScreenShareQuality) => void;
 
   // Internal
@@ -369,7 +375,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   audioLevels: {},
   isScreenSharing: false,
   screenSharers: [],
-  watchingScreenShare: null,
+  pinnedScreenShare: null,
+  theatreMode: false,
   screenShareQuality: "high",
   participants: [],
   channelParticipants: {},
@@ -498,7 +505,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           screenSharers: [],
           participantTrackMap: {},
           audioLevels: {},
-          watchingScreenShare: null,
+          pinnedScreenShare: null,
         });
       });
 
@@ -528,12 +535,20 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         isScreenSharing: false,
         screenSharers: [],
         participantTrackMap: {},
-        watchingScreenShare: null,
+        pinnedScreenShare: null,
       });
 
       get()._updateParticipants();
       get()._updateScreenSharers();
       startAudioLevelPolling();
+
+      // If push-to-talk is configured, start muted
+      const { keybinds } = useKeybindsStore.getState();
+      const hasPTT = keybinds.some((kb) => kb.action === "push-to-talk" && kb.key !== null);
+      if (hasPTT) {
+        room.localParticipant.setMicrophoneEnabled(false);
+        set({ isMuted: true });
+      }
 
       playJoinSound();
 
@@ -597,7 +612,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       screenSharers: [],
       participantTrackMap: {},
       audioLevels: {},
-      watchingScreenShare: null,
+      pinnedScreenShare: null,
     });
   },
 
@@ -606,6 +621,15 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     if (!room) return;
     room.localParticipant.setMicrophoneEnabled(isMuted);
     set({ isMuted: !isMuted });
+    get()._updateParticipants();
+  },
+
+  setMuted: (muted: boolean) => {
+    const { room, isMuted } = get();
+    if (!room || isMuted === muted) return;
+    room.localParticipant.setMicrophoneEnabled(!muted);
+    set({ isMuted: muted });
+    get()._updateParticipants();
   },
 
   toggleDeafen: () => {
@@ -632,9 +656,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     if (newDeafened && !isMuted) {
       room.localParticipant.setMicrophoneEnabled(false);
       set({ isDeafened: newDeafened, isMuted: true });
+    } else if (!newDeafened) {
+      // Undeafening also unmutes the mic
+      room.localParticipant.setMicrophoneEnabled(true);
+      set({ isDeafened: false, isMuted: false });
     } else {
       set({ isDeafened: newDeafened });
     }
+    get()._updateParticipants();
   },
 
   setParticipantVolume: (participantId: string, volume: number) => {
@@ -783,12 +812,16 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     }
   },
 
-  watchScreenShare: (participantId: string) => {
-    set({ watchingScreenShare: participantId });
+  pinScreenShare: (participantId: string) => {
+    set({ pinnedScreenShare: participantId });
   },
 
-  stopWatchingScreenShare: () => {
-    set({ watchingScreenShare: null });
+  unpinScreenShare: () => {
+    set({ pinnedScreenShare: null });
+  },
+
+  toggleTheatreMode: () => {
+    set((state) => ({ theatreMode: !state.theatreMode }));
   },
 
   setScreenShareQuality: (quality) => {
@@ -806,10 +839,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     const users: VoiceUser[] = [];
 
     const local = room.localParticipant;
+    const { isMuted: localMuted, isDeafened: localDeafened } = get();
     users.push({
       userId: local.identity,
       username: local.name ?? local.identity.slice(0, 8),
       speaking: activeSpeakerIds.has(local.identity),
+      isMuted: localMuted,
+      isDeafened: localDeafened,
     });
 
     for (const participant of room.remoteParticipants.values()) {
@@ -817,6 +853,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         userId: participant.identity,
         username: participant.name ?? participant.identity.slice(0, 8),
         speaking: activeSpeakerIds.has(participant.identity),
+        isMuted: !participant.isMicrophoneEnabled,
+        isDeafened: false,
       });
     }
 
@@ -824,7 +862,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   _updateScreenSharers: () => {
-    const { room, screenSharers: previousSharers, watchingScreenShare } = get();
+    const { room, screenSharers: previousSharers, pinnedScreenShare } = get();
     if (!room) return;
 
     const sharers: ScreenShareInfo[] = [];
@@ -868,22 +906,30 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     }
 
     let playedStop = false;
-    let clearWatching = false;
+    let clearPin = false;
     for (const s of previousSharers) {
       if (!newIds.has(s.participantId)) {
         if (!playedStop) {
           playScreenShareStopSound();
           playedStop = true;
         }
-        if (watchingScreenShare === s.participantId) {
-          clearWatching = true;
+        if (pinnedScreenShare === s.participantId) {
+          clearPin = true;
         }
       }
     }
 
+    // Auto-pin first sharer if nothing is pinned
+    let newPin = clearPin ? null : pinnedScreenShare;
+    if (!newPin && sharers.length > 0) {
+      newPin = sharers[0].participantId;
+    }
+
     set({
       screenSharers: sharers,
-      ...(clearWatching ? { watchingScreenShare: null } : {}),
+      pinnedScreenShare: newPin,
+      // Exit theatre mode if no more screen shares
+      ...(sharers.length === 0 ? { theatreMode: false } : {}),
     });
   },
 
@@ -908,15 +954,15 @@ gateway.on((event) => {
 
 function broadcastVoiceState() {
   const state = useVoiceStore.getState();
-  const watchedSharer = state.screenSharers.find(
-    (s) => s.participantId === state.watchingScreenShare,
+  const pinnedSharer = state.screenSharers.find(
+    (s) => s.participantId === state.pinnedScreenShare,
   );
   broadcastState({
     type: "voice-state",
     connectedChannelId: state.connectedChannelId,
-    watchingScreenShare: state.watchingScreenShare,
-    screenSharerParticipantId: watchedSharer?.participantId ?? null,
-    screenSharerUsername: watchedSharer?.username ?? null,
+    watchingScreenShare: state.pinnedScreenShare,
+    screenSharerParticipantId: pinnedSharer?.participantId ?? null,
+    screenSharerUsername: pinnedSharer?.username ?? null,
   });
 }
 
