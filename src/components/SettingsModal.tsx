@@ -141,7 +141,7 @@ export function SettingsModal() {
   const { settingsOpen, closeSettings } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
   const { keybinds } = useKeybindsStore();
-  const { account, startOAuthFlow, unlinkAccount, polling } = useSpotifyStore();
+  const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore();
   const { level: micLevel } = useMicLevel(settingsOpen && audioSettings.inputSensitivityEnabled);
 
   // Stop recording keybind when modal closes
@@ -364,6 +364,9 @@ export function SettingsModal() {
                 >
                   {polling ? "Waiting..." : "Link Spotify"}
                 </button>
+                {oauthError && (
+                  <span className="settings-row-error">{oauthError}</span>
+                )}
               </div>
             )}
           </div>

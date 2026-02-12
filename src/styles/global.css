@@ -2804,6 +2804,12 @@ input:focus {
   line-height: 1.3;
 }
 
+.settings-row-error {
+  font-size: 12px;
+  color: #f87171;
+  margin-top: 4px;
+}
+
 .settings-slider-row {
   padding: 10px 0;
   display: flex;

@@ -87,6 +87,7 @@ interface SpotifyState {
   searchResults: SpotifyTrack[];
   searchLoading: boolean;
   polling: boolean;
+  oauthError: string | null;
 
   loadAccount: () => Promise<void>;
   startOAuthFlow: () => Promise<void>;
@@ -167,6 +168,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   searchResults: [],
   searchLoading: false,
   polling: false,
+  oauthError: null,
 
   loadAccount: async () => {
     try {
@@ -186,63 +188,71 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   startOAuthFlow: async () => {
+    set({ oauthError: null });
+
     const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined;
     if (!clientId) {
-      console.error("VITE_SPOTIFY_CLIENT_ID not set");
+      console.error("[spotify] VITE_SPOTIFY_CLIENT_ID not set");
+      set({ oauthError: "Spotify client ID not configured" });
       return;
     }
 
-    const codeVerifier = generateRandomString(64);
-    const codeChallenge = await generateCodeChallenge(codeVerifier);
-
-    // Send code_verifier to backend; backend returns the canonical redirect URI
-    const { state, redirectUri } = await api.initSpotifyAuth(codeVerifier);
-
-    const scopes = [
-      "streaming",
-      "user-read-email",
-      "user-read-private",
-      "user-modify-playback-state",
-      "user-read-playback-state",
-    ].join(" ");
-
-    const authUrl = new URL("https://accounts.spotify.com/authorize");
-    authUrl.searchParams.set("client_id", clientId);
-    authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("redirect_uri", redirectUri);
-    authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("scope", scopes);
-    authUrl.searchParams.set("code_challenge_method", "S256");
-    authUrl.searchParams.set("code_challenge", codeChallenge);
-
-    // Open in system browser
     try {
-      const { open } = await import("@tauri-apps/plugin-shell");
-      await open(authUrl.toString());
-    } catch {
-      window.open(authUrl.toString(), "_blank");
-    }
+      const codeVerifier = generateRandomString(64);
+      const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    // Poll for completion
-    set({ polling: true });
-    const pollInterval = setInterval(async () => {
+      // Send code_verifier to backend; backend returns the canonical redirect URI
+      const { state, redirectUri } = await api.initSpotifyAuth(codeVerifier);
+
+      const scopes = [
+        "streaming",
+        "user-read-email",
+        "user-read-private",
+        "user-modify-playback-state",
+        "user-read-playback-state",
+      ].join(" ");
+
+      const authUrl = new URL("https://accounts.spotify.com/authorize");
+      authUrl.searchParams.set("client_id", clientId);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("redirect_uri", redirectUri);
+      authUrl.searchParams.set("state", state);
+      authUrl.searchParams.set("scope", scopes);
+      authUrl.searchParams.set("code_challenge_method", "S256");
+      authUrl.searchParams.set("code_challenge", codeChallenge);
+
+      // Open in system browser
       try {
-        const info = await api.getSpotifyAuthInfo();
-        if (info.linked) {
-          clearInterval(pollInterval);
-          set({ account: info, polling: false });
-          get().initializeSDK();
-        }
+        const { open } = await import("@tauri-apps/plugin-shell");
+        await open(authUrl.toString());
       } catch {
-        // Keep polling
+        window.open(authUrl.toString(), "_blank");
       }
-    }, 2000);
 
-    // Stop polling after 5 minutes
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      set({ polling: false });
-    }, 300000);
+      // Poll for completion
+      set({ polling: true });
+      const pollInterval = setInterval(async () => {
+        try {
+          const info = await api.getSpotifyAuthInfo();
+          if (info.linked) {
+            clearInterval(pollInterval);
+            set({ account: info, polling: false });
+            get().initializeSDK();
+          }
+        } catch {
+          // Keep polling
+        }
+      }, 2000);
+
+      // Stop polling after 5 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        set({ polling: false });
+      }, 300000);
+    } catch (err) {
+      console.error("[spotify] OAuth flow failed:", err);
+      set({ oauthError: "Failed to start Spotify login. Check your connection." });
+    }
   },
 
   unlinkAccount: async () => {
