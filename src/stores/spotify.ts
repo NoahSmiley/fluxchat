@@ -507,8 +507,17 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   play: async (trackUri) => {
-    const { session, player } = get();
+    const { session, player, queue } = get();
     if (!session) return;
+
+    // Remove track from queue if it's in there
+    if (trackUri) {
+      const queueItem = queue.find((item) => item.trackUri === trackUri);
+      if (queueItem) {
+        set((s) => ({ queue: s.queue.filter((item) => item.trackUri !== trackUri) }));
+        api.removeFromQueue(session.id, queueItem.id);
+      }
+    }
 
     gateway.send({
       type: "spotify_playback_control",
