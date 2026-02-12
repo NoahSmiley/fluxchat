@@ -170,6 +170,7 @@ export type WSServerEvent =
   | { type: "server_key_shared"; serverId: string; encryptedKey: string; senderId: string }
   | { type: "server_key_requested"; serverId: string; userId: string }
   | { type: "spotify_queue_update"; sessionId: string; voiceChannelId: string; queueItem: QueueItem }
+  | { type: "spotify_queue_remove"; sessionId: string; voiceChannelId: string; itemId: string }
   | { type: "spotify_playback_sync"; sessionId: string; voiceChannelId: string; action: string; trackUri?: string; positionMs?: number }
   | { type: "spotify_session_ended"; sessionId: string; voiceChannelId: string }
   | { type: "error"; message: string };

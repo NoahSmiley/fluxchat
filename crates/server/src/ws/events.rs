@@ -243,6 +243,14 @@ pub enum ServerEvent {
         #[serde(skip_serializing_if = "Option::is_none", rename = "positionMs")]
         position_ms: Option<i64>,
     },
+    SpotifyQueueRemove {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "voiceChannelId")]
+        voice_channel_id: String,
+        #[serde(rename = "itemId")]
+        item_id: String,
+    },
     SpotifySessionEnded {
         #[serde(rename = "sessionId")]
         session_id: String,

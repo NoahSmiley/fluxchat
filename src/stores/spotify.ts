@@ -103,6 +103,7 @@ interface SpotifyState {
   leaveSession: () => void;
   endSession: () => Promise<void>;
   addTrackToQueue: (track: SpotifyTrack) => Promise<void>;
+  removeFromQueue: (itemId: string) => Promise<void>;
   play: (trackUri?: string) => void;
   pause: () => void;
   skip: (trackUri?: string) => void;
@@ -498,6 +499,13 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     });
   },
 
+  removeFromQueue: async (itemId) => {
+    const { session } = get();
+    if (!session) return;
+    set((s) => ({ queue: s.queue.filter((item) => item.id !== itemId) }));
+    await api.removeFromQueue(session.id, itemId);
+  },
+
   play: async (trackUri) => {
     const { session, player } = get();
     if (!session) return;
@@ -599,6 +607,13 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
         const { session } = get();
         if (session && session.id === event.sessionId) {
           set((s) => ({ queue: [...s.queue, event.queueItem] }));
+        }
+        break;
+      }
+      case "spotify_queue_remove": {
+        const { session } = get();
+        if (session && session.id === event.sessionId) {
+          set((s) => ({ queue: s.queue.filter((item) => item.id !== event.itemId) }));
         }
         break;
       }

@@ -3792,6 +3792,25 @@ input:focus {
   color: #fff;
 }
 
+.music-queue-item-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.music-queue-item-remove:hover {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
 /* Member activity with album art */
 .member-activity-row {
   display: flex;

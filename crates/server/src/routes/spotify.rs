@@ -613,6 +613,43 @@ pub async fn add_to_queue(
     Json(serde_json::json!({"id": item_id})).into_response()
 }
 
+/// DELETE /api/spotify/sessions/:sessionId/queue/:itemId
+pub async fn remove_from_queue(
+    _user: AuthUser,
+    State(state): State<Arc<AppState>>,
+    Path((session_id, item_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let voice_channel_id = sqlx::query_scalar::<_, String>(
+        r#"SELECT voice_channel_id FROM "listening_sessions" WHERE id = ?"#,
+    )
+    .bind(&session_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten()
+    .unwrap_or_default();
+
+    let _ = sqlx::query(r#"DELETE FROM "session_queue" WHERE id = ? AND session_id = ?"#)
+        .bind(&item_id)
+        .bind(&session_id)
+        .execute(&state.db)
+        .await;
+
+    state
+        .gateway
+        .broadcast_all(
+            &ServerEvent::SpotifyQueueRemove {
+                session_id,
+                voice_channel_id,
+                item_id: item_id.clone(),
+            },
+            None,
+        )
+        .await;
+
+    Json(serde_json::json!({"success": true})).into_response()
+}
+
 /// DELETE /api/spotify/sessions/:sessionId
 pub async fn delete_session(
     user: AuthUser,

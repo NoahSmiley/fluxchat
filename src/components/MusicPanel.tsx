@@ -9,7 +9,7 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
   const {
     account, session, queue, isHost, playerState,
     searchResults, searchLoading, volume,
-    startSession, loadSession, endSession, addTrackToQueue,
+    startSession, loadSession, endSession, addTrackToQueue, removeFromQueue,
     play, pause, skip, seek, setVolume, searchTracks,
   } = useSpotifyStore();
 
@@ -225,6 +225,13 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
                     <Play size={14} />
                   </button>
                 )}
+                <button
+                  className="music-queue-item-remove"
+                  onClick={() => removeFromQueue(item.id)}
+                  title="Remove"
+                >
+                  <X size={14} />
+                </button>
               </div>
             ))}
           </div>

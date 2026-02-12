@@ -70,6 +70,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/spotify/sessions", post(spotify::create_session))
         .route("/spotify/sessions/channel/{voiceChannelId}", get(spotify::get_session))
         .route("/spotify/sessions/{sessionId}/queue", post(spotify::add_to_queue))
+        .route("/spotify/sessions/{sessionId}/queue/{itemId}", delete(spotify::remove_from_queue))
         .route("/spotify/sessions/{sessionId}/end", delete(spotify::delete_session));
 
     Router::new()

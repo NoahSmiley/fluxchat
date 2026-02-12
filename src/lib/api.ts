@@ -357,6 +357,12 @@ export async function addToQueue(sessionId: string, track: {
   });
 }
 
+export async function removeFromQueue(sessionId: string, itemId: string) {
+  return request<{ success: boolean }>(`/spotify/sessions/${sessionId}/queue/${itemId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function deleteListeningSession(sessionId: string) {
   return request<{ success: boolean }>(`/spotify/sessions/${sessionId}/end`, {
     method: "DELETE",
