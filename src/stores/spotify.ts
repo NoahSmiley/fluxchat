@@ -438,7 +438,11 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   startSession: async (voiceChannelId) => {
-    const result = await api.createListeningSession(voiceChannelId);
+    // Clear old playback state before starting fresh
+    const { player } = get();
+    player?.pause();
+    set({ playerState: null, queue: [], searchResults: [] });
+    await api.createListeningSession(voiceChannelId);
     await get().loadSession(voiceChannelId);
   },
 
@@ -495,8 +499,8 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   play: async (trackUri) => {
-    const { session, isHost, player } = get();
-    if (!session || !isHost) return;
+    const { session, player } = get();
+    if (!session) return;
 
     gateway.send({
       type: "spotify_playback_control",
@@ -518,8 +522,8 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   pause: () => {
-    const { session, isHost, player, playerState } = get();
-    if (!session || !isHost) return;
+    const { session, player, playerState } = get();
+    if (!session) return;
 
     gateway.send({
       type: "spotify_playback_control",
@@ -532,8 +536,8 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   skip: async (trackUri) => {
-    const { session, isHost, player, queue } = get();
-    if (!session || !isHost) return;
+    const { session, player, queue } = get();
+    if (!session) return;
 
     // Find next track in queue if no URI provided
     const nextTrack = trackUri ?? queue[0]?.trackUri;
@@ -570,8 +574,8 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   seek: (ms) => {
-    const { session, isHost, player } = get();
-    if (!session || !isHost) return;
+    const { session, player } = get();
+    if (!session) return;
 
     gateway.send({
       type: "spotify_playback_control",
@@ -599,10 +603,10 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
         break;
       }
       case "spotify_playback_sync": {
-        const { session, isHost, player } = get();
-        if (!session || session.id !== event.sessionId || isHost) break;
+        const { session, player } = get();
+        if (!session || session.id !== event.sessionId) break;
 
-        // Non-host: sync playback
+        // Sync playback from another session member
         const playTrackOnDevice = async (uri: string) => {
           const deviceId = await get().ensureDeviceId();
           if (!deviceId) return;
@@ -611,6 +615,8 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
         if (event.action === "play" && event.trackUri && player) {
           playTrackOnDevice(event.trackUri);
+        } else if (event.action === "play" && !event.trackUri && player) {
+          player.resume();
         } else if (event.action === "pause" && player) {
           player.pause();
         } else if (event.action === "seek" && player && event.positionMs != null) {

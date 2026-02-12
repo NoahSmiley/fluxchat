@@ -94,8 +94,8 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
         </div>
       )}
 
-      {/* Controls (host only) */}
-      {isHost && currentTrack && (
+      {/* Controls */}
+      {currentTrack && (
         <div className="music-controls">
           <div className="music-control-buttons">
             {isPaused ? (
@@ -179,15 +179,13 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
                   </span>
                 </div>
                 <div className="music-search-item-actions">
-                  {isHost && (
-                    <button
-                      className="music-search-item-play"
-                      onClick={() => handlePlay(track.uri)}
-                      title="Play now"
-                    >
-                      <Play size={14} />
-                    </button>
-                  )}
+                  <button
+                    className="music-search-item-play"
+                    onClick={() => handlePlay(track.uri)}
+                    title="Play now"
+                  >
+                    <Play size={14} />
+                  </button>
                   <button
                     className="music-search-item-add"
                     onClick={() => handleAddToQueue(track)}
@@ -218,7 +216,7 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
                   <span className="music-queue-item-name">{item.trackName}</span>
                   <span className="music-queue-item-artist">{item.trackArtist}</span>
                 </div>
-                {isHost && i === 0 && (
+                {i === 0 && (
                   <button
                     className="music-queue-item-play"
                     onClick={() => handlePlay(item.trackUri)}

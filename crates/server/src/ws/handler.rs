@@ -744,23 +744,10 @@ async fn handle_client_event(
             .ok()
             .flatten();
 
-            let (host_id, voice_channel_id) = match session {
+            let (_host_id, voice_channel_id) = match session {
                 Some(s) => s,
                 None => return,
             };
-
-            if host_id != user.id {
-                state
-                    .gateway
-                    .send_to(
-                        client_id,
-                        &ServerEvent::Error {
-                            message: "Only the host can control playback".into(),
-                        },
-                    )
-                    .await;
-                return;
-            }
 
             // Update session state in DB
             let now = chrono::Utc::now().to_rfc3339();
@@ -822,7 +809,7 @@ async fn handle_client_event(
                 _ => return,
             }
 
-            // Broadcast to all connected clients
+            // Broadcast to all connected clients except the sender
             state
                 .gateway
                 .broadcast_all(
@@ -833,7 +820,7 @@ async fn handle_client_event(
                         track_uri,
                         position_ms,
                     },
-                    None,
+                    Some(client_id),
                 )
                 .await;
         }

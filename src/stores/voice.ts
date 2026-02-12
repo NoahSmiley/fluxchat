@@ -523,6 +523,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           // Audio is routed exclusively through the Web Audio pipeline for volume/filter control.
           // Keeping the element reference prevents GC, keeping the consumer alive.
           const el = track.attach();
+          el.muted = true; // silence the element — audio goes through Web Audio pipeline only
           (el as any).__lkKeepAlive = true; // prevent GC
 
           const { audioSettings: settings, participantVolumes, isDeafened } = get();
