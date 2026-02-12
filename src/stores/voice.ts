@@ -342,7 +342,17 @@ interface ScreenShareInfo {
   username: string;
 }
 
-export type ScreenShareQuality = "high" | "medium" | "low";
+export type ScreenShareQuality = "1080p60" | "1080p30" | "720p60" | "720p30" | "480p30";
+
+const SCREEN_SHARE_PRESETS: Record<ScreenShareQuality, {
+  width: number; height: number; frameRate: number; maxBitrate: number;
+}> = {
+  "1080p60": { width: 1920, height: 1080, frameRate: 60, maxBitrate: 8_000_000 },
+  "1080p30": { width: 1920, height: 1080, frameRate: 30, maxBitrate: 5_000_000 },
+  "720p60":  { width: 1280, height: 720,  frameRate: 60, maxBitrate: 5_000_000 },
+  "720p30":  { width: 1280, height: 720,  frameRate: 30, maxBitrate: 3_000_000 },
+  "480p30":  { width: 854,  height: 480,  frameRate: 30, maxBitrate: 1_500_000 },
+};
 
 interface VoiceState {
   // Connection state
@@ -428,7 +438,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   screenSharers: [],
   pinnedScreenShare: null,
   theatreMode: false,
-  screenShareQuality: "high",
+  screenShareQuality: "1080p60",
   participants: [],
   channelParticipants: {},
 
@@ -857,8 +867,10 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   toggleScreenShare: async (displaySurface?: "monitor" | "window") => {
-    const { room, isScreenSharing } = get();
+    const { room, isScreenSharing, screenShareQuality } = get();
     if (!room) return;
+
+    const preset = SCREEN_SHARE_PRESETS[screenShareQuality];
 
     try {
       if (isScreenSharing) {
@@ -870,7 +882,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           {
             audio: true,
             contentHint: "detail",
-            resolution: { width: 3840, height: 2160, frameRate: 60 },
+            resolution: { width: preset.width, height: preset.height, frameRate: preset.frameRate },
             preferCurrentTab: false,
             selfBrowserSurface: "exclude",
             surfaceSwitching: "include",
@@ -881,8 +893,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           {
             videoCodec: "vp9",
             screenShareEncoding: {
-              maxBitrate: 20_000_000,
-              maxFramerate: 60,
+              maxBitrate: preset.maxBitrate,
+              maxFramerate: preset.frameRate,
               priority: "high",
             },
             scalabilityMode: "L1T3",

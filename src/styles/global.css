@@ -1224,6 +1224,65 @@ input:focus {
   background: #c0392b;
 }
 
+.screen-share-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.quality-picker-toggle {
+  width: auto !important;
+  padding: 0 6px !important;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.quality-label {
+  font-size: 10px;
+}
+
+.quality-picker-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+  min-width: 90px;
+}
+
+.quality-option {
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.quality-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.quality-option.active {
+  color: var(--accent);
+  background: rgba(88, 101, 242, 0.15);
+}
+
 /* ── Voice Channel Users in Sidebar ── */
 .voice-channel-users {
   padding: 2px 0 4px 28px;

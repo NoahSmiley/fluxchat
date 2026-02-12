@@ -454,11 +454,27 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
         // Check if current user is host
         const { useAuthStore } = await import("./auth.js");
         const userId = useAuthStore.getState().user?.id;
+        const wasAlreadyLoaded = get().session?.id === data.session.id;
         set({
           session: data.session,
           queue: data.queue,
           isHost: data.session.hostUserId === userId,
         });
+
+        // If joining a session that has an active track playing, sync playback
+        if (!wasAlreadyLoaded && data.session.isPlaying && data.session.currentTrackUri) {
+          const deviceId = await get().ensureDeviceId();
+          if (deviceId) {
+            await playOnDevice(deviceId, [data.session.currentTrackUri]);
+            // Seek to approximate position (account for time elapsed since last update)
+            const { player } = get();
+            if (player && data.session.currentTrackPositionMs > 0) {
+              const elapsed = Date.now() - new Date(data.session.updatedAt).getTime();
+              const seekTo = data.session.currentTrackPositionMs + elapsed;
+              setTimeout(() => player.seek(seekTo), 500);
+            }
+          }
+        }
       } else {
         set({ session: null, queue: [], isHost: false });
       }

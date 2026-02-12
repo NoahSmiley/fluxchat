@@ -153,20 +153,37 @@ export function VoiceChannelView() {
     toggleDeafen,
     toggleScreenShare,
     setParticipantVolume,
+    screenShareQuality,
+    setScreenShareQuality,
   } = useVoiceStore();
   const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
   const [activeTab, setActiveTab] = useState<"voice" | "music">("voice");
+  const [showQualityPicker, setShowQualityPicker] = useState(false);
 
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
   const hasScreenShares = screenSharers.length > 0;
 
-  // Load session when switching to music tab
+  // Load session when connecting to voice channel or switching to music tab
+  useEffect(() => {
+    if (isConnected && activeChannelId) {
+      loadSession(activeChannelId);
+    }
+  }, [isConnected, activeChannelId]);
+
   useEffect(() => {
     if (activeTab === "music" && activeChannelId) {
       loadSession(activeChannelId);
     }
   }, [activeTab, activeChannelId]);
+
+  // Close quality picker when clicking outside
+  useEffect(() => {
+    if (!showQualityPicker) return;
+    const handler = () => setShowQualityPicker(false);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [showQualityPicker]);
 
   // Separate pinned vs unpinned streams
   const pinnedSharer = screenSharers.find((s) => s.participantId === pinnedScreenShare);
@@ -349,13 +366,37 @@ export function VoiceChannelView() {
           >
             {isDeafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />}
           </button>
-          <button
-            className={`voice-ctrl-btn ${isScreenSharing ? "active" : ""}`}
-            onClick={() => toggleScreenShare()}
-            title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
-          >
-            {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
-          </button>
+          <div className="screen-share-group">
+            <button
+              className={`voice-ctrl-btn ${isScreenSharing ? "active" : ""}`}
+              onClick={() => toggleScreenShare()}
+              title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
+            >
+              {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+            </button>
+            {!isScreenSharing && (
+              <button
+                className="voice-ctrl-btn quality-picker-toggle"
+                onClick={(e) => { e.stopPropagation(); setShowQualityPicker((v) => !v); }}
+                title="Stream Quality"
+              >
+                <span className="quality-label">{screenShareQuality}</span>
+              </button>
+            )}
+            {showQualityPicker && !isScreenSharing && (
+              <div className="quality-picker-dropdown" onClick={(e) => e.stopPropagation()}>
+                {(["1080p60", "1080p30", "720p60", "720p30", "480p30"] as const).map((q) => (
+                  <button
+                    key={q}
+                    className={`quality-option ${screenShareQuality === q ? "active" : ""}`}
+                    onClick={() => { setScreenShareQuality(q); setShowQualityPicker(false); }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             className="voice-ctrl-btn disconnect"
             onClick={leaveVoiceChannel}
