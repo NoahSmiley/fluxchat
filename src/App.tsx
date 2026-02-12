@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Minus, Square, Copy, X } from "lucide-react";
 import { useAuthStore } from "./stores/auth.js";
+import { useUpdater } from "./hooks/useUpdater.js";
 import { LoginPage } from "./pages/LoginPage.js";
 import { RegisterPage } from "./pages/RegisterPage.js";
 import { MainLayout } from "./layouts/MainLayout.js";
@@ -60,6 +61,53 @@ function WindowControls() {
   );
 }
 
+function UpdateToast() {
+  const { status, version, progress, checkForUpdate, downloadAndInstall, relaunch } = useUpdater();
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    checkForUpdate();
+  }, [checkForUpdate]);
+
+  if (dismissed || status === "idle" || status === "checking" || status === "up-to-date") {
+    return null;
+  }
+
+  return (
+    <div className="update-toast">
+      <div className="update-toast-info">
+        <span className="update-toast-title">
+          {status === "available" && `Update v${version} available`}
+          {status === "downloading" && `Downloading update... ${progress}%`}
+          {status === "ready" && "Update ready"}
+          {status === "error" && "Update failed"}
+        </span>
+        <span className="update-toast-desc">
+          {status === "available" && "A new version of Flux is ready to install."}
+          {status === "ready" && "Restart to apply the update."}
+        </span>
+      </div>
+      <div className="update-toast-actions">
+        {status === "available" && (
+          <button className="update-toast-btn primary" onClick={downloadAndInstall}>
+            Update
+          </button>
+        )}
+        {status === "ready" && (
+          <button className="update-toast-btn primary" onClick={relaunch}>
+            Restart
+          </button>
+        )}
+      </div>
+      {(status === "available" || status === "error") && (
+        <button className="update-toast-dismiss" onClick={() => setDismissed(true)}>
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   const { user, loading } = useAuthStore();
 
@@ -82,6 +130,7 @@ export function App() {
         <Route path="/spotify-callback" element={<SpotifyCallback />} />
         <Route path="/*" element={user ? <MainLayout /> : <Navigate to="/login" />} />
       </Routes>
+      <UpdateToast />
     </>
   );
 }

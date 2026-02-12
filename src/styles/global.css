@@ -3830,3 +3830,99 @@ input:focus {
   color: var(--text-muted);
   font-size: 11px;
 }
+
+/* ── Update Toast ── */
+.update-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: toast-slide-in 0.3s ease;
+  max-width: 360px;
+}
+
+@keyframes toast-slide-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.update-toast-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.update-toast-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.update-toast-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.update-toast-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.update-toast-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.update-toast-btn:hover { opacity: 0.85; }
+
+.update-toast-btn.primary {
+  background: var(--accent);
+  color: #000;
+}
+
+.update-toast-btn.secondary {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.update-toast-dismiss {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  line-height: 1;
+}
+
+/* ── Settings Update Section ── */
+.update-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-input);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.update-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}

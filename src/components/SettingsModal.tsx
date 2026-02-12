@@ -3,6 +3,7 @@ import { useVoiceStore } from "../stores/voice.js";
 import { useUIStore } from "../stores/ui.js";
 import { useKeybindsStore, type KeybindAction, type KeybindEntry } from "../stores/keybinds.js";
 import { useSpotifyStore } from "../stores/spotify.js";
+import { useUpdater } from "../hooks/useUpdater.js";
 import { X } from "lucide-react";
 
 function useMicLevel(enabled: boolean): { level: number; status: string } {
@@ -142,6 +143,7 @@ export function SettingsModal() {
   const { audioSettings, updateAudioSetting } = useVoiceStore();
   const { keybinds } = useKeybindsStore();
   const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore();
+  const updater = useUpdater();
   const { level: micLevel } = useMicLevel(settingsOpen && audioSettings.inputSensitivityEnabled);
 
   // Stop recording keybind when modal closes
@@ -332,6 +334,59 @@ export function SettingsModal() {
                 <KeybindButton entry={entry} />
               </div>
             ))}
+          </div>
+
+          {/* App Updates */}
+          <div className="settings-section">
+            <h3 className="settings-section-title">App Updates</h3>
+            <p className="settings-section-desc">
+              Current version: v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev"}
+            </p>
+
+            <div className="settings-row">
+              <div className="settings-row-info">
+                <span className="settings-row-label">
+                  {updater.status === "checking" && "Checking for updates..."}
+                  {updater.status === "available" && `Update available: v${updater.version}`}
+                  {updater.status === "downloading" && `Downloading... ${updater.progress}%`}
+                  {updater.status === "ready" && "Update ready — restart to apply"}
+                  {updater.status === "up-to-date" && "You're up to date"}
+                  {updater.status === "error" && "Update check failed"}
+                  {updater.status === "idle" && "Check for updates"}
+                </span>
+                {updater.error && (
+                  <span className="settings-row-desc" style={{ color: "var(--danger)" }}>
+                    {updater.error}
+                  </span>
+                )}
+              </div>
+              {updater.status === "idle" && (
+                <button className="btn-small" onClick={updater.checkForUpdate}>
+                  Check
+                </button>
+              )}
+              {updater.status === "up-to-date" && (
+                <button className="btn-small" onClick={updater.checkForUpdate}>
+                  Check Again
+                </button>
+              )}
+              {updater.status === "available" && (
+                <button className="btn-small" onClick={updater.downloadAndInstall}>
+                  Update
+                </button>
+              )}
+              {updater.status === "ready" && (
+                <button className="btn-small" onClick={updater.relaunch}>
+                  Restart
+                </button>
+              )}
+            </div>
+
+            {updater.status === "downloading" && (
+              <div className="update-progress-bar">
+                <div className="update-progress-fill" style={{ width: `${updater.progress}%` }} />
+              </div>
+            )}
           </div>
 
           {/* Spotify */}
