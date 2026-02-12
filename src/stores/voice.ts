@@ -519,12 +519,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       // Attach remote audio tracks with Web Audio pipeline
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
         if (track.kind === Track.Kind.Audio) {
-          // Call attach() to create WebRTC consumer, but do NOT append to DOM.
-          // Audio is routed exclusively through the Web Audio pipeline for volume/filter control.
-          // Keeping the element reference prevents GC, keeping the consumer alive.
+          // We need track.attach() to create the WebRTC consumer, but it also
+          // appends an <audio> element to the DOM that auto-plays.
+          // Immediately remove it from DOM to prevent double audio — all playback
+          // goes through the Web Audio pipeline below.
           const el = track.attach();
-          el.muted = true; // silence the element — audio goes through Web Audio pipeline only
-          (el as any).__lkKeepAlive = true; // prevent GC
+          el.muted = true;
+          el.pause();
+          el.remove();
 
           const { audioSettings: settings, participantVolumes, isDeafened } = get();
           const volume = isDeafened ? 0 : (participantVolumes[participant.identity] ?? 1.0);
