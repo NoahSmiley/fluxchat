@@ -41,7 +41,10 @@ export function MemberList() {
                   <span className="member-name">{m.username}</span>
                   {activity && (
                     <span className="member-activity">
-                      {activity.activityType === "playing" ? "Playing" : "Listening to"} <strong>{activity.name}</strong>
+                      {activity.activityType === "listening"
+                        ? "Listening to Spotify"
+                        : <>Playing <strong>{activity.name}</strong></>
+                      }
                     </span>
                   )}
                 </div>

@@ -1,12 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::{Attachment, DmMessage, Message, VoiceParticipant};
+use crate::models::{Attachment, DmMessage, Message, QueueItem, VoiceParticipant};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityInfo {
     pub name: String,
     #[serde(rename = "activityType")]
     pub activity_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artist: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "albumArt")]
+    pub album_art: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "durationMs")]
+    pub duration_ms: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "progressMs")]
+    pub progress_ms: Option<i64>,
 }
 
 // ── Client → Server Events ──
@@ -92,6 +100,15 @@ pub enum ClientEvent {
     RequestServerKey {
         #[serde(rename = "serverId")]
         server_id: String,
+    },
+    SpotifyPlaybackControl {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        action: String, // "play" | "pause" | "skip" | "seek"
+        #[serde(rename = "trackUri")]
+        track_uri: Option<String>,
+        #[serde(rename = "positionMs")]
+        position_ms: Option<i64>,
     },
     Ping,
 }
@@ -206,6 +223,31 @@ pub enum ServerEvent {
         server_id: String,
         #[serde(rename = "userId")]
         user_id: String,
+    },
+    SpotifyQueueUpdate {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "voiceChannelId")]
+        voice_channel_id: String,
+        #[serde(rename = "queueItem")]
+        queue_item: QueueItem,
+    },
+    SpotifyPlaybackSync {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "voiceChannelId")]
+        voice_channel_id: String,
+        action: String,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "trackUri")]
+        track_uri: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "positionMs")]
+        position_ms: Option<i64>,
+    },
+    SpotifySessionEnded {
+        #[serde(rename = "sessionId")]
+        session_id: String,
+        #[serde(rename = "voiceChannelId")]
+        voice_channel_id: String,
     },
     Error {
         message: String,

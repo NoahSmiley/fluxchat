@@ -38,7 +38,50 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
     sqlx::query(r#"ALTER TABLE "user" ADD COLUMN public_key TEXT"#)
         .execute(&pool)
         .await
-        .ok(); // ignore if column already exists
+        .ok();
+
+    // Unique index for account upsert (userId + providerId)
+    sqlx::query(r#"CREATE UNIQUE INDEX IF NOT EXISTS idx_account_user_provider ON "account"(userId, providerId)"#)
+        .execute(&pool)
+        .await
+        .ok();
+
+    // Spotify: listening sessions
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS "listening_sessions" (
+            id TEXT PRIMARY KEY,
+            voice_channel_id TEXT NOT NULL,
+            host_user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+            current_track_uri TEXT,
+            current_track_position_ms INTEGER DEFAULT 0,
+            is_playing INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&pool)
+    .await
+    .ok();
+
+    // Spotify: queue items per session
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS "session_queue" (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL REFERENCES "listening_sessions"(id) ON DELETE CASCADE,
+            track_uri TEXT NOT NULL,
+            track_name TEXT NOT NULL,
+            track_artist TEXT NOT NULL,
+            track_album TEXT,
+            track_image_url TEXT,
+            track_duration_ms INTEGER NOT NULL,
+            added_by_user_id TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&pool)
+    .await
+    .ok();
 
     tracing::info!("Database initialized at {}", database_path);
     Ok(pool)

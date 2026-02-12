@@ -728,6 +728,115 @@ async fn handle_client_event(
                 )
                 .await;
         }
+        ClientEvent::SpotifyPlaybackControl {
+            session_id,
+            action,
+            track_uri,
+            position_ms,
+        } => {
+            // Verify user is the session host
+            let session = sqlx::query_as::<_, (String, String)>(
+                r#"SELECT host_user_id, voice_channel_id FROM "listening_sessions" WHERE id = ?"#,
+            )
+            .bind(&session_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
+
+            let (host_id, voice_channel_id) = match session {
+                Some(s) => s,
+                None => return,
+            };
+
+            if host_id != user.id {
+                state
+                    .gateway
+                    .send_to(
+                        client_id,
+                        &ServerEvent::Error {
+                            message: "Only the host can control playback".into(),
+                        },
+                    )
+                    .await;
+                return;
+            }
+
+            // Update session state in DB
+            let now = chrono::Utc::now().to_rfc3339();
+            match action.as_str() {
+                "play" => {
+                    let _ = sqlx::query(
+                        r#"UPDATE "listening_sessions" SET is_playing = 1, current_track_uri = COALESCE(?, current_track_uri), current_track_position_ms = COALESCE(?, current_track_position_ms), updated_at = ? WHERE id = ?"#,
+                    )
+                    .bind(&track_uri)
+                    .bind(position_ms)
+                    .bind(&now)
+                    .bind(&session_id)
+                    .execute(&state.db)
+                    .await;
+                }
+                "pause" => {
+                    let _ = sqlx::query(
+                        r#"UPDATE "listening_sessions" SET is_playing = 0, current_track_position_ms = COALESCE(?, current_track_position_ms), updated_at = ? WHERE id = ?"#,
+                    )
+                    .bind(position_ms)
+                    .bind(&now)
+                    .bind(&session_id)
+                    .execute(&state.db)
+                    .await;
+                }
+                "seek" => {
+                    if let Some(pos) = position_ms {
+                        let _ = sqlx::query(
+                            r#"UPDATE "listening_sessions" SET current_track_position_ms = ?, updated_at = ? WHERE id = ?"#,
+                        )
+                        .bind(pos)
+                        .bind(&now)
+                        .bind(&session_id)
+                        .execute(&state.db)
+                        .await;
+                    }
+                }
+                "skip" => {
+                    let _ = sqlx::query(
+                        r#"UPDATE "listening_sessions" SET current_track_uri = ?, current_track_position_ms = 0, is_playing = 1, updated_at = ? WHERE id = ?"#,
+                    )
+                    .bind(&track_uri)
+                    .bind(&now)
+                    .bind(&session_id)
+                    .execute(&state.db)
+                    .await;
+
+                    // Remove the skipped-to track from the queue
+                    if let Some(uri) = &track_uri {
+                        let _ = sqlx::query(
+                            r#"DELETE FROM "session_queue" WHERE session_id = ? AND track_uri = ?"#,
+                        )
+                        .bind(&session_id)
+                        .bind(uri)
+                        .execute(&state.db)
+                        .await;
+                    }
+                }
+                _ => return,
+            }
+
+            // Broadcast to all connected clients
+            state
+                .gateway
+                .broadcast_all(
+                    &ServerEvent::SpotifyPlaybackSync {
+                        session_id,
+                        voice_channel_id,
+                        action,
+                        track_uri,
+                        position_ms,
+                    },
+                    None,
+                )
+                .await;
+        }
         ClientEvent::Ping => {
             // No-op — just keeps connection alive
         }

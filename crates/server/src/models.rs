@@ -221,6 +221,62 @@ pub struct StoreServerKeyRequest {
     pub sender_id: String,
 }
 
+// Spotify
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotifyCallbackRequest {
+    pub code: String,
+    pub code_verifier: String,
+    pub redirect_uri: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotifyAccountInfo {
+    pub linked: bool,
+    pub display_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct ListeningSession {
+    pub id: String,
+    pub voice_channel_id: String,
+    pub host_user_id: String,
+    pub current_track_uri: Option<String>,
+    pub current_track_position_ms: i64,
+    pub is_playing: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueItem {
+    pub id: String,
+    pub session_id: String,
+    pub track_uri: String,
+    pub track_name: String,
+    pub track_artist: String,
+    pub track_album: Option<String>,
+    pub track_image_url: Option<String>,
+    pub track_duration_ms: i64,
+    pub added_by_user_id: String,
+    pub position: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddToQueueRequest {
+    pub track_uri: String,
+    pub track_name: String,
+    pub track_artist: String,
+    pub track_album: Option<String>,
+    pub track_image_url: Option<String>,
+    pub track_duration_ms: i64,
+}
+
 #[derive(Debug, Clone)]
 pub struct AuthUser {
     pub id: String,

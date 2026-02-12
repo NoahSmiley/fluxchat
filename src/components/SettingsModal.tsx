@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useVoiceStore } from "../stores/voice.js";
 import { useUIStore } from "../stores/ui.js";
 import { useKeybindsStore, type KeybindAction, type KeybindEntry } from "../stores/keybinds.js";
+import { useSpotifyStore } from "../stores/spotify.js";
 import { X } from "lucide-react";
 
 function useMicLevel(enabled: boolean): { level: number; status: string } {
@@ -140,6 +141,7 @@ export function SettingsModal() {
   const { settingsOpen, closeSettings } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
   const { keybinds } = useKeybindsStore();
+  const { account, startOAuthFlow, unlinkAccount, polling } = useSpotifyStore();
   const { level: micLevel } = useMicLevel(settingsOpen && audioSettings.inputSensitivityEnabled);
 
   // Stop recording keybind when modal closes
@@ -330,6 +332,40 @@ export function SettingsModal() {
                 <KeybindButton entry={entry} />
               </div>
             ))}
+          </div>
+
+          {/* Spotify */}
+          <div className="settings-section">
+            <h3 className="settings-section-title">Spotify</h3>
+            <p className="settings-section-desc">
+              Link your Spotify account for group listening sessions in voice channels.
+            </p>
+
+            {account?.linked ? (
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">{account.displayName || "Spotify Account"}</span>
+                  <span className="settings-row-desc">Your Spotify account is linked</span>
+                </div>
+                <button className="btn-small btn-danger" onClick={unlinkAccount}>
+                  Unlink
+                </button>
+              </div>
+            ) : (
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">Connect Spotify</span>
+                  <span className="settings-row-desc">Required for music playback (Premium needed)</span>
+                </div>
+                <button
+                  className="btn-spotify"
+                  onClick={startOAuthFlow}
+                  disabled={polling}
+                >
+                  {polling ? "Waiting..." : "Link Spotify"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

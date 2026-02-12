@@ -15,6 +15,8 @@ pub struct AppState {
     pub db: sqlx::SqlitePool,
     pub config: Config,
     pub gateway: Arc<ws::gateway::GatewayState>,
+    /// Temporary storage for Spotify PKCE: nonce → (userId, codeVerifier)
+    pub spotify_auth_pending: tokio::sync::RwLock<std::collections::HashMap<String, (String, String)>>,
 }
 
 #[tokio::main]
@@ -46,6 +48,7 @@ async fn main() {
         db: pool,
         config: config.clone(),
         gateway: Arc::new(ws::gateway::GatewayState::new()),
+        spotify_auth_pending: tokio::sync::RwLock::new(std::collections::HashMap::new()),
     });
 
     // Build router

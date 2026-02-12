@@ -617,6 +617,11 @@ gateway.onConnect(() => {
   // Initialize E2EE crypto
   useCryptoStore.getState().initialize().catch((e) => console.error("Crypto init failed:", e));
 
+  // Initialize Spotify
+  import("./spotify.js").then(({ useSpotifyStore }) => {
+    useSpotifyStore.getState().loadAccount().catch((e) => console.error("Spotify init failed:", e));
+  });
+
   // Start activity polling (detect running games/apps via Tauri)
   if (activityPollInterval) clearInterval(activityPollInterval);
   lastActivityName = null;

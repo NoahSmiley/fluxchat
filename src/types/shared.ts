@@ -86,6 +86,49 @@ export interface VoiceParticipant {
 export interface ActivityInfo {
   name: string;
   activityType: "playing" | "listening";
+  artist?: string;
+  albumArt?: string;
+  durationMs?: number;
+  progressMs?: number;
+}
+
+// Spotify types
+export interface SpotifyAccount {
+  linked: boolean;
+  displayName?: string;
+}
+
+export interface ListeningSession {
+  id: string;
+  voiceChannelId: string;
+  hostUserId: string;
+  currentTrackUri?: string;
+  currentTrackPositionMs: number;
+  isPlaying: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QueueItem {
+  id: string;
+  sessionId: string;
+  trackUri: string;
+  trackName: string;
+  trackArtist: string;
+  trackAlbum?: string;
+  trackImageUrl?: string;
+  trackDurationMs: number;
+  addedByUserId: string;
+  position: number;
+  createdAt: string;
+}
+
+export interface SpotifyTrack {
+  uri: string;
+  name: string;
+  artists: { name: string }[];
+  album: { name: string; images: { url: string; width: number; height: number }[] };
+  duration_ms: number;
 }
 
 export type WSClientEvent =
@@ -104,7 +147,8 @@ export type WSClientEvent =
   | { type: "leave_dm"; dmChannelId: string }
   | { type: "update_activity"; activity: ActivityInfo | null }
   | { type: "share_server_key"; serverId: string; userId: string; encryptedKey: string }
-  | { type: "request_server_key"; serverId: string };
+  | { type: "request_server_key"; serverId: string }
+  | { type: "spotify_playback_control"; sessionId: string; action: string; trackUri?: string; positionMs?: number };
 
 export type WSServerEvent =
   | { type: "message"; message: Message; attachments?: Attachment[] }
@@ -125,6 +169,9 @@ export type WSServerEvent =
   | { type: "activity_update"; userId: string; activity: ActivityInfo | null }
   | { type: "server_key_shared"; serverId: string; encryptedKey: string; senderId: string }
   | { type: "server_key_requested"; serverId: string; userId: string }
+  | { type: "spotify_queue_update"; sessionId: string; voiceChannelId: string; queueItem: QueueItem }
+  | { type: "spotify_playback_sync"; sessionId: string; voiceChannelId: string; action: string; trackUri?: string; positionMs?: number }
+  | { type: "spotify_session_ended"; sessionId: string; voiceChannelId: string }
   | { type: "error"; message: string };
 
 export type PresenceStatus = "online" | "idle" | "offline";

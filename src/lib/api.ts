@@ -12,6 +12,9 @@ import type {
   DMMessage,
   Attachment,
   LinkPreview,
+  SpotifyAccount,
+  ListeningSession,
+  QueueItem,
 } from "../types/shared.js";
 
 import { API_BASE } from "./serverUrl.js";
@@ -297,4 +300,58 @@ export async function getLinkPreview(url: string): Promise<LinkPreview | null> {
   } catch {
     return null;
   }
+}
+
+// ── Spotify ──
+
+export async function getSpotifyAuthInfo() {
+  return request<SpotifyAccount>("/spotify/auth-info");
+}
+
+export async function initSpotifyAuth(codeVerifier: string) {
+  return request<{ state: string; redirectUri: string }>("/spotify/init-auth", {
+    method: "POST",
+    body: JSON.stringify({ codeVerifier }),
+  });
+}
+
+export async function getSpotifyToken() {
+  return request<{ accessToken: string }>("/spotify/token");
+}
+
+export async function unlinkSpotify() {
+  return request<{ success: boolean }>("/spotify/unlink", { method: "POST" });
+}
+
+export async function searchSpotifyTracks(q: string) {
+  return request<any>(`/spotify/search?q=${encodeURIComponent(q)}`);
+}
+
+export async function createListeningSession(voiceChannelId: string) {
+  return request<{ sessionId: string; existing?: boolean }>("/spotify/sessions", {
+    method: "POST",
+    body: JSON.stringify({ voiceChannelId }),
+  });
+}
+
+export async function getListeningSession(voiceChannelId: string) {
+  return request<{ session: ListeningSession | null; queue: QueueItem[] }>(
+    `/spotify/sessions/channel/${voiceChannelId}`
+  );
+}
+
+export async function addToQueue(sessionId: string, track: {
+  trackUri: string; trackName: string; trackArtist: string;
+  trackAlbum?: string; trackImageUrl?: string; trackDurationMs: number;
+}) {
+  return request<{ id: string }>(`/spotify/sessions/${sessionId}/queue`, {
+    method: "POST",
+    body: JSON.stringify(track),
+  });
+}
+
+export async function deleteListeningSession(sessionId: string) {
+  return request<{ success: boolean }>(`/spotify/sessions/${sessionId}/end`, {
+    method: "DELETE",
+  });
 }

@@ -1,10 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useVoiceStore } from "../stores/voice.js";
 import { useChatStore } from "../stores/chat.js";
+import { useSpotifyStore } from "../stores/spotify.js";
+import { MusicPanel } from "./MusicPanel.js";
 import {
-  ArrowUpRight, Volume2, Mic, MicOff, Headphones, HeadphoneOff,
+  ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
+  Music,
 } from "lucide-react";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
@@ -151,10 +154,19 @@ export function VoiceChannelView() {
     toggleScreenShare,
     setParticipantVolume,
   } = useVoiceStore();
+  const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
+  const [activeTab, setActiveTab] = useState<"voice" | "music">("voice");
 
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
   const hasScreenShares = screenSharers.length > 0;
+
+  // Load session when switching to music tab
+  useEffect(() => {
+    if (activeTab === "music" && activeChannelId) {
+      loadSession(activeChannelId);
+    }
+  }, [activeTab, activeChannelId]);
 
   // Separate pinned vs unpinned streams
   const pinnedSharer = screenSharers.find((s) => s.participantId === pinnedScreenShare);
@@ -162,6 +174,23 @@ export function VoiceChannelView() {
 
   return (
     <div className={`voice-channel-view ${theatreMode ? "theatre" : ""}`}>
+      {isConnected && (
+        <div className="voice-channel-tabs">
+          <button
+            className={`voice-tab ${activeTab === "voice" ? "active" : ""}`}
+            onClick={() => setActiveTab("voice")}
+          >
+            <Volume2 size={14} /> Voice
+          </button>
+          <button
+            className={`voice-tab ${activeTab === "music" ? "active" : ""}`}
+            onClick={() => setActiveTab("music")}
+          >
+            <Music size={14} /> Music
+          </button>
+        </div>
+      )}
+
       {connectionError && (
         <div className="voice-error">{connectionError}</div>
       )}
@@ -187,7 +216,11 @@ export function VoiceChannelView() {
         </div>
       )}
 
-      {isConnected && (
+      {isConnected && activeTab === "music" && activeChannelId && (
+        <MusicPanel voiceChannelId={activeChannelId} />
+      )}
+
+      {isConnected && activeTab === "voice" && (
         <>
           {/* Screen shares area */}
           {hasScreenShares && (
@@ -258,38 +291,79 @@ export function VoiceChannelView() {
             ))}
           </div>
 
-          {/* Controls bar */}
-          <div className="voice-controls-bar">
-            <button
-              className={`voice-ctrl-btn ${isMuted ? "active" : ""}`}
-              onClick={toggleMute}
-              title={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-            </button>
-            <button
-              className={`voice-ctrl-btn ${isDeafened ? "active" : ""}`}
-              onClick={toggleDeafen}
-              title={isDeafened ? "Undeafen" : "Deafen"}
-            >
-              {isDeafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />}
-            </button>
-            <button
-              className={`voice-ctrl-btn ${isScreenSharing ? "active" : ""}`}
-              onClick={() => toggleScreenShare()}
-              title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
-            >
-              {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
-            </button>
-            <button
-              className="voice-ctrl-btn disconnect"
-              onClick={leaveVoiceChannel}
-              title="Disconnect"
-            >
-              <PhoneOff size={20} />
-            </button>
-          </div>
+          {/* Mini now-playing bar */}
+          {session && playerState?.track_window?.current_track && (() => {
+            const track = playerState.track_window.current_track!;
+            const nextTrack = queue[0];
+            return (
+              <div className="voice-now-playing">
+                {track.album.images[0] && (
+                  <img src={track.album.images[0].url} alt="" className="voice-np-art" />
+                )}
+                <div className="voice-np-info">
+                  <span className="voice-np-name">{track.name}</span>
+                  <span className="voice-np-artist">{track.artists.map(a => a.name).join(", ")}</span>
+                </div>
+                <div className="voice-np-volume">
+                  <button
+                    className="voice-np-mute-btn"
+                    onClick={() => setVolume(volume > 0 ? 0 : 0.5)}
+                    title={volume === 0 ? "Unmute Music" : "Mute Music"}
+                  >
+                    {volume === 0 ? <VolumeX size={16} /> : <Volume1 size={16} />}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={Math.round(volume * 100)}
+                    onChange={(e) => setVolume(parseInt(e.target.value) / 100)}
+                    className="volume-slider voice-np-slider"
+                  />
+                </div>
+                {nextTrack && (
+                  <span className="voice-np-next" title={`Next: ${nextTrack.trackName}`}>
+                    Next: {nextTrack.trackName}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
         </>
+      )}
+
+      {/* Controls bar — always visible when connected */}
+      {isConnected && (
+        <div className="voice-controls-bar">
+          <button
+            className={`voice-ctrl-btn ${isMuted ? "active" : ""}`}
+            onClick={toggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+          </button>
+          <button
+            className={`voice-ctrl-btn ${isDeafened ? "active" : ""}`}
+            onClick={toggleDeafen}
+            title={isDeafened ? "Undeafen" : "Deafen"}
+          >
+            {isDeafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />}
+          </button>
+          <button
+            className={`voice-ctrl-btn ${isScreenSharing ? "active" : ""}`}
+            onClick={() => toggleScreenShare()}
+            title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
+          >
+            {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+          </button>
+          <button
+            className="voice-ctrl-btn disconnect"
+            onClick={leaveVoiceChannel}
+            title="Disconnect"
+          >
+            <PhoneOff size={20} />
+          </button>
+        </div>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ pub mod files;
 pub mod keys;
 pub mod messages;
 pub mod servers;
+pub mod spotify;
 pub mod users;
 pub mod voice;
 
@@ -57,7 +58,19 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         // Files
         .route("/upload", post(files::upload))
         .route("/files/{id}/{filename}", get(files::serve_file))
-        .route("/link-preview", get(files::link_preview));
+        .route("/link-preview", get(files::link_preview))
+        // Spotify
+        .route("/spotify/auth-info", get(spotify::get_auth_info))
+        .route("/spotify/init-auth", post(spotify::init_auth))
+        .route("/spotify/callback", get(spotify::spotify_callback_get))
+        .route("/spotify/callback", post(spotify::spotify_callback_post))
+        .route("/spotify/unlink", post(spotify::unlink_spotify))
+        .route("/spotify/token", get(spotify::get_token))
+        .route("/spotify/search", get(spotify::search_tracks))
+        .route("/spotify/sessions", post(spotify::create_session))
+        .route("/spotify/sessions/channel/{voiceChannelId}", get(spotify::get_session))
+        .route("/spotify/sessions/{sessionId}/queue", post(spotify::add_to_queue))
+        .route("/spotify/sessions/{sessionId}/end", delete(spotify::delete_session));
 
     Router::new()
         .nest("/api/auth", auth_routes)
