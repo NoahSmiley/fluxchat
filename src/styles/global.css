@@ -3282,7 +3282,7 @@ input:focus {
   flex-shrink: 0;
   position: relative;
   z-index: 1001;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
 }
 
 .voice-tab {
@@ -3298,6 +3298,7 @@ input:focus {
   border-bottom: 2px solid transparent;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
+  -webkit-app-region: no-drag;
 }
 
 .voice-tab:hover {
