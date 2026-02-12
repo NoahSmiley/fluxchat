@@ -315,6 +315,13 @@ export async function initSpotifyAuth(codeVerifier: string) {
   });
 }
 
+export async function spotifyCallback(code: string, codeVerifier: string, redirectUri: string) {
+  return request<{ success: boolean }>("/spotify/callback", {
+    method: "POST",
+    body: JSON.stringify({ code, codeVerifier, redirectUri }),
+  });
+}
+
 export async function getSpotifyToken() {
   return request<{ accessToken: string }>("/spotify/token");
 }

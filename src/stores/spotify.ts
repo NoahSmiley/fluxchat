@@ -201,7 +201,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       const codeVerifier = generateRandomString(64);
       const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-      // Send code_verifier to backend; backend returns the canonical redirect URI
+      // Send code_verifier to backend; backend returns the redirect URI
       const { state, redirectUri } = await api.initSpotifyAuth(codeVerifier);
 
       const scopes = [
