@@ -68,7 +68,8 @@ function playUndeafenSound() {
 
 interface AudioPipeline {
   context: AudioContext;
-  source: MediaStreamAudioSourceNode;
+  source: MediaElementAudioSourceNode;
+  element: HTMLAudioElement;
   highPass: BiquadFilterNode;
   lowPass: BiquadFilterNode;
   gain: GainNode;
@@ -82,25 +83,40 @@ const audioPipelines = new Map<string, AudioPipeline>();
 let joinNonce = 0;
 
 function createAudioPipeline(
-  mediaStreamTrack: MediaStreamTrack,
+  audioElement: HTMLAudioElement,
   trackSid: string,
   settings: AudioSettings,
   volume: number,
 ): AudioPipeline {
+  const mst = (audioElement.srcObject as MediaStream)?.getAudioTracks()[0];
   dbg("voice", `createAudioPipeline sid=${trackSid}`, {
-    trackKind: mediaStreamTrack.kind,
-    trackReadyState: mediaStreamTrack.readyState,
-    trackLabel: mediaStreamTrack.label,
-    trackSettings: mediaStreamTrack.getSettings(),
+    elementPaused: audioElement.paused,
+    elementReadyState: audioElement.readyState,
+    elementSrcObject: !!audioElement.srcObject,
+    trackKind: mst?.kind,
+    trackEnabled: mst?.enabled,
+    trackReadyState: mst?.readyState,
+    trackMuted: mst?.muted,
+    trackLabel: mst?.label,
     volume,
     highPass: settings.highPassFrequency,
     lowPass: settings.lowPassFrequency,
     pipelinesActive: audioPipelines.size,
   });
+
   const context = new AudioContext();
-  if (context.state === "suspended") context.resume();
-  const stream = new MediaStream([mediaStreamTrack]);
-  const source = context.createMediaStreamSource(stream);
+  dbg("voice", `createAudioPipeline audioContext created state=${context.state} sampleRate=${context.sampleRate}`);
+  if (context.state === "suspended") {
+    context.resume().then(() => {
+      dbg("voice", `createAudioPipeline audioContext resumed state=${context.state}`);
+    });
+  }
+
+  // createMediaElementSource captures the element's audio and routes it
+  // through our Web Audio graph. The element no longer produces direct output,
+  // which prevents double-audio while keeping the WebRTC track active.
+  const source = context.createMediaElementSource(audioElement);
+  dbg("voice", `createAudioPipeline mediaElementSource created channelCount=${source.channelCount}`);
 
   // Explicit mono→stereo: duplicate channel 0 to both L and R
   // so audio always plays through both ears regardless of source channel count
@@ -131,8 +147,30 @@ function createAudioPipeline(
   analyser.connect(gain);
   gain.connect(context.destination);
 
-  const pipeline: AudioPipeline = { context, source, highPass, lowPass, gain, analyser, analyserData };
+  const pipeline: AudioPipeline = { context, source, element: audioElement, highPass, lowPass, gain, analyser, analyserData };
   audioPipelines.set(trackSid, pipeline);
+
+  // Diagnostic: check if audio data is flowing after 1 second
+  setTimeout(() => {
+    if (!audioPipelines.has(trackSid)) return;
+    analyser.getFloatTimeDomainData(analyserData);
+    let sum = 0;
+    for (let i = 0; i < analyserData.length; i++) sum += analyserData[i] * analyserData[i];
+    const rms = Math.sqrt(sum / analyserData.length);
+    dbg("voice", `createAudioPipeline DIAG sid=${trackSid}`, {
+      contextState: context.state,
+      rms: rms.toFixed(6),
+      hasSignal: rms > 0.0001,
+      gainValue: gain.gain.value,
+      elementPaused: audioElement.paused,
+      elementEnded: audioElement.ended,
+      elementCurrentTime: audioElement.currentTime,
+      trackEnabled: mst?.enabled,
+      trackReadyState: mst?.readyState,
+      trackMuted: mst?.muted,
+    });
+  }, 1500);
+
   return pipeline;
 }
 
@@ -149,6 +187,8 @@ function destroyAudioPipeline(trackSid: string) {
   const pipeline = audioPipelines.get(trackSid);
   if (pipeline) {
     dbg("voice", `destroyAudioPipeline sid=${trackSid}`, { remaining: audioPipelines.size - 1 });
+    pipeline.element.pause();
+    pipeline.element.srcObject = null;
     pipeline.context.close();
     audioPipelines.delete(trackSid);
   }
@@ -603,15 +643,23 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         });
 
         if (track.kind === Track.Kind.Audio) {
-          // Detach any auto-created audio elements to prevent double audio —
-          // all playback goes through the Web Audio pipeline below.
-          track.detach().forEach((el) => { el.pause(); el.srcObject = null; el.remove(); });
-          dbg("voice", `TrackSubscribed detached default audio for ${participant.identity}`);
+          // attach() creates an auto-playing <audio> element that activates the WebRTC track.
+          // We pass it to createAudioPipeline which uses createMediaElementSource to capture
+          // the element's output into our Web Audio graph — the element no longer plays directly,
+          // preventing double audio while keeping the track active.
+          const audioEl = track.attach() as HTMLAudioElement;
+          dbg("voice", `TrackSubscribed attached audio for ${participant.identity}`, {
+            paused: audioEl.paused,
+            readyState: audioEl.readyState,
+            srcObject: !!audioEl.srcObject,
+            trackEnabled: track.mediaStreamTrack?.enabled,
+            trackReadyState: track.mediaStreamTrack?.readyState,
+          });
 
           const { audioSettings: settings, participantVolumes, isDeafened } = get();
           const volume = isDeafened ? 0 : (participantVolumes[participant.identity] ?? 1.0);
           dbg("voice", `TrackSubscribed creating pipeline for ${participant.identity}`, { volume, isDeafened });
-          createAudioPipeline(track.mediaStreamTrack, track.sid!, settings, volume);
+          createAudioPipeline(audioEl, track.sid!, settings, volume);
 
           // Track participant → track mapping
           set((state) => ({
