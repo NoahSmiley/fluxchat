@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type FormEvent, type ReactNode } from "react";
-import { useChatStore } from "../stores/chat.js";
+import { useChatStore, base64ToUtf8 } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 
 const URL_REGEX = /https?:\/\/[^\s<]+/g;
@@ -66,7 +66,7 @@ export function DMChatView() {
     const cached = decryptedCache[msgId];
     if (cached !== undefined) return cached;
     try {
-      return atob(ciphertext);
+      return base64ToUtf8(ciphertext);
     } catch {
       return "[encrypted message]";
     }

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type ReactNode } from "react";
 import type { Message } from "../types/shared.js";
 import { onStateUpdate, sendCommand, type ChatStateMessage, type StateMessage } from "../lib/broadcast.js";
+import { base64ToUtf8 } from "../stores/chat.js";
 
 const URL_REGEX = /https?:\/\/[^\s<]+/g;
 
@@ -52,7 +53,7 @@ export function PopoutChatView() {
 
   function decodeContent(ciphertext: string): string {
     try {
-      return atob(ciphertext);
+      return base64ToUtf8(ciphertext);
     } catch {
       return "[encrypted message]";
     }

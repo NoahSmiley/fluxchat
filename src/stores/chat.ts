@@ -6,6 +6,16 @@ import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
 import { playMessageSound, showDesktopNotification } from "../lib/notifications.js";
 import { useCryptoStore } from "./crypto.js";
 
+// UTF-8-safe base64 encoding/decoding (btoa/atob only handle Latin-1)
+export function utf8ToBase64(str: string): string {
+  return btoa(String.fromCodePoint(...new TextEncoder().encode(str)));
+}
+export function base64ToUtf8(b64: string): string {
+  const binary = atob(b64);
+  const bytes = Uint8Array.from(binary, (c) => c.codePointAt(0)!);
+  return new TextDecoder().decode(bytes);
+}
+
 interface ChatState {
   servers: (Server & { role: string })[];
   channels: Channel[];
@@ -235,7 +245,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ciphertext = await cryptoState.encryptMessage(content || " ", key);
       mlsEpoch = 1;
     } else {
-      ciphertext = btoa(content || " ");
+      ciphertext = utf8ToBase64(content || " ");
       mlsEpoch = 0;
     }
 
@@ -259,7 +269,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
     const ciphertext = key
       ? await cryptoState.encryptMessage(newContent, key)
-      : btoa(newContent);
+      : utf8ToBase64(newContent);
     gateway.send({
       type: "edit_message",
       messageId,
@@ -483,11 +493,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ciphertext = await cryptoState.encryptMessage(content, key);
         mlsEpoch = 1;
       } else {
-        ciphertext = btoa(content);
+        ciphertext = utf8ToBase64(content);
         mlsEpoch = 0;
       }
     } catch {
-      ciphertext = btoa(content);
+      ciphertext = utf8ToBase64(content);
       mlsEpoch = 0;
     }
 
