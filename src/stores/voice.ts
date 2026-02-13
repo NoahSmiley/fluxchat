@@ -78,6 +78,9 @@ interface AudioPipeline {
 
 const audioPipelines = new Map<string, AudioPipeline>();
 
+// Monotonically increasing counter to detect stale joinVoiceChannel calls
+let joinNonce = 0;
+
 function createAudioPipeline(
   mediaStreamTrack: MediaStreamTrack,
   trackSid: string,
@@ -473,11 +476,22 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       get().leaveVoiceChannel();
     }
 
+    // Bump nonce so any previous in-flight join becomes stale
+    const myNonce = ++joinNonce;
+    const isStale = () => myNonce !== joinNonce;
+
     set({ connecting: true, connectionError: null });
 
     try {
       dbg("voice", "joinVoiceChannel fetching voice token...");
       const { token, url } = await api.getVoiceToken(channelId);
+
+      if (isStale()) {
+        dbg("voice", "joinVoiceChannel aborted after token fetch — newer join in progress");
+        set({ connecting: false });
+        return;
+      }
+
       dbg("voice", `joinVoiceChannel got token, url=${url}`);
 
       // Get channel bitrate from chat store
@@ -668,6 +682,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
       dbg("voice", "joinVoiceChannel connecting to LiveKit...");
       await room.connect(url, token);
+
+      if (isStale()) {
+        dbg("voice", "joinVoiceChannel aborted after room.connect — newer join in progress");
+        room.disconnect();
+        set({ connecting: false });
+        return;
+      }
+
       dbg("voice", "joinVoiceChannel connected!", {
         localIdentity: room.localParticipant.identity,
         localName: room.localParticipant.name,
@@ -728,6 +750,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       gateway.send({ type: "voice_state_update", channelId, action: "join" });
       dbg("voice", `joinVoiceChannel COMPLETE channel=${channelId}`);
     } catch (err) {
+      // If a newer join/leave invalidated this attempt, don't show an error
+      if (isStale()) {
+        dbg("voice", "joinVoiceChannel error ignored — stale attempt", err instanceof Error ? err.message : err);
+        return;
+      }
       dbg("voice", "joinVoiceChannel FAILED", err instanceof Error ? err.message : err);
       set({
         connecting: false,
@@ -737,6 +764,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   leaveVoiceChannel: () => {
+    // Cancel any in-flight joinVoiceChannel
+    ++joinNonce;
+
     const { room, connectedChannelId, channelParticipants } = get();
     const localId = room?.localParticipant?.identity;
 
