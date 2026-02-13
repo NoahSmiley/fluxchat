@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Rounded square background -->
+  <rect width="1024" height="1024" rx="180" ry="180" fill="#111111"/>
+
+  <!-- Flux logo (ring with arrows) centered and scaled -->
+  <g transform="translate(512,512) scale(7.5)" fill="#ffffff" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Ring (filled donut) centered at 0,0 -->
+    <path
+      d="M0 -24a24 24 0 1 0 0 48a24 24 0 1 0 0-48zm0 10a14 14 0 1 1 0 28a14 14 0 1 1 0-28z"
+      fill-rule="evenodd"
+      stroke="none"
+    />
+    <!-- Top-right arrow -->
+    <line x1="18" y1="-18" x2="30" y2="-30" stroke-width="3.5" fill="none" />
+    <polygon points="24,-32 32,-32 32,-24" stroke="none" />
+    <!-- Bottom-left arrow -->
+    <line x1="-18" y1="18" x2="-30" y2="30" stroke-width="3.5" fill="none" />
+    <polygon points="-32,24 -32,32 -24,32" stroke="none" />
+  </g>
+</svg>
