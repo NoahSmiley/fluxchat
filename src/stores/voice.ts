@@ -68,7 +68,7 @@ function playUndeafenSound() {
 
 interface AudioPipeline {
   context: AudioContext;
-  source: MediaElementAudioSourceNode;
+  source: MediaStreamAudioSourceNode;
   element: HTMLAudioElement;
   highPass: BiquadFilterNode;
   lowPass: BiquadFilterNode;
@@ -104,6 +104,12 @@ function createAudioPipeline(
     pipelinesActive: audioPipelines.size,
   });
 
+  // Silence the attached element — all playback goes through the Web Audio pipeline.
+  // Use volume=0 (not mute/pause/remove) so the element keeps "playing" and
+  // the WebRTC track stays active and feeds data to our MediaStreamSource.
+  audioElement.volume = 0;
+  dbg("voice", `createAudioPipeline silenced element volume=${audioElement.volume}`);
+
   const context = new AudioContext();
   dbg("voice", `createAudioPipeline audioContext created state=${context.state} sampleRate=${context.sampleRate}`);
   if (context.state === "suspended") {
@@ -112,11 +118,12 @@ function createAudioPipeline(
     });
   }
 
-  // createMediaElementSource captures the element's audio and routes it
-  // through our Web Audio graph. The element no longer produces direct output,
-  // which prevents double-audio while keeping the WebRTC track active.
-  const source = context.createMediaElementSource(audioElement);
-  dbg("voice", `createAudioPipeline mediaElementSource created channelCount=${source.channelCount}`);
+  // Use createMediaStreamSource with the raw MediaStreamTrack — this works
+  // reliably with WebRTC tracks (unlike createMediaElementSource which
+  // doesn't capture audio from srcObject-based elements).
+  const stream = new MediaStream([mst!]);
+  const source = context.createMediaStreamSource(stream);
+  dbg("voice", `createAudioPipeline mediaStreamSource created channelCount=${source.channelCount}`);
 
   // Explicit mono→stereo: duplicate channel 0 to both L and R
   // so audio always plays through both ears regardless of source channel count
