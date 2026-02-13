@@ -4,7 +4,8 @@ import { onStateUpdate, sendCommand, type VoiceStateMessage } from "../lib/broad
 import * as api from "../lib/api.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
-  pub.setVideoDimensions({ width: 3840, height: 2160 });
+  // Request 1080p — matches the max resolution we actually publish
+  pub.setVideoDimensions({ width: 1920, height: 1080 });
   pub.setVideoQuality(VideoQuality.HIGH);
 }
 

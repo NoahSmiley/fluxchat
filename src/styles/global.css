@@ -1283,6 +1283,22 @@ input:focus {
   background: rgba(88, 101, 242, 0.15);
 }
 
+.quality-separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.quality-lossless {
+  color: #f0b232;
+  font-weight: 600;
+}
+
+.quality-lossless.active {
+  color: #f0b232;
+  background: rgba(240, 178, 50, 0.15);
+}
+
 /* ── Voice Channel Users in Sidebar ── */
 .voice-channel-users {
   padding: 2px 0 4px 28px;

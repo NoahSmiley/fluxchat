@@ -405,16 +405,28 @@ interface ScreenShareInfo {
   username: string;
 }
 
-export type ScreenShareQuality = "1080p60" | "1080p30" | "720p60" | "720p30" | "480p30";
+export type ScreenShareQuality = "1080p60" | "1080p30" | "720p60" | "720p30" | "480p30" | "Lossless";
 
-const SCREEN_SHARE_PRESETS: Record<ScreenShareQuality, {
-  width: number; height: number; frameRate: number; maxBitrate: number;
-}> = {
-  "1080p60": { width: 1920, height: 1080, frameRate: 60, maxBitrate: 8_000_000 },
-  "1080p30": { width: 1920, height: 1080, frameRate: 30, maxBitrate: 5_000_000 },
-  "720p60":  { width: 1280, height: 720,  frameRate: 60, maxBitrate: 5_000_000 },
-  "720p30":  { width: 1280, height: 720,  frameRate: 30, maxBitrate: 3_000_000 },
-  "480p30":  { width: 854,  height: 480,  frameRate: 30, maxBitrate: 1_500_000 },
+interface ScreenSharePreset {
+  width: number;
+  height: number;
+  frameRate: number;
+  maxBitrate: number;
+  codec: "h264" | "vp9";
+  scalabilityMode: string;
+  degradationPreference: "balanced" | "maintain-resolution" | "maintain-framerate";
+  contentHint: "detail" | "motion" | "text";
+}
+
+const SCREEN_SHARE_PRESETS: Record<ScreenShareQuality, ScreenSharePreset> = {
+  // Discord-like defaults: H.264 (hardware-accelerated), balanced degradation
+  "1080p60": { width: 1920, height: 1080, frameRate: 60, maxBitrate: 6_000_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "motion" },
+  "1080p30": { width: 1920, height: 1080, frameRate: 30, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "detail" },
+  "720p60":  { width: 1280, height: 720,  frameRate: 60, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "motion" },
+  "720p30":  { width: 1280, height: 720,  frameRate: 30, maxBitrate: 2_500_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "detail" },
+  "480p30":  { width: 854,  height: 480,  frameRate: 30, maxBitrate: 1_500_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "detail" },
+  // Lossless: VP9 + maintain-resolution for maximum quality (CPU-heavy)
+  "Lossless":{ width: 1920, height: 1080, frameRate: 60, maxBitrate: 20_000_000, codec: "vp9",  scalabilityMode: "L1T3", degradationPreference: "maintain-resolution", contentHint: "detail" },
 };
 
 interface VoiceState {
@@ -501,7 +513,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   screenSharers: [],
   pinnedScreenShare: null,
   theatreMode: false,
-  screenShareQuality: "1080p60",
+  screenShareQuality: "720p30",
   participants: [],
   channelParticipants: {},
 
@@ -601,17 +613,16 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           dtx: audioSettings.dtx,
           red: true,
           stopMicTrackOnMute: false,
-          videoCodec: "vp9",
+          // H.264 by default — hardware-accelerated on most GPUs, much lower CPU than VP9
+          videoCodec: "h264",
           screenShareEncoding: {
-            maxBitrate: 20_000_000,
+            maxBitrate: 6_000_000,
             maxFramerate: 60,
             priority: "high",
           },
           screenShareSimulcastLayers: [],
-          // L1T3 = 1 spatial layer (no resolution downscaling ever),
-          // 3 temporal layers (server can only reduce framerate for slow viewers)
-          scalabilityMode: "L1T3",
-          degradationPreference: "maintain-resolution",
+          scalabilityMode: "L1T2",
+          degradationPreference: "balanced",
           backupCodec: { codec: "vp8" },
         },
         ...(e2eeOptions ? { e2ee: e2eeOptions } : {}),
@@ -1066,7 +1077,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           // Capture options
           {
             audio: true,
-            contentHint: "detail",
+            contentHint: preset.contentHint,
             resolution: { width: preset.width, height: preset.height, frameRate: preset.frameRate },
             preferCurrentTab: false,
             selfBrowserSurface: "exclude",
@@ -1074,16 +1085,16 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             systemAudio: "include",
             ...(displaySurface ? { displaySurface } : {}),
           },
-          // Publish options
+          // Publish options — codec/scalability/degradation vary per quality preset
           {
-            videoCodec: "vp9",
+            videoCodec: preset.codec,
             screenShareEncoding: {
               maxBitrate: preset.maxBitrate,
               maxFramerate: preset.frameRate,
               priority: "high",
             },
-            scalabilityMode: "L1T3",
-            degradationPreference: "maintain-resolution",
+            scalabilityMode: preset.scalabilityMode,
+            degradationPreference: preset.degradationPreference,
             backupCodec: { codec: "vp8" },
           },
         );

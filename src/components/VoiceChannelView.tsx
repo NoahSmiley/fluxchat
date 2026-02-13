@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
-  pub.setVideoDimensions({ width: 3840, height: 2160 });
+  // Request 1080p — matches the max resolution we actually publish
+  pub.setVideoDimensions({ width: 1920, height: 1080 });
   pub.setVideoQuality(VideoQuality.HIGH);
 }
 
@@ -394,6 +395,13 @@ export function VoiceChannelView() {
                     {q}
                   </button>
                 ))}
+                <div className="quality-separator" />
+                <button
+                  className={`quality-option quality-lossless ${screenShareQuality === "Lossless" ? "active" : ""}`}
+                  onClick={() => { setScreenShareQuality("Lossless"); setShowQualityPicker(false); }}
+                >
+                  Lossless
+                </button>
               </div>
             )}
           </div>
