@@ -603,15 +603,10 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         });
 
         if (track.kind === Track.Kind.Audio) {
-          // We need track.attach() to create the WebRTC consumer, but it also
-          // appends an <audio> element to the DOM that auto-plays.
-          // Immediately remove it from DOM to prevent double audio — all playback
-          // goes through the Web Audio pipeline below.
-          const el = track.attach();
-          el.muted = true;
-          el.pause();
-          el.remove();
-          dbg("voice", `TrackSubscribed audio element created and removed from DOM for ${participant.identity}`);
+          // Detach any auto-created audio elements to prevent double audio —
+          // all playback goes through the Web Audio pipeline below.
+          track.detach().forEach((el) => { el.pause(); el.srcObject = null; el.remove(); });
+          dbg("voice", `TrackSubscribed detached default audio for ${participant.identity}`);
 
           const { audioSettings: settings, participantVolumes, isDeafened } = get();
           const volume = isDeafened ? 0 : (participantVolumes[participant.identity] ?? 1.0);
