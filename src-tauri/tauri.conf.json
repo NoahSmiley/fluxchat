@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/fetch-schema/refs/heads/main/tauri-conf.schema.json",
   "productName": "Flux",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "identifier": "com.flux.app",
   "build": {
     "frontendDist": "../dist",
@@ -43,7 +43,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE3RTk4RDkyMzVENkZCNzUKUldSMSs5WTFrbzNwcDhmNCtWK1hmNnhqNVovWU9MSjI0ZDMrUmtnWHJydklNNThPZzNoMzhBTkkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFFQjBBNTg3OTFDNjA2NEQKUldSTkJzYVJoNld3SGdjdW43R3hrU0VkVExDUURrQ3Vaam4xWmpkaEp1VUc1eWx0b3RvRkxlbjAK",
       "endpoints": [
         "https://github.com/NoahSmiley/fluxchat/releases/latest/download/latest.json"
       ]
