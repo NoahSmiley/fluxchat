@@ -3,6 +3,7 @@ import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { API_BASE } from "../lib/serverUrl.js";
 import type { SpotifyAccount, ListeningSession, QueueItem, SpotifyTrack, WSServerEvent } from "../types/shared.js";
+import { dbg } from "../lib/debug.js";
 
 // PKCE helpers
 function generateRandomString(length: number): string {
@@ -133,6 +134,7 @@ function persistPlayer(player: SpotifyPlayer | null, deviceId: string | null) {
 
 /** Play a track on a Spotify device, retrying on 404 (device not yet registered). */
 async function playOnDevice(deviceId: string, uris: string[]): Promise<boolean> {
+  dbg("spotify", `playOnDevice deviceId=${deviceId}`, { uris });
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const { accessToken } = await api.getSpotifyToken();
@@ -141,15 +143,19 @@ async function playOnDevice(deviceId: string, uris: string[]): Promise<boolean> 
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ uris }),
       });
-      if (res.ok) return true;
+      if (res.ok) {
+        dbg("spotify", `playOnDevice success on attempt ${attempt + 1}`);
+        return true;
+      }
       if (res.status === 404 && attempt < 3) {
+        dbg("spotify", `playOnDevice 404 on attempt ${attempt + 1}, retrying...`);
         await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
         continue;
       }
-      console.error("[spotify] playOnDevice failed:", res.status);
+      dbg("spotify", `playOnDevice failed status=${res.status}`, await res.text().catch(() => ""));
       return false;
     } catch (e) {
-      console.error("[spotify] playOnDevice error:", e);
+      dbg("spotify", "playOnDevice error", e);
       return false;
     }
   }
@@ -172,13 +178,16 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   oauthError: null,
 
   loadAccount: async () => {
+    dbg("spotify", "loadAccount");
     try {
       const info = await api.getSpotifyAuthInfo();
+      dbg("spotify", "loadAccount result", { linked: info.linked, displayName: info.displayName });
       set({ account: info });
       if (info.linked) {
         get().initializeSDK();
       }
-    } catch {
+    } catch (e) {
+      dbg("spotify", "loadAccount failed", e);
       set({ account: null });
     }
 
@@ -265,7 +274,11 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
   initializeSDK: () => {
     // Already have a working player with a device
-    if (get().sdkReady && get().player && get().deviceId) return;
+    if (get().sdkReady && get().player && get().deviceId) {
+      dbg("spotify", "initializeSDK skipped — already ready", { deviceId: get().deviceId });
+      return;
+    }
+    dbg("spotify", "initializeSDK", { sdkReady: get().sdkReady, hasPlayer: !!get().player, hasSpotifyGlobal: !!window.Spotify });
 
     // SDK global available — restore or create player
     if (window.Spotify) {
@@ -296,6 +309,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   connectPlayer: () => {
+    dbg("spotify", "connectPlayer", { hasSpotifyGlobal: !!window.Spotify, hasPlayer: !!get().player });
     if (!window.Spotify) return;
 
     // Reuse player that survived HMR (persisted on window)
@@ -343,19 +357,28 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     });
 
     player.addListener("ready", ({ device_id }: { device_id: string }) => {
-      console.log("[spotify] player ready, deviceId:", device_id);
+      dbg("spotify", `player ready deviceId=${device_id}`);
       set({ deviceId: device_id });
       persistPlayer(player, device_id);
     });
 
     player.addListener("not_ready", () => {
-      console.warn("[spotify] player not_ready");
+      dbg("spotify", "player not_ready — will reconnect in 1s");
       set({ deviceId: null });
       persistPlayer(player, null);
       setTimeout(() => player.connect(), 1000);
     });
 
     player.addListener("player_state_changed", (state: SpotifyPlayerState | null) => {
+      const track = state?.track_window?.current_track;
+      dbg("spotify", "player_state_changed", {
+        paused: state?.paused,
+        position: state?.position,
+        duration: state?.duration,
+        trackName: track?.name,
+        trackUri: track?.uri,
+        trackArtist: track?.artists?.map((a) => a.name).join(", "),
+      });
       set({ playerState: state });
       if (state) get().updateActivity();
     });
@@ -376,21 +399,27 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
   ensureDeviceId: async () => {
     let { deviceId } = get();
-    if (deviceId) return deviceId;
+    if (deviceId) {
+      dbg("spotify", `ensureDeviceId already have ${deviceId}`);
+      return deviceId;
+    }
 
     // Try reconnecting the existing player
     const { player } = get();
     if (player) {
-      console.log("[spotify] ensureDeviceId: reconnecting existing player...");
+      dbg("spotify", "ensureDeviceId reconnecting player...");
       player.connect();
       for (let i = 0; i < 10; i++) {
         await new Promise((r) => setTimeout(r, 500));
         deviceId = get().deviceId;
-        if (deviceId) return deviceId;
+        if (deviceId) {
+          dbg("spotify", `ensureDeviceId got deviceId=${deviceId} after ${i + 1} polls`);
+          return deviceId;
+        }
       }
     }
 
-    console.warn("[spotify] ensureDeviceId: could not get deviceId");
+    dbg("spotify", "ensureDeviceId FAILED — no deviceId after 10 polls", { hasPlayer: !!player });
     return null;
   },
 
@@ -439,22 +468,33 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   startSession: async (voiceChannelId) => {
-    // Clear old playback state before starting fresh
+    dbg("spotify", `startSession channel=${voiceChannelId}`);
     const { player } = get();
     player?.pause();
     set({ playerState: null, queue: [], searchResults: [] });
     await api.createListeningSession(voiceChannelId);
     await get().loadSession(voiceChannelId);
+    dbg("spotify", "startSession complete", { sessionId: get().session?.id });
   },
 
   loadSession: async (voiceChannelId) => {
+    dbg("spotify", `loadSession channel=${voiceChannelId}`);
     try {
       const data = await api.getListeningSession(voiceChannelId);
       if (data.session) {
-        // Check if current user is host
         const { useAuthStore } = await import("./auth.js");
         const userId = useAuthStore.getState().user?.id;
         const wasAlreadyLoaded = get().session?.id === data.session.id;
+        dbg("spotify", "loadSession found session", {
+          sessionId: data.session.id,
+          host: data.session.hostUserId,
+          isPlaying: data.session.isPlaying,
+          currentTrackUri: data.session.currentTrackUri,
+          currentTrackPositionMs: data.session.currentTrackPositionMs,
+          queueLength: data.queue.length,
+          wasAlreadyLoaded,
+          isHost: data.session.hostUserId === userId,
+        });
         set({
           session: data.session,
           queue: data.queue,
@@ -463,27 +503,36 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
         // If joining a session that has an active track playing, sync playback
         if (!wasAlreadyLoaded && data.session.isPlaying && data.session.currentTrackUri) {
+          dbg("spotify", "loadSession syncing playback to active track", {
+            trackUri: data.session.currentTrackUri,
+            positionMs: data.session.currentTrackPositionMs,
+          });
           const deviceId = await get().ensureDeviceId();
           if (deviceId) {
             await playOnDevice(deviceId, [data.session.currentTrackUri]);
-            // Seek to approximate position (account for time elapsed since last update)
             const { player } = get();
             if (player && data.session.currentTrackPositionMs > 0) {
               const elapsed = Date.now() - new Date(data.session.updatedAt).getTime();
               const seekTo = data.session.currentTrackPositionMs + elapsed;
+              dbg("spotify", `loadSession seeking to ${seekTo}ms (pos=${data.session.currentTrackPositionMs} + elapsed=${elapsed})`);
               setTimeout(() => player.seek(seekTo), 500);
             }
+          } else {
+            dbg("spotify", "loadSession sync failed — no deviceId");
           }
         }
       } else {
+        dbg("spotify", "loadSession no active session");
         set({ session: null, queue: [], isHost: false });
       }
-    } catch {
+    } catch (e) {
+      dbg("spotify", "loadSession error", e);
       set({ session: null, queue: [], isHost: false });
     }
   },
 
   leaveSession: () => {
+    dbg("spotify", "leaveSession");
     const { player } = get();
     player?.pause();
     set({ session: null, queue: [], isHost: false });
@@ -492,11 +541,12 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   endSession: async () => {
     const { session, player } = get();
     if (!session) return;
+    dbg("spotify", `endSession sessionId=${session.id}`);
     player?.pause();
     try {
       await api.deleteListeningSession(session.id);
     } catch (e) {
-      console.error("Failed to end session:", e);
+      dbg("spotify", "endSession error", e);
     }
     set({ session: null, queue: [], isHost: false });
   },
@@ -504,6 +554,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   addTrackToQueue: async (track) => {
     const { session } = get();
     if (!session) return;
+    dbg("spotify", `addTrackToQueue "${track.name}" by ${track.artists.map((a) => a.name).join(", ")}`, { uri: track.uri });
 
     await api.addToQueue(session.id, {
       trackUri: track.uri,
@@ -518,6 +569,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   removeFromQueue: async (itemId) => {
     const { session } = get();
     if (!session) return;
+    dbg("spotify", `removeFromQueue itemId=${itemId}`);
     set((s) => ({ queue: s.queue.filter((item) => item.id !== itemId) }));
     await api.removeFromQueue(session.id, itemId);
   },
@@ -525,6 +577,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   play: async (trackUri) => {
     const { session, player, queue } = get();
     if (!session) return;
+    dbg("spotify", `play trackUri=${trackUri ?? "(resume)"}`, { sessionId: session.id, hasPlayer: !!player });
 
     // Remove track from queue if it's in there
     if (trackUri) {
@@ -557,6 +610,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   pause: () => {
     const { session, player, playerState } = get();
     if (!session) return;
+    dbg("spotify", `pause position=${playerState?.position}`, { sessionId: session.id });
 
     gateway.send({
       type: "spotify_playback_control",
@@ -574,6 +628,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
     // Find next track in queue if no URI provided
     const nextTrack = trackUri ?? queue[0]?.trackUri;
+    dbg("spotify", `skip nextTrack=${nextTrack ?? "(none)"}`, { queueLength: queue.length });
 
     // No next track — stop playback and clear now-playing
     if (!nextTrack) {
@@ -609,6 +664,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   seek: (ms) => {
     const { session, player } = get();
     if (!session) return;
+    dbg("spotify", `seek ms=${ms}`);
 
     gateway.send({
       type: "spotify_playback_control",
@@ -630,6 +686,11 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     switch (event.type) {
       case "spotify_queue_update": {
         const { session } = get();
+        dbg("spotify", `WS spotify_queue_update sessionId=${event.sessionId}`, {
+          trackName: event.queueItem?.trackName,
+          trackUri: event.queueItem?.trackUri,
+          matched: session?.id === event.sessionId,
+        });
         if (session && session.id === event.sessionId) {
           set((s) => ({ queue: [...s.queue, event.queueItem] }));
         }
@@ -637,6 +698,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       }
       case "spotify_queue_remove": {
         const { session } = get();
+        dbg("spotify", `WS spotify_queue_remove sessionId=${event.sessionId} itemId=${event.itemId}`);
         if (session && session.id === event.sessionId) {
           set((s) => ({ queue: s.queue.filter((item) => item.id !== event.itemId) }));
         }
@@ -644,32 +706,51 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       }
       case "spotify_playback_sync": {
         const { session, player } = get();
+        dbg("spotify", `WS spotify_playback_sync`, {
+          sessionId: event.sessionId,
+          action: event.action,
+          trackUri: event.trackUri,
+          positionMs: event.positionMs,
+          hasPlayer: !!player,
+          sessionMatch: session?.id === event.sessionId,
+        });
         if (!session || session.id !== event.sessionId) break;
 
         // Sync playback from another session member
         const playTrackOnDevice = async (uri: string) => {
           const deviceId = await get().ensureDeviceId();
-          if (!deviceId) return;
+          if (!deviceId) {
+            dbg("spotify", "playback_sync: no deviceId, cannot play");
+            return;
+          }
           await playOnDevice(deviceId, [uri]);
         };
 
         if (event.action === "play" && event.trackUri && player) {
+          dbg("spotify", `playback_sync: playing track ${event.trackUri}`);
           playTrackOnDevice(event.trackUri);
         } else if (event.action === "play" && !event.trackUri && player) {
+          dbg("spotify", "playback_sync: resuming");
           player.resume();
         } else if (event.action === "pause" && player) {
+          dbg("spotify", "playback_sync: pausing");
           player.pause();
         } else if (event.action === "seek" && player && event.positionMs != null) {
+          dbg("spotify", `playback_sync: seeking to ${event.positionMs}ms`);
           player.seek(event.positionMs);
         } else if (event.action === "skip" && event.trackUri && player) {
+          dbg("spotify", `playback_sync: skipping to ${event.trackUri}`);
           const skipUri = event.trackUri;
           set((s) => ({ queue: s.queue.filter((item) => item.trackUri !== skipUri) }));
           playTrackOnDevice(skipUri);
+        } else {
+          dbg("spotify", "playback_sync: unhandled combination", { action: event.action, hasTrackUri: !!event.trackUri, hasPlayer: !!player });
         }
         break;
       }
       case "spotify_session_ended": {
         const { session, player } = get();
+        dbg("spotify", `WS spotify_session_ended sessionId=${event.sessionId}`, { currentSession: session?.id });
         if (session && session.id === event.sessionId) {
           player?.pause();
           set({ session: null, queue: [], isHost: false });

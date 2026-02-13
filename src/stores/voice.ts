@@ -8,6 +8,7 @@ import { DtlnTrackProcessor } from "../lib/dtln/DtlnTrackProcessor.js";
 import { useKeybindsStore } from "./keybinds.js";
 import { useCryptoStore } from "./crypto.js";
 import { exportKeyAsBase64 } from "../lib/crypto.js";
+import { dbg } from "../lib/debug.js";
 
 // ── Sound Effects ──
 
@@ -83,6 +84,16 @@ function createAudioPipeline(
   settings: AudioSettings,
   volume: number,
 ): AudioPipeline {
+  dbg("voice", `createAudioPipeline sid=${trackSid}`, {
+    trackKind: mediaStreamTrack.kind,
+    trackReadyState: mediaStreamTrack.readyState,
+    trackLabel: mediaStreamTrack.label,
+    trackSettings: mediaStreamTrack.getSettings(),
+    volume,
+    highPass: settings.highPassFrequency,
+    lowPass: settings.lowPassFrequency,
+    pipelinesActive: audioPipelines.size,
+  });
   const context = new AudioContext();
   if (context.state === "suspended") context.resume();
   const stream = new MediaStream([mediaStreamTrack]);
@@ -134,12 +145,14 @@ function getPipelineLevel(pipeline: AudioPipeline): number {
 function destroyAudioPipeline(trackSid: string) {
   const pipeline = audioPipelines.get(trackSid);
   if (pipeline) {
+    dbg("voice", `destroyAudioPipeline sid=${trackSid}`, { remaining: audioPipelines.size - 1 });
     pipeline.context.close();
     audioPipelines.delete(trackSid);
   }
 }
 
 function destroyAllPipelines() {
+  dbg("voice", `destroyAllPipelines count=${audioPipelines.size}`);
   for (const trackSid of [...audioPipelines.keys()]) {
     destroyAudioPipeline(trackSid);
   }
@@ -445,16 +458,27 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   joinVoiceChannel: async (channelId: string) => {
     const { room: existingRoom, connectedChannelId, audioSettings } = get();
 
-    if (connectedChannelId === channelId) return;
+    dbg("voice", `joinVoiceChannel requested channel=${channelId}`, {
+      currentChannel: connectedChannelId,
+      hasExistingRoom: !!existingRoom,
+    });
+
+    if (connectedChannelId === channelId) {
+      dbg("voice", "joinVoiceChannel skipped — already connected");
+      return;
+    }
 
     if (existingRoom) {
+      dbg("voice", "joinVoiceChannel disconnecting from previous room");
       get().leaveVoiceChannel();
     }
 
     set({ connecting: true, connectionError: null });
 
     try {
+      dbg("voice", "joinVoiceChannel fetching voice token...");
       const { token, url } = await api.getVoiceToken(channelId);
+      dbg("voice", `joinVoiceChannel got token, url=${url}`);
 
       // Get channel bitrate from chat store
       const { useChatStore } = await import("./chat.js");
@@ -468,6 +492,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       const serverKey = serverId ? cryptoState.getServerKey(serverId) : null;
 
       let e2eeOptions: { keyProvider: ExternalE2EEKeyProvider; worker: Worker } | undefined;
+      dbg("voice", "joinVoiceChannel E2EE check", { hasServerKey: !!serverKey, serverId });
       if (serverKey) {
         try {
           const keyProvider = new ExternalE2EEKeyProvider();
@@ -477,10 +502,24 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             keyProvider,
             worker: new Worker(new URL("livekit-client/e2ee-worker", import.meta.url), { type: "module" }),
           };
+          dbg("voice", "joinVoiceChannel E2EE initialized");
         } catch (e) {
+          dbg("voice", "joinVoiceChannel E2EE setup failed", e);
           console.warn("Voice E2EE setup failed, continuing without:", e);
         }
       }
+
+      dbg("voice", "joinVoiceChannel creating Room", {
+        channelBitrate,
+        e2ee: !!e2eeOptions,
+        audioSettings: {
+          echoCancellation: audioSettings.echoCancellation,
+          noiseSuppression: audioSettings.noiseSuppression,
+          autoGainControl: audioSettings.autoGainControl,
+          dtx: audioSettings.dtx,
+          krispEnabled: audioSettings.krispEnabled,
+        },
+      });
 
       const room = new Room({
         // Disable adaptive stream so subscribers always receive max quality
@@ -517,17 +556,38 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         ...(e2eeOptions ? { e2ee: e2eeOptions } : {}),
       });
 
-      room.on(RoomEvent.ParticipantConnected, () => get()._updateParticipants());
-      room.on(RoomEvent.ParticipantDisconnected, () => {
+      room.on(RoomEvent.ParticipantConnected, (p) => {
+        dbg("voice", `ParticipantConnected identity=${p.identity} name=${p.name}`);
+        get()._updateParticipants();
+      });
+      room.on(RoomEvent.ParticipantDisconnected, (p) => {
+        dbg("voice", `ParticipantDisconnected identity=${p.identity}`);
         get()._updateParticipants();
         get()._updateScreenSharers();
       });
-      room.on(RoomEvent.ActiveSpeakersChanged, () => get()._updateParticipants());
-      room.on(RoomEvent.TrackMuted, () => get()._updateParticipants());
-      room.on(RoomEvent.TrackUnmuted, () => get()._updateParticipants());
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        dbg("voice", `ActiveSpeakersChanged count=${speakers.length}`, speakers.map((s) => s.identity));
+        get()._updateParticipants();
+      });
+      room.on(RoomEvent.TrackMuted, (pub, participant) => {
+        dbg("voice", `TrackMuted participant=${participant.identity} track=${pub.trackSid} source=${pub.source}`);
+        get()._updateParticipants();
+      });
+      room.on(RoomEvent.TrackUnmuted, (pub, participant) => {
+        dbg("voice", `TrackUnmuted participant=${participant.identity} track=${pub.trackSid} source=${pub.source}`);
+        get()._updateParticipants();
+      });
 
       // Attach remote audio tracks with Web Audio pipeline
       room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
+        dbg("voice", `TrackSubscribed participant=${participant.identity} kind=${track.kind} sid=${track.sid}`, {
+          source: _publication.source,
+          mimeType: _publication.mimeType,
+          simulcasted: _publication.simulcasted,
+          trackEnabled: track.mediaStreamTrack?.enabled,
+          trackReadyState: track.mediaStreamTrack?.readyState,
+        });
+
         if (track.kind === Track.Kind.Audio) {
           // We need track.attach() to create the WebRTC consumer, but it also
           // appends an <audio> element to the DOM that auto-plays.
@@ -537,9 +597,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           el.muted = true;
           el.pause();
           el.remove();
+          dbg("voice", `TrackSubscribed audio element created and removed from DOM for ${participant.identity}`);
 
           const { audioSettings: settings, participantVolumes, isDeafened } = get();
           const volume = isDeafened ? 0 : (participantVolumes[participant.identity] ?? 1.0);
+          dbg("voice", `TrackSubscribed creating pipeline for ${participant.identity}`, { volume, isDeafened });
           createAudioPipeline(track.mediaStreamTrack, track.sid!, settings, volume);
 
           // Track participant → track mapping
@@ -551,11 +613,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           }));
         }
         if (track.kind === Track.Kind.Video) {
+          dbg("voice", `TrackSubscribed video from ${participant.identity}, updating screen sharers`);
           get()._updateScreenSharers();
         }
       });
 
       room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
+        dbg("voice", `TrackUnsubscribed participant=${participant?.identity} kind=${track.kind} sid=${track.sid}`);
         if (track.kind === Track.Kind.Audio) {
           destroyAudioPipeline(track.sid!);
           if (participant) {
@@ -567,18 +631,25 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           }
         }
         // Detach any HTML elements (audio + video tracks)
-        track.detach().forEach((el) => el.remove());
+        const detached = track.detach();
+        dbg("voice", `TrackUnsubscribed detached ${detached.length} HTML element(s)`);
+        detached.forEach((el) => el.remove());
         if (track.kind === Track.Kind.Video) {
           get()._updateScreenSharers();
         }
       });
 
-      room.on(RoomEvent.LocalTrackPublished, () => get()._updateScreenSharers());
-      room.on(RoomEvent.LocalTrackUnpublished, () => {
+      room.on(RoomEvent.LocalTrackPublished, (pub) => {
+        dbg("voice", `LocalTrackPublished source=${pub.source} sid=${pub.trackSid}`);
+        get()._updateScreenSharers();
+      });
+      room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
+        dbg("voice", `LocalTrackUnpublished source=${pub.source} sid=${pub.trackSid}`);
         set({ isScreenSharing: false });
         get()._updateScreenSharers();
       });
-      room.on(RoomEvent.Disconnected, () => {
+      room.on(RoomEvent.Disconnected, (reason) => {
+        dbg("voice", `Room Disconnected reason=${reason}`);
         destroyAllPipelines();
         stopAudioLevelPolling();
         set({
@@ -595,18 +666,33 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         });
       });
 
+      dbg("voice", "joinVoiceChannel connecting to LiveKit...");
       await room.connect(url, token);
+      dbg("voice", "joinVoiceChannel connected!", {
+        localIdentity: room.localParticipant.identity,
+        localName: room.localParticipant.name,
+        remoteParticipants: room.remoteParticipants.size,
+        roomName: room.name,
+        roomSid: room.sid,
+      });
+
       await room.localParticipant.setMicrophoneEnabled(true);
+      dbg("voice", "joinVoiceChannel microphone enabled");
 
       // Set up DTLN noise filter on the microphone track
       if (audioSettings.krispEnabled) {
         try {
+          dbg("voice", "joinVoiceChannel setting up DTLN noise filter");
           const dtln = getOrCreateDtln();
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
           if (micPub?.track) {
             await micPub.track.setProcessor(dtln);
+            dbg("voice", "joinVoiceChannel DTLN noise filter active");
+          } else {
+            dbg("voice", "joinVoiceChannel DTLN skipped — no mic track publication");
           }
         } catch (e) {
+          dbg("voice", "joinVoiceChannel DTLN setup failed", e);
           console.warn("Failed to enable noise filter:", e);
           destroyDtln();
           set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
@@ -633,14 +719,16 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       const { keybinds } = useKeybindsStore.getState();
       const hasPTT = keybinds.some((kb) => kb.action === "push-to-talk" && kb.key !== null);
       if (hasPTT) {
+        dbg("voice", "joinVoiceChannel PTT detected, starting muted");
         room.localParticipant.setMicrophoneEnabled(false);
         set({ isMuted: true });
       }
 
       playJoinSound();
-
       gateway.send({ type: "voice_state_update", channelId, action: "join" });
+      dbg("voice", `joinVoiceChannel COMPLETE channel=${channelId}`);
     } catch (err) {
+      dbg("voice", "joinVoiceChannel FAILED", err instanceof Error ? err.message : err);
       set({
         connecting: false,
         connectionError: err instanceof Error ? err.message : "Failed to connect to voice",
@@ -651,6 +739,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   leaveVoiceChannel: () => {
     const { room, connectedChannelId, channelParticipants } = get();
     const localId = room?.localParticipant?.identity;
+
+    dbg("voice", `leaveVoiceChannel channel=${connectedChannelId}`, {
+      hasRoom: !!room,
+      localId,
+      pipelinesActive: audioPipelines.size,
+    });
 
     playLeaveSound();
     stopAudioLevelPolling();
@@ -706,6 +800,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   toggleMute: () => {
     const { room, isMuted } = get();
     if (!room) return;
+    dbg("voice", `toggleMute ${isMuted ? "unmuting" : "muting"}`);
     room.localParticipant.setMicrophoneEnabled(isMuted);
     if (isMuted) playUnmuteSound(); else playMuteSound();
     set({ isMuted: !isMuted });
@@ -725,6 +820,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     if (!room) return;
 
     const newDeafened = !isDeafened;
+    dbg("voice", `toggleDeafen ${newDeafened ? "deafening" : "undeafening"}`, { wasMuted: isMuted });
 
     if (newDeafened) {
       playDeafenSound();
@@ -757,6 +853,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   setParticipantVolume: (participantId: string, volume: number) => {
+    dbg("voice", `setParticipantVolume participant=${participantId} volume=${volume}`);
     const { participantTrackMap, isDeafened } = get();
 
     set((state) => ({
@@ -779,6 +876,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   updateAudioSetting: (key: keyof AudioSettings, value: boolean | number) => {
+    dbg("voice", `updateAudioSetting ${key}=${value}`);
     const { room, audioSettings } = get();
     const newSettings = { ...audioSettings, [key]: value } as AudioSettings;
     set({ audioSettings: newSettings });
@@ -874,9 +972,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     try {
       if (isScreenSharing) {
+        dbg("voice", "toggleScreenShare stopping");
         await room.localParticipant.setScreenShareEnabled(false);
         set({ isScreenSharing: false });
       } else {
+        dbg("voice", `toggleScreenShare starting quality=${screenShareQuality}`, {
+          ...preset,
+          displaySurface,
+        });
         await room.localParticipant.setScreenShareEnabled(true,
           // Capture options
           {
@@ -903,10 +1006,15 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           },
         );
         set({ isScreenSharing: true });
+        dbg("voice", "toggleScreenShare started successfully");
       }
       get()._updateScreenSharers();
     } catch (err) {
-      if (err instanceof Error && err.message.includes("Permission denied")) return;
+      if (err instanceof Error && err.message.includes("Permission denied")) {
+        dbg("voice", "toggleScreenShare user cancelled permission dialog");
+        return;
+      }
+      dbg("voice", "toggleScreenShare error", err);
       console.error("Screen share error:", err);
     }
   },

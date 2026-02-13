@@ -4,6 +4,7 @@ import { useUIStore } from "../stores/ui.js";
 import { useKeybindsStore, type KeybindAction, type KeybindEntry } from "../stores/keybinds.js";
 import { useSpotifyStore } from "../stores/spotify.js";
 import { useUpdater } from "../hooks/useUpdater.js";
+import { getDebugEnabled, setDebugEnabled, dumpLogs } from "../lib/debug.js";
 import { X } from "lucide-react";
 
 function useMicLevel(enabled: boolean): { level: number; status: string } {
@@ -145,6 +146,8 @@ export function SettingsModal() {
   const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore();
   const updater = useUpdater();
   const { level: micLevel } = useMicLevel(settingsOpen && audioSettings.inputSensitivityEnabled);
+  const [debugMode, setDebugMode] = useState(getDebugEnabled);
+  const [logsCopied, setLogsCopied] = useState(false);
 
   // Stop recording keybind when modal closes
   useEffect(() => {
@@ -424,6 +427,44 @@ export function SettingsModal() {
                 )}
               </div>
             )}
+          </div>
+
+          {/* Debug */}
+          <div className="settings-section">
+            <h3 className="settings-section-title">Debug</h3>
+            <p className="settings-section-desc">
+              Enable verbose logging for voice, music, and WebSocket events.
+              Logs are buffered in memory even when disabled.
+            </p>
+
+            <div className="settings-row">
+              <div className="settings-row-info">
+                <span className="settings-row-label">Debug Mode</span>
+                <span className="settings-row-desc">Show detailed logs in browser console</span>
+              </div>
+              <ToggleSwitch
+                checked={debugMode}
+                onChange={(v) => { setDebugEnabled(v); setDebugMode(v); }}
+              />
+            </div>
+
+            <div className="settings-row">
+              <div className="settings-row-info">
+                <span className="settings-row-label">Export Logs</span>
+                <span className="settings-row-desc">Copy all buffered logs to clipboard for bug reports</span>
+              </div>
+              <button
+                className="btn-small"
+                onClick={() => {
+                  navigator.clipboard.writeText(dumpLogs()).then(() => {
+                    setLogsCopied(true);
+                    setTimeout(() => setLogsCopied(false), 2000);
+                  });
+                }}
+              >
+                {logsCopied ? "Copied!" : "Copy Logs"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
