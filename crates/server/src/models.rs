@@ -46,6 +46,8 @@ pub struct Channel {
     #[sqlx(rename = "type")]
     pub channel_type: String,
     pub bitrate: Option<i64>,
+    #[serde(default)]
+    pub encrypted: bool,
     pub created_at: String,
 }
 
@@ -134,6 +136,7 @@ pub struct CreateChannelRequest {
     #[serde(rename = "type")]
     pub channel_type: String,
     pub bitrate: Option<i64>,
+    pub encrypted: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]

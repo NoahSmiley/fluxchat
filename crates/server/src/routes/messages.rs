@@ -161,7 +161,7 @@ pub async fn search_messages(
     Path(channel_id): Path<String>,
     Query(query): Query<SearchQuery>,
 ) -> impl IntoResponse {
-    let _q = match query.q.as_deref() {
+    let q = match query.q.as_deref() {
         Some(q) if !q.trim().is_empty() => q.trim().to_string(),
         _ => {
             return (
@@ -172,9 +172,9 @@ pub async fn search_messages(
         }
     };
 
-    // Verify access
-    let server_id = sqlx::query_scalar::<_, String>(
-        "SELECT server_id FROM channels WHERE id = ?",
+    // Verify access and get channel info
+    let channel_row = sqlx::query_as::<_, (String, bool)>(
+        "SELECT server_id, encrypted FROM channels WHERE id = ?",
     )
     .bind(&channel_id)
     .fetch_optional(&state.db)
@@ -182,8 +182,8 @@ pub async fn search_messages(
     .ok()
     .flatten();
 
-    let server_id = match server_id {
-        Some(s) => s,
+    let (server_id, is_encrypted) = match channel_row {
+        Some(r) => r,
         None => {
             return (
                 StatusCode::NOT_FOUND,
@@ -210,18 +210,35 @@ pub async fn search_messages(
             .into_response();
     }
 
-    // Return raw messages for client-side decryption and filtering (E2EE)
-    let mut items = sqlx::query_as::<_, Message>(
-        "SELECT * FROM messages WHERE channel_id = ? ORDER BY created_at DESC LIMIT 500",
-    )
-    .bind(&channel_id)
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
+    if is_encrypted {
+        // Encrypted channel: return raw messages for client-side decryption and filtering
+        let mut items = sqlx::query_as::<_, Message>(
+            "SELECT * FROM messages WHERE channel_id = ? ORDER BY created_at DESC LIMIT 500",
+        )
+        .bind(&channel_id)
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default();
 
-    items.reverse();
+        items.reverse();
 
-    Json(serde_json::json!({"items": items})).into_response()
+        Json(serde_json::json!({"items": items, "encrypted": true})).into_response()
+    } else {
+        // Non-encrypted channel: use FTS5 for real search
+        let items = sqlx::query_as::<_, Message>(
+            r#"SELECT m.* FROM messages m
+               INNER JOIN messages_fts fts ON m.id = fts.message_id
+               WHERE m.channel_id = ? AND messages_fts MATCH ?
+               ORDER BY m.created_at DESC LIMIT 50"#,
+        )
+        .bind(&channel_id)
+        .bind(&q)
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default();
+
+        Json(serde_json::json!({"items": items, "encrypted": false})).into_response()
+    }
 }
 
 /// GET /api/messages/reactions

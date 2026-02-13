@@ -309,15 +309,22 @@ pub async fn create_channel(
     } else {
         None
     };
+    // Only text channels can be encrypted
+    let encrypted = if body.channel_type == "text" {
+        body.encrypted.unwrap_or(false)
+    } else {
+        false
+    };
 
     let _ = sqlx::query(
-        "INSERT INTO channels (id, server_id, name, type, bitrate, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO channels (id, server_id, name, type, bitrate, encrypted, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&channel_id)
     .bind(&server_id)
     .bind(&name)
     .bind(&body.channel_type)
     .bind(bitrate)
+    .bind(encrypted)
     .bind(&now)
     .execute(&state.db)
     .await;
@@ -328,6 +335,7 @@ pub async fn create_channel(
         name,
         channel_type: body.channel_type,
         bitrate,
+        encrypted,
         created_at: now,
     };
 
@@ -420,6 +428,7 @@ pub async fn update_channel(
         name: new_name.to_string(),
         channel_type: channel.channel_type,
         bitrate: new_bitrate,
+        encrypted: channel.encrypted,
         created_at: channel.created_at,
     };
 

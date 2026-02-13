@@ -1,13 +1,11 @@
 import { create } from "zustand";
-import { Room, RoomEvent, Track, VideoPreset, VideoQuality, ExternalE2EEKeyProvider } from "livekit-client";
+import { Room, RoomEvent, Track, VideoPreset, VideoQuality } from "livekit-client";
 import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
 import { DtlnTrackProcessor } from "../lib/dtln/DtlnTrackProcessor.js";
 import { useKeybindsStore } from "./keybinds.js";
-import { useCryptoStore } from "./crypto.js";
-import { exportKeyAsBase64 } from "../lib/crypto.js";
 import { dbg } from "../lib/debug.js";
 
 // ── Sound Effects ──
@@ -547,32 +545,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       const channel = chatState.channels.find((c) => c.id === channelId);
       const channelBitrate = channel?.bitrate ?? DEFAULT_BITRATE;
 
-      // E2EE: get server encryption key for voice
-      const cryptoState = useCryptoStore.getState();
-      const serverId = chatState.activeServerId;
-      const serverKey = serverId ? cryptoState.getServerKey(serverId) : null;
-
-      let e2eeOptions: { keyProvider: ExternalE2EEKeyProvider; worker: Worker } | undefined;
-      dbg("voice", "joinVoiceChannel E2EE check", { hasServerKey: !!serverKey, serverId });
-      if (serverKey) {
-        try {
-          const keyProvider = new ExternalE2EEKeyProvider();
-          const keyBase64 = await exportKeyAsBase64(serverKey);
-          await keyProvider.setKey(keyBase64);
-          e2eeOptions = {
-            keyProvider,
-            worker: new Worker(new URL("livekit-client/e2ee-worker", import.meta.url), { type: "module" }),
-          };
-          dbg("voice", "joinVoiceChannel E2EE initialized");
-        } catch (e) {
-          dbg("voice", "joinVoiceChannel E2EE setup failed", e);
-          console.warn("Voice E2EE setup failed, continuing without:", e);
-        }
-      }
-
       dbg("voice", "joinVoiceChannel creating Room", {
         channelBitrate,
-        e2ee: !!e2eeOptions,
         audioSettings: {
           echoCancellation: audioSettings.echoCancellation,
           noiseSuppression: audioSettings.noiseSuppression,
@@ -614,7 +588,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           degradationPreference: "maintain-resolution",
           backupCodec: { codec: "vp8" },
         },
-        ...(e2eeOptions ? { e2ee: e2eeOptions } : {}),
       });
 
       room.on(RoomEvent.ParticipantConnected, (p) => {

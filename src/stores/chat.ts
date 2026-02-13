@@ -224,17 +224,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   sendMessage: async (content) => {
-    const { activeChannelId, activeServerId, pendingAttachments } = get();
+    const { activeChannelId, activeServerId, pendingAttachments, channels } = get();
     if (!activeChannelId || (!content.trim() && pendingAttachments.length === 0)) return;
 
-    const cryptoState = useCryptoStore.getState();
-    const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
+    const channel = channels.find((c) => c.id === activeChannelId);
     let ciphertext: string;
     let mlsEpoch: number;
-    if (key) {
-      ciphertext = await cryptoState.encryptMessage(content || " ", key);
-      mlsEpoch = 1;
+
+    if (channel?.encrypted) {
+      // Encrypted channel: use server group key
+      const cryptoState = useCryptoStore.getState();
+      const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
+      if (key) {
+        ciphertext = await cryptoState.encryptMessage(content || " ", key);
+        mlsEpoch = 1;
+      } else {
+        ciphertext = btoa(content || " ");
+        mlsEpoch = 0;
+      }
     } else {
+      // Normal channel: send plaintext (base64-encoded)
       ciphertext = btoa(content || " ");
       mlsEpoch = 0;
     }
@@ -254,12 +263,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   editMessage: async (messageId, newContent) => {
     if (!newContent.trim()) return;
-    const { activeServerId } = get();
-    const cryptoState = useCryptoStore.getState();
-    const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
-    const ciphertext = key
-      ? await cryptoState.encryptMessage(newContent, key)
-      : btoa(newContent);
+    const { activeServerId, activeChannelId, channels } = get();
+    const channel = channels.find((c) => c.id === activeChannelId);
+    let ciphertext: string;
+
+    if (channel?.encrypted) {
+      const cryptoState = useCryptoStore.getState();
+      const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
+      ciphertext = key
+        ? await cryptoState.encryptMessage(newContent, key)
+        : btoa(newContent);
+    } else {
+      ciphertext = btoa(newContent);
+    }
+
     gateway.send({
       type: "edit_message",
       messageId,
@@ -349,28 +366,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   searchMessages: async (query) => {
-    const { activeChannelId, activeServerId } = get();
+    const { activeChannelId, activeServerId, channels } = get();
     if (!activeChannelId || !query.trim()) return;
     set({ searchQuery: query });
     try {
       const result = await api.searchMessages(activeChannelId, query);
-      // Client-side decryption and filtering for E2EE
+      const channel = channels.find((c) => c.id === activeChannelId);
       const cryptoState = useCryptoStore.getState();
-      const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
-      const lowerQuery = query.toLowerCase();
-      const matched: Message[] = [];
-      for (const msg of result.items) {
-        const text = await cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch);
-        if (text.toLowerCase().includes(lowerQuery)) {
-          matched.push(msg);
-          // Cache the decrypted text
+
+      if (channel?.encrypted) {
+        // Encrypted channel: client-side decryption and filtering
+        const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
+        const lowerQuery = query.toLowerCase();
+        const matched: Message[] = [];
+        for (const msg of result.items) {
+          const text = await cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch);
+          if (text.toLowerCase().includes(lowerQuery)) {
+            matched.push(msg);
+            useChatStore.setState((s) => ({
+              decryptedCache: { ...s.decryptedCache, [msg.id]: text },
+            }));
+          }
+          if (matched.length >= 50) break;
+        }
+        set({ searchResults: matched });
+      } else {
+        // Non-encrypted channel: server already filtered via FTS5
+        for (const msg of result.items) {
+          const text = await cryptoState.decryptMessage(msg.ciphertext, null, msg.mlsEpoch);
           useChatStore.setState((s) => ({
             decryptedCache: { ...s.decryptedCache, [msg.id]: text },
           }));
         }
-        if (matched.length >= 50) break;
+        set({ searchResults: result.items });
       }
-      set({ searchResults: matched });
     } catch {
       set({ searchResults: [] });
     }

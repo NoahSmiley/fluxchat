@@ -19,6 +19,7 @@ export interface Channel {
   name: string;
   type: ChannelType;
   bitrate: number | null;
+  encrypted: boolean;
   createdAt: string;
 }
 
@@ -185,6 +186,7 @@ export interface CreateChannelRequest {
   name: string;
   type: ChannelType;
   bitrate?: number;
+  encrypted?: boolean;
 }
 
 export interface UpdateServerRequest {

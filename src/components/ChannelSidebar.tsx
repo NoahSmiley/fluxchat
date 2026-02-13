@@ -3,7 +3,7 @@ import type { Channel, ChannelType } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
-import { Settings, Volume2, Monitor, MicOff, HeadphoneOff, ChevronDown } from "lucide-react";
+import { Settings, Volume2, Monitor, MicOff, HeadphoneOff, ChevronDown, Lock } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
 import { ServerSettingsModal } from "./ServerSettingsModal.js";
@@ -45,7 +45,7 @@ export function ChannelSidebar() {
                   className={`channel-item ${channel.id === activeChannelId ? "active" : ""}`}
                   onClick={() => selectChannel(channel.id)}
                 >
-                  <span className="channel-hash">#</span>
+                  <span className="channel-hash">{channel.encrypted ? <Lock size={14} /> : "#"}</span>
                   {channel.name}
                 </button>
                 {isOwnerOrAdmin && (

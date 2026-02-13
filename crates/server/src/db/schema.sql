@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS "channels" (
     name TEXT NOT NULL,
     type TEXT NOT NULL,
     bitrate INTEGER,
+    encrypted INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
 

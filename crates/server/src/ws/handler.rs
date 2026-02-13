@@ -2,6 +2,7 @@ use axum::{
     extract::{State, WebSocketUpgrade, ws::{Message, WebSocket}},
     response::IntoResponse,
 };
+use base64::{engine::general_purpose, Engine};
 use futures::{SinkExt, StreamExt};
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -305,6 +306,31 @@ async fn handle_client_event(
                 return;
             }
 
+            // Index plaintext in FTS5 for non-encrypted channels
+            let is_encrypted = sqlx::query_scalar::<_, bool>(
+                "SELECT encrypted FROM channels WHERE id = ?",
+            )
+            .bind(&channel_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or(false);
+
+            if !is_encrypted {
+                if let Ok(decoded) = general_purpose::STANDARD.decode(&ciphertext) {
+                    if let Ok(plaintext) = String::from_utf8(decoded) {
+                        let _ = sqlx::query(
+                            "INSERT INTO messages_fts(message_id, plaintext) VALUES (?, ?)",
+                        )
+                        .bind(&id)
+                        .bind(&plaintext)
+                        .execute(&state.db)
+                        .await;
+                    }
+                }
+            }
+
             // Link attachments to this message
             let mut attachments = Vec::new();
             if !attachment_ids.is_empty() {
@@ -400,6 +426,35 @@ async fn handle_client_event(
             .execute(&state.db)
             .await;
 
+            // Update FTS5 index for non-encrypted channels
+            let is_encrypted = sqlx::query_scalar::<_, bool>(
+                "SELECT encrypted FROM channels WHERE id = ?",
+            )
+            .bind(&channel_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or(false);
+
+            if !is_encrypted {
+                let _ = sqlx::query("DELETE FROM messages_fts WHERE message_id = ?")
+                    .bind(&message_id)
+                    .execute(&state.db)
+                    .await;
+                if let Ok(decoded) = general_purpose::STANDARD.decode(&ciphertext) {
+                    if let Ok(plaintext) = String::from_utf8(decoded) {
+                        let _ = sqlx::query(
+                            "INSERT INTO messages_fts(message_id, plaintext) VALUES (?, ?)",
+                        )
+                        .bind(&message_id)
+                        .bind(&plaintext)
+                        .execute(&state.db)
+                        .await;
+                    }
+                }
+            }
+
             state
                 .gateway
                 .broadcast_channel(
@@ -441,6 +496,12 @@ async fn handle_client_event(
                     .await;
                 return;
             }
+
+            // Delete from FTS5 index (no-op if not indexed)
+            let _ = sqlx::query("DELETE FROM messages_fts WHERE message_id = ?")
+                .bind(&message_id)
+                .execute(&state.db)
+                .await;
 
             // Delete the message (attachments cascade)
             let _ = sqlx::query("DELETE FROM messages WHERE id = ?")
