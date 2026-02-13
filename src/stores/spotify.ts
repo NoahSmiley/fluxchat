@@ -211,8 +211,24 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       const codeVerifier = generateRandomString(64);
       const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-      // Send code_verifier to backend; backend returns the redirect URI
-      const { state, redirectUri } = await api.initSpotifyAuth(codeVerifier);
+      // Send code_verifier to backend; backend returns state nonce
+      const { state, redirectUri: backendRedirectUri } = await api.initSpotifyAuth(codeVerifier);
+
+      // Determine redirect URI: use local OAuth listener in Tauri app,
+      // fall back to backend redirect URI for web/dev
+      let redirectUri = backendRedirectUri;
+      let listenerPromise: Promise<unknown> | null = null;
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        // Derive the server URL from API_BASE (strip "/api" suffix)
+        const serverUrl = API_BASE.replace(/\/api$/, "");
+        // Start one-shot local HTTP server BEFORE opening the browser
+        listenerPromise = invoke("start_oauth_listener", { serverUrl });
+        redirectUri = "http://127.0.0.1:29170/callback";
+        dbg("spotify", "OAuth using local listener", { redirectUri });
+      } catch {
+        dbg("spotify", "OAuth using backend redirect", { redirectUri });
+      }
 
       const scopes = [
         "streaming",

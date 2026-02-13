@@ -619,10 +619,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
       room.on(RoomEvent.ParticipantConnected, (p) => {
         dbg("voice", `ParticipantConnected identity=${p.identity} name=${p.name}`);
+        playJoinSound();
         get()._updateParticipants();
       });
       room.on(RoomEvent.ParticipantDisconnected, (p) => {
         dbg("voice", `ParticipantDisconnected identity=${p.identity}`);
+        playLeaveSound();
         get()._updateParticipants();
         get()._updateScreenSharers();
       });
