@@ -253,7 +253,7 @@ export function ChatView() {
   return (
     <div className="chat-view">
       <div className="chat-header">
-        <span className="chat-header-channel"># {channels.find((c) => c.id === activeChannelId)?.name}</span>
+        <span className="chat-header-channel">{channels.find((c) => c.id === activeChannelId)?.name}</span>
         <div className="chat-header-actions">
           <form className="search-bar" onSubmit={handleSearchSubmit}>
             <input

@@ -103,7 +103,7 @@ export function ServerSidebar() {
         onClick={() => { if (servers.length > 0) selectServer(servers[0].id); }}
         style={{ cursor: servers.length > 0 ? "pointer" : "default" }}
       >
-        <FluxLogo size={36} />
+        <FluxLogo size={28} />
       </div>
 
       <button

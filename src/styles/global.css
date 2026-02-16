@@ -286,17 +286,17 @@ input:focus {
 
 .server-sidebar-logo {
   color: var(--text-primary);
-  padding: 14px 0;
+  padding: 10px 0;
 }
 
 .server-icon {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   background: var(--bg-tertiary);
   color: var(--text-primary);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: border-radius 0.2s, background 0.2s;
@@ -344,36 +344,9 @@ input:focus {
 }
 
 .channel-sidebar-header {
-  height: calc(var(--titlebar-height) + 34px);
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border);
+  height: var(--titlebar-height);
   -webkit-app-region: drag;
   flex-shrink: 0;
-}
-
-.channel-sidebar-header h3 {
-  font-size: 16px;
-  flex: 1;
-}
-
-.channel-settings-icon-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  -webkit-app-region: no-drag;
-}
-
-.channel-settings-icon-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-modifier-hover);
 }
 
 /* ── Server Settings Modal ── */
@@ -1962,6 +1935,24 @@ input:focus {
 }
 
 .channel-add-btn:hover {
+  color: var(--text-primary);
+}
+
+.channel-add-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  margin-top: 4px;
+  width: 100%;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.channel-add-inline:hover {
   color: var(--text-primary);
 }
 

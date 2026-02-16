@@ -70,8 +70,8 @@ export function MainLayout() {
   const showMembers = !!activeServerId && members.length > 0 && !showingDMs;
 
   const gridCols = showSidebar
-    ? `72px ${sidebarWidth}px 1fr${showMembers ? ` ${memberWidth}px` : ""}`
-    : `72px 1fr`;
+    ? `56px ${sidebarWidth}px 1fr${showMembers ? ` ${memberWidth}px` : ""}`
+    : `56px 1fr`;
 
   return (
     <div className="app-layout" style={{ gridTemplateColumns: gridCols }}>
