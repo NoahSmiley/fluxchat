@@ -278,7 +278,7 @@ input:focus {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4px 0 8px;
+  padding: calc(var(--titlebar-height) + 4px) 0 8px;
   gap: 8px;
   overflow-y: auto;
   border-right: 1px solid var(--border);
@@ -287,6 +287,10 @@ input:focus {
 .server-sidebar-logo {
   color: var(--text-primary);
   padding: 10px 0;
+  -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 1001;
+  cursor: pointer;
 }
 
 .server-icon {
@@ -2430,12 +2434,110 @@ input:focus {
   overflow-y: auto;
 }
 
-.dm-actions {
-  padding: 8px 16px;
+.dm-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 4px;
 }
 
-.dm-new-btn {
+.dm-header-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.dm-add-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 0;
+}
+
+.dm-add-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-modifier-hover);
+}
+
+.dm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 16px);
+  margin: 1px 8px;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.dm-item:hover {
+  background: var(--bg-modifier-hover);
+  color: var(--text-primary);
+}
+
+.dm-item.active {
+  background: var(--bg-modifier-active);
+  color: var(--text-primary);
+}
+
+.dm-item-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: visible;
+}
+
+.dm-item-avatar img {
   width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.dm-status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-secondary);
+}
+
+.dm-status-dot.online {
+  background: #43b581;
+}
+
+.dm-status-dot.offline {
+  background: var(--text-muted);
+}
+
+.dm-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dm-search-panel {

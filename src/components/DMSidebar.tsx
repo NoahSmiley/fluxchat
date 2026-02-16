@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useChatStore } from "../stores/chat.js";
+import { Plus } from "lucide-react";
 import * as api from "../lib/api.js";
 
 export function DMSidebar() {
@@ -30,15 +31,24 @@ export function DMSidebar() {
     setSearchResults([]);
   }
 
+  const sorted = [...dmChannels].sort((a, b) => {
+    const aOnline = onlineUsers.has(a.otherUser.id) ? 0 : 1;
+    const bOnline = onlineUsers.has(b.otherUser.id) ? 0 : 1;
+    return aOnline - bOnline;
+  });
+
   return (
     <div className="channel-sidebar dm-sidebar">
-      <div className="channel-sidebar-header">
-        <h3>Direct Messages</h3>
-      </div>
+      <div className="channel-sidebar-header" />
 
-      <div className="dm-actions">
-        <button className="btn-small dm-new-btn" onClick={() => setShowSearch(!showSearch)}>
-          New Message
+      <div className="dm-header-row">
+        <span className="dm-header-label">Messages</span>
+        <button
+          className="dm-add-btn"
+          onClick={() => setShowSearch(!showSearch)}
+          title="New Message"
+        >
+          <Plus size={16} />
         </button>
       </div>
 
@@ -61,22 +71,26 @@ export function DMSidebar() {
       )}
 
       <div className="channel-list">
-        {[...dmChannels]
-          .sort((a, b) => {
-            const aOnline = onlineUsers.has(a.otherUser.id) ? 0 : 1;
-            const bOnline = onlineUsers.has(b.otherUser.id) ? 0 : 1;
-            return aOnline - bOnline;
-          })
-          .map((dm) => (
-          <button
-            key={dm.id}
-            className={`channel-item ${dm.id === activeDMChannelId ? "active" : ""}`}
-            onClick={() => selectDM(dm.id)}
-          >
-            <span className={`status-dot ${onlineUsers.has(dm.otherUser.id) ? "online" : "offline"}`} />
-            {dm.otherUser.username}
-          </button>
-        ))}
+        {sorted.map((dm) => {
+          const isOnline = onlineUsers.has(dm.otherUser.id);
+          return (
+            <button
+              key={dm.id}
+              className={`dm-item ${dm.id === activeDMChannelId ? "active" : ""}`}
+              onClick={() => selectDM(dm.id)}
+            >
+              <div className="dm-item-avatar">
+                {dm.otherUser.image ? (
+                  <img src={dm.otherUser.image} alt={dm.otherUser.username} />
+                ) : (
+                  dm.otherUser.username.charAt(0).toUpperCase()
+                )}
+                <span className={`dm-status-dot ${isOnline ? "online" : "offline"}`} />
+              </div>
+              <span className="dm-item-name">{dm.otherUser.username}</span>
+            </button>
+          );
+        })}
         {dmChannels.length === 0 && !showSearch && (
           <div className="dm-empty">No conversations yet</div>
         )}
