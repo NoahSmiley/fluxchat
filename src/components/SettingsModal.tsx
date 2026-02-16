@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useVoiceStore } from "../stores/voice.js";
 import { useUIStore } from "../stores/ui.js";
+import { useChatStore } from "../stores/chat.js";
 import { useKeybindsStore, type KeybindAction, type KeybindEntry } from "../stores/keybinds.js";
 import { useSpotifyStore } from "../stores/spotify.js";
 import { useUpdater } from "../hooks/useUpdater.js";
 import { getDebugEnabled, setDebugEnabled, dumpLogs } from "../lib/debug.js";
-import { X } from "lucide-react";
+import { X, Copy, Check } from "lucide-react";
 
 function useMicLevel(enabled: boolean): { level: number; status: string } {
   const [level, setLevel] = useState(0);
@@ -142,12 +143,20 @@ function KeybindButton({ entry }: { entry: KeybindEntry }) {
 export function SettingsModal() {
   const { settingsOpen, closeSettings } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
+  const { servers, activeServerId, updateServer } = useChatStore();
   const { keybinds } = useKeybindsStore();
   const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore();
   const updater = useUpdater();
   const { level: micLevel } = useMicLevel(settingsOpen && audioSettings.inputSensitivityEnabled);
   const [debugMode, setDebugMode] = useState(getDebugEnabled);
   const [logsCopied, setLogsCopied] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [serverNameInput, setServerNameInput] = useState("");
+  const [serverNameSaving, setServerNameSaving] = useState(false);
+  const [editingServerName, setEditingServerName] = useState(false);
+
+  const server = servers.find((s) => s.id === activeServerId) ?? servers[0];
+  const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
 
   // Stop recording keybind when modal closes
   useEffect(() => {
@@ -428,6 +437,84 @@ export function SettingsModal() {
               </div>
             )}
           </div>
+
+          {/* Server Management (owner/admin only) */}
+          {isOwnerOrAdmin && server && (
+            <div className="settings-section">
+              <h3 className="settings-section-title">Server</h3>
+              <p className="settings-section-desc">
+                Manage your server settings, invite code, and channels.
+              </p>
+
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">Server Name</span>
+                  <span className="settings-row-desc">{server.name}</span>
+                </div>
+                {server.role === "owner" && !editingServerName && (
+                  <button className="btn-small" onClick={() => { setServerNameInput(server.name); setEditingServerName(true); }}>
+                    Rename
+                  </button>
+                )}
+              </div>
+
+              {editingServerName && (
+                <div className="settings-row" style={{ gap: 8 }}>
+                  <input
+                    type="text"
+                    value={serverNameInput}
+                    onChange={(e) => setServerNameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && serverNameInput.trim()) {
+                        setServerNameSaving(true);
+                        updateServer(server.id, serverNameInput.trim()).then(() => {
+                          setEditingServerName(false);
+                          setServerNameSaving(false);
+                        }).catch(() => setServerNameSaving(false));
+                      }
+                      if (e.key === "Escape") setEditingServerName(false);
+                    }}
+                    autoFocus
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    className="btn-small btn-primary"
+                    disabled={serverNameSaving}
+                    onClick={() => {
+                      if (!serverNameInput.trim()) return;
+                      setServerNameSaving(true);
+                      updateServer(server.id, serverNameInput.trim()).then(() => {
+                        setEditingServerName(false);
+                        setServerNameSaving(false);
+                      }).catch(() => setServerNameSaving(false));
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button className="btn-small" onClick={() => setEditingServerName(false)}>Cancel</button>
+                </div>
+              )}
+
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">Invite Code</span>
+                  <span className="settings-row-desc"><code>{server.inviteCode}</code></span>
+                </div>
+                <button
+                  className="btn-small"
+                  onClick={() => {
+                    if (server.inviteCode) {
+                      navigator.clipboard.writeText(server.inviteCode);
+                      setInviteCopied(true);
+                      setTimeout(() => setInviteCopied(false), 2000);
+                    }
+                  }}
+                >
+                  {inviteCopied ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Debug */}
           <div className="settings-section">

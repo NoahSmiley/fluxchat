@@ -3,10 +3,9 @@ import type { Channel, ChannelType } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
-import { Settings, Volume2, Monitor, MicOff, HeadphoneOff } from "lucide-react";
+import { Settings, Monitor, MicOff, HeadphoneOff } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
-import { ServerSettingsModal } from "./ServerSettingsModal.js";
 
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, channelsLoaded, members } = useChatStore();
@@ -19,22 +18,10 @@ export function ChannelSidebar() {
 
   const [createModalType, setCreateModalType] = useState<ChannelType | null>(null);
   const [settingsChannel, setSettingsChannel] = useState<Channel | null>(null);
-  const [showServerSettings, setShowServerSettings] = useState(false);
 
   return (
     <div className="channel-sidebar">
-      <div className="channel-sidebar-header">
-        <h3>{server?.name ?? "Server"}</h3>
-        {isOwnerOrAdmin && (
-          <button
-            className="channel-settings-icon-btn"
-            onClick={() => setShowServerSettings(true)}
-            title="Server Settings"
-          >
-            <Settings size={16} />
-          </button>
-        )}
-      </div>
+      <div className="channel-sidebar-header" />
 
       <div className="channel-list">
         {textChannels.length > 0 && (
@@ -53,7 +40,6 @@ export function ChannelSidebar() {
                   className={`channel-item ${channel.id === activeChannelId ? "active" : ""}`}
                   onClick={() => selectChannel(channel.id)}
                 >
-                  <span className="channel-hash">#</span>
                   {channel.name}
                 </button>
                 {isOwnerOrAdmin && (
@@ -91,7 +77,6 @@ export function ChannelSidebar() {
                       className={`channel-item ${channel.id === activeChannelId ? "active" : ""} ${isConnected ? "voice-connected" : ""}`}
                       onClick={() => selectChannel(channel.id)}
                     >
-                      <span className="channel-hash"><Volume2 size={14} /></span>
                       {channel.name}
                       {hasScreenShare && (
                         <span className="channel-live-badge"><Monitor size={10} /> LIVE</span>
@@ -168,13 +153,6 @@ export function ChannelSidebar() {
           channel={settingsChannel}
           serverId={activeServerId}
           onClose={() => setSettingsChannel(null)}
-        />
-      )}
-
-      {showServerSettings && activeServerId && (
-        <ServerSettingsModal
-          serverId={activeServerId}
-          onClose={() => setShowServerSettings(false)}
         />
       )}
     </div>
