@@ -61,7 +61,13 @@ export function DMSidebar() {
       )}
 
       <div className="channel-list">
-        {dmChannels.map((dm) => (
+        {[...dmChannels]
+          .sort((a, b) => {
+            const aOnline = onlineUsers.has(a.otherUser.id) ? 0 : 1;
+            const bOnline = onlineUsers.has(b.otherUser.id) ? 0 : 1;
+            return aOnline - bOnline;
+          })
+          .map((dm) => (
           <button
             key={dm.id}
             className={`channel-item ${dm.id === activeDMChannelId ? "active" : ""}`}

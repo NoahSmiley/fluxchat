@@ -7,9 +7,9 @@ import { AvatarCropModal } from "./AvatarCropModal.js";
 import { useUIStore } from "../stores/ui.js";
 
 export function ServerSidebar() {
-  const { servers, activeServerId, showingDMs, selectServer, createServer, joinServer, showDMs } = useChatStore();
+  const { servers, showingDMs, joinServer, showDMs, selectServer } = useChatStore();
   const { user, logout, updateProfile } = useAuthStore();
-  const [showModal, setShowModal] = useState<"create" | "join" | null>(null);
+  const [showModal, setShowModal] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [input, setInput] = useState("");
 
@@ -23,13 +23,9 @@ export function ServerSidebar() {
 
   async function handleSubmit() {
     if (!input.trim()) return;
-    if (showModal === "create") {
-      await createServer(input.trim());
-    } else if (showModal === "join") {
-      await joinServer(input.trim());
-    }
+    await joinServer(input.trim());
     setInput("");
-    setShowModal(null);
+    setShowModal(false);
   }
 
   function openProfile() {
@@ -101,7 +97,12 @@ export function ServerSidebar() {
 
   return (
     <div className="server-sidebar">
-      <div className="server-sidebar-logo" title="Flux">
+      <div
+        className="server-sidebar-logo"
+        title={servers.length > 0 ? servers[0].name : "Flux"}
+        onClick={() => { if (servers.length > 0) selectServer(servers[0].id); }}
+        style={{ cursor: servers.length > 0 ? "pointer" : "default" }}
+      >
         <FluxLogo size={36} />
       </div>
 
@@ -115,34 +116,15 @@ export function ServerSidebar() {
 
       <div className="server-sidebar-divider" />
 
-      {servers.map((server) => (
+      {servers.length === 0 && (
         <button
-          key={server.id}
-          className={`server-icon ${server.id === activeServerId ? "active" : ""}`}
-          onClick={() => selectServer(server.id)}
-          title={server.name}
+          className="server-icon add-server"
+          onClick={() => setShowModal(true)}
+          title="Join Server"
         >
-          {server.name.charAt(0).toUpperCase()}
+          <ArrowRight size={20} />
         </button>
-      ))}
-
-      <div className="server-sidebar-divider" />
-
-      <button
-        className="server-icon add-server"
-        onClick={() => setShowModal("create")}
-        title="Create Server"
-      >
-        +
-      </button>
-
-      <button
-        className="server-icon add-server"
-        onClick={() => setShowModal("join")}
-        title="Join Server"
-      >
-        <ArrowRight size={20} />
-      </button>
+      )}
 
       <div className="server-sidebar-spacer" />
 
@@ -269,21 +251,21 @@ export function ServerSidebar() {
       )}
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(null)}>
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{showModal === "create" ? "Create Server" : "Join Server"}</h3>
+            <h3>Join Server</h3>
             <input
               type="text"
-              placeholder={showModal === "create" ? "Server name" : "Invite code"}
+              placeholder="Invite code"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
               autoFocus
             />
             <div className="modal-actions">
-              <button className="btn-small" onClick={() => setShowModal(null)}>Cancel</button>
+              <button className="btn-small" onClick={() => setShowModal(false)}>Cancel</button>
               <button className="btn-primary btn-small" onClick={handleSubmit}>
-                {showModal === "create" ? "Create" : "Join"}
+                Join
               </button>
             </div>
           </div>

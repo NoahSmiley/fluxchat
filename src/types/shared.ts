@@ -81,6 +81,7 @@ export interface DMMessage {
 export interface VoiceParticipant {
   userId: string;
   username: string;
+  drinkCount: number;
 }
 
 export interface ActivityInfo {
@@ -148,7 +149,8 @@ export type WSClientEvent =
   | { type: "update_activity"; activity: ActivityInfo | null }
   | { type: "share_server_key"; serverId: string; userId: string; encryptedKey: string }
   | { type: "request_server_key"; serverId: string }
-  | { type: "spotify_playback_control"; sessionId: string; action: string; trackUri?: string; positionMs?: number };
+  | { type: "spotify_playback_control"; sessionId: string; action: string; trackUri?: string; positionMs?: number }
+  | { type: "voice_drink_update"; channelId: string; drinkCount: number };
 
 export type WSServerEvent =
   | { type: "message"; message: Message; attachments?: Attachment[] }

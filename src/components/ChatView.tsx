@@ -300,11 +300,8 @@ export function ChatView() {
           return (
             <div key={msg.id} className={`message ${msg.senderId === user?.id ? "own" : ""}`}>
               <div className="message-avatar">
-                {senderImage ? (
-                  <img src={senderImage} alt={senderName} className="avatar-img" />
-                ) : (
-                  <div className="avatar-fallback">{senderName.charAt(0).toUpperCase()}</div>
-                )}
+                {senderImage && <img src={senderImage} alt={senderName} className="avatar-img" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+                <div className="avatar-fallback">{senderName.charAt(0).toUpperCase()}</div>
               </div>
               <div className="message-content">
               <div className="message-header">

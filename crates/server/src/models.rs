@@ -113,6 +113,8 @@ pub struct DmMessage {
 pub struct VoiceParticipant {
     pub user_id: String,
     pub username: String,
+    #[serde(default)]
+    pub drink_count: i32,
 }
 
 #[derive(Debug, Serialize)]

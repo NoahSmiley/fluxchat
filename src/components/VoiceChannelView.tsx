@@ -7,7 +7,7 @@ import { MusicPanel } from "./MusicPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
-  Music,
+  Music, Beer,
 } from "lucide-react";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
@@ -156,6 +156,8 @@ export function VoiceChannelView() {
     setParticipantVolume,
     screenShareQuality,
     setScreenShareQuality,
+    channelParticipants,
+    incrementDrinkCount,
   } = useVoiceStore();
   const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
   const [activeTab, setActiveTab] = useState<"voice" | "music">("voice");
@@ -285,6 +287,10 @@ export function VoiceChannelView() {
                 />
                 <span className="voice-tile-name">
                   {user.username}
+                  {(() => {
+                    const drinks = (channelParticipants[connectedChannelId!] || []).find((p) => p.userId === user.userId)?.drinkCount ?? 0;
+                    return drinks > 0 ? <span className="drink-badge">🍺{drinks}</span> : null;
+                  })()}
                   {(user.isMuted || user.isDeafened) && (
                     <span className="voice-tile-status-icons">
                       {user.isMuted && <MicOff size={14} className="voice-tile-status-icon" />}
@@ -375,7 +381,8 @@ export function VoiceChannelView() {
             >
               {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
             </button>
-            {!isScreenSharing && (
+            {/* Only show quality picker to the person about to stream, not viewers */}
+            {!isScreenSharing && !hasScreenShares && (
               <button
                 className="voice-ctrl-btn quality-picker-toggle"
                 onClick={(e) => { e.stopPropagation(); setShowQualityPicker((v) => !v); }}
@@ -384,7 +391,7 @@ export function VoiceChannelView() {
                 <span className="quality-label">{screenShareQuality}</span>
               </button>
             )}
-            {showQualityPicker && !isScreenSharing && (
+            {showQualityPicker && !isScreenSharing && !hasScreenShares && (
               <div className="quality-picker-dropdown" onClick={(e) => e.stopPropagation()}>
                 {(["1080p60", "1080p30", "720p60", "720p30", "480p30"] as const).map((q) => (
                   <button
@@ -405,6 +412,13 @@ export function VoiceChannelView() {
               </div>
             )}
           </div>
+          <button
+            className="voice-ctrl-btn drink-btn"
+            onClick={incrementDrinkCount}
+            title="Take a drink! 🍺"
+          >
+            <Beer size={20} />
+          </button>
           <button
             className="voice-ctrl-btn disconnect"
             onClick={leaveVoiceChannel}

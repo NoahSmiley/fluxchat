@@ -21,7 +21,8 @@ pub struct GatewayState {
     pub clients: RwLock<HashMap<ClientId, ConnectedClient>>,
     pub channel_subs: RwLock<HashMap<String, HashSet<ClientId>>>,
     pub dm_subs: RwLock<HashMap<String, HashSet<ClientId>>>,
-    pub voice_participants: RwLock<HashMap<String, HashMap<String, String>>>,
+    // channel_id → user_id → (username, drink_count)
+    pub voice_participants: RwLock<HashMap<String, HashMap<String, (String, i32)>>>,
 }
 
 impl GatewayState {
@@ -265,9 +266,10 @@ impl GatewayState {
             .map(|(channel_id, participants)| {
                 let parts: Vec<VoiceParticipant> = participants
                     .iter()
-                    .map(|(uid, uname)| VoiceParticipant {
+                    .map(|(uid, (uname, drinks))| VoiceParticipant {
                         user_id: uid.clone(),
                         username: uname.clone(),
+                        drink_count: *drinks,
                     })
                     .collect();
                 (channel_id.clone(), parts)
@@ -295,7 +297,7 @@ impl GatewayState {
             client.voice_channel_id = Some(channel_id.to_string());
             vp.entry(channel_id.to_string())
                 .or_default()
-                .insert(client.user_id.clone(), client.username.clone());
+                .insert(client.user_id.clone(), (client.username.clone(), 0));
         }
     }
 
@@ -325,13 +327,24 @@ impl GatewayState {
             .map(|participants| {
                 participants
                     .iter()
-                    .map(|(uid, uname)| VoiceParticipant {
+                    .map(|(uid, (uname, drinks))| VoiceParticipant {
                         user_id: uid.clone(),
                         username: uname.clone(),
+                        drink_count: *drinks,
                     })
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// Update drink count for a user in a voice channel
+    pub async fn update_drink_count(&self, user_id: &str, channel_id: &str, drink_count: i32) {
+        let mut vp = self.voice_participants.write().await;
+        if let Some(participants) = vp.get_mut(channel_id) {
+            if let Some(entry) = participants.get_mut(user_id) {
+                entry.1 = drink_count;
+            }
+        }
     }
 
     /// Update a client's activity status

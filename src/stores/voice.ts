@@ -420,11 +420,12 @@ interface ScreenSharePreset {
 
 const SCREEN_SHARE_PRESETS: Record<ScreenShareQuality, ScreenSharePreset> = {
   // Discord-like defaults: H.264 (hardware-accelerated), balanced degradation
-  "1080p60": { width: 1920, height: 1080, frameRate: 60, maxBitrate: 6_000_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "motion" },
-  "1080p30": { width: 1920, height: 1080, frameRate: 30, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "detail" },
-  "720p60":  { width: 1280, height: 720,  frameRate: 60, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "motion" },
-  "720p30":  { width: 1280, height: 720,  frameRate: 30, maxBitrate: 2_500_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "detail" },
-  "480p30":  { width: 854,  height: 480,  frameRate: 30, maxBitrate: 1_500_000,  codec: "h264", scalabilityMode: "L1T2", degradationPreference: "balanced", contentHint: "detail" },
+  // H.264 uses L1T1 (no SVC layering) — browsers don't support H.264 temporal layers well
+  "1080p60": { width: 1920, height: 1080, frameRate: 60, maxBitrate: 6_000_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "motion" },
+  "1080p30": { width: 1920, height: 1080, frameRate: 30, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "detail" },
+  "720p60":  { width: 1280, height: 720,  frameRate: 60, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "motion" },
+  "720p30":  { width: 1280, height: 720,  frameRate: 30, maxBitrate: 2_500_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "detail" },
+  "480p30":  { width: 854,  height: 480,  frameRate: 30, maxBitrate: 1_500_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "detail" },
   // Lossless: VP9 + maintain-resolution for maximum quality (CPU-heavy)
   "Lossless":{ width: 1920, height: 1080, frameRate: 60, maxBitrate: 20_000_000, codec: "vp9",  scalabilityMode: "L1T3", degradationPreference: "maintain-resolution", contentHint: "detail" },
 };
@@ -477,6 +478,7 @@ interface VoiceState {
   unpinScreenShare: () => void;
   toggleTheatreMode: () => void;
   setScreenShareQuality: (quality: ScreenShareQuality) => void;
+  incrementDrinkCount: () => void;
 
   // Internal
   _updateParticipants: () => void;
@@ -621,7 +623,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             priority: "high",
           },
           screenShareSimulcastLayers: [],
-          scalabilityMode: "L1T2",
+          scalabilityMode: "L1T1",
           degradationPreference: "balanced",
           backupCodec: { codec: "vp8" },
         },
@@ -723,6 +725,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
         dbg("voice", `LocalTrackUnpublished source=${pub.source} sid=${pub.trackSid}`);
         set({ isScreenSharing: false });
+        get()._updateScreenSharers();
+      });
+      room.on(RoomEvent.TrackPublished, (_pub, participant) => {
+        dbg("voice", `TrackPublished remote participant=${participant.identity}`);
+        get()._updateScreenSharers();
+      });
+      room.on(RoomEvent.TrackUnpublished, (_pub, participant) => {
+        dbg("voice", `TrackUnpublished remote participant=${participant.identity}`);
         get()._updateScreenSharers();
       });
       room.on(RoomEvent.Disconnected, (reason) => {
@@ -841,6 +851,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     playLeaveSound();
     stopAudioLevelPolling();
+
+    // Stop Spotify playback when leaving voice
+    try {
+      import("./spotify.js").then(({ useSpotifyStore }) => {
+        useSpotifyStore.getState().leaveSession();
+      });
+    } catch {}
 
     // Clean up Krisp processor
     destroyDtln();
@@ -1126,6 +1143,15 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
   setScreenShareQuality: (quality) => {
     set({ screenShareQuality: quality });
+  },
+
+  incrementDrinkCount: () => {
+    const { room, connectedChannelId, channelParticipants } = get();
+    if (!room || !connectedChannelId) return;
+    const me = room.localParticipant.identity;
+    const participants = channelParticipants[connectedChannelId] || [];
+    const current = participants.find((p) => p.userId === me)?.drinkCount ?? 0;
+    gateway.send({ type: "voice_drink_update", channelId: connectedChannelId, drinkCount: current + 1 });
   },
 
   _updateParticipants: () => {

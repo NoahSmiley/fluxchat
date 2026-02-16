@@ -523,6 +523,20 @@ async fn handle_client_event(
                 _ => {}
             }
         }
+        ClientEvent::VoiceDrinkUpdate { channel_id, drink_count } => {
+            state.gateway.update_drink_count(&user.id, &channel_id, drink_count).await;
+            let participants = state.gateway.voice_channel_participants(&channel_id).await;
+            state
+                .gateway
+                .broadcast_all(
+                    &ServerEvent::VoiceState {
+                        channel_id,
+                        participants,
+                    },
+                    None,
+                )
+                .await;
+        }
         ClientEvent::AddReaction { message_id, emoji } => {
             // Check for duplicate
             let exists = sqlx::query_scalar::<_, i64>(

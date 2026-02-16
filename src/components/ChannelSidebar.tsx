@@ -3,14 +3,14 @@ import type { Channel, ChannelType } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
-import { Settings, Volume2, Monitor, MicOff, HeadphoneOff, ChevronDown } from "lucide-react";
+import { Settings, Volume2, Monitor, MicOff, HeadphoneOff } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
 import { ServerSettingsModal } from "./ServerSettingsModal.js";
 
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, channelsLoaded, members } = useChatStore();
-  const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants } = useVoiceStore();
+  const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants, audioLevels } = useVoiceStore();
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
 
@@ -23,9 +23,17 @@ export function ChannelSidebar() {
 
   return (
     <div className="channel-sidebar">
-      <div className="channel-sidebar-header" onClick={() => setShowServerSettings(true)} style={{ cursor: "pointer" }}>
+      <div className="channel-sidebar-header">
         <h3>{server?.name ?? "Server"}</h3>
-        <ChevronDown size={16} className="server-header-chevron" />
+        {isOwnerOrAdmin && (
+          <button
+            className="channel-settings-icon-btn"
+            onClick={() => setShowServerSettings(true)}
+            title="Server Settings"
+          >
+            <Settings size={16} />
+          </button>
+        )}
       </div>
 
       <div className="channel-list">
@@ -106,7 +114,7 @@ export function ChannelSidebar() {
                         const voiceUser = isConnected ? voiceParticipants.find((v) => v.userId === p.userId) : null;
                         return (
                           <div key={p.userId} className="voice-channel-user">
-                            <span className="voice-user-avatar">
+                            <span className={`voice-user-avatar ${voiceUser?.speaking ? "speaking" : ""}`}>
                               {member?.image ? (
                                 <img src={member.image} alt={p.username} />
                               ) : (
@@ -114,6 +122,11 @@ export function ChannelSidebar() {
                               )}
                             </span>
                             <span className="voice-user-name">{p.username}</span>
+                            {p.drinkCount > 0 && (
+                              <span className="drink-badge" title={`${p.drinkCount} drink${p.drinkCount !== 1 ? "s" : ""}`}>
+                                🍺{p.drinkCount}
+                              </span>
+                            )}
                             {voiceUser?.isMuted && (
                               <MicOff size={14} className="voice-user-status-icon" />
                             )}

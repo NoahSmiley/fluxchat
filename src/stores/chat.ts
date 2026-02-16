@@ -64,7 +64,6 @@ interface ChatState {
   deleteMessage: (messageId: string) => void;
   uploadFile: (file: File) => Promise<void>;
   removePendingAttachment: (id: string) => void;
-  createServer: (name: string) => Promise<void>;
   joinServer: (inviteCode: string) => Promise<void>;
   updateServer: (serverId: string, name: string) => Promise<void>;
   deleteServer: (serverId: string) => Promise<void>;
@@ -279,13 +278,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   deleteMessage: (messageId) => {
     gateway.send({ type: "delete_message", messageId });
-  },
-
-  createServer: async (name) => {
-    const server = await api.createServer({ name });
-    set((state) => ({ servers: [...state.servers, { ...server, role: "owner" }] }));
-    // Generate and store the encryption group key for this server
-    await useCryptoStore.getState().createAndStoreServerKey(server.id);
   },
 
   joinServer: async (inviteCode) => {

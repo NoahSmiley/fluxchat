@@ -29,11 +29,8 @@ export function MemberList() {
               <div key={m.userId} className="member-list-item" onClick={() => handleMemberClick(m.userId)}>
                 <div className="member-avatar-wrapper">
                   <div className="member-avatar">
-                    {m.image ? (
-                      <img src={m.image} alt={m.username} className="avatar-img-sm" />
-                    ) : (
-                      m.username.charAt(0).toUpperCase()
-                    )}
+                    {m.image && <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+                    {m.username.charAt(0).toUpperCase()}
                   </div>
                   <span className="member-status-dot" />
                 </div>

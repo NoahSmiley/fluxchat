@@ -110,6 +110,12 @@ pub enum ClientEvent {
         #[serde(rename = "positionMs")]
         position_ms: Option<i64>,
     },
+    VoiceDrinkUpdate {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "drinkCount")]
+        drink_count: i32,
+    },
     Ping,
 }
 
