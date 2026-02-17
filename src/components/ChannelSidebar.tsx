@@ -82,15 +82,33 @@ function buildTree(channels: Channel[]): TreeNode[] {
   return build(null, 0);
 }
 
-function flattenTree(nodes: TreeNode[], collapsed: Set<string>): TreeNode[] {
+function flattenTree(nodes: TreeNode[], collapsed: Set<string>, activeChannelId?: string | null): TreeNode[] {
   const result: TreeNode[] = [];
   for (const node of nodes) {
     result.push(node);
-    if (node.channel.type === "category" && !collapsed.has(node.channel.id)) {
-      result.push(...flattenTree(node.children, collapsed));
+    if (node.channel.type === "category") {
+      if (!collapsed.has(node.channel.id)) {
+        result.push(...flattenTree(node.children, collapsed, activeChannelId));
+      } else if (activeChannelId) {
+        // Category is collapsed, but peek inside for the active channel
+        const activeChild = findActiveChild(node.children, activeChannelId);
+        if (activeChild) result.push(activeChild);
+      }
     }
   }
   return result;
+}
+
+/** Recursively search children for the active channel, returning it (with correct depth) if found */
+function findActiveChild(nodes: TreeNode[], activeChannelId: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.channel.id === activeChannelId) return node;
+    if (node.channel.type === "category") {
+      const found = findActiveChild(node.children, activeChannelId);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 function getChannelIcon(type: ChannelType, size = 14) {
@@ -152,7 +170,7 @@ function SortableChannelItem({
   if (channel.type === "category") {
     return (
       <div ref={setNodeRef} style={style} {...attributes}>
-        <div className={`channel-category-header ${isDropTarget ? "channel-category-drop-target" : ""}`}>
+        <div className={`channel-category-header ${depth === 0 ? "channel-category-root" : ""} ${isDropTarget ? "channel-category-drop-target" : ""}`}>
           {isOwnerOrAdmin && (
             <span className="channel-drag-handle" {...listeners}>
               <GripVertical size={12} />
@@ -183,7 +201,7 @@ function SortableChannelItem({
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div ref={setNodeRef} style={style} {...attributes} className={isActive ? "channel-sortable-active" : undefined}>
       <div className="channel-item-wrapper">
         {isOwnerOrAdmin && (
           <span className="channel-drag-handle" {...listeners}>
@@ -255,14 +273,13 @@ export function ChannelSidebar() {
   const [settingsChannel, setSettingsChannel] = useState<Channel | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dropTargetCategoryId, setDropTargetCategoryId] = useState<string | null>(null);
-  const hoverCategoryRef = useRef<string | null>(null);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dwellRef = useRef<{ catId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   const dropIntoCategoryRef = useRef<string | null>(null);
 
   const allChannels = channels;
 
   const tree = useMemo(() => buildTree(allChannels), [allChannels]);
-  const flatList = useMemo(() => flattenTree(tree, collapsed), [tree, collapsed]);
+  const flatList = useMemo(() => flattenTree(tree, collapsed, activeChannelId), [tree, collapsed, activeChannelId]);
   const flatIds = useMemo(() => flatList.map((n) => n.channel.id), [flatList]);
 
   const toggleCollapse = useCallback((id: string) => {
@@ -279,19 +296,22 @@ export function ChannelSidebar() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
+  function clearDwell() {
+    if (dwellRef.current) clearTimeout(dwellRef.current.timer);
+    dwellRef.current = null;
+  }
+
   function handleDragStart(event: DragStartEvent) {
     setActiveId(event.active.id as string);
     setDropTargetCategoryId(null);
-    hoverCategoryRef.current = null;
+    clearDwell();
     dropIntoCategoryRef.current = null;
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
   }
 
   function handleDragOver(event: DragOverEvent) {
     const { active, over } = event;
     if (!over || !active) {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      hoverCategoryRef.current = null;
+      clearDwell();
       dropIntoCategoryRef.current = null;
       setDropTargetCategoryId(null);
       return;
@@ -299,44 +319,68 @@ export function ChannelSidebar() {
     const activeNode = flatList.find((n) => n.channel.id === active.id);
     const overNode = flatList.find((n) => n.channel.id === over.id);
     if (!activeNode || !overNode) {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      hoverCategoryRef.current = null;
+      clearDwell();
       dropIntoCategoryRef.current = null;
       setDropTargetCategoryId(null);
       return;
     }
 
-    // Once dwell-time has activated, keep it locked in until drop
-    if (dropIntoCategoryRef.current) return;
-
-    // Dwell-time: hover over a category for DROP_INTO_CATEGORY_DWELL_MS to activate "drop into" mode
-    // Quick drag past = reorder as sibling
-    // Don't allow dropping a category into itself
+    // Dwell-time: hover over a category to activate "drop into" mode
+    // Timer only resets when a DIFFERENT category is hovered — immune to DnD swap
+    // animations that briefly change `over` to non-category items
     if (overNode.channel.type === "category" && overNode.channel.id !== activeNode.channel.id) {
-      if (hoverCategoryRef.current !== overNode.channel.id) {
-        // Started hovering over a new category — reset and start new timer
-        hoverCategoryRef.current = overNode.channel.id;
-        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-        const catId = overNode.channel.id;
-        hoverTimerRef.current = setTimeout(() => {
-          dropIntoCategoryRef.current = catId;
-          setDropTargetCategoryId(catId);
-        }, DROP_INTO_CATEGORY_DWELL_MS);
+      // When dragging upward, dnd-kit's `over` can be off by one due to swap
+      // animations — it reports the category below the visual position. If the
+      // item directly above `over` in the flat list is also a category, that's
+      // the one the user is actually hovering over visually.
+      const activeIdx = flatList.findIndex((n) => n.channel.id === active.id);
+      const overIdx = flatList.findIndex((n) => n.channel.id === over.id);
+      let dwellCatId = overNode.channel.id;
+      if (activeIdx > overIdx && overIdx > 0) {
+        const aboveNode = flatList[overIdx - 1];
+        if (aboveNode.channel.type === "category" && aboveNode.channel.id !== activeNode.channel.id) {
+          dwellCatId = aboveNode.channel.id;
+        }
       }
-      // If same category or already activated, keep timer running
-    } else if (overNode.channel.type !== "category" && !hoverCategoryRef.current) {
-      // Only clear if we weren't tracking a category (avoid clearing during DnD swap animations)
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      hoverTimerRef.current = null;
+
+      const currentLockedCat = dropIntoCategoryRef.current;
+      const hoveredCatId = dwellCatId;
+
+      // If already locked onto this same category, no changes needed
+      if (currentLockedCat === hoveredCatId) return;
+
+      // Hovering over a different category than what's locked/pending — restart dwell
+      if (currentLockedCat) {
+        dropIntoCategoryRef.current = null;
+        setDropTargetCategoryId(null);
+      }
+
+      if (!dwellRef.current || dwellRef.current.catId !== hoveredCatId) {
+        // Started hovering over a new category — start timer
+        clearDwell();
+        dwellRef.current = {
+          catId: hoveredCatId,
+          timer: setTimeout(() => {
+            dropIntoCategoryRef.current = hoveredCatId;
+            setDropTargetCategoryId(hoveredCatId);
+          }, DROP_INTO_CATEGORY_DWELL_MS),
+        };
+      }
+      // If same category, keep timer running
+    } else if (dropIntoCategoryRef.current) {
+      // Still locked in but over a non-category — keep it (immune to swap animations)
+      return;
     }
+    // NOTE: we intentionally do NOT clear dwellRef when over changes to a non-category,
+    // because DnD swap animations briefly change `over` to other items. The dwell only
+    // resets when a DIFFERENT category is hovered (handled above).
   }
 
   async function handleDragEnd(event: DragEndEvent) {
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     const activatedCategory = dropIntoCategoryRef.current;
     setActiveId(null);
     setDropTargetCategoryId(null);
-    hoverCategoryRef.current = null;
+    clearDwell();
     dropIntoCategoryRef.current = null;
 
     const { active, over } = event;

@@ -2330,10 +2330,14 @@ input:focus {
   background: rgba(255, 255, 255, 0.08);
 }
 
-.channel-item-wrapper:has(.channel-item.active)::before {
+.channel-sortable-active {
+  position: relative;
+}
+
+.channel-sortable-active::before {
   content: "";
   position: absolute;
-  left: -8px;
+  left: 0;
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
@@ -2344,7 +2348,7 @@ input:focus {
 
 .channel-item-wrapper .channel-item {
   flex: 1;
-  padding: 8px 0;
+  padding: 4px 0;
 }
 
 .channel-settings-btn {
@@ -2378,6 +2382,10 @@ input:focus {
   margin: 2px 8px;
   border-radius: 6px;
   position: relative;
+}
+
+.channel-category-root {
+  margin-top: 12px;
 }
 
 .channel-category-header:hover {
