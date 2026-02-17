@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Minus, Square, Copy, X } from "lucide-react";
 import { useAuthStore } from "./stores/auth.js";
-import { useUIStore } from "./stores/ui.js";
 import { useUpdater } from "./hooks/useUpdater.js";
 import { LoginPage } from "./pages/LoginPage.js";
 import { RegisterPage } from "./pages/RegisterPage.js";
@@ -50,13 +49,13 @@ function WindowControls() {
   return (
     <div className="window-controls">
       <button className="window-control-btn" onClick={handleMinimize} title="Minimize">
-        <Minus size={16} />
+        <Minus size={12} />
       </button>
       <button className="window-control-btn" onClick={handleMaximize} title={maximized ? "Restore" : "Maximize"}>
-        {maximized ? <Copy size={14} /> : <Square size={14} />}
+        {maximized ? <Copy size={10} /> : <Square size={10} />}
       </button>
       <button className="window-control-btn window-control-close" onClick={handleClose} title="Close">
-        <X size={16} />
+        <X size={12} />
       </button>
     </div>
   );
@@ -111,7 +110,6 @@ function UpdateToast() {
 
 export function App() {
   const { user, loading } = useAuthStore();
-  const sidebarPosition = useUIStore((s) => s.sidebarPosition);
 
   if (loading) {
     return (
@@ -121,22 +119,20 @@ export function App() {
     );
   }
 
-  // Pull the titlebar back when the server sidebar is on the right so
-  // the window controls don't overlap the sidebar border/content.
-  const titlebarStyle = sidebarPosition === "right" ? { right: "64px" } : undefined;
-
   return (
-    <>
-      <div className="titlebar" style={titlebarStyle}>
+    <div className="app-shell">
+      <div className="titlebar">
         <WindowControls />
       </div>
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
-        <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterPage />} />
-        <Route path="/spotify-callback" element={<SpotifyCallback />} />
-        <Route path="/*" element={user ? <MainLayout /> : <Navigate to="/login" />} />
-      </Routes>
-      <UpdateToast />
-    </>
+      <div className="app-body">
+        <Routes>
+          <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
+          <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterPage />} />
+          <Route path="/spotify-callback" element={<SpotifyCallback />} />
+          <Route path="/*" element={user ? <MainLayout /> : <Navigate to="/login" />} />
+        </Routes>
+        <UpdateToast />
+      </div>
+    </div>
   );
 }
