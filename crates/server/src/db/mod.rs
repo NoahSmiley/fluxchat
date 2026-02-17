@@ -118,6 +118,16 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
     .await
     .ok();
 
+    // Migration: add parent_id and position to channels (tree hierarchy)
+    sqlx::query(r#"ALTER TABLE "channels" ADD COLUMN parent_id TEXT REFERENCES "channels"(id) ON DELETE CASCADE"#)
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query(r#"ALTER TABLE "channels" ADD COLUMN position INTEGER NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await
+        .ok();
+
     tracing::info!("Database initialized at {}", database_path);
     Ok(pool)
 }

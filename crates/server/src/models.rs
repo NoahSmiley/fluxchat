@@ -46,6 +46,8 @@ pub struct Channel {
     #[sqlx(rename = "type")]
     pub channel_type: String,
     pub bitrate: Option<i64>,
+    pub parent_id: Option<String>,
+    pub position: i64,
     pub created_at: String,
 }
 
@@ -129,17 +131,32 @@ pub struct PaginatedResponse<T: Serialize> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateChannelRequest {
     pub name: String,
     #[serde(rename = "type")]
     pub channel_type: String,
     pub bitrate: Option<i64>,
+    pub parent_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateChannelRequest {
     pub name: Option<String>,
     pub bitrate: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReorderItem {
+    pub id: String,
+    pub parent_id: Option<String>,
+    pub position: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReorderChannelsRequest {
+    pub items: Vec<ReorderItem>,
 }
 
 #[derive(Debug, Deserialize)]

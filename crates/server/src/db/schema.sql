@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS "channels" (
     name TEXT NOT NULL,
     type TEXT NOT NULL,
     bitrate INTEGER,
+    parent_id TEXT REFERENCES "channels"(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
 

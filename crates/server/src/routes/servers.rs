@@ -9,7 +9,7 @@ use std::sync::Arc;
 use crate::models::{
     AuthUser, Channel, CreateChannelRequest,
     MemberWithUser, Server, ServerWithRole, UpdateChannelRequest, UpdateServerRequest,
-    UpdateMemberRoleRequest,
+    UpdateMemberRoleRequest, ReorderChannelsRequest,
 };
 use crate::AppState;
 
@@ -109,7 +109,7 @@ pub async fn list_channels(
             .into_response();
     }
 
-    let channels = sqlx::query_as::<_, Channel>("SELECT * FROM channels WHERE server_id = ?")
+    let channels = sqlx::query_as::<_, Channel>("SELECT * FROM channels WHERE server_id = ? ORDER BY position ASC, created_at ASC")
         .bind(&server_id)
         .fetch_all(&state.db)
         .await
@@ -147,9 +147,65 @@ pub async fn create_channel(
         }
     }
 
+    // Validate channel type
+    if !["text", "voice", "game", "category"].contains(&body.channel_type.as_str()) {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Invalid channel type"}))).into_response();
+    }
+
     if let Err(e) = flux_shared::validation::validate_channel_name(&body.name) {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e}))).into_response();
     }
+
+    // Validate parent_id if provided
+    let parent_id = if let Some(ref pid) = body.parent_id {
+        let parent = sqlx::query_as::<_, Channel>(
+            "SELECT * FROM channels WHERE id = ? AND server_id = ?",
+        )
+        .bind(pid)
+        .bind(&server_id)
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
+
+        match parent {
+            Some(p) => {
+                if p.channel_type != "category" {
+                    return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Parent must be a category"}))).into_response();
+                }
+                // Check nesting depth (max 4 levels of categories)
+                if body.channel_type == "category" {
+                    let mut depth = 1;
+                    let mut current_parent = Some(pid.clone());
+                    while let Some(ref cpid) = current_parent {
+                        depth += 1;
+                        if depth > 4 {
+                            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Maximum category nesting depth is 4"}))).into_response();
+                        }
+                        let pp = sqlx::query_scalar::<_, Option<String>>(
+                            "SELECT parent_id FROM channels WHERE id = ?",
+                        )
+                        .bind(cpid)
+                        .fetch_optional(&state.db)
+                        .await
+                        .ok()
+                        .flatten()
+                        .flatten();
+                        current_parent = pp;
+                    }
+                }
+                Some(pid.clone())
+            }
+            None => {
+                return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Parent channel not found"}))).into_response();
+            }
+        }
+    } else {
+        None
+    };
+
+    // Non-category channels cannot have children (enforced: they are always leaves)
+    // This is validated on the parent side above
 
     let channel_id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
@@ -160,14 +216,39 @@ pub async fn create_channel(
         None
     };
 
+    // Auto-assign position: max sibling position + 1
+    let max_pos = if parent_id.is_some() {
+        sqlx::query_scalar::<_, Option<i64>>(
+            "SELECT MAX(position) FROM channels WHERE server_id = ? AND parent_id = ?",
+        )
+        .bind(&server_id)
+        .bind(&parent_id)
+        .fetch_one(&state.db)
+        .await
+        .ok()
+        .flatten()
+    } else {
+        sqlx::query_scalar::<_, Option<i64>>(
+            "SELECT MAX(position) FROM channels WHERE server_id = ? AND parent_id IS NULL",
+        )
+        .bind(&server_id)
+        .fetch_one(&state.db)
+        .await
+        .ok()
+        .flatten()
+    };
+    let position = max_pos.unwrap_or(-1) + 1;
+
     let _ = sqlx::query(
-        "INSERT INTO channels (id, server_id, name, type, bitrate, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO channels (id, server_id, name, type, bitrate, parent_id, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&channel_id)
     .bind(&server_id)
     .bind(&name)
     .bind(&body.channel_type)
     .bind(bitrate)
+    .bind(&parent_id)
+    .bind(position)
     .bind(&now)
     .execute(&state.db)
     .await;
@@ -178,6 +259,8 @@ pub async fn create_channel(
         name,
         channel_type: body.channel_type,
         bitrate,
+        parent_id,
+        position,
         created_at: now,
     };
 
@@ -270,6 +353,8 @@ pub async fn update_channel(
         name: new_name.to_string(),
         channel_type: channel.channel_type,
         bitrate: new_bitrate,
+        parent_id: channel.parent_id,
+        position: channel.position,
         created_at: channel.created_at,
     };
 
@@ -637,6 +722,87 @@ pub async fn update_member_role(
             None,
         )
         .await;
+
+    StatusCode::NO_CONTENT.into_response()
+}
+
+/// PUT /api/servers/:serverId/channels/reorder
+pub async fn reorder_channels(
+    State(state): State<Arc<AppState>>,
+    user: AuthUser,
+    Path(server_id): Path<String>,
+    Json(body): Json<ReorderChannelsRequest>,
+) -> impl IntoResponse {
+    // Check membership role
+    let role = sqlx::query_scalar::<_, String>(
+        "SELECT role FROM memberships WHERE user_id = ? AND server_id = ?",
+    )
+    .bind(&user.id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    match role.as_deref() {
+        Some("owner") | Some("admin") => {}
+        _ => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Insufficient permissions"})),
+            )
+                .into_response()
+        }
+    }
+
+    // Fetch all channels for this server to validate
+    let all_channels = sqlx::query_as::<_, Channel>("SELECT * FROM channels WHERE server_id = ?")
+        .bind(&server_id)
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default();
+
+    let channel_map: std::collections::HashMap<&str, &Channel> =
+        all_channels.iter().map(|c| (c.id.as_str(), c)).collect();
+
+    // Validate all items
+    for item in &body.items {
+        if !channel_map.contains_key(item.id.as_str()) {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": format!("Channel {} not found in server", item.id)}))).into_response();
+        }
+
+        if let Some(ref pid) = item.parent_id {
+            match channel_map.get(pid.as_str()) {
+                Some(parent) => {
+                    if parent.channel_type != "category" {
+                        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Parent must be a category"}))).into_response();
+                    }
+                }
+                None => {
+                    return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": format!("Parent {} not found", pid)}))).into_response();
+                }
+            }
+        }
+
+        // Non-category channels cannot be parents
+        let ch = channel_map[item.id.as_str()];
+        if ch.channel_type != "category" {
+            if body.items.iter().any(|other| other.parent_id.as_deref() == Some(item.id.as_str())) {
+                return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Only categories can have children"}))).into_response();
+            }
+        }
+    }
+
+    // Apply updates
+    for item in &body.items {
+        let _ = sqlx::query("UPDATE channels SET parent_id = ?, position = ? WHERE id = ? AND server_id = ?")
+            .bind(&item.parent_id)
+            .bind(item.position)
+            .bind(&item.id)
+            .bind(&server_id)
+            .execute(&state.db)
+            .await;
+    }
 
     StatusCode::NO_CONTENT.into_response()
 }

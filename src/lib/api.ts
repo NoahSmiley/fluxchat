@@ -8,6 +8,7 @@ import type {
   UpdateChannelRequest,
   MemberWithUser,
   Reaction,
+  ReorderItem,
   DMMessage,
   Attachment,
   LinkPreview,
@@ -179,6 +180,13 @@ export async function updateChannel(serverId: string, channelId: string, data: U
 export async function deleteChannel(serverId: string, channelId: string) {
   return request<void>(`/servers/${serverId}/channels/${channelId}`, {
     method: "DELETE",
+  });
+}
+
+export async function reorderChannels(serverId: string, items: ReorderItem[]) {
+  return request<void>(`/servers/${serverId}/channels/reorder`, {
+    method: "PUT",
+    body: JSON.stringify({ items }),
   });
 }
 

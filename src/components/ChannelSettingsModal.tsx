@@ -13,11 +13,13 @@ interface Props {
 
 function DeleteConfirmDialog({
   channelName,
+  isCategory,
   onConfirm,
   onCancel,
   deleting,
 }: {
   channelName: string;
+  isCategory: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   deleting: boolean;
@@ -31,9 +33,14 @@ function DeleteConfirmDialog({
         <div className="delete-confirm-icon">
           <AlertTriangle size={32} />
         </div>
-        <h3>Delete Channel</h3>
+        <h3>Delete {isCategory ? "Category" : "Channel"}</h3>
         <p className="delete-confirm-text">
-          Are you sure you want to delete <strong>#{channelName}</strong>? All messages in this channel will be permanently removed. This action cannot be undone.
+          Are you sure you want to delete <strong>#{channelName}</strong>?{" "}
+          {isCategory
+            ? "All channels inside this category and their messages will be permanently removed."
+            : "All messages in this channel will be permanently removed."
+          }{" "}
+          This action cannot be undone.
         </p>
         <div className="delete-confirm-input">
           <label>Type <strong>{channelName}</strong> to confirm</label>
@@ -192,6 +199,7 @@ export function ChannelSettingsModal({ channel, serverId, onClose }: Props) {
       {showDeleteConfirm && (
         <DeleteConfirmDialog
           channelName={channel.name}
+          isCategory={channel.type === "category"}
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteConfirm(false)}
           deleting={deleting}

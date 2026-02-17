@@ -2,15 +2,16 @@ import { useState, type FormEvent } from "react";
 import type { ChannelType } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { useChatStore } from "../stores/chat.js";
-import { Volume2, Gamepad2 } from "lucide-react";
+import { Volume2, Gamepad2, Folder } from "lucide-react";
 
 interface Props {
   serverId: string;
   defaultType: ChannelType;
+  parentId?: string;
   onClose: () => void;
 }
 
-export function CreateChannelModal({ serverId, defaultType, onClose }: Props) {
+export function CreateChannelModal({ serverId, defaultType, parentId, onClose }: Props) {
   const [name, setName] = useState("");
   const [type, setType] = useState<ChannelType>(defaultType);
   const [error, setError] = useState("");
@@ -24,8 +25,11 @@ export function CreateChannelModal({ serverId, defaultType, onClose }: Props) {
     setError("");
 
     try {
-      const channel = await api.createChannel(serverId, { name: name.trim(), type });
-      // Refresh channels list
+      const channel = await api.createChannel(serverId, {
+        name: name.trim(),
+        type,
+        ...(parentId ? { parentId } : {}),
+      });
       const { channels } = useChatStore.getState();
       useChatStore.setState({ channels: [...channels, channel] });
       onClose();
@@ -64,6 +68,13 @@ export function CreateChannelModal({ serverId, defaultType, onClose }: Props) {
           >
             <Gamepad2 size={16} style={{ display: "inline", verticalAlign: "middle" }} /> Game
           </button>
+          <button
+            className={`channel-type-option ${type === "category" ? "selected" : ""}`}
+            onClick={() => setType("category")}
+            type="button"
+          >
+            <Folder size={16} style={{ display: "inline", verticalAlign: "middle" }} /> Category
+          </button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -73,7 +84,7 @@ export function CreateChannelModal({ serverId, defaultType, onClose }: Props) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "-"))}
-              placeholder={type === "game" ? "counter-strike-2" : type === "text" ? "new-channel" : "voice-chat"}
+              placeholder={type === "category" ? "category-name" : type === "game" ? "counter-strike-2" : type === "text" ? "new-channel" : "voice-chat"}
               autoFocus
             />
           </div>

@@ -181,7 +181,7 @@ pub async fn sign_up(
         .ok();
 
         sqlx::query(
-            "INSERT INTO channels (id, server_id, name, type, created_at) VALUES (?, ?, 'general', 'text', ?)",
+            "INSERT INTO channels (id, server_id, name, type, parent_id, position, created_at) VALUES (?, ?, 'general', 'text', NULL, 0, ?)",
         )
         .bind(&uuid::Uuid::new_v4().to_string())
         .bind(&sid)
@@ -191,7 +191,7 @@ pub async fn sign_up(
         .ok();
 
         sqlx::query(
-            "INSERT INTO channels (id, server_id, name, type, created_at) VALUES (?, ?, 'general', 'voice', ?)",
+            "INSERT INTO channels (id, server_id, name, type, parent_id, position, created_at) VALUES (?, ?, 'general', 'voice', NULL, 1, ?)",
         )
         .bind(&uuid::Uuid::new_v4().to_string())
         .bind(&sid)

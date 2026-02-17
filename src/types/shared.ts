@@ -19,10 +19,12 @@ export interface Channel {
   name: string;
   type: ChannelType;
   bitrate: number | null;
+  parentId: string | null;
+  position: number;
   createdAt: string;
 }
 
-export type ChannelType = "text" | "voice" | "game";
+export type ChannelType = "text" | "voice" | "game" | "category";
 
 export type RingStyle = "default" | "chroma" | "pulse" | "wave" | "ember" | "frost" | "neon" | "galaxy" | "none";
 
@@ -196,6 +198,13 @@ export interface CreateChannelRequest {
   name: string;
   type: ChannelType;
   bitrate?: number;
+  parentId?: string;
+}
+
+export interface ReorderItem {
+  id: string;
+  parentId: string | null;
+  position: number;
 }
 
 export interface UpdateServerRequest {

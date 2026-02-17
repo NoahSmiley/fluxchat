@@ -11,7 +11,7 @@ pub mod whitelist;
 
 use crate::ws;
 use crate::AppState;
-use axum::{routing::{get, post, patch, delete}, Router, extract::DefaultBodyLimit};
+use axum::{routing::{get, post, patch, delete, put}, Router, extract::DefaultBodyLimit};
 use std::sync::Arc;
 
 pub fn build_router(state: Arc<AppState>) -> Router {
@@ -31,6 +31,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/servers/{serverId}/channels", post(servers::create_channel))
         .route("/servers/{serverId}/channels/{channelId}", patch(servers::update_channel))
         .route("/servers/{serverId}/channels/{channelId}", delete(servers::delete_channel))
+        .route("/servers/{serverId}/channels/reorder", put(servers::reorder_channels))
         .route("/servers/{serverId}/members", get(servers::list_members))
         // Role management
         .route("/members/{userId}/role", patch(servers::update_member_role))
