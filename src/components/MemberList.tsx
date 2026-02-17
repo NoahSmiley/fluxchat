@@ -33,7 +33,7 @@ export function UserCard({
   member: MemberWithUser;
   activity?: ActivityInfo;
   isOnline: boolean;
-  position: { top: number; right: number };
+  position: { top?: number; right?: number; left?: number; bottom?: number };
   onDM: () => void;
   isSelf: boolean;
   onSettings?: () => void;
@@ -43,7 +43,7 @@ export function UserCard({
   return (
     <div
       className="user-card"
-      style={{ top: position.top, right: position.right }}
+      style={{ top: position.top, right: position.right, left: position.left, bottom: position.bottom }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Banner — gradient from their avatar color */}

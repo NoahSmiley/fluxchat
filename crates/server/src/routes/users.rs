@@ -140,7 +140,7 @@ pub async fn update_me(
     }
 
     if let Some(ref ring_style) = body.ring_style {
-        let valid = ["default", "chroma", "pulse", "wave", "none"];
+        let valid = ["default", "chroma", "pulse", "wave", "ember", "frost", "neon", "galaxy", "none"];
         if !valid.contains(&ring_style.as_str()) {
             return (
                 StatusCode::BAD_REQUEST,

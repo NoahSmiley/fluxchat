@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Minus, Square, Copy, X } from "lucide-react";
 import { useAuthStore } from "./stores/auth.js";
+import { useUIStore } from "./stores/ui.js";
 import { useUpdater } from "./hooks/useUpdater.js";
 import { LoginPage } from "./pages/LoginPage.js";
 import { RegisterPage } from "./pages/RegisterPage.js";
@@ -110,6 +111,7 @@ function UpdateToast() {
 
 export function App() {
   const { user, loading } = useAuthStore();
+  const sidebarPosition = useUIStore((s) => s.sidebarPosition);
 
   if (loading) {
     return (
@@ -119,9 +121,13 @@ export function App() {
     );
   }
 
+  // Pull the titlebar back when the server sidebar is on the right so
+  // the window controls don't overlap the sidebar border/content.
+  const titlebarStyle = sidebarPosition === "right" ? { right: "64px" } : undefined;
+
   return (
     <>
-      <div className="titlebar">
+      <div className="titlebar" style={titlebarStyle}>
         <WindowControls />
       </div>
       <Routes>

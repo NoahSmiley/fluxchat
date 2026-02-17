@@ -185,13 +185,24 @@ pub struct VoiceTokenRequest {
     pub viewer: Option<bool>,
 }
 
+/// Deserializer that keeps JSON null as Some(Value::Null) instead of None.
+/// This lets us distinguish "field missing" (None) from "field set to null" (Some(Null)).
+fn nullable_value<'de, D>(deserializer: D) -> Result<Option<serde_json::Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Some(serde_json::Value::deserialize(deserializer)?))
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateUserRequest {
     pub username: Option<String>,
+    #[serde(default, deserialize_with = "nullable_value")]
     pub image: Option<serde_json::Value>,
     pub ring_style: Option<String>,
     pub ring_spin: Option<bool>,
+    #[serde(default, deserialize_with = "nullable_value")]
     pub steam_id: Option<serde_json::Value>,
 }
 

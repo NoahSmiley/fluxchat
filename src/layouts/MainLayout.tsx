@@ -11,6 +11,7 @@ import { GameChannelView } from "../components/GameChannelView.js";
 import { requestNotificationPermission } from "../lib/notifications.js";
 import { SettingsModal } from "../components/SettingsModal.js";
 import { useKeybindListener } from "../hooks/useKeybindListener.js";
+import { useUIStore } from "../stores/ui.js";
 
 function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; side: "left" | "right" }) {
   const dragging = useRef(false);
@@ -64,24 +65,88 @@ export function MainLayout() {
   }, [servers, activeServerId, showingDMs, selectServer]);
 
   const activeChannel = channels.find((c) => c.id === activeChannelId);
-  const showSidebar = !showingDMs && !!activeServerId;
+  const showChannelSidebar = !showingDMs && !!activeServerId;
+  const sidebarPosition = useUIStore((s) => s.sidebarPosition);
 
-  const gridCols = showSidebar
-    ? `64px ${sidebarWidth}px 1fr`
-    : `64px 1fr`;
+  const isHorizontal = sidebarPosition === "top" || sidebarPosition === "bottom";
+
+  // Build grid-template-columns based on server sidebar position
+  // Channel sidebar is always on the left side of the chat area
+  let gridCols: string;
+  if (isHorizontal) {
+    gridCols = showChannelSidebar ? `${sidebarWidth}px 1fr` : "1fr";
+  } else if (sidebarPosition === "right") {
+    gridCols = showChannelSidebar ? `${sidebarWidth}px 1fr 64px` : "1fr 64px";
+  } else {
+    gridCols = showChannelSidebar ? `64px ${sidebarWidth}px 1fr` : "64px 1fr";
+  }
+
+  const gridRows = sidebarPosition === "top" ? "48px 1fr"
+    : sidebarPosition === "bottom" ? "1fr 48px"
+    : "1fr";
+
+  const gridStyle: React.CSSProperties = { gridTemplateColumns: gridCols, gridTemplateRows: gridRows };
+
+  // Compute grid placements for each element
+  const serverStyle: React.CSSProperties = {};
+  const channelStyle: React.CSSProperties = {};
+  const mainStyle: React.CSSProperties = {};
+
+  if (isHorizontal) {
+    const serverRow = sidebarPosition === "top" ? 1 : 2;
+    const contentRow = sidebarPosition === "top" ? 2 : 1;
+    serverStyle.gridRow = serverRow;
+    serverStyle.gridColumn = "1 / -1";
+    if (showChannelSidebar) {
+      channelStyle.gridRow = contentRow;
+      mainStyle.gridRow = contentRow;
+      channelStyle.order = 1;
+      mainStyle.order = 2;
+    } else {
+      mainStyle.gridRow = contentRow;
+      mainStyle.gridColumn = "1 / -1";
+    }
+  } else if (sidebarPosition === "right") {
+    if (showChannelSidebar) {
+      channelStyle.order = 1;
+      mainStyle.order = 2;
+      serverStyle.order = 3;
+    } else {
+      mainStyle.order = 1;
+      serverStyle.order = 2;
+    }
+  } else {
+    // left (default)
+    if (showChannelSidebar) {
+      serverStyle.order = 1;
+      channelStyle.order = 2;
+      mainStyle.order = 3;
+    } else {
+      serverStyle.order = 1;
+      mainStyle.order = 2;
+    }
+  }
+
+  // Channel sidebar element with resize handle
+  const channelSidebarEl = showChannelSidebar ? (
+    <div className="sidebar-resizable" style={channelStyle}>
+      <ChannelSidebar />
+      <ResizeHandle
+        side="left"
+        onResize={(d) => setSidebarWidth((w) => Math.max(200, Math.min(480, w + d)))}
+      />
+    </div>
+  ) : null;
 
   return (
-    <div className="app-layout" style={{ gridTemplateColumns: gridCols }}>
-      <ServerSidebar />
+    <div className={`app-layout sidebar-${sidebarPosition}`} style={gridStyle}>
+      <div className="server-sidebar-cell" style={serverStyle}>
+        <ServerSidebar />
+      </div>
 
-      {!showingDMs && activeServerId ? (
-        <div className="sidebar-resizable">
-          <ChannelSidebar />
-          <ResizeHandle side="left" onResize={(d) => setSidebarWidth((w) => Math.max(200, Math.min(480, w + d)))} />
-        </div>
-      ) : null}
+      {channelSidebarEl}
 
-      <main className="main-content" style={!showSidebar ? { gridColumn: '2 / -1' } : undefined}>
+      <main className="main-content" style={mainStyle}>
         {showingDMs ? (
           activeDMChannelId ? (
             <DMChatView />

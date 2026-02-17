@@ -68,7 +68,7 @@ body {
   right: 0;
   height: var(--titlebar-height);
   -webkit-app-region: drag;
-  z-index: 1000;
+  z-index: 9999;
   display: flex;
   justify-content: flex-end;
   pointer-events: none;
@@ -276,9 +276,17 @@ input:focus {
   background: var(--accent);
 }
 
+/* ── Server Sidebar Cell (grid wrapper) ── */
+.server-sidebar-cell {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* ── Server Sidebar ── */
 .server-sidebar {
-  grid-row: 1 / -1;
+  flex: 1;
+  min-height: 0;
   background: var(--bg-primary);
   display: flex;
   flex-direction: column;
@@ -398,6 +406,97 @@ input:focus {
   left: 72px;
   right: auto;
   z-index: 1200;
+}
+
+/* ── Sidebar Position Variants ── */
+
+/* Right: server sidebar on the right edge */
+.app-layout.sidebar-right .server-sidebar {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+.app-layout.sidebar-right .server-sidebar .user-card {
+  left: auto;
+  right: 72px;
+}
+
+/* Top: server sidebar as horizontal bar at top */
+.app-layout.sidebar-top .server-sidebar {
+  flex-direction: row;
+  align-items: center;
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0 140px 0 8px;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  height: 48px;
+}
+.app-layout.sidebar-top .server-sidebar .sidebar-member-avatar,
+.app-layout.sidebar-top .server-sidebar .server-sidebar-logo,
+.app-layout.sidebar-top .server-sidebar .server-sidebar-settings-btn,
+.app-layout.sidebar-top .server-sidebar .server-icon {
+  -webkit-app-region: no-drag;
+}
+.app-layout.sidebar-top .server-sidebar .sidebar-members {
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: auto;
+  min-height: unset;
+  align-items: center;
+}
+.app-layout.sidebar-top .sidebar-member-avatar .member-avatar-ring {
+  width: 36px;
+  height: 36px;
+}
+.app-layout.sidebar-top .server-sidebar-logo {
+  padding: 0;
+}
+.app-layout.sidebar-top .server-sidebar-spacer {
+  flex: 1;
+}
+.app-layout.sidebar-top .server-sidebar .user-card {
+  left: auto;
+  top: 56px;
+}
+
+/* Bottom: server sidebar as horizontal bar at bottom */
+.app-layout.sidebar-bottom .server-sidebar {
+  flex-direction: row;
+  align-items: center;
+  border-right: none;
+  border-top: 1px solid var(--border);
+  padding: 0 8px;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  height: 48px;
+}
+.app-layout.sidebar-bottom .server-sidebar .sidebar-members {
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: auto;
+  min-height: unset;
+  align-items: center;
+}
+.app-layout.sidebar-bottom .sidebar-member-avatar .member-avatar-ring {
+  width: 36px;
+  height: 36px;
+}
+.app-layout.sidebar-bottom .server-sidebar-logo {
+  padding: 0;
+}
+.app-layout.sidebar-bottom .server-sidebar-spacer {
+  flex: 1;
+}
+.app-layout.sidebar-bottom .server-sidebar .user-card {
+  left: auto;
+  bottom: 56px;
+  top: auto;
 }
 
 /* ── Channel Sidebar ── */
@@ -610,7 +709,6 @@ input:focus {
 
 /* ── Main Content ── */
 .main-content {
-  grid-column: 3;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -674,6 +772,7 @@ input:focus {
 
 /* Message avatar ring wrapper */
 .message-avatar-ring {
+  position: relative;
   flex-shrink: 0;
   width: 40px;
   height: 40px;
@@ -684,14 +783,23 @@ input:focus {
 }
 
 .message-avatar-ring.chroma {
+  background: transparent;
+}
+.message-avatar-ring.chroma::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: conic-gradient(
     #ff0000, #ff8000, #ffff00, #00ff00,
     #00ffff, #0080ff, #8000ff, #ff00ff, #ff0000
   );
+  animation: ring-spin 6s linear infinite;
 }
 
 .message-avatar {
   position: relative;
+  z-index: 1;
   flex-shrink: 0;
   width: 36px;
   height: 36px;
@@ -867,6 +975,7 @@ input:focus {
 
 /* Server sidebar avatar ring */
 .server-user-avatar-ring {
+  position: relative;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -876,10 +985,18 @@ input:focus {
 }
 
 .server-user-avatar-ring.chroma {
+  background: transparent;
+}
+.server-user-avatar-ring.chroma::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: conic-gradient(
     #ff0000, #ff8000, #ffff00, #00ff00,
     #00ffff, #0080ff, #8000ff, #ff00ff, #ff0000
   );
+  animation: ring-spin 6s linear infinite;
 }
 
 .server-sidebar-user:hover .server-user-avatar-ring {
@@ -1576,6 +1693,7 @@ input:focus {
 
 /* Voice avatar ring */
 .voice-avatar-ring {
+  position: relative;
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -1588,13 +1706,23 @@ input:focus {
 }
 
 .voice-avatar-ring.chroma {
+  background: transparent;
+}
+.voice-avatar-ring.chroma::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: conic-gradient(
     #ff0000, #ff8000, #ffff00, #00ff00,
     #00ffff, #0080ff, #8000ff, #ff00ff, #ff0000
   );
+  animation: ring-spin 6s linear infinite;
 }
 
 .voice-user-avatar {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -2952,8 +3080,12 @@ input:focus {
   background: transparent;
 }
 
-/* Online members with activity get an animated gradient ring */
-.member-avatar-ring.active {
+/* Online members with activity get an animated gradient ring (::before so avatar doesn't spin) */
+.member-avatar-ring.active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: conic-gradient(
     var(--ring-color) 0deg,
     transparent 60deg,
@@ -2963,29 +3095,41 @@ input:focus {
     transparent 300deg,
     var(--ring-color) 360deg
   );
+  animation: ring-spin 6s linear infinite;
 }
 
 @keyframes ring-spin {
   to { transform: rotate(360deg); }
 }
 
-/* Chroma RGB ring — full rainbow for owner */
-.member-avatar-ring.chroma {
+/* Chroma RGB ring — full rainbow for owner (::before so avatar doesn't spin) */
+.member-avatar-ring.chroma::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: conic-gradient(
     #ff0000, #ff8000, #ffff00, #00ff00,
     #00ffff, #0080ff, #8000ff, #ff00ff, #ff0000
   );
+  animation: ring-spin 6s linear infinite;
 }
 
-.user-card-avatar-ring.chroma {
+.user-card-avatar-ring.chroma::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: conic-gradient(
     #ff0000, #ff8000, #ffff00, #00ff00,
     #00ffff, #0080ff, #8000ff, #ff00ff, #ff0000
   );
+  animation: ring-spin 6s linear infinite;
 }
 
 .member-avatar {
   position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -3084,6 +3228,7 @@ input:focus {
 }
 
 .user-card-avatar-ring {
+  position: relative;
   width: 52px;
   height: 52px;
   border-radius: 50%;
@@ -3092,6 +3237,13 @@ input:focus {
 }
 
 .user-card-avatar-ring.online {
+  background: transparent;
+}
+.user-card-avatar-ring.online::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: conic-gradient(
     var(--ring-color) 0deg,
     transparent 90deg,
@@ -3099,9 +3251,12 @@ input:focus {
     transparent 270deg,
     var(--ring-color) 360deg
   );
+  animation: ring-spin 6s linear infinite;
 }
 
 .user-card-avatar {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -3524,6 +3679,21 @@ input:focus {
   overflow-y: auto;
   padding: calc(var(--titlebar-height) + 24px) 48px 48px;
   max-width: 640px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.settings-content::-webkit-scrollbar {
+  width: 6px;
+}
+.settings-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.settings-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+.settings-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .settings-content-title {
@@ -4738,17 +4908,28 @@ input:focus {
 }
 
 /* ── Ring Style System ── */
-/* These generic classes apply to ANY avatar ring element */
+/* These generic classes apply to ANY avatar ring element.
+   Spinning animations use ::before pseudo-elements so only
+   the ring rotates — the avatar inside stays still. */
 
-/* Chroma — full rainbow conic gradient */
+/* Chroma — full rainbow conic gradient, spins */
 .ring-style-chroma {
+  position: relative;
+  background: transparent !important;
+}
+.ring-style-chroma::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: conic-gradient(
     #ff0000, #ff8000, #ffff00, #00ff00,
     #00ffff, #0080ff, #8000ff, #ff00ff, #ff0000
-  ) !important;
+  );
+  animation: ring-spin 6s linear infinite;
 }
 
-/* Pulse — breathing opacity on the ring color */
+/* Pulse — breathing opacity on the ring color (no rotation, stays on element) */
 .ring-style-pulse {
   background: var(--ring-color) !important;
   animation: ring-pulse 2.5s ease-in-out infinite !important;
@@ -4759,29 +4940,104 @@ input:focus {
   50% { opacity: 1; }
 }
 
-/* Wave — two-tone animated gradient */
+/* Wave — vivid flowing gradient + rotation via ::before */
 .ring-style-wave {
+  position: relative;
+  background: transparent !important;
+}
+.ring-style-wave::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: linear-gradient(
     90deg,
-    var(--ring-color),
-    #8000ff,
-    var(--ring-color),
-    #00ccff,
-    var(--ring-color)
-  ) !important;
-  background-size: 300% 100% !important;
-  animation: ring-wave 3s linear infinite !important;
+    #ff00ff,
+    #00ffff,
+    #ff00ff,
+    #ffff00,
+    #ff00ff
+  );
+  background-size: 400% 100%;
+  animation: ring-wave 2.5s linear infinite, ring-spin 5s linear infinite;
 }
 
 @keyframes ring-wave {
   0% { background-position: 0% 50%; }
-  100% { background-position: 300% 50%; }
+  100% { background-position: 400% 50%; }
+}
+
+/* Ember — warm fire gradient, spins slowly */
+.ring-style-ember {
+  position: relative;
+  background: transparent !important;
+}
+.ring-style-ember::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    #ff4500, #ff8c00, #ffd700, #ff6347,
+    #ff4500, #ff8c00, #ffd700, #ff4500
+  );
+  animation: ring-spin 5s linear infinite;
+}
+
+/* Frost — ice-blue gradient, spins slowly */
+.ring-style-frost {
+  position: relative;
+  background: transparent !important;
+}
+.ring-style-frost::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    #00d4ff, #b8f0ff, #0099cc, #e0f7ff,
+    #00d4ff, #b8f0ff, #0099cc, #00d4ff
+  );
+  animation: ring-spin 5s linear infinite;
+}
+
+/* Neon — bright green glow that pulses */
+.ring-style-neon {
+  background: #39ff14 !important;
+  animation: ring-neon 2s ease-in-out infinite !important;
+  box-shadow: 0 0 6px #39ff14, 0 0 12px #39ff1488;
+}
+
+@keyframes ring-neon {
+  0%, 100% { box-shadow: 0 0 4px #39ff14, 0 0 8px #39ff1466; }
+  50% { box-shadow: 0 0 8px #39ff14, 0 0 18px #39ff14aa, 0 0 28px #39ff1444; }
+}
+
+/* Galaxy — deep space rotating gradient */
+.ring-style-galaxy {
+  position: relative;
+  background: transparent !important;
+}
+.ring-style-galaxy::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    #1a0533, #6b21a8, #ec4899, #3b82f6,
+    #1a0533, #6b21a8, #ec4899, #1a0533
+  );
+  animation: ring-spin 4s linear infinite;
 }
 
 /* None — hide the ring entirely */
 .ring-style-none {
   background: transparent !important;
   animation: none !important;
+  box-shadow: none !important;
+}
+.ring-style-none::before {
+  display: none !important;
 }
 
 /* Default — keep existing behavior (no override) */
@@ -4789,19 +5045,80 @@ input:focus {
   /* no override — uses existing .active / .chroma role-based classes */
 }
 
-/* Spin toggle — continuous rotation */
+/* Spin toggle — rotation via ::before so avatar stays still */
 .ring-spin-active {
+  position: relative;
+  animation: none !important;
+}
+.ring-spin-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
   animation: ring-spin 3s linear infinite !important;
 }
 
-/* Combine spin with pulse (pulse + rotate) */
-.ring-style-pulse.ring-spin-active {
-  animation: ring-pulse 2.5s ease-in-out infinite, ring-spin 3s linear infinite !important;
+/* Combine spin with chroma — chroma already uses ::before, just override speed */
+.ring-style-chroma.ring-spin-active::before {
+  animation: ring-spin 3s linear infinite !important;
 }
 
-/* Combine spin with wave */
+/* Combine spin with pulse — opacity pulses on element, ring spins via ::before */
+.ring-style-pulse.ring-spin-active {
+  background: transparent !important;
+  animation: ring-pulse 2.5s ease-in-out infinite !important;
+}
+.ring-style-pulse.ring-spin-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--ring-color);
+  animation: ring-spin 3s linear infinite !important;
+}
+
+/* Combine spin with wave — both animations on ::before */
 .ring-style-wave.ring-spin-active {
-  animation: ring-wave 3s linear infinite, ring-spin 3s linear infinite !important;
+  background: transparent !important;
+  animation: none !important;
+}
+.ring-style-wave.ring-spin-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(
+    90deg,
+    #ff00ff,
+    #00ffff,
+    #ff00ff,
+    #ffff00,
+    #ff00ff
+  );
+  background-size: 400% 100%;
+  animation: ring-wave 2.5s linear infinite, ring-spin 3s linear infinite !important;
+}
+
+/* Combine spin with ember/frost/galaxy — already use ::before, just override speed */
+.ring-style-ember.ring-spin-active::before,
+.ring-style-frost.ring-spin-active::before,
+.ring-style-galaxy.ring-spin-active::before {
+  animation: ring-spin 3s linear infinite !important;
+}
+
+/* Combine spin with neon — glow stays on element, spin on ::before */
+.ring-style-neon.ring-spin-active {
+  background: transparent !important;
+  animation: ring-neon 2s ease-in-out infinite !important;
+}
+.ring-style-neon.ring-spin-active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #39ff14;
+  animation: ring-spin 3s linear infinite !important;
 }
 
 /* ── Appearance Settings UI ── */
@@ -4813,6 +5130,7 @@ input:focus {
 }
 
 .ring-preview-avatar-ring {
+  position: relative;
   width: 80px;
   height: 80px;
   border-radius: 50%;
@@ -4825,6 +5143,8 @@ input:focus {
 }
 
 .ring-preview-avatar {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -4893,6 +5213,33 @@ input:focus {
   font-size: 11px;
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+/* Sidebar position swatches */
+.sidebar-pos-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  position: relative;
+  overflow: hidden;
+}
+.sidebar-pos-swatch .sidebar-pos-bar {
+  position: absolute;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.sidebar-pos-swatch.sidebar-pos-left .sidebar-pos-bar {
+  left: 2px; top: 2px; bottom: 2px; width: 6px;
+}
+.sidebar-pos-swatch.sidebar-pos-right .sidebar-pos-bar {
+  right: 2px; top: 2px; bottom: 2px; width: 6px;
+}
+.sidebar-pos-swatch.sidebar-pos-top .sidebar-pos-bar {
+  top: 2px; left: 2px; right: 2px; height: 6px;
+}
+.sidebar-pos-swatch.sidebar-pos-bottom .sidebar-pos-bar {
+  bottom: 2px; left: 2px; right: 2px; height: 6px;
 }
 
 /* ── Game Channel Hub ── */

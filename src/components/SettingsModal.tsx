@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useVoiceStore } from "../stores/voice.js";
-import { useUIStore } from "../stores/ui.js";
+import { useUIStore, type SidebarPosition } from "../stores/ui.js";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useKeybindsStore, type KeybindAction, type KeybindEntry } from "../stores/keybinds.js";
@@ -161,11 +161,22 @@ const RING_STYLES: { value: RingStyle; label: string; desc: string }[] = [
   { value: "chroma", label: "Chroma", desc: "Animated rainbow gradient" },
   { value: "pulse", label: "Pulse", desc: "Breathing glow effect" },
   { value: "wave", label: "Wave", desc: "Flowing gradient animation" },
+  { value: "ember", label: "Ember", desc: "Warm fire gradient" },
+  { value: "frost", label: "Frost", desc: "Ice-blue gradient" },
+  { value: "neon", label: "Neon", desc: "Bright glowing effect" },
+  { value: "galaxy", label: "Galaxy", desc: "Deep space gradient" },
   { value: "none", label: "None", desc: "No ring border" },
 ];
 
+const SIDEBAR_POSITIONS: { value: SidebarPosition; label: string }[] = [
+  { value: "left", label: "Left" },
+  { value: "top", label: "Top" },
+  { value: "right", label: "Right" },
+  { value: "bottom", label: "Bottom" },
+];
+
 export function SettingsModal() {
-  const { settingsOpen, closeSettings } = useUIStore();
+  const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
   const { servers, activeServerId, updateServer } = useChatStore();
   const { user, updateProfile } = useAuthStore();
@@ -278,6 +289,26 @@ export function SettingsModal() {
                 />
               </div>
             </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">Sidebar Position</h3>
+              <p className="settings-card-desc">Move the avatar sidebar to any edge of the window.</p>
+              <div className="ring-style-picker">
+                {SIDEBAR_POSITIONS.map((sp) => (
+                  <button
+                    key={sp.value}
+                    className={`ring-style-option ${sidebarPosition === sp.value ? "active" : ""}`}
+                    onClick={() => setSidebarPosition(sp.value)}
+                  >
+                    <div className={`sidebar-pos-swatch sidebar-pos-${sp.value}`}>
+                      <div className="sidebar-pos-bar" />
+                    </div>
+                    <span className="ring-style-label">{sp.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
           </>
         )}
 

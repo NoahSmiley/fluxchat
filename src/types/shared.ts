@@ -24,7 +24,7 @@ export interface Channel {
 
 export type ChannelType = "text" | "voice" | "game";
 
-export type RingStyle = "default" | "chroma" | "pulse" | "wave" | "none";
+export type RingStyle = "default" | "chroma" | "pulse" | "wave" | "ember" | "frost" | "neon" | "galaxy" | "none";
 
 export interface MemberWithUser {
   userId: string;

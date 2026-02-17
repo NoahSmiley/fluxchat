@@ -25,11 +25,13 @@ export function ServerSidebar() {
   const [cropImage, setCropImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Member avatar + user card state (hover-based)
-  const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
-  const [cardPos, setCardPos] = useState({ top: 0 });
+  // Member avatar + user card state
+  const [activeCardUserId, setActiveCardUserId] = useState<string | null>(null);
+  const [cardPos, setCardPos] = useState<{ top?: number; right?: number; left?: number; bottom?: number }>({ top: 0 });
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardHoveredRef = useRef(false);
+  const sidebarPosition = useUIStore((s) => s.sidebarPosition);
+  const useClickMode = sidebarPosition === "left";
 
   const sortedMembers = useMemo(() => {
     const online = members.filter((m) => onlineUsers.has(m.userId));
@@ -41,33 +43,74 @@ export function ServerSidebar() {
     if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
   }, []);
 
+  // Close card on outside click (click mode only)
+  useEffect(() => {
+    if (!useClickMode || !activeCardUserId) return;
+    function handleOutsideClick() { setActiveCardUserId(null); }
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, [useClickMode, activeCardUserId]);
+
+  function computeCardPos(el: HTMLElement) {
+    const rect = el.getBoundingClientRect();
+    if (sidebarPosition === "right") {
+      setCardPos({ top: rect.top, right: 72 });
+    } else if (sidebarPosition === "top") {
+      setCardPos({ top: rect.bottom + 8, left: rect.left });
+    } else if (sidebarPosition === "bottom") {
+      setCardPos({ bottom: window.innerHeight - rect.top + 8, left: rect.left });
+    } else {
+      setCardPos({ top: rect.top });
+    }
+  }
+
+  // Hover handlers (non-left orientations)
   function handleAvatarEnter(e: React.MouseEvent, userId: string) {
+    if (useClickMode) return;
     clearHoverTimer();
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setCardPos({ top: rect.top });
-    setHoveredUserId(userId);
+    computeCardPos(e.currentTarget as HTMLElement);
+    setActiveCardUserId(userId);
   }
 
   function handleAvatarLeave() {
+    if (useClickMode) return;
     clearHoverTimer();
     hoverTimerRef.current = setTimeout(() => {
-      if (!cardHoveredRef.current) setHoveredUserId(null);
+      if (!cardHoveredRef.current) setActiveCardUserId(null);
     }, 200);
   }
 
-  function handleCardEnter() { clearHoverTimer(); cardHoveredRef.current = true; }
+  function handleCardEnter() { if (!useClickMode) { clearHoverTimer(); cardHoveredRef.current = true; } }
   function handleCardLeave() {
+    if (useClickMode) return;
     cardHoveredRef.current = false;
-    hoverTimerRef.current = setTimeout(() => setHoveredUserId(null), 200);
+    hoverTimerRef.current = setTimeout(() => setActiveCardUserId(null), 200);
   }
 
-  function handleMemberClick(userId: string) {
-    setHoveredUserId(null);
+  // Click handler — in left mode, toggle card; in other modes, go to DMs
+  function handleAvatarClick(e: React.MouseEvent, userId: string) {
+    if (useClickMode) {
+      e.stopPropagation();
+      if (activeCardUserId === userId) {
+        setActiveCardUserId(null);
+      } else {
+        computeCardPos(e.currentTarget as HTMLElement);
+        setActiveCardUserId(userId);
+      }
+    } else {
+      setActiveCardUserId(null);
+      showDMs();
+      openDM(userId);
+    }
+  }
+
+  function handleDMFromCard(userId: string) {
+    setActiveCardUserId(null);
     showDMs();
     openDM(userId);
   }
 
-  const hoveredMember = members.find((m) => m.userId === hoveredUserId);
+  const activeCardMember = members.find((m) => m.userId === activeCardUserId);
 
   async function handleSubmit() {
     if (!input.trim()) return;
@@ -181,10 +224,10 @@ export function ServerSidebar() {
               return (
                 <div
                   key={m.userId}
-                  className={`sidebar-member-avatar ${!isOnline ? "offline" : ""} ${hoveredUserId === m.userId ? "selected" : ""}`}
+                  className={`sidebar-member-avatar ${!isOnline ? "offline" : ""} ${activeCardUserId === m.userId ? "selected" : ""}`}
                   onMouseEnter={(e) => handleAvatarEnter(e, m.userId)}
                   onMouseLeave={handleAvatarLeave}
-                  onClick={() => handleMemberClick(m.userId)}
+                  onClick={(e) => handleAvatarClick(e, m.userId)}
                 >
                   <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(m.username) } as React.CSSProperties}>
                     <div className="member-avatar" style={{ background: avatarColor(m.username) }}>
@@ -201,17 +244,17 @@ export function ServerSidebar() {
         </div>
       )}
 
-      {/* User card popup (hover) */}
-      {hoveredMember && (
-        <div onMouseEnter={handleCardEnter} onMouseLeave={handleCardLeave}>
+      {/* User card popup */}
+      {activeCardMember && (
+        <div onClick={(e) => e.stopPropagation()} onMouseEnter={handleCardEnter} onMouseLeave={handleCardLeave}>
           <UserCard
-            member={hoveredMember}
-            activity={userActivities[hoveredMember.userId]}
-            isOnline={onlineUsers.has(hoveredMember.userId)}
-            position={{ top: cardPos.top, right: 0 }}
-            onDM={() => handleMemberClick(hoveredMember.userId)}
-            isSelf={hoveredMember.userId === user?.id}
-            onSettings={hoveredMember.userId === user?.id ? openProfile : undefined}
+            member={activeCardMember}
+            activity={userActivities[activeCardMember.userId]}
+            isOnline={onlineUsers.has(activeCardMember.userId)}
+            position={cardPos}
+            onDM={() => handleDMFromCard(activeCardMember.userId)}
+            isSelf={activeCardMember.userId === user?.id}
+            onSettings={activeCardMember.userId === user?.id ? openProfile : undefined}
           />
         </div>
       )}
