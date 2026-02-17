@@ -110,7 +110,8 @@ crates/server/                # Rust backend
 crates/shared/                # Shared Rust types (between server and Tauri)
 
 src-tauri/                    # Tauri desktop config
-  src/                        # Tauri Rust commands (game detection, etc.)
+  src/                        # Tauri Rust commands (game detection, global keys, etc.)
+    global_keys.rs            # Win32 low-level keyboard hook for global PTT/PTM
   tauri.conf.json             # Window config, updater, app metadata
 
 public/                       # Static assets
@@ -470,3 +471,5 @@ KEY: changelog, changes, updates, history
 > AI agents: add entries here when you make significant changes to the codebase.
 
 - **2026-02-17**: ai.md created. Initial documentation of full app architecture.
+- **2026-02-17**: Global push-to-talk support. Added `src-tauri/src/global_keys.rs` — Win32 low-level hooks (`WH_KEYBOARD_LL` + `WH_MOUSE_LL`) that capture key/mouse press/release events system-wide, even when the app is not focused. `useKeybindListener.ts` updated to use Tauri events from the hooks for PTT/PTM actions, falling back to window-level events for non-Tauri environments. Hooks are non-consuming (input passes through to other apps). Activated when user joins voice with a PTT/PTM keybind set; deactivated on voice disconnect.
+- **2026-02-17**: Mouse button keybind support. Keybinds now accept mouse buttons (Mouse 1–5, including thumb/side buttons) in addition to keyboard keys. Codes stored as `"Mouse0"`–`"Mouse4"` in keybinds store. ESC is the only key that cancels keybind recording; all other keyboard and mouse input sets the binding. Context menu suppressed when right-click is bound to an action.
