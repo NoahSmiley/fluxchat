@@ -22,10 +22,12 @@ export function ServerSidebar() {
   const sortedMembers = useMemo(() => {
     const byName = (a: typeof members[0], b: typeof members[0]) =>
       (a.username ?? "").localeCompare(b.username ?? "");
-    const online = members.filter((m) => onlineUsers.has(m.userId)).sort(byName);
-    const offline = members.filter((m) => !onlineUsers.has(m.userId)).sort(byName);
-    return [...online, ...offline];
-  }, [members, onlineUsers]);
+    const others = members.filter((m) => m.userId !== user?.id);
+    const online = others.filter((m) => onlineUsers.has(m.userId)).sort(byName);
+    const offline = others.filter((m) => !onlineUsers.has(m.userId)).sort(byName);
+    const me = members.find((m) => m.userId === user?.id);
+    return me ? [me, ...online, ...offline] : [...online, ...offline];
+  }, [members, onlineUsers, user?.id]);
 
   const clearHoverTimer = useCallback(() => {
     if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
