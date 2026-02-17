@@ -1,0 +1,11 @@
+target/
+node_modules/
+dist/
+src-tauri/
+src/
+*.db
+*.db-shm
+*.db-wal
+uploads/
+.env
+.env.production
