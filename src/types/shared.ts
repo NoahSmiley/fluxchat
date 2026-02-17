@@ -165,6 +165,7 @@ export type WSServerEvent =
   | { type: "member_left"; serverId: string; userId: string }
   | { type: "server_updated"; serverId: string; name: string }
   | { type: "server_deleted"; serverId: string }
+  | { type: "member_role_updated"; serverId: string; userId: string; role: string }
   | { type: "channel_update"; channelId: string; bitrate: number | null }
   | { type: "profile_update"; userId: string; username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean }
   | { type: "voice_state"; channelId: string; participants: VoiceParticipant[] }
@@ -184,8 +185,11 @@ export type WSServerEvent =
 
 export type PresenceStatus = "online" | "idle" | "offline";
 
-export interface CreateServerRequest {
-  name: string;
+export interface WhitelistEntry {
+  id: string;
+  email: string;
+  addedBy: string;
+  addedAt: string;
 }
 
 export interface CreateChannelRequest {

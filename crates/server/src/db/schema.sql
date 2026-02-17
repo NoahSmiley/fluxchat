@@ -97,7 +97,16 @@ CREATE TABLE IF NOT EXISTS "memberships" (
     server_id TEXT NOT NULL REFERENCES "servers"(id) ON DELETE CASCADE,
     role TEXT NOT NULL DEFAULT 'member',
     joined_at TEXT NOT NULL,
+    role_updated_at TEXT,
     PRIMARY KEY (user_id, server_id)
+);
+
+-- Email whitelist (gates registration)
+CREATE TABLE IF NOT EXISTS "email_whitelist" (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    added_by TEXT NOT NULL REFERENCES "user"(id),
+    added_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "reactions" (

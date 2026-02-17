@@ -93,6 +93,25 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
     .await
     .ok();
 
+    // Migration: add role_updated_at to memberships
+    sqlx::query(r#"ALTER TABLE "memberships" ADD COLUMN role_updated_at TEXT"#)
+        .execute(&pool)
+        .await
+        .ok();
+
+    // Migration: create email_whitelist table
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS "email_whitelist" (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            added_by TEXT NOT NULL REFERENCES "user"(id),
+            added_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&pool)
+    .await
+    .ok();
+
     tracing::info!("Database initialized at {}", database_path);
     Ok(pool)
 }

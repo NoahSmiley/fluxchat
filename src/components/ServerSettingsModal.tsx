@@ -61,7 +61,7 @@ function DeleteConfirmDialog({
 }
 
 export function ServerSettingsModal({ serverId, onClose }: Props) {
-  const { servers, updateServer, deleteServer, leaveServer } = useChatStore();
+  const { servers, updateServer, leaveServer } = useChatStore();
   const { user } = useAuthStore();
   const server = servers.find((s) => s.id === serverId);
 
@@ -96,18 +96,6 @@ export function ServerSettingsModal({ serverId, onClose }: Props) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update server");
       setSaving(false);
-    }
-  }
-
-  async function handleDelete() {
-    setDeleting(true);
-    try {
-      await deleteServer(serverId);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete server");
-      setDeleting(false);
-      setShowDeleteConfirm(false);
     }
   }
 
@@ -174,11 +162,7 @@ export function ServerSettingsModal({ serverId, onClose }: Props) {
             </div>
 
             <div className="modal-actions">
-              {isOwner ? (
-                <button type="button" className="btn-danger" onClick={() => setShowDeleteConfirm(true)}>
-                  Delete Server
-                </button>
-              ) : (
+              {!isOwner && (
                 <button type="button" className="btn-danger" onClick={handleLeave} disabled={leaving}>
                   {leaving ? "Leaving..." : "Leave Server"}
                 </button>
@@ -195,15 +179,6 @@ export function ServerSettingsModal({ serverId, onClose }: Props) {
           </form>
         </div>
       </div>
-
-      {showDeleteConfirm && (
-        <DeleteConfirmDialog
-          serverName={server.name}
-          onConfirm={handleDelete}
-          onCancel={() => setShowDeleteConfirm(false)}
-          deleting={deleting}
-        />
-      )}
     </>
   );
 }

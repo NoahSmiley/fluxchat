@@ -129,11 +129,6 @@ pub struct PaginatedResponse<T: Serialize> {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CreateServerRequest {
-    pub name: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct CreateChannelRequest {
     pub name: String,
     #[serde(rename = "type")]
@@ -148,14 +143,27 @@ pub struct UpdateChannelRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct UpdateServerRequest {
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
-pub struct JoinServerRequest {
-    pub invite_code: String,
+pub struct WhitelistEntry {
+    pub id: String,
+    pub email: String,
+    pub added_by: String,
+    pub added_at: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct UpdateServerRequest {
-    pub name: Option<String>,
+pub struct AddWhitelistRequest {
+    pub emails: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateMemberRoleRequest {
+    pub role: String,
 }
 
 #[derive(Debug, Deserialize)]

@@ -7,80 +7,11 @@ use axum::{
 use std::sync::Arc;
 
 use crate::models::{
-    AuthUser, Channel, CreateChannelRequest, CreateServerRequest, JoinServerRequest,
+    AuthUser, Channel, CreateChannelRequest,
     MemberWithUser, Server, ServerWithRole, UpdateChannelRequest, UpdateServerRequest,
+    UpdateMemberRoleRequest,
 };
 use crate::AppState;
-
-/// POST /api/servers
-pub async fn create_server(
-    State(state): State<Arc<AppState>>,
-    user: AuthUser,
-    Json(body): Json<CreateServerRequest>,
-) -> impl IntoResponse {
-    if let Err(e) = flux_shared::validation::validate_server_name(&body.name) {
-        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e}))).into_response();
-    }
-
-    let server_id = uuid::Uuid::new_v4().to_string();
-    let invite_code = nanoid::nanoid!(10);
-    let now = chrono::Utc::now().to_rfc3339();
-    let name = body.name.trim().to_string();
-
-    // Insert server
-    let _ = sqlx::query(
-        "INSERT INTO servers (id, name, owner_id, invite_code, created_at) VALUES (?, ?, ?, ?, ?)",
-    )
-    .bind(&server_id)
-    .bind(&name)
-    .bind(&user.id)
-    .bind(&invite_code)
-    .bind(&now)
-    .execute(&state.db)
-    .await;
-
-    // Create default text channel
-    let text_ch_id = uuid::Uuid::new_v4().to_string();
-    let _ = sqlx::query(
-        "INSERT INTO channels (id, server_id, name, type, created_at) VALUES (?, ?, 'general', 'text', ?)",
-    )
-    .bind(&text_ch_id)
-    .bind(&server_id)
-    .bind(&now)
-    .execute(&state.db)
-    .await;
-
-    // Create default voice channel
-    let voice_ch_id = uuid::Uuid::new_v4().to_string();
-    let _ = sqlx::query(
-        "INSERT INTO channels (id, server_id, name, type, created_at) VALUES (?, ?, 'general', 'voice', ?)",
-    )
-    .bind(&voice_ch_id)
-    .bind(&server_id)
-    .bind(&now)
-    .execute(&state.db)
-    .await;
-
-    // Add owner as member
-    let _ = sqlx::query(
-        "INSERT INTO memberships (user_id, server_id, role, joined_at) VALUES (?, ?, 'owner', ?)",
-    )
-    .bind(&user.id)
-    .bind(&server_id)
-    .bind(&now)
-    .execute(&state.db)
-    .await;
-
-    let server = Server {
-        id: server_id,
-        name,
-        owner_id: user.id,
-        invite_code,
-        created_at: now,
-    };
-
-    (StatusCode::CREATED, Json(server)).into_response()
-}
 
 /// GET /api/servers
 pub async fn list_servers(
@@ -152,89 +83,6 @@ pub async fn get_server(
         )
             .into_response(),
     }
-}
-
-/// POST /api/servers/join
-pub async fn join_server(
-    State(state): State<Arc<AppState>>,
-    user: AuthUser,
-    Json(body): Json<JoinServerRequest>,
-) -> impl IntoResponse {
-    let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE invite_code = ?")
-        .bind(&body.invite_code)
-        .fetch_optional(&state.db)
-        .await
-        .ok()
-        .flatten();
-
-    let server = match server {
-        Some(s) => s,
-        None => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(serde_json::json!({"error": "Invalid invite code"})),
-            )
-                .into_response()
-        }
-    };
-
-    // Check if already a member
-    let existing = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM memberships WHERE user_id = ? AND server_id = ?",
-    )
-    .bind(&user.id)
-    .bind(&server.id)
-    .fetch_one(&state.db)
-    .await
-    .unwrap_or(0);
-
-    if existing > 0 {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "Already a member of this server"})),
-        )
-            .into_response();
-    }
-
-    let now = chrono::Utc::now().to_rfc3339();
-    let _ = sqlx::query(
-        "INSERT INTO memberships (user_id, server_id, role, joined_at) VALUES (?, ?, 'member', ?)",
-    )
-    .bind(&user.id)
-    .bind(&server.id)
-    .bind(&now)
-    .execute(&state.db)
-    .await;
-
-    // Look up joining user's profile for broadcast
-    let profile = sqlx::query_as::<_, (String, Option<String>, String, bool)>(
-        r#"SELECT username, image, ring_style, ring_spin FROM "user" WHERE id = ?"#,
-    )
-    .bind(&user.id)
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten();
-
-    if let Some((username, image, ring_style, ring_spin)) = profile {
-        state
-            .gateway
-            .broadcast_all(
-                &crate::ws::events::ServerEvent::MemberJoined {
-                    server_id: server.id.clone(),
-                    user_id: user.id.clone(),
-                    username,
-                    image,
-                    role: "member".into(),
-                    ring_style,
-                    ring_spin,
-                },
-                None,
-            )
-            .await;
-    }
-
-    Json(server).into_response()
 }
 
 /// GET /api/servers/:serverId/channels
@@ -482,7 +330,7 @@ pub async fn update_server(
     Path(server_id): Path<String>,
     Json(body): Json<UpdateServerRequest>,
 ) -> impl IntoResponse {
-    // Check membership role — owner only
+    // Check membership role — owner or admin
     let role = sqlx::query_scalar::<_, String>(
         "SELECT role FROM memberships WHERE user_id = ? AND server_id = ?",
     )
@@ -493,12 +341,15 @@ pub async fn update_server(
     .ok()
     .flatten();
 
-    if role.as_deref() != Some("owner") {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({"error": "Only the server owner can update settings"})),
-        )
-            .into_response();
+    match role.as_deref() {
+        Some("owner") | Some("admin") => {}
+        _ => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Insufficient permissions"})),
+            )
+                .into_response();
+        }
     }
 
     let server = sqlx::query_as::<_, Server>("SELECT * FROM servers WHERE id = ?")
@@ -555,51 +406,6 @@ pub async fn update_server(
     };
 
     Json(updated).into_response()
-}
-
-/// DELETE /api/servers/:serverId
-pub async fn delete_server(
-    State(state): State<Arc<AppState>>,
-    user: AuthUser,
-    Path(server_id): Path<String>,
-) -> impl IntoResponse {
-    // Check ownership
-    let role = sqlx::query_scalar::<_, String>(
-        "SELECT role FROM memberships WHERE user_id = ? AND server_id = ?",
-    )
-    .bind(&user.id)
-    .bind(&server_id)
-    .fetch_optional(&state.db)
-    .await
-    .ok()
-    .flatten();
-
-    if role.as_deref() != Some("owner") {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({"error": "Only the server owner can delete the server"})),
-        )
-            .into_response();
-    }
-
-    // Delete server (cascades to channels and memberships)
-    let _ = sqlx::query("DELETE FROM servers WHERE id = ?")
-        .bind(&server_id)
-        .execute(&state.db)
-        .await;
-
-    // Broadcast deletion to all connected clients
-    state
-        .gateway
-        .broadcast_all(
-            &crate::ws::events::ServerEvent::ServerDeleted {
-                server_id: server_id.clone(),
-            },
-            None,
-        )
-        .await;
-
-    StatusCode::NO_CONTENT.into_response()
 }
 
 /// DELETE /api/servers/:serverId/members/me
@@ -694,4 +500,143 @@ pub async fn list_members(
     .unwrap_or_default();
 
     Json(members).into_response()
+}
+
+/// PATCH /api/members/:userId/role
+pub async fn update_member_role(
+    State(state): State<Arc<AppState>>,
+    user: AuthUser,
+    Path(target_user_id): Path<String>,
+    Json(body): Json<UpdateMemberRoleRequest>,
+) -> impl IntoResponse {
+    // Find the default server
+    let server = sqlx::query_as::<_, (String,)>(
+        "SELECT id FROM servers ORDER BY created_at ASC LIMIT 1",
+    )
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let server_id = match server {
+        Some((id,)) => id,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "No server found"})),
+            )
+                .into_response()
+        }
+    };
+
+    // Verify caller is owner or admin
+    let caller_role = sqlx::query_scalar::<_, String>(
+        "SELECT role FROM memberships WHERE user_id = ? AND server_id = ?",
+    )
+    .bind(&user.id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    match caller_role.as_deref() {
+        Some("owner") | Some("admin") => {}
+        _ => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Insufficient permissions"})),
+            )
+                .into_response()
+        }
+    }
+
+    // Get target's current role and promotion timestamp
+    let target_info = sqlx::query_as::<_, (String, Option<String>)>(
+        "SELECT role, role_updated_at FROM memberships WHERE user_id = ? AND server_id = ?",
+    )
+    .bind(&target_user_id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let (target_role, role_updated_at) = match target_info {
+        Some(info) => info,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "Member not found"})),
+            )
+                .into_response()
+        }
+    };
+
+    // Cannot change the owner's role
+    if target_role == "owner" {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({"error": "Cannot change owner role"})),
+        )
+            .into_response();
+    }
+
+    // Validate new role
+    if body.role != "admin" && body.role != "member" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Role must be 'admin' or 'member'"})),
+        )
+            .into_response();
+    }
+
+    // Demotion rules: admins can only demote other admins within 72 hours of their promotion
+    if target_role == "admin" && body.role == "member" && caller_role.as_deref() == Some("admin") {
+        if let Some(updated_at) = role_updated_at {
+            if let Ok(promoted_at) = chrono::DateTime::parse_from_rfc3339(&updated_at) {
+                let hours_since = (chrono::Utc::now() - promoted_at.with_timezone(&chrono::Utc))
+                    .num_hours();
+                if hours_since > 72 {
+                    return (
+                        StatusCode::FORBIDDEN,
+                        Json(serde_json::json!({"error": "Admins can only demote other admins within 72 hours of their promotion. Only the owner can demote after that."})),
+                    )
+                        .into_response();
+                }
+            }
+        } else {
+            // No role_updated_at means they were promoted before this feature existed — treat as >72h
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Only the owner can demote this admin"})),
+            )
+                .into_response();
+        }
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+    sqlx::query("UPDATE memberships SET role = ?, role_updated_at = ? WHERE user_id = ? AND server_id = ?")
+        .bind(&body.role)
+        .bind(&now)
+        .bind(&target_user_id)
+        .bind(&server_id)
+        .execute(&state.db)
+        .await
+        .ok();
+
+    // Broadcast role change
+    state
+        .gateway
+        .broadcast_all(
+            &crate::ws::events::ServerEvent::MemberRoleUpdated {
+                server_id: server_id.clone(),
+                user_id: target_user_id.clone(),
+                role: body.role.clone(),
+            },
+            None,
+        )
+        .await;
+
+    StatusCode::NO_CONTENT.into_response()
 }

@@ -220,6 +220,13 @@ pub enum ServerEvent {
         #[serde(rename = "serverId")]
         server_id: String,
     },
+    MemberRoleUpdated {
+        #[serde(rename = "serverId")]
+        server_id: String,
+        #[serde(rename = "userId")]
+        user_id: String,
+        role: String,
+    },
     MemberLeft {
         #[serde(rename = "serverId")]
         server_id: String,

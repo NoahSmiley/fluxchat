@@ -70,9 +70,7 @@ interface ChatState {
   deleteMessage: (messageId: string) => void;
   uploadFile: (file: File) => Promise<void>;
   removePendingAttachment: (id: string) => void;
-  joinServer: (inviteCode: string) => Promise<void>;
   updateServer: (serverId: string, name: string) => Promise<void>;
-  deleteServer: (serverId: string) => Promise<void>;
   leaveServer: (serverId: string) => Promise<void>;
   addReaction: (messageId: string, emoji: string) => void;
   removeReaction: (messageId: string, emoji: string) => void;
@@ -406,29 +404,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     gateway.send({ type: "delete_message", messageId });
   },
 
-  joinServer: async (inviteCode) => {
-    const server = await api.joinServer(inviteCode);
-    set((state) => ({ servers: [...state.servers, { ...server, role: "member" }] }));
-    // Request the encryption key from online members
-    useCryptoStore.getState().requestServerKey(server.id);
-  },
-
   updateServer: async (serverId, name) => {
     const updated = await api.updateServer(serverId, { name });
     set((state) => ({
       servers: state.servers.map((s) =>
         s.id === serverId ? { ...s, name: updated.name } : s
       ),
-    }));
-  },
-
-  deleteServer: async (serverId) => {
-    await api.deleteServer(serverId);
-    set((state) => ({
-      servers: state.servers.filter((s) => s.id !== serverId),
-      ...(state.activeServerId === serverId
-        ? { activeServerId: null, activeChannelId: null, channels: [], messages: [], members: [] }
-        : {}),
     }));
   },
 
@@ -1031,6 +1012,22 @@ gateway.on((event) => {
         ...(s.activeServerId === event.serverId
           ? { activeServerId: null, activeChannelId: null, channels: [], messages: [], members: [] }
           : {}),
+      }));
+      break;
+    }
+
+    case "member_role_updated": {
+      useChatStore.setState((s) => ({
+        members: s.members.map((m) =>
+          m.userId === event.userId && m.serverId === event.serverId
+            ? { ...m, role: event.role as "owner" | "admin" | "member" }
+            : m
+        ),
+        servers: s.servers.map((sv) =>
+          sv.id === event.serverId && event.userId === authStoreRef?.getState()?.user?.id
+            ? { ...sv, role: event.role }
+            : sv
+        ),
       }));
       break;
     }

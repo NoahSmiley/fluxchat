@@ -2,20 +2,18 @@ import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { FluxLogo } from "./FluxLogo.js";
-import { ArrowRight, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import { AvatarCropModal } from "./AvatarCropModal.js";
 import { useUIStore } from "../stores/ui.js";
 import { avatarColor, ringClass } from "../lib/avatarColor.js";
 import { UserCard } from "./MemberList.js";
 
 export function ServerSidebar() {
-  const { servers, showingDMs, joinServer, showDMs, selectServer, members, onlineUsers, userActivities, openDM } = useChatStore();
+  const { servers, showingDMs, showDMs, selectServer, members, onlineUsers, userActivities, openDM } = useChatStore();
   const { user, logout, updateProfile } = useAuthStore();
   const myMember = members.find((m) => m.userId === user?.id);
   const myRole = myMember?.role ?? "member";
-  const [showModal, setShowModal] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [input, setInput] = useState("");
 
   // Profile editing state
   const [editingUsername, setEditingUsername] = useState(false);
@@ -112,13 +110,6 @@ export function ServerSidebar() {
 
   const activeCardMember = members.find((m) => m.userId === activeCardUserId);
 
-  async function handleSubmit() {
-    if (!input.trim()) return;
-    await joinServer(input.trim());
-    setInput("");
-    setShowModal(false);
-  }
-
   function openProfile() {
     setShowProfile(true);
     setEditingUsername(false);
@@ -204,16 +195,6 @@ export function ServerSidebar() {
       >
         <FluxLogo size={36} />
       </div>
-
-      {servers.length === 0 && (
-        <button
-          className="server-icon add-server"
-          onClick={() => setShowModal(true)}
-          title="Join Server"
-        >
-          <ArrowRight size={20} />
-        </button>
-      )}
 
       {sortedMembers.length > 0 && (
         <div className="sidebar-members">
@@ -374,27 +355,6 @@ export function ServerSidebar() {
         />
       )}
 
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Join Server</h3>
-            <input
-              type="text"
-              placeholder="Invite code"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-              autoFocus
-            />
-            <div className="modal-actions">
-              <button className="btn-small" onClick={() => setShowModal(false)}>Cancel</button>
-              <button className="btn-primary btn-small" onClick={handleSubmit}>
-                Join
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

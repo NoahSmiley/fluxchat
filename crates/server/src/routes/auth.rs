@@ -19,6 +19,33 @@ pub async fn sign_up(
     let username = body.username.trim().to_string();
     let name = body.name.trim().to_string();
 
+    // Whitelist gate: only whitelisted emails can register
+    // Bypass: allow the first user to register without being whitelisted (bootstrapping)
+    let user_count = sqlx::query_scalar::<_, i64>(
+        r#"SELECT COUNT(*) FROM "user""#,
+    )
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(1); // default to 1 so whitelist is enforced on error
+
+    if user_count > 0 {
+        let whitelisted = sqlx::query_scalar::<_, i64>(
+            r#"SELECT COUNT(*) FROM email_whitelist WHERE email = ?"#,
+        )
+        .bind(&email)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or(0);
+
+        if whitelisted == 0 {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Email not authorized"})),
+            )
+                .into_response();
+        }
+    }
+
     if username.len() < 2 || username.len() > 32 {
         return (
             StatusCode::BAD_REQUEST,
@@ -128,6 +155,65 @@ pub async fn sign_up(
     .bind(&now)
     .execute(&state.db)
     .await;
+
+    // Auto-create server on first registration, or join existing server
+    let existing_server = sqlx::query_scalar::<_, String>(
+        "SELECT id FROM servers ORDER BY created_at ASC LIMIT 1",
+    )
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let (server_id, role) = if let Some(id) = existing_server {
+        (id, "member")
+    } else {
+        // First user: create the default server + channels
+        let sid = uuid::Uuid::new_v4().to_string();
+        sqlx::query(
+            "INSERT INTO servers (id, name, owner_id, invite_code, created_at) VALUES (?, 'FluxChat', ?, 'none', ?)",
+        )
+        .bind(&sid)
+        .bind(&user_id)
+        .bind(&now)
+        .execute(&state.db)
+        .await
+        .ok();
+
+        sqlx::query(
+            "INSERT INTO channels (id, server_id, name, type, created_at) VALUES (?, ?, 'general', 'text', ?)",
+        )
+        .bind(&uuid::Uuid::new_v4().to_string())
+        .bind(&sid)
+        .bind(&now)
+        .execute(&state.db)
+        .await
+        .ok();
+
+        sqlx::query(
+            "INSERT INTO channels (id, server_id, name, type, created_at) VALUES (?, ?, 'general', 'voice', ?)",
+        )
+        .bind(&uuid::Uuid::new_v4().to_string())
+        .bind(&sid)
+        .bind(&now)
+        .execute(&state.db)
+        .await
+        .ok();
+
+        (sid, "owner")
+    };
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO memberships (user_id, server_id, role, joined_at, role_updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(&user_id)
+    .bind(&server_id)
+    .bind(role)
+    .bind(&now)
+    .bind(&now)
+    .execute(&state.db)
+    .await
+    .ok();
 
     // Set cookie header
     let cookie = format!(

@@ -3,7 +3,6 @@ import type {
   Channel,
   Message,
   PaginatedResponse,
-  CreateServerRequest,
   UpdateServerRequest,
   CreateChannelRequest,
   UpdateChannelRequest,
@@ -116,30 +115,10 @@ export async function getServers() {
   return request<(Server & { role: string })[]>("/servers");
 }
 
-export async function createServer(data: CreateServerRequest) {
-  return request<Server>("/servers", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export async function joinServer(inviteCode: string) {
-  return request<Server>("/servers/join", {
-    method: "POST",
-    body: JSON.stringify({ inviteCode }),
-  });
-}
-
 export async function updateServer(serverId: string, data: UpdateServerRequest) {
   return request<Server>(`/servers/${serverId}`, {
     method: "PATCH",
     body: JSON.stringify(data),
-  });
-}
-
-export async function deleteServer(serverId: string) {
-  return request<void>(`/servers/${serverId}`, {
-    method: "DELETE",
   });
 }
 
@@ -151,6 +130,30 @@ export async function leaveServer(serverId: string) {
 
 export async function getServerMembers(serverId: string) {
   return request<MemberWithUser[]>(`/servers/${serverId}/members`);
+}
+
+export async function updateMemberRole(userId: string, role: string) {
+  return request<void>(`/members/${userId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+}
+
+// ── Whitelist ──
+
+export async function getWhitelist() {
+  return request<import("../types/shared.js").WhitelistEntry[]>("/whitelist");
+}
+
+export async function addToWhitelist(emails: string[]) {
+  return request<import("../types/shared.js").WhitelistEntry[]>("/whitelist", {
+    method: "POST",
+    body: JSON.stringify({ emails }),
+  });
+}
+
+export async function removeFromWhitelist(id: string) {
+  return request<void>(`/whitelist/${id}`, { method: "DELETE" });
 }
 
 // ── Channels ──

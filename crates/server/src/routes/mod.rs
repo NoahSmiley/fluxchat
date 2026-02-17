@@ -7,6 +7,7 @@ pub mod servers;
 pub mod spotify;
 pub mod users;
 pub mod voice;
+pub mod whitelist;
 
 use crate::ws;
 use crate::AppState;
@@ -22,18 +23,21 @@ pub fn build_router(state: Arc<AppState>) -> Router {
 
     let api_routes = Router::new()
         // Servers
-        .route("/servers", post(servers::create_server))
         .route("/servers", get(servers::list_servers))
-        .route("/servers/join", post(servers::join_server))
         .route("/servers/{serverId}", get(servers::get_server))
         .route("/servers/{serverId}", patch(servers::update_server))
-        .route("/servers/{serverId}", delete(servers::delete_server))
         .route("/servers/{serverId}/members/me", delete(servers::leave_server))
         .route("/servers/{serverId}/channels", get(servers::list_channels))
         .route("/servers/{serverId}/channels", post(servers::create_channel))
         .route("/servers/{serverId}/channels/{channelId}", patch(servers::update_channel))
         .route("/servers/{serverId}/channels/{channelId}", delete(servers::delete_channel))
         .route("/servers/{serverId}/members", get(servers::list_members))
+        // Role management
+        .route("/members/{userId}/role", patch(servers::update_member_role))
+        // Email whitelist
+        .route("/whitelist", get(whitelist::list_whitelist))
+        .route("/whitelist", post(whitelist::add_to_whitelist))
+        .route("/whitelist/{id}", delete(whitelist::remove_from_whitelist))
         // Messages
         .route("/channels/{channelId}/messages", get(messages::list_messages))
         .route("/channels/{channelId}/messages/search", get(messages::search_messages))

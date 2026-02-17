@@ -45,10 +45,9 @@ function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; s
 
 export function MainLayout() {
   useKeybindListener();
-  const { loadServers, selectServer, joinServer, servers, activeServerId, activeChannelId, channels, showingDMs, activeDMChannelId } = useChatStore();
+  const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels, showingDMs, activeDMChannelId } = useChatStore();
   const { user } = useAuthStore();
   const [sidebarWidth, setSidebarWidth] = useState(240);
-  const [joinInput, setJoinInput] = useState("");
 
   useEffect(() => {
     gateway.connect();
@@ -167,35 +166,7 @@ export function MainLayout() {
         ) : (
           <div className="empty-state">
             {servers.length === 0 ? (
-              <>
-                <h2>Welcome, {user?.username}</h2>
-                <p>Enter an invite code to join your server</p>
-                <div className="join-prompt">
-                  <input
-                    type="text"
-                    placeholder="Invite code"
-                    value={joinInput}
-                    onChange={(e) => setJoinInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && joinInput.trim()) {
-                        joinServer(joinInput.trim());
-                        setJoinInput("");
-                      }
-                    }}
-                  />
-                  <button
-                    className="btn-primary btn-small"
-                    onClick={() => {
-                      if (joinInput.trim()) {
-                        joinServer(joinInput.trim());
-                        setJoinInput("");
-                      }
-                    }}
-                  >
-                    Join
-                  </button>
-                </div>
-              </>
+              <p>Loading...</p>
             ) : !activeServerId ? (
               <p>Loading...</p>
             ) : null}
