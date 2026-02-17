@@ -22,7 +22,9 @@ export interface Channel {
   createdAt: string;
 }
 
-export type ChannelType = "text" | "voice";
+export type ChannelType = "text" | "voice" | "game";
+
+export type RingStyle = "default" | "chroma" | "pulse" | "wave" | "none";
 
 export interface MemberWithUser {
   userId: string;
@@ -31,6 +33,9 @@ export interface MemberWithUser {
   joinedAt: string;
   username: string;
   image: string | null;
+  ringStyle: RingStyle;
+  ringSpin: boolean;
+  steamId: string | null;
 }
 
 export type MemberRole = "owner" | "admin" | "member";
@@ -156,12 +161,12 @@ export type WSServerEvent =
   | { type: "message"; message: Message; attachments?: Attachment[] }
   | { type: "typing"; channelId: string; userId: string; active: boolean }
   | { type: "presence"; userId: string; status: PresenceStatus }
-  | { type: "member_joined"; serverId: string; userId: string; username: string; image: string | null; role: string }
+  | { type: "member_joined"; serverId: string; userId: string; username: string; image: string | null; role: string; ringStyle: RingStyle; ringSpin: boolean }
   | { type: "member_left"; serverId: string; userId: string }
   | { type: "server_updated"; serverId: string; name: string }
   | { type: "server_deleted"; serverId: string }
   | { type: "channel_update"; channelId: string; bitrate: number | null }
-  | { type: "profile_update"; userId: string; username?: string; image?: string | null }
+  | { type: "profile_update"; userId: string; username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean }
   | { type: "voice_state"; channelId: string; participants: VoiceParticipant[] }
   | { type: "reaction_add"; messageId: string; userId: string; emoji: string }
   | { type: "reaction_remove"; messageId: string; userId: string; emoji: string }

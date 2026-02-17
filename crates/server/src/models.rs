@@ -80,6 +80,9 @@ pub struct MemberWithUser {
     pub joined_at: String,
     pub username: String,
     pub image: Option<String>,
+    pub ring_style: String,
+    pub ring_spin: bool,
+    pub steam_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -183,9 +186,13 @@ pub struct VoiceTokenRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateUserRequest {
     pub username: Option<String>,
     pub image: Option<serde_json::Value>,
+    pub ring_style: Option<String>,
+    pub ring_spin: Option<bool>,
+    pub steam_id: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

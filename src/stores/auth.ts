@@ -1,11 +1,15 @@
 import { create } from "zustand";
 import * as api from "../lib/api.js";
+import type { RingStyle } from "../types/shared.js";
 
 interface AuthUser {
   id: string;
   email: string;
   username: string;
   image?: string | null;
+  ringStyle: RingStyle;
+  ringSpin: boolean;
+  steamId?: string | null;
 }
 
 interface AuthState {
@@ -16,7 +20,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (data: { username?: string; image?: string | null }) => Promise<void>;
+  updateProfile: (data: { username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; steamId?: string | null }) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -66,7 +70,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const result = await api.updateUserProfile(data);
     const current = get().user;
     if (current) {
-      set({ user: { ...current, username: result.username, image: result.image } });
+      set({ user: { ...current, username: result.username, image: result.image, ringStyle: result.ringStyle, ringSpin: result.ringSpin, steamId: result.steamId } });
     }
   },
 }));

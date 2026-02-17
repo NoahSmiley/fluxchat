@@ -10,7 +10,7 @@ pub mod voice;
 
 use crate::ws;
 use crate::AppState;
-use axum::{routing::{get, post, patch, delete}, Router};
+use axum::{routing::{get, post, patch, delete}, Router, extract::DefaultBodyLimit};
 use std::sync::Arc;
 
 pub fn build_router(state: Arc<AppState>) -> Router {
@@ -77,5 +77,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .nest("/api/auth", auth_routes)
         .nest("/api", api_routes)
         .route("/gateway", get(ws::handler::ws_handler))
+        .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MB for GIF avatars
         .with_state(state)
 }

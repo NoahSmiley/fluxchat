@@ -1,14 +1,18 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { FluxLogo } from "./FluxLogo.js";
 import { ArrowRight, Settings } from "lucide-react";
 import { AvatarCropModal } from "./AvatarCropModal.js";
 import { useUIStore } from "../stores/ui.js";
+import { avatarColor, ringClass } from "../lib/avatarColor.js";
+import { UserCard } from "./MemberList.js";
 
 export function ServerSidebar() {
-  const { servers, showingDMs, joinServer, showDMs, selectServer } = useChatStore();
+  const { servers, showingDMs, joinServer, showDMs, selectServer, members, onlineUsers, userActivities, openDM } = useChatStore();
   const { user, logout, updateProfile } = useAuthStore();
+  const myMember = members.find((m) => m.userId === user?.id);
+  const myRole = myMember?.role ?? "member";
   const [showModal, setShowModal] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [input, setInput] = useState("");
@@ -20,6 +24,50 @@ export function ServerSidebar() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [cropImage, setCropImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Member avatar + user card state (hover-based)
+  const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
+  const [cardPos, setCardPos] = useState({ top: 0 });
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardHoveredRef = useRef(false);
+
+  const sortedMembers = useMemo(() => {
+    const online = members.filter((m) => onlineUsers.has(m.userId));
+    const offline = members.filter((m) => !onlineUsers.has(m.userId));
+    return [...online, ...offline];
+  }, [members, onlineUsers]);
+
+  const clearHoverTimer = useCallback(() => {
+    if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
+  }, []);
+
+  function handleAvatarEnter(e: React.MouseEvent, userId: string) {
+    clearHoverTimer();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setCardPos({ top: rect.top });
+    setHoveredUserId(userId);
+  }
+
+  function handleAvatarLeave() {
+    clearHoverTimer();
+    hoverTimerRef.current = setTimeout(() => {
+      if (!cardHoveredRef.current) setHoveredUserId(null);
+    }, 200);
+  }
+
+  function handleCardEnter() { clearHoverTimer(); cardHoveredRef.current = true; }
+  function handleCardLeave() {
+    cardHoveredRef.current = false;
+    hoverTimerRef.current = setTimeout(() => setHoveredUserId(null), 200);
+  }
+
+  function handleMemberClick(userId: string) {
+    setHoveredUserId(null);
+    showDMs();
+    openDM(userId);
+  }
+
+  const hoveredMember = members.find((m) => m.userId === hoveredUserId);
 
   async function handleSubmit() {
     if (!input.trim()) return;
@@ -62,7 +110,15 @@ export function ServerSidebar() {
 
     setProfileError(null);
     const reader = new FileReader();
-    reader.onload = () => setCropImage(reader.result as string);
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      // GIFs skip cropping (would lose animation)
+      if (file.type === "image/gif") {
+        handleCropConfirm(dataUrl);
+      } else {
+        setCropImage(dataUrl);
+      }
+    };
     reader.onerror = () => setProfileError("Failed to read image");
     reader.readAsDataURL(file);
 
@@ -103,18 +159,8 @@ export function ServerSidebar() {
         onClick={() => { if (servers.length > 0) selectServer(servers[0].id); }}
         style={{ cursor: servers.length > 0 ? "pointer" : "default" }}
       >
-        <FluxLogo size={28} />
+        <FluxLogo size={36} />
       </div>
-
-      <button
-        className={`server-icon dm-icon ${showingDMs ? "active" : ""}`}
-        onClick={() => showDMs()}
-        title="Direct Messages"
-      >
-        DM
-      </button>
-
-      <div className="server-sidebar-divider" />
 
       {servers.length === 0 && (
         <button
@@ -124,6 +170,50 @@ export function ServerSidebar() {
         >
           <ArrowRight size={20} />
         </button>
+      )}
+
+      {sortedMembers.length > 0 && (
+        <div className="sidebar-members">
+            {sortedMembers.map((m) => {
+              const isOnline = onlineUsers.has(m.userId);
+              const activity = userActivities[m.userId];
+              const rc = ringClass(m.ringStyle, m.ringSpin, m.role, !!activity);
+              return (
+                <div
+                  key={m.userId}
+                  className={`sidebar-member-avatar ${!isOnline ? "offline" : ""} ${hoveredUserId === m.userId ? "selected" : ""}`}
+                  onMouseEnter={(e) => handleAvatarEnter(e, m.userId)}
+                  onMouseLeave={handleAvatarLeave}
+                  onClick={() => handleMemberClick(m.userId)}
+                >
+                  <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(m.username) } as React.CSSProperties}>
+                    <div className="member-avatar" style={{ background: avatarColor(m.username) }}>
+                      {m.image ? (
+                        <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      ) : (
+                        (m.username ?? "?").charAt(0).toUpperCase()
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+      )}
+
+      {/* User card popup (hover) */}
+      {hoveredMember && (
+        <div onMouseEnter={handleCardEnter} onMouseLeave={handleCardLeave}>
+          <UserCard
+            member={hoveredMember}
+            activity={userActivities[hoveredMember.userId]}
+            isOnline={onlineUsers.has(hoveredMember.userId)}
+            position={{ top: cardPos.top, right: 0 }}
+            onDM={() => handleMemberClick(hoveredMember.userId)}
+            isSelf={hoveredMember.userId === user?.id}
+            onSettings={hoveredMember.userId === user?.id ? openProfile : undefined}
+          />
+        </div>
       )}
 
       <div className="server-sidebar-spacer" />
@@ -138,15 +228,6 @@ export function ServerSidebar() {
         </button>
       </div>
 
-      <div className="server-sidebar-user" onClick={openProfile} title={user?.username}>
-        <div className="server-user-avatar">
-          {user?.image ? (
-            <img src={user.image} alt={user.username} className="server-user-avatar-img" />
-          ) : (
-            user?.username?.charAt(0).toUpperCase()
-          )}
-        </div>
-      </div>
 
       {showProfile && (
         <div className="modal-overlay" onClick={() => setShowProfile(false)}>
@@ -183,7 +264,7 @@ export function ServerSidebar() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,image/gif"
                   onChange={handleAvatarUpload}
                   style={{ display: "none" }}
                 />

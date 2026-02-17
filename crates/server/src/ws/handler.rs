@@ -681,8 +681,11 @@ async fn handle_client_event(
             state.gateway.broadcast_dm(&dm_channel_id, &event).await;
 
             // Also send to the other user if they're connected but not subscribed
+            // Skip for self-DMs (user1 == user2) to avoid duplicate delivery
             let other_user_id = if user.id == user1 { &user2 } else { &user1 };
-            state.gateway.send_to_user(other_user_id, &event).await;
+            if other_user_id != &user.id {
+                state.gateway.send_to_user(other_user_id, &event).await;
+            }
         }
         ClientEvent::UpdateActivity { activity } => {
             state.gateway.set_activity(client_id, activity.clone()).await;

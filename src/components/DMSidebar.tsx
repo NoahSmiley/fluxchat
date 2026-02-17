@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import * as api from "../lib/api.js";
 
 export function DMSidebar() {
-  const { dmChannels, activeDMChannelId, selectDM, openDM, loadDMChannels, onlineUsers } = useChatStore();
+  const { dmChannels, openDM, loadDMChannels, onlineUsers } = useChatStore();
   const [showSearch, setShowSearch] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [searchResults, setSearchResults] = useState<{ id: string; username: string }[]>([]);
@@ -30,12 +30,6 @@ export function DMSidebar() {
     setSearchInput("");
     setSearchResults([]);
   }
-
-  const sorted = [...dmChannels].sort((a, b) => {
-    const aOnline = onlineUsers.has(a.otherUser.id) ? 0 : 1;
-    const bOnline = onlineUsers.has(b.otherUser.id) ? 0 : 1;
-    return aOnline - bOnline;
-  });
 
   return (
     <div className="channel-sidebar dm-sidebar">
@@ -71,26 +65,6 @@ export function DMSidebar() {
       )}
 
       <div className="channel-list">
-        {sorted.map((dm) => {
-          const isOnline = onlineUsers.has(dm.otherUser.id);
-          return (
-            <button
-              key={dm.id}
-              className={`dm-item ${dm.id === activeDMChannelId ? "active" : ""}`}
-              onClick={() => selectDM(dm.id)}
-            >
-              <div className="dm-item-avatar">
-                {dm.otherUser.image ? (
-                  <img src={dm.otherUser.image} alt={dm.otherUser.username} />
-                ) : (
-                  dm.otherUser.username.charAt(0).toUpperCase()
-                )}
-                <span className={`dm-status-dot ${isOnline ? "online" : "offline"}`} />
-              </div>
-              <span className="dm-item-name">{dm.otherUser.username}</span>
-            </button>
-          );
-        })}
         {dmChannels.length === 0 && !showSearch && (
           <div className="dm-empty">No conversations yet</div>
         )}

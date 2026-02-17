@@ -207,8 +207,8 @@ pub async fn join_server(
     .await;
 
     // Look up joining user's profile for broadcast
-    let profile = sqlx::query_as::<_, (String, Option<String>)>(
-        r#"SELECT username, image FROM "user" WHERE id = ?"#,
+    let profile = sqlx::query_as::<_, (String, Option<String>, String, bool)>(
+        r#"SELECT username, image, ring_style, ring_spin FROM "user" WHERE id = ?"#,
     )
     .bind(&user.id)
     .fetch_optional(&state.db)
@@ -216,7 +216,7 @@ pub async fn join_server(
     .ok()
     .flatten();
 
-    if let Some((username, image)) = profile {
+    if let Some((username, image, ring_style, ring_spin)) = profile {
         state
             .gateway
             .broadcast_all(
@@ -226,6 +226,8 @@ pub async fn join_server(
                     username,
                     image,
                     role: "member".into(),
+                    ring_style,
+                    ring_spin,
                 },
                 None,
             )
@@ -681,7 +683,7 @@ pub async fn list_members(
     }
 
     let members = sqlx::query_as::<_, MemberWithUser>(
-        r#"SELECT m.user_id, m.server_id, m.role, m.joined_at, u.username, u.image
+        r#"SELECT m.user_id, m.server_id, m.role, m.joined_at, u.username, u.image, u.ring_style, u.ring_spin, u.steam_id
            FROM memberships m
            INNER JOIN "user" u ON u.id = m.user_id
            WHERE m.server_id = ?"#,

@@ -15,6 +15,7 @@ import type {
   SpotifyAccount,
   ListeningSession,
   QueueItem,
+  RingStyle,
 } from "../types/shared.js";
 
 import { API_BASE } from "./serverUrl.js";
@@ -85,7 +86,7 @@ export async function signOut() {
   return result;
 }
 
-export async function getSession(): Promise<{ user: { id: string; email: string; username: string; image?: string | null } } | null> {
+export async function getSession(): Promise<{ user: { id: string; email: string; username: string; image?: string | null; ringStyle: RingStyle; ringSpin: boolean } } | null> {
   const headers: Record<string, string> = {};
   const token = getStoredToken();
   if (token) {
@@ -102,8 +103,8 @@ export async function getSession(): Promise<{ user: { id: string; email: string;
 
 // ── User Profile ──
 
-export async function updateUserProfile(data: { username?: string; image?: string | null }) {
-  return request<{ id: string; username: string; email: string; image: string | null }>("/users/me", {
+export async function updateUserProfile(data: { username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; steamId?: string | null }) {
+  return request<{ id: string; username: string; email: string; image: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId: string | null }>("/users/me", {
     method: "PATCH",
     body: JSON.stringify(data),
   });

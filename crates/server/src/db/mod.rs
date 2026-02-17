@@ -40,6 +40,16 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         .await
         .ok();
 
+    // Ring style + spin preferences
+    sqlx::query(r#"ALTER TABLE "user" ADD COLUMN ring_style TEXT NOT NULL DEFAULT 'default'"#)
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query(r#"ALTER TABLE "user" ADD COLUMN ring_spin INTEGER NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await
+        .ok();
+
     // Unique index for account upsert (userId + providerId)
     sqlx::query(r#"CREATE UNIQUE INDEX IF NOT EXISTS idx_account_user_provider ON "account"(userId, providerId)"#)
         .execute(&pool)

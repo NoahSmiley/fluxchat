@@ -9,6 +9,7 @@ import {
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
   Music, Beer,
 } from "lucide-react";
+import { avatarColor, ringClass } from "../lib/avatarColor.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
   // Request 1080p — matches the max resolution we actually publish
@@ -107,25 +108,29 @@ function StreamTile({ participantId, username, isPinned }: {
 }
 
 // ── Speaking Avatar ──
-function SpeakingAvatar({ username, image, audioLevel, speaking, large }: {
-  username: string; image?: string | null; audioLevel: number; speaking: boolean; large?: boolean;
+function SpeakingAvatar({ username, image, audioLevel, speaking, large, role, memberRingStyle, memberRingSpin }: {
+  username: string; image?: string | null; audioLevel: number; speaking: boolean; large?: boolean; role?: string;
+  memberRingStyle?: string; memberRingSpin?: boolean;
 }) {
   const intensity = speaking ? Math.min(audioLevel * 3, 1) : 0;
   const ringScale = 1 + intensity * 0.35;
   const ringOpacity = speaking ? 0.3 + intensity * 0.7 : 0;
+  const rc = ringClass(memberRingStyle, memberRingSpin, role);
 
   return (
     <div className={`voice-avatar-wrapper ${large ? "large" : ""}`}>
       <div
-        className={`voice-avatar-ring ${speaking ? "active" : ""}`}
+        className={`voice-avatar-speaking-ring ${speaking ? "active" : ""}`}
         style={{ transform: `scale(${ringScale})`, opacity: ringOpacity }}
       />
-      <div className={`voice-participant-avatar ${speaking ? "speaking" : ""} ${large ? "large" : ""}`}>
-        {image ? (
-          <img src={image} alt={username} className="avatar-img" />
-        ) : (
-          username.charAt(0).toUpperCase()
-        )}
+      <div className={`voice-participant-ring ${rc}`} style={{ "--ring-color": avatarColor(username) } as React.CSSProperties}>
+        <div className={`voice-participant-avatar ${speaking ? "speaking" : ""} ${large ? "large" : ""}`}>
+          {image ? (
+            <img src={image} alt={username} className="avatar-img" />
+          ) : (
+            username.charAt(0).toUpperCase()
+          )}
+        </div>
       </div>
     </div>
   );
@@ -273,16 +278,21 @@ export function VoiceChannelView() {
 
           {/* Participants */}
           <div className="voice-participants-grid">
-            {participants.map((user) => (
+            {participants.map((user) => {
+              const member = members.find((m) => m.userId === user.userId);
+              return (
               <div
                 key={user.userId}
                 className={`voice-participant-tile ${user.speaking ? "speaking" : ""}`}
               >
                 <SpeakingAvatar
                   username={user.username}
-                  image={members.find((m) => m.userId === user.userId)?.image}
+                  image={member?.image}
                   audioLevel={audioLevels[user.userId] ?? 0}
                   speaking={user.speaking}
+                  role={member?.role}
+                  memberRingStyle={member?.ringStyle}
+                  memberRingSpin={member?.ringSpin}
                   large
                 />
                 <span className="voice-tile-name">
@@ -312,7 +322,8 @@ export function VoiceChannelView() {
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
 
           {/* Mini now-playing bar */}

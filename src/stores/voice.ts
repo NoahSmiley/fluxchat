@@ -1276,6 +1276,14 @@ gateway.on((event) => {
   }
 });
 
+// Re-announce voice state on WebSocket reconnect (e.g. after server restart)
+gateway.onConnect(() => {
+  const { connectedChannelId } = useVoiceStore.getState();
+  if (connectedChannelId) {
+    gateway.send({ type: "voice_state_update", channelId: connectedChannelId, action: "join" });
+  }
+});
+
 // ── BroadcastChannel: publish voice/screen share state to popout windows ──
 
 function broadcastVoiceState() {

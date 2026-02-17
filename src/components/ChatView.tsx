@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type ReactNode, type KeyboardEvent, type DragEvent, type ClipboardEvent } from "react";
-import { useChatStore, getUsernameMap, getUserImageMap, base64ToUtf8 } from "../stores/chat.js";
+import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap, base64ToUtf8 } from "../stores/chat.js";
 import { useCryptoStore } from "../stores/crypto.js";
 import { useAuthStore } from "../stores/auth.js";
 import { ArrowUpRight, Pencil, Trash2, Paperclip, X } from "lucide-react";
 import { MessageAttachments } from "./MessageAttachments.js";
 import { LinkEmbed } from "./LinkEmbed.js";
+import { avatarColor, ringClass } from "../lib/avatarColor.js";
+import { relativeTime } from "../lib/relativeTime.js";
+import { gateway } from "../lib/ws.js";
 
 const QUICK_EMOJIS = ["👍", "👎", "❤️", "😂", "😮", "😢", "🔥", "🎉", "👀", "🗿"];
 
@@ -75,6 +78,7 @@ export function ChatView() {
     searchMessages, searchResults, searchQuery, clearSearch,
     channels, activeChannelId, decryptedCache,
     pendingAttachments, uploadProgress, uploadFile, removePendingAttachment,
+    typingUsers,
   } = useChatStore();
   const { user } = useAuthStore();
   const [input, setInput] = useState("");
@@ -84,6 +88,7 @@ export function ChatView() {
   const [editInput, setEditInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mention autocomplete
   const [mentionActive, setMentionActive] = useState(false);
@@ -95,7 +100,19 @@ export function ChatView() {
 
   const usernameMap = useMemo(() => getUsernameMap(members), [members]);
   const imageMap = useMemo(() => getUserImageMap(members), [members]);
+  const roleMap = useMemo(() => getUserRoleMap(members), [members]);
+  const ringMap = useMemo(() => getUserRingMap(members), [members]);
   const memberUsernames = useMemo(() => new Set(members.map((m) => m.username)), [members]);
+
+  // Typing indicator: who's typing in current channel (excluding self)
+  const typingNames = useMemo(() => {
+    if (!activeChannelId) return [];
+    const typers = typingUsers[activeChannelId];
+    if (!typers) return [];
+    return Array.from(typers)
+      .filter((id) => id !== user?.id)
+      .map((id) => usernameMap[id] ?? id.slice(0, 8));
+  }, [typingUsers, activeChannelId, user?.id, usernameMap]);
 
   const filteredMentions = useMemo(() => {
     if (!mentionActive) return [];
@@ -123,6 +140,8 @@ export function ChatView() {
     sendMessage(input);
     setInput("");
     setMentionActive(false);
+    if (activeChannelId) gateway.send({ type: "typing_stop", channelId: activeChannelId });
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
   }
 
   function handleFiles(files: FileList | File[]) {
@@ -216,6 +235,15 @@ export function ChatView() {
     } else {
       setMentionActive(false);
     }
+
+    // Send typing indicator
+    if (activeChannelId && value.trim()) {
+      gateway.send({ type: "typing_start", channelId: activeChannelId });
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
+        if (activeChannelId) gateway.send({ type: "typing_stop", channelId: activeChannelId });
+      }, 3000);
+    }
   }
 
   function insertMention(username: string) {
@@ -294,19 +322,24 @@ export function ChatView() {
         {displayMessages.map((msg) => {
           const senderName = usernameMap[msg.senderId] ?? (msg.senderId === user?.id ? (user?.username ?? msg.senderId.slice(0, 8)) : msg.senderId.slice(0, 8));
           const senderImage = imageMap[msg.senderId] ?? null;
+          const senderRole = roleMap[msg.senderId] ?? "member";
+          const senderRing = ringMap[msg.senderId];
           const msgReactions = reactions[msg.id] ?? [];
           const decoded = decodeContent(msg.id, msg.ciphertext);
+          const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole);
 
           return (
             <div key={msg.id} className={`message ${msg.senderId === user?.id ? "own" : ""}`}>
-              <div className="message-avatar">
-                {senderImage && <img src={senderImage} alt={senderName} className="avatar-img" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
-                <div className="avatar-fallback">{senderName.charAt(0).toUpperCase()}</div>
+              <div className={`message-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(senderName) } as React.CSSProperties}>
+                <div className="message-avatar">
+                  {senderImage && <img src={senderImage} alt={senderName} className="avatar-img" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+                  <div className="avatar-fallback" style={{ background: avatarColor(senderName) }}>{senderName.charAt(0).toUpperCase()}</div>
+                </div>
               </div>
               <div className="message-content">
               <div className="message-header">
                 <span className="message-sender">{senderName}</span>
-                <span className="message-time">{new Date(msg.createdAt).toLocaleTimeString()}</span>
+                <span className="message-time" title={new Date(msg.createdAt).toLocaleString()}>{relativeTime(msg.createdAt)}</span>
               </div>
               <div className="message-body">
                 {editingMsgId === msg.id ? (
@@ -415,6 +448,20 @@ export function ChatView() {
         <div ref={messagesEndRef} />
       </div>
 
+      {typingNames.length > 0 && (
+        <div className="typing-indicator">
+          <span className="typing-dots"><span /><span /><span /></span>
+          <span className="typing-text">
+            {typingNames.length === 1
+              ? `${typingNames[0]} is typing`
+              : typingNames.length === 2
+                ? `${typingNames[0]} and ${typingNames[1]} are typing`
+                : `${typingNames[0]} and ${typingNames.length - 1} others are typing`
+            }
+          </span>
+        </div>
+      )}
+
       <div className="message-input-wrapper">
         {mentionActive && filteredMentions.length > 0 && (
           <div className="mention-autocomplete">
@@ -428,7 +475,7 @@ export function ChatView() {
                   {m.image ? (
                     <img src={m.image} alt={m.username} className="mention-avatar" />
                   ) : (
-                    <span className="mention-avatar mention-avatar-fallback">{m.username.charAt(0).toUpperCase()}</span>
+                    <span className="mention-avatar mention-avatar-fallback" style={{ background: avatarColor(m.username) }}>{m.username.charAt(0).toUpperCase()}</span>
                   )}
                   <span className={`mention-status-dot ${onlineUsers.has(m.userId) ? "online" : "offline"}`} />
                 </div>

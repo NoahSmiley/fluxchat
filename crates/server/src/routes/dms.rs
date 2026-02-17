@@ -73,14 +73,6 @@ pub async fn create_dm(
     user: AuthUser,
     Json(body): Json<CreateDmRequest>,
 ) -> impl IntoResponse {
-    if body.user_id == user.id {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({"error": "Cannot DM yourself"})),
-        )
-            .into_response();
-    }
-
     // Check target exists
     let target = sqlx::query_as::<_, (String, String, Option<String>)>(
         r#"SELECT id, username, image FROM "user" WHERE id = ?"#,

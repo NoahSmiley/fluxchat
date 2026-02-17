@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import type { ChannelType } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { useChatStore } from "../stores/chat.js";
-import { Volume2 } from "lucide-react";
+import { Volume2, Gamepad2 } from "lucide-react";
 
 interface Props {
   serverId: string;
@@ -57,6 +57,13 @@ export function CreateChannelModal({ serverId, defaultType, onClose }: Props) {
           >
             <Volume2 size={16} style={{ display: "inline", verticalAlign: "middle" }} /> Voice
           </button>
+          <button
+            className={`channel-type-option ${type === "game" ? "selected" : ""}`}
+            onClick={() => setType("game")}
+            type="button"
+          >
+            <Gamepad2 size={16} style={{ display: "inline", verticalAlign: "middle" }} /> Game
+          </button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -66,7 +73,7 @@ export function CreateChannelModal({ serverId, defaultType, onClose }: Props) {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "-"))}
-              placeholder={type === "text" ? "new-channel" : "voice-chat"}
+              placeholder={type === "game" ? "counter-strike-2" : type === "text" ? "new-channel" : "voice-chat"}
               autoFocus
             />
           </div>

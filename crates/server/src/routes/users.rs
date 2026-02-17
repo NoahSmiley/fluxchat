@@ -14,8 +14,8 @@ pub async fn get_me(
     State(state): State<Arc<AppState>>,
     user: AuthUser,
 ) -> impl IntoResponse {
-    let profile = sqlx::query_as::<_, (String, String, String, Option<String>)>(
-        r#"SELECT id, username, email, image FROM "user" WHERE id = ?"#,
+    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>)>(
+        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id FROM "user" WHERE id = ?"#,
     )
     .bind(&user.id)
     .fetch_optional(&state.db)
@@ -24,11 +24,14 @@ pub async fn get_me(
     .flatten();
 
     match profile {
-        Some((id, username, email, image)) => Json(serde_json::json!({
+        Some((id, username, email, image, ring_style, ring_spin, steam_id)) => Json(serde_json::json!({
             "id": id,
             "username": username,
             "email": email,
             "image": image,
+            "ringStyle": ring_style,
+            "ringSpin": ring_spin,
+            "steamId": steam_id,
         }))
         .into_response(),
         None => (
@@ -114,10 +117,10 @@ pub async fn update_me(
                 has_updates = true;
             }
             serde_json::Value::String(img) => {
-                if img.len() > 500_000 {
+                if img.len() > 5_000_000 {
                     return (
                         StatusCode::BAD_REQUEST,
-                        Json(serde_json::json!({"error": "Image too large (max ~375KB)"})),
+                        Json(serde_json::json!({"error": "Image too large (max ~4MB)"})),
                     )
                         .into_response();
                 }
@@ -136,6 +139,72 @@ pub async fn update_me(
         }
     }
 
+    if let Some(ref ring_style) = body.ring_style {
+        let valid = ["default", "chroma", "pulse", "wave", "none"];
+        if !valid.contains(&ring_style.as_str()) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "Invalid ring style"})),
+            )
+                .into_response();
+        }
+        let now = chrono::Utc::now().to_rfc3339();
+        let _ = sqlx::query(
+            r#"UPDATE "user" SET ring_style = ?, updatedAt = ? WHERE id = ?"#,
+        )
+        .bind(ring_style)
+        .bind(&now)
+        .bind(&user.id)
+        .execute(&state.db)
+        .await;
+        has_updates = true;
+    }
+
+    if let Some(ring_spin) = body.ring_spin {
+        let now = chrono::Utc::now().to_rfc3339();
+        let _ = sqlx::query(
+            r#"UPDATE "user" SET ring_spin = ?, updatedAt = ? WHERE id = ?"#,
+        )
+        .bind(ring_spin)
+        .bind(&now)
+        .bind(&user.id)
+        .execute(&state.db)
+        .await;
+        has_updates = true;
+    }
+
+    if let Some(ref steam_val) = body.steam_id {
+        match steam_val {
+            serde_json::Value::Null => {
+                let now = chrono::Utc::now().to_rfc3339();
+                let _ = sqlx::query(
+                    r#"UPDATE "user" SET steam_id = NULL, updatedAt = ? WHERE id = ?"#,
+                )
+                .bind(&now)
+                .bind(&user.id)
+                .execute(&state.db)
+                .await;
+                has_updates = true;
+            }
+            serde_json::Value::String(sid) => {
+                let trimmed = sid.trim();
+                if !trimmed.is_empty() {
+                    let now = chrono::Utc::now().to_rfc3339();
+                    let _ = sqlx::query(
+                        r#"UPDATE "user" SET steam_id = ?, updatedAt = ? WHERE id = ?"#,
+                    )
+                    .bind(trimmed)
+                    .bind(&now)
+                    .bind(&user.id)
+                    .execute(&state.db)
+                    .await;
+                    has_updates = true;
+                }
+            }
+            _ => {}
+        }
+    }
+
     if !has_updates {
         return (
             StatusCode::BAD_REQUEST,
@@ -145,8 +214,8 @@ pub async fn update_me(
     }
 
     // Return updated profile
-    let profile = sqlx::query_as::<_, (String, String, String, Option<String>)>(
-        r#"SELECT id, username, email, image FROM "user" WHERE id = ?"#,
+    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>)>(
+        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id FROM "user" WHERE id = ?"#,
     )
     .bind(&user.id)
     .fetch_optional(&state.db)
@@ -155,7 +224,7 @@ pub async fn update_me(
     .flatten();
 
     match profile {
-        Some((id, username, email, image)) => {
+        Some((id, username, email, image, ring_style, ring_spin, steam_id)) => {
             // Broadcast profile update to all connected clients
             state
                 .gateway
@@ -168,6 +237,8 @@ pub async fn update_me(
                             serde_json::Value::String(s) => Some(s.clone()),
                             _ => None,
                         }),
+                        ring_style: body.ring_style.clone(),
+                        ring_spin: body.ring_spin,
                     },
                     None,
                 )
@@ -178,6 +249,9 @@ pub async fn update_me(
                 "username": username,
                 "email": email,
                 "image": image,
+                "ringStyle": ring_style,
+                "ringSpin": ring_spin,
+                "steamId": steam_id,
             }))
             .into_response()
         }

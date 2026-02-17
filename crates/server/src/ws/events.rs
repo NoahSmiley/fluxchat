@@ -184,6 +184,10 @@ pub enum ServerEvent {
         username: String,
         image: Option<String>,
         role: String,
+        #[serde(rename = "ringStyle")]
+        ring_style: String,
+        #[serde(rename = "ringSpin")]
+        ring_spin: bool,
     },
     ChannelUpdate {
         #[serde(rename = "channelId")]
@@ -193,8 +197,14 @@ pub enum ServerEvent {
     ProfileUpdate {
         #[serde(rename = "userId")]
         user_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
         username: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         image: Option<Option<String>>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "ringStyle")]
+        ring_style: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "ringSpin")]
+        ring_spin: Option<bool>,
     },
     ActivityUpdate {
         #[serde(rename = "userId")]

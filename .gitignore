@@ -21,8 +21,3 @@ target/
 .DS_Store
 Thumbs.db
 
-# Lock files
-pnpm-lock.yaml
-
-# Cargo workspace
-Cargo.toml

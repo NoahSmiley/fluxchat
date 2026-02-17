@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type ReactNode } from "react";
 import { useChatStore, base64ToUtf8 } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
+import { avatarColor, ringClass } from "../lib/avatarColor.js";
 
 const URL_REGEX = /https?:\/\/[^\s<]+/g;
 
@@ -34,7 +35,7 @@ export function DMChatView() {
     dmMessages, sendDM, loadMoreDMMessages, dmHasMore, loadingMessages,
     dmChannels, activeDMChannelId, onlineUsers,
     searchDMMessages, dmSearchResults, dmSearchQuery, clearDMSearch,
-    decryptedCache,
+    decryptedCache, members,
   } = useChatStore();
   const { user } = useAuthStore();
   const [input, setInput] = useState("");
@@ -123,15 +124,21 @@ export function DMChatView() {
           const senderName = isOwn ? (user?.username ?? "You") : (dm?.otherUser.username ?? msg.senderId.slice(0, 8));
           const senderImage = isOwn ? (user?.image ?? null) : (dm?.otherUser.image ?? null);
           const decoded = decodeContent(msg.id, msg.ciphertext);
+          const senderMember = members.find((m) => m.userId === msg.senderId);
+          const senderRingStyle = isOwn ? user?.ringStyle : senderMember?.ringStyle;
+          const senderRingSpin = isOwn ? user?.ringSpin : senderMember?.ringSpin;
+          const rc = ringClass(senderRingStyle, senderRingSpin, senderMember?.role);
 
           return (
             <div key={msg.id} className={`message ${isOwn ? "own" : ""}`}>
-              <div className="message-avatar">
-                {senderImage ? (
-                  <img src={senderImage} alt={senderName} className="avatar-img" />
-                ) : (
-                  <div className="avatar-fallback">{senderName.charAt(0).toUpperCase()}</div>
-                )}
+              <div className={`message-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(senderName) } as React.CSSProperties}>
+                <div className="message-avatar">
+                  {senderImage ? (
+                    <img src={senderImage} alt={senderName} className="avatar-img" />
+                  ) : (
+                    <div className="avatar-fallback" style={{ background: avatarColor(senderName) }}>{senderName.charAt(0).toUpperCase()}</div>
+                  )}
+                </div>
               </div>
               <div className="message-content">
                 <div className="message-header">

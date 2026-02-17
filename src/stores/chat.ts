@@ -55,6 +55,12 @@ interface ChatState {
   // E2EE: decrypted message cache (messageId → plaintext)
   decryptedCache: Record<string, string>;
 
+  // Unread tracking
+  unreadChannels: Set<string>;
+
+  // Typing indicators: channelId -> Set of userIds currently typing
+  typingUsers: Record<string, Set<string>>;
+
   loadServers: () => Promise<void>;
   selectServer: (serverId: string) => Promise<void>;
   selectChannel: (channelId: string) => Promise<void>;
@@ -80,6 +86,58 @@ interface ChatState {
   loadMoreDMMessages: () => Promise<void>;
   searchDMMessages: (query: string) => Promise<void>;
   clearDMSearch: () => void;
+}
+
+// Per-channel message cache for instant channel switching
+interface ChannelCache {
+  messages: Message[];
+  reactions: Record<string, { emoji: string; userIds: string[] }[]>;
+  hasMore: boolean;
+  cursor: string | null;
+}
+const channelMessageCache = new Map<string, ChannelCache>();
+
+function saveChannelCache(channelId: string, state: ChatState) {
+  channelMessageCache.set(channelId, {
+    messages: state.messages,
+    reactions: state.reactions,
+    hasMore: state.hasMoreMessages,
+    cursor: state.messageCursor,
+  });
+}
+
+// Server-level cache for instant restore when switching back from DMs
+interface ServerCache {
+  channels: ChatState["channels"];
+  members: ChatState["members"];
+  activeChannelId: string | null;
+}
+const serverCache = new Map<string, ServerCache>();
+
+function saveServerCache(state: ChatState) {
+  if (state.activeServerId) {
+    serverCache.set(state.activeServerId, {
+      channels: state.channels,
+      members: state.members,
+      activeChannelId: state.activeChannelId,
+    });
+  }
+}
+
+// DM message cache for instant switching between DMs
+interface DMCache {
+  messages: ChatState["dmMessages"];
+  hasMore: boolean;
+  cursor: string | null;
+}
+const dmMessageCache = new Map<string, DMCache>();
+
+function saveDMCache(dmChannelId: string, state: ChatState) {
+  dmMessageCache.set(dmChannelId, {
+    messages: state.dmMessages,
+    hasMore: state.dmHasMore,
+    cursor: state.dmCursor,
+  });
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -110,6 +168,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   dmSearchQuery: "",
   dmSearchResults: null,
   decryptedCache: {},
+  unreadChannels: new Set(),
+  typingUsers: {},
 
   loadServers: async () => {
     set({ loadingServers: true });
@@ -122,7 +182,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectServer: async (serverId) => {
-    // Immediately switch context without clearing existing content
+    // Save current channel cache before switching
+    const prevChannel = get().activeChannelId;
+    if (prevChannel) saveChannelCache(prevChannel, get());
+
+    // Restore cached server state instantly for flicker-free transition
+    const cached = serverCache.get(serverId);
+
     set({
       activeServerId: serverId,
       showingDMs: false,
@@ -130,9 +196,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
       searchQuery: "",
       searchResults: null,
       dmMessages: [],
+      // Restore cached data instantly (or keep current if no cache)
+      ...(cached ? {
+        channels: cached.channels,
+        members: cached.members,
+        activeChannelId: cached.activeChannelId,
+      } : {}),
     });
 
-    // Load new data, then swap in all at once
+    // If we restored a cached channel, rejoin it and restore messages
+    if (cached?.activeChannelId) {
+      gateway.send({ type: "join_channel", channelId: cached.activeChannelId });
+      const cachedMessages = channelMessageCache.get(cached.activeChannelId);
+      if (cachedMessages) {
+        set({
+          messages: cachedMessages.messages,
+          reactions: cachedMessages.reactions,
+          hasMoreMessages: cachedMessages.hasMore,
+          messageCursor: cachedMessages.cursor,
+          loadingMessages: false,
+        });
+      }
+    }
+
+    // Fetch fresh data in background
     const [channels, members] = await Promise.all([
       api.getChannels(serverId),
       api.getServerMembers(serverId),
@@ -141,32 +228,65 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Only apply if we're still viewing this server
     if (get().activeServerId !== serverId) return;
 
-    set({ channels, members, channelsLoaded: true, activeChannelId: null, messages: [], reactions: {} });
+    set({ channels, members, channelsLoaded: true });
 
-    // Auto-select first text channel
-    const textChannel = channels.find((c) => c.type === "text");
-    if (textChannel) {
-      get().selectChannel(textChannel.id);
+    // If no cached channel was restored, auto-select first text channel
+    if (!cached?.activeChannelId) {
+      const textChannel = channels.find((c) => c.type === "text");
+      if (textChannel) {
+        get().selectChannel(textChannel.id);
+      }
     }
   },
 
   selectChannel: async (channelId) => {
+    // Skip if already viewing this channel
+    if (get().activeChannelId === channelId) return;
+
     const prevChannel = get().activeChannelId;
-    if (prevChannel) {
-      gateway.send({ type: "leave_channel", channelId: prevChannel });
+    if (prevChannel && prevChannel !== channelId) {
+      // Save current channel's messages to cache before switching
+      if (!prevChannel.startsWith("__game_")) saveChannelCache(prevChannel, get());
+      if (!prevChannel.startsWith("__game_")) gateway.send({ type: "leave_channel", channelId: prevChannel });
+    }
+
+    // Hardcoded game channels: just set active, no WS/API
+    if (channelId.startsWith("__game_")) {
+      set({
+        activeChannelId: channelId,
+        activeDMChannelId: null,
+        messages: [],
+        reactions: {},
+        hasMoreMessages: false,
+        messageCursor: null,
+        loadingMessages: false,
+        searchQuery: "",
+        searchResults: null,
+        dmMessages: [],
+      });
+      return;
     }
 
     const channel = get().channels.find((c) => c.id === channelId);
 
+    const newUnread = new Set(get().unreadChannels);
+    newUnread.delete(channelId);
+
+    // Restore from cache for instant display, or start empty
+    const cached = channelMessageCache.get(channelId);
+
     set({
       activeChannelId: channelId,
       activeDMChannelId: null,
-      hasMoreMessages: false,
-      messageCursor: null,
+      messages: cached?.messages ?? [],
+      reactions: cached?.reactions ?? {},
+      hasMoreMessages: cached?.hasMore ?? false,
+      messageCursor: cached?.cursor ?? null,
       loadingMessages: false,
       searchQuery: "",
       searchResults: null,
       dmMessages: [],
+      unreadChannels: newUnread,
     });
 
     gateway.send({ type: "join_channel", channelId });
@@ -175,12 +295,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (channel?.type === "text") {
       try {
         const result = await api.getMessages(channelId);
+        // Only apply if still viewing this channel
+        if (get().activeChannelId !== channelId) return;
         set({
           messages: result.items,
           hasMoreMessages: result.hasMore,
           messageCursor: result.cursor,
           loadingMessages: false,
         });
+        // Update cache with fresh data
+        saveChannelCache(channelId, get());
 
         // Decrypt all loaded messages
         const cryptoState = useCryptoStore.getState();
@@ -202,6 +326,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
               }
             }
             set({ reactions: grouped });
+            // Update cache with reactions
+            saveChannelCache(channelId, get());
           } catch { /* non-critical */ }
         }
       } catch {
@@ -385,8 +511,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   showDMs: () => {
     const prevChannel = get().activeChannelId;
     if (prevChannel) {
+      saveChannelCache(prevChannel, get());
       gateway.send({ type: "leave_channel", channelId: prevChannel });
     }
+    saveServerCache(get());
     set({
       showingDMs: true,
       activeServerId: null,
@@ -407,41 +535,55 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectDM: async (dmChannelId) => {
+    // Skip if already viewing this DM
+    if (get().activeDMChannelId === dmChannelId && get().showingDMs) return;
+
     const prevChannel = get().activeChannelId;
     if (prevChannel) {
+      saveChannelCache(prevChannel, get());
       gateway.send({ type: "leave_channel", channelId: prevChannel });
     }
+    saveServerCache(get());
     const prevDM = get().activeDMChannelId;
-    if (prevDM) {
+    if (prevDM && prevDM !== dmChannelId) {
+      saveDMCache(prevDM, get());
       gateway.send({ type: "leave_dm", dmChannelId: prevDM });
     }
 
+    // Restore cached DM messages for instant display
+    const cachedDM = dmMessageCache.get(dmChannelId);
+
     set({
+      showingDMs: true,
       activeDMChannelId: dmChannelId,
       activeServerId: null,
       activeChannelId: null,
       channels: [],
       messages: [],
-      members: [],
       reactions: {},
       searchQuery: "",
       searchResults: null,
-      dmMessages: [],
-      dmHasMore: false,
-      dmCursor: null,
-      loadingMessages: true,
+      dmMessages: cachedDM?.messages ?? [],
+      dmHasMore: cachedDM?.hasMore ?? false,
+      dmCursor: cachedDM?.cursor ?? null,
+      loadingMessages: !cachedDM,
     });
 
     gateway.send({ type: "join_dm", dmChannelId });
 
+    // Fetch fresh data in background (non-blocking if cache exists)
     try {
       const result = await api.getDMMessages(dmChannelId);
+      // Only apply if still viewing this DM
+      if (get().activeDMChannelId !== dmChannelId) return;
       set({
         dmMessages: result.items,
         dmHasMore: result.hasMore,
         dmCursor: result.cursor,
         loadingMessages: false,
       });
+      // Update cache with fresh data
+      saveDMCache(dmChannelId, get());
       // Decrypt DM messages
       const dm = get().dmChannels.find((d) => d.id === dmChannelId);
       if (dm) {
@@ -454,12 +596,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       }
     } catch {
-      set({ loadingMessages: false });
+      if (get().activeDMChannelId === dmChannelId) {
+        set({ loadingMessages: false });
+      }
     }
   },
 
   openDM: async (userId) => {
     try {
+      // Check if we already have a DM channel with this user (skip API call)
+      const existing = get().dmChannels.find((d) => d.otherUser.id === userId);
+      if (existing) {
+        get().selectDM(existing.id);
+        return;
+      }
       const dm = await api.createDM(userId);
       set((state) => {
         const exists = state.dmChannels.some((d) => d.id === dm.id);
@@ -587,6 +737,24 @@ export function getUserImageMap(members: MemberWithUser[]): Record<string, strin
   return map;
 }
 
+// Helper to get role map
+export function getUserRoleMap(members: MemberWithUser[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const m of members) {
+    map[m.userId] = m.role;
+  }
+  return map;
+}
+
+// Helper to get ring info map
+export function getUserRingMap(members: MemberWithUser[]): Record<string, { ringStyle: string; ringSpin: boolean }> {
+  const map: Record<string, { ringStyle: string; ringSpin: boolean }> = {};
+  for (const m of members) {
+    map[m.userId] = { ringStyle: m.ringStyle ?? "default", ringSpin: m.ringSpin ?? false };
+  }
+  return map;
+}
+
 // Bulk-decrypt messages into the cache
 async function decryptMessages(messages: (Message | DMMessage)[], key: CryptoKey | null) {
   const cryptoState = useCryptoStore.getState();
@@ -618,6 +786,9 @@ gateway.onConnect(() => {
 
   // Initialize E2EE crypto
   useCryptoStore.getState().initialize().catch((e) => console.error("Crypto init failed:", e));
+
+  // Pre-fetch DM channels for instant DM switching
+  useChatStore.getState().loadDMChannels();
 
   // Initialize Spotify
   import("./spotify.js").then(({ useSpotifyStore }) => {
@@ -660,6 +831,18 @@ gateway.on((event) => {
         useChatStore.setState((s) => ({
           messages: [...s.messages, msg],
         }));
+      } else {
+        // Mark channel as unread and update cache
+        useChatStore.setState((s) => {
+          const newUnread = new Set(s.unreadChannels);
+          newUnread.add(msg.channelId);
+          return { unreadChannels: newUnread };
+        });
+        // Append to cached messages for that channel
+        const cached = channelMessageCache.get(msg.channelId);
+        if (cached) {
+          cached.messages = [...cached.messages, msg];
+        }
       }
       // Decrypt and cache
       {
@@ -683,6 +866,18 @@ gateway.on((event) => {
       }
       break;
     }
+
+    case "typing":
+      useChatStore.setState((s) => {
+        const channelTypers = new Set(s.typingUsers[event.channelId] ?? []);
+        if (event.active) {
+          channelTypers.add(event.userId);
+        } else {
+          channelTypers.delete(event.userId);
+        }
+        return { typingUsers: { ...s.typingUsers, [event.channelId]: channelTypers } };
+      });
+      break;
 
     case "presence":
       useChatStore.setState((s) => {
@@ -791,6 +986,8 @@ gateway.on((event) => {
               image: event.image,
               role: event.role as "owner" | "admin" | "member",
               joinedAt: new Date().toISOString(),
+              ringStyle: event.ringStyle ?? "default",
+              ringSpin: event.ringSpin ?? false,
             }],
           }));
         }
@@ -862,6 +1059,8 @@ gateway.on((event) => {
                 ...m,
                 ...(event.username !== undefined ? { username: event.username } : {}),
                 ...(event.image !== undefined ? { image: event.image } : {}),
+                ...(event.ringStyle !== undefined ? { ringStyle: event.ringStyle } : {}),
+                ...(event.ringSpin !== undefined ? { ringSpin: event.ringSpin } : {}),
               }
             : m
         ),
@@ -874,6 +1073,12 @@ gateway.on((event) => {
         useChatStore.setState((s) => ({
           dmMessages: [...s.dmMessages, event.message],
         }));
+      } else {
+        // Append to DM cache for instant switching later
+        const cached = dmMessageCache.get(event.message.dmChannelId);
+        if (cached) {
+          cached.messages = [...cached.messages, event.message];
+        }
       }
       // Decrypt and cache + notification
       {
