@@ -1,7 +1,0 @@
-port: 7880
-rtc:
-  port_range_start: 50000
-  port_range_end: 50060
-  use_external_ip: false
-keys:
-  fluxdevkey: fluxdevsecret_that_is_at_least_32chars_long
