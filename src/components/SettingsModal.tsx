@@ -192,9 +192,6 @@ export function SettingsModal() {
   const [editingServerName, setEditingServerName] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>("appearance");
   const [ringSaving, setRingSaving] = useState(false);
-  const [steamIdInput, setSteamIdInput] = useState(user?.steamId ?? "");
-  const [steamIdSaving, setSteamIdSaving] = useState(false);
-  const [steamIdSaved, setSteamIdSaved] = useState(false);
 
   const server = servers.find((s) => s.id === activeServerId) ?? servers[0];
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
@@ -473,61 +470,7 @@ export function SettingsModal() {
         {activeTab === "cs2" && (
           <div className="settings-card">
             <h3 className="settings-card-title">CS2 / Leetify Integration</h3>
-            <p className="settings-card-desc">Link your Steam ID to see your Leetify stats and team performance in the CS2 hub.</p>
-            <div className="settings-row">
-              <div className="settings-row-info">
-                <span className="settings-row-label">Steam ID</span>
-                <span className="settings-row-desc">Your Steam64 ID (e.g. 76561198...)</span>
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  type="text"
-                  className="settings-input"
-                  value={steamIdInput}
-                  onChange={(e) => { setSteamIdInput(e.target.value); setSteamIdSaved(false); }}
-                  placeholder="76561198..."
-                  style={{ width: 200 }}
-                />
-                <button
-                  className="btn-small"
-                  disabled={steamIdSaving || steamIdInput.trim() === (user?.steamId ?? "")}
-                  onClick={async () => {
-                    setSteamIdSaving(true);
-                    try {
-                      await updateProfile({ steamId: steamIdInput.trim() || null });
-                      setSteamIdSaved(true);
-                      setTimeout(() => setSteamIdSaved(false), 2000);
-                    } catch { /* ignore */ }
-                    setSteamIdSaving(false);
-                  }}
-                >
-                  {steamIdSaving ? "Saving..." : steamIdSaved ? "Saved!" : "Save"}
-                </button>
-                {user?.steamId && (
-                  <button
-                    className="btn-small btn-danger"
-                    onClick={async () => {
-                      setSteamIdSaving(true);
-                      try {
-                        await updateProfile({ steamId: null });
-                        setSteamIdInput("");
-                      } catch { /* ignore */ }
-                      setSteamIdSaving(false);
-                    }}
-                  >
-                    Unlink
-                  </button>
-                )}
-              </div>
-            </div>
-            {user?.steamId && (
-              <div className="settings-row">
-                <div className="settings-row-info">
-                  <span className="settings-row-label">Status</span>
-                  <span className="settings-row-desc" style={{ color: "#4caf50" }}>Linked — Your stats will appear in the CS2 hub</span>
-                </div>
-              </div>
-            )}
+            <p className="settings-card-desc" style={{ color: "var(--text-muted)", fontStyle: "italic" }}>Coming Soon</p>
           </div>
         )}
 
