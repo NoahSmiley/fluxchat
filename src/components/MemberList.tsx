@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { avatarColor, ringClass } from "../lib/avatarColor.js";
-import { Crown, Shield, MessageSquare, Music, Gamepad2, Settings } from "lucide-react";
+import { Crown, Shield, MessageSquare, Music, Gamepad2 } from "lucide-react";
 import type { MemberWithUser, ActivityInfo } from "../types/shared.js";
 
 export function RoleBadge({ role }: { role: string }) {
@@ -28,7 +28,6 @@ export function UserCard({
   position,
   onDM,
   isSelf,
-  onSettings,
 }: {
   member: MemberWithUser;
   activity?: ActivityInfo;
@@ -36,7 +35,6 @@ export function UserCard({
   position: { top?: number; right?: number; left?: number; bottom?: number };
   onDM: () => void;
   isSelf: boolean;
-  onSettings?: () => void;
 }) {
   const color = avatarColor(member.username);
 
@@ -93,12 +91,6 @@ export function UserCard({
         )}
 
         <div className="user-card-actions">
-          {isSelf && onSettings && (
-            <button className="user-card-dm-btn" onClick={onSettings}>
-              <Settings size={12} />
-              Edit Profile
-            </button>
-          )}
           <button className="user-card-dm-btn" onClick={onDM}>
             <MessageSquare size={12} />
             Message

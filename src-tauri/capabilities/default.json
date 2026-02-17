@@ -12,6 +12,7 @@
     "core:window:allow-set-focus",
     "shell:allow-open",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "core:webview:allow-set-webview-zoom"
   ]
 }

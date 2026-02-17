@@ -10,6 +10,7 @@ import { getDebugEnabled, setDebugEnabled, dumpLogs } from "../lib/debug.js";
 import { avatarColor } from "../lib/avatarColor.js";
 import { X, Copy, Check, Trash2 } from "lucide-react";
 import type { RingStyle, WhitelistEntry } from "../types/shared.js";
+import { AvatarCropModal } from "./AvatarCropModal.js";
 import * as api from "../lib/api.js";
 
 function useMicLevel(enabled: boolean): { level: number; status: string } {
@@ -144,9 +145,10 @@ function KeybindButton({ entry }: { entry: KeybindEntry }) {
   );
 }
 
-type SettingsTab = "appearance" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "server" | "debug";
+type SettingsTab = "profile" | "appearance" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "server" | "debug";
 
 const TAB_LABELS: Record<SettingsTab, string> = {
+  profile: "Profile",
   appearance: "Appearance",
   voice: "Voice & Audio",
   keybinds: "Keybinds",
@@ -180,7 +182,7 @@ export function SettingsModal() {
   const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
   const { servers, activeServerId, updateServer, members } = useChatStore();
-  const { user, updateProfile } = useAuthStore();
+  const { user, updateProfile, logout } = useAuthStore();
   const { keybinds } = useKeybindsStore();
   const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore();
   const updater = useUpdater();
@@ -190,8 +192,16 @@ export function SettingsModal() {
   const [serverNameInput, setServerNameInput] = useState("");
   const [serverNameSaving, setServerNameSaving] = useState(false);
   const [editingServerName, setEditingServerName] = useState(false);
-  const [activeTab, setActiveTab] = useState<SettingsTab>("appearance");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [ringSaving, setRingSaving] = useState(false);
+
+  // Profile editing state
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState("");
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [cropImage, setCropImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Whitelist state
   const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([]);
@@ -243,9 +253,73 @@ export function SettingsModal() {
     }
   }
 
+  async function handleUsernameSubmit() {
+    if (!usernameInput.trim() || usernameInput.trim() === user?.username) {
+      setEditingUsername(false);
+      return;
+    }
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      await updateProfile({ username: usernameInput.trim() });
+      setEditingUsername(false);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Failed to update username");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setProfileError("Please select an image file");
+      return;
+    }
+    setProfileError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      if (file.type === "image/gif") {
+        handleCropConfirm(dataUrl);
+      } else {
+        setCropImage(dataUrl);
+      }
+    };
+    reader.onerror = () => setProfileError("Failed to read image");
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleCropConfirm(croppedDataUrl: string) {
+    setCropImage(null);
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      await updateProfile({ image: croppedDataUrl });
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Failed to upload image");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      await updateProfile({ image: null });
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Failed to remove image");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
   if (!settingsOpen) return null;
 
-  const tabs: SettingsTab[] = ["appearance", "voice", "keybinds", "updates", "spotify", "cs2", ...(isOwnerOrAdmin ? ["server" as SettingsTab] : []), "debug"];
+  const tabs: SettingsTab[] = ["profile", "appearance", "voice", "keybinds", "updates", "spotify", "cs2", ...(isOwnerOrAdmin ? ["server" as SettingsTab] : []), "debug"];
 
   return (
     <div className="settings-page">
@@ -272,13 +346,96 @@ export function SettingsModal() {
       <div className="settings-content">
         <h1 className="settings-content-title">{TAB_LABELS[activeTab]}</h1>
 
-        {activeTab === "appearance" && (
+        {activeTab === "profile" && (
           <>
+            <div className="settings-card">
+              <h3 className="settings-card-title">Avatar</h3>
+              <div className="profile-avatar-section">
+                <div className="profile-avatar-large">
+                  {user?.image ? (
+                    <img src={user.image} alt={user.username} className="profile-avatar-img" />
+                  ) : (
+                    <div className="profile-avatar-fallback">
+                      {user?.username?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="profile-avatar-actions">
+                  <button
+                    className="btn-small btn-primary"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={profileSaving}
+                  >
+                    Upload Photo
+                  </button>
+                  {user?.image && (
+                    <button
+                      className="btn-small"
+                      onClick={handleRemoveAvatar}
+                      disabled={profileSaving}
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,image/gif"
+                    onChange={handleAvatarUpload}
+                    style={{ display: "none" }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">Username</h3>
+              {editingUsername ? (
+                <div className="profile-field-edit">
+                  <input
+                    type="text"
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleUsernameSubmit();
+                      if (e.key === "Escape") setEditingUsername(false);
+                    }}
+                    autoFocus
+                    disabled={profileSaving}
+                  />
+                  <button className="btn-small btn-primary" onClick={handleUsernameSubmit} disabled={profileSaving}>
+                    Save
+                  </button>
+                  <button className="btn-small" onClick={() => setEditingUsername(false)}>Cancel</button>
+                </div>
+              ) : (
+                <div className="settings-row">
+                  <div className="settings-row-info">
+                    <span className="settings-row-label">{user?.username}</span>
+                  </div>
+                  <button
+                    className="btn-small"
+                    onClick={() => { setUsernameInput(user?.username ?? ""); setEditingUsername(true); }}
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">Email</h3>
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">{user?.email}</span>
+                </div>
+              </div>
+            </div>
+
             <div className="settings-card">
               <h3 className="settings-card-title">Avatar Ring</h3>
               <p className="settings-card-desc">Choose how your avatar ring appears to everyone.</p>
 
-              {/* Ring style preview */}
               <div className="ring-preview-container">
                 <div className={`ring-preview-avatar-ring ring-style-${user?.ringStyle ?? "default"} ${(user?.ringSpin) ? "ring-spin-active" : ""}`} style={{ "--ring-color": avatarColor(user?.username ?? "") } as React.CSSProperties}>
                   <div className="ring-preview-avatar" style={{ background: avatarColor(user?.username ?? "") }}>
@@ -291,7 +448,6 @@ export function SettingsModal() {
                 </div>
               </div>
 
-              {/* Ring style picker */}
               <div className="ring-style-picker">
                 {RING_STYLES.map((rs) => (
                   <button
@@ -329,6 +485,22 @@ export function SettingsModal() {
               </div>
             </div>
 
+            {profileError && <div className="profile-error">{profileError}</div>}
+
+            <div className="settings-card">
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">Sign Out</span>
+                  <span className="settings-row-desc">Sign out of your account</span>
+                </div>
+                <button className="btn-small btn-danger" onClick={() => logout()}>Sign Out</button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === "appearance" && (
+          <>
             <div className="settings-card">
               <h3 className="settings-card-title">Sidebar Position</h3>
               <p className="settings-card-desc">Move the avatar sidebar to any edge of the window.</p>
@@ -616,6 +788,14 @@ export function SettingsModal() {
           </div>
         )}
       </div>
+
+      {cropImage && (
+        <AvatarCropModal
+          imageUrl={cropImage}
+          onConfirm={handleCropConfirm}
+          onCancel={() => setCropImage(null)}
+        />
+      )}
     </div>
   );
 }

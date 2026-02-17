@@ -1100,7 +1100,6 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 20px;
 }
 
 .profile-avatar-large {
@@ -3716,7 +3715,7 @@ input:focus {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0 0 4px;
+  margin: 0 0 16px;
 }
 
 .settings-card-desc {

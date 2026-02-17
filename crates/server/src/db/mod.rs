@@ -99,6 +99,12 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         .await
         .ok();
 
+    // Migration: add steam_id to users
+    sqlx::query(r#"ALTER TABLE "user" ADD COLUMN steam_id TEXT"#)
+        .execute(&pool)
+        .await
+        .ok();
+
     // Migration: create email_whitelist table
     sqlx::query(
         r#"CREATE TABLE IF NOT EXISTS "email_whitelist" (
