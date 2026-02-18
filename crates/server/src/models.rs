@@ -85,6 +85,9 @@ pub struct MemberWithUser {
     pub ring_style: String,
     pub ring_spin: bool,
     pub steam_id: Option<String>,
+    pub ring_pattern_seed: Option<i64>,
+    pub banner_css: Option<String>,
+    pub banner_pattern_seed: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -326,4 +329,186 @@ pub struct AddToQueueRequest {
 pub struct AuthUser {
     pub id: String,
     pub username: String,
+}
+
+// ── Economy models ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogItem {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub item_type: String,
+    pub rarity: String,
+    pub image_url: Option<String>,
+    pub preview_css: Option<String>,
+    pub card_series: Option<String>,
+    pub card_number: Option<String>,
+    pub is_holographic: i64,
+    pub tradeable: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct CaseRow {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub image_url: Option<String>,
+    pub cost_coins: i64,
+    pub is_active: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct CaseItemRow {
+    pub case_id: String,
+    pub item_id: String,
+    pub weight: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct InventoryItemRow {
+    pub id: String,
+    pub user_id: String,
+    pub item_id: String,
+    pub equipped: i64,
+    pub obtained_from: Option<String>,
+    pub obtained_at: String,
+    pub source_case_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct InventoryItemFull {
+    pub id: String,
+    pub user_id: String,
+    pub item_id: String,
+    pub equipped: i64,
+    pub obtained_from: Option<String>,
+    pub obtained_at: String,
+    pub source_case_id: Option<String>,
+    pub name: String,
+    pub description: Option<String>,
+    pub item_type: String,
+    pub rarity: String,
+    pub image_url: Option<String>,
+    pub preview_css: Option<String>,
+    pub card_series: Option<String>,
+    pub card_number: Option<String>,
+    pub is_holographic: i64,
+    pub tradeable: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct TradeRow {
+    pub id: String,
+    pub sender_id: String,
+    pub receiver_id: String,
+    pub sender_coins: i64,
+    pub receiver_coins: i64,
+    pub status: String,
+    pub message: Option<String>,
+    pub created_at: String,
+    pub expires_at: String,
+    pub resolved_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct TradeItemRow {
+    pub id: String,
+    pub trade_id: String,
+    pub inventory_id: String,
+    pub side: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub item_type: String,
+    pub rarity: String,
+    pub image_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketplaceListingRow {
+    pub id: String,
+    pub seller_id: String,
+    pub inventory_id: String,
+    pub price_coins: i64,
+    pub status: String,
+    pub created_at: String,
+    pub sold_at: Option<String>,
+    pub buyer_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketplaceListingFull {
+    pub id: String,
+    pub seller_id: String,
+    pub inventory_id: String,
+    pub price_coins: i64,
+    pub status: String,
+    pub created_at: String,
+    pub sold_at: Option<String>,
+    pub buyer_id: Option<String>,
+    pub name: String,
+    pub rarity: String,
+    pub image_url: Option<String>,
+    pub seller_username: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletRow {
+    pub user_id: String,
+    pub coins: i64,
+    pub lifetime_earned: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct CoinRewardRow {
+    pub id: String,
+    pub user_id: String,
+    pub amount: i64,
+    pub reason: Option<String>,
+    pub created_at: String,
+}
+
+// ── Economy request models ──────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateTradeRequest {
+    pub receiver_id: String,
+    pub offered_item_ids: Vec<String>,
+    pub requested_item_ids: Vec<String>,
+    pub sender_coins: i64,
+    pub receiver_coins: i64,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateListingRequest {
+    pub inventory_id: String,
+    pub price_coins: i64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CraftRequest {
+    pub inventory_ids: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EquipItemRequest {
+    pub equipped: bool,
 }

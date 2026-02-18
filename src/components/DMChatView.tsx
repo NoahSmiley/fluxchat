@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type ReactNode } from "react";
 import { useChatStore, base64ToUtf8 } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
-import { avatarColor, ringClass } from "../lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 
 const URL_REGEX = /https?:\/\/[^\s<]+/g;
 
@@ -82,8 +82,15 @@ export function DMChatView() {
 
   const displayMessages = dmSearchResults ?? dmMessages;
 
+  // Look up other user's member data for banner
+  const otherMember = dm ? members.find((m) => m.userId === dm.otherUser.id) : undefined;
+  const dmBannerBg = bannerBackground(otherMember?.bannerCss, otherMember?.bannerPatternSeed);
+
   return (
     <div className="chat-view">
+      {dmBannerBg && (
+        <div className="dm-banner-strip" style={{ background: dmBannerBg }} />
+      )}
       <div className="chat-header">
         <span className="dm-chat-title">
           {dm && (
@@ -127,11 +134,12 @@ export function DMChatView() {
           const senderMember = members.find((m) => m.userId === msg.senderId);
           const senderRingStyle = isOwn ? user?.ringStyle : senderMember?.ringStyle;
           const senderRingSpin = isOwn ? user?.ringSpin : senderMember?.ringSpin;
-          const rc = ringClass(senderRingStyle, senderRingSpin, senderMember?.role);
+          const senderRingPatternSeed = isOwn ? user?.ringPatternSeed ?? null : senderMember?.ringPatternSeed ?? null;
+          const rc = ringClass(senderRingStyle, senderRingSpin, senderMember?.role, false, senderRingPatternSeed);
 
           return (
             <div key={msg.id} className={`message ${isOwn ? "own" : ""}`}>
-              <div className={`message-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(senderName) } as React.CSSProperties}>
+              <div className={`message-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(senderName), ...ringGradientStyle(senderRingPatternSeed, senderRingStyle as string) } as React.CSSProperties}>
                 <div className="message-avatar">
                   {senderImage ? (
                     <img src={senderImage} alt={senderName} className="avatar-img" />

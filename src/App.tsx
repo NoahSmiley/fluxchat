@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Minus, Square, Copy, X } from "lucide-react";
 import { useAuthStore } from "./stores/auth.js";
+import { useUIStore } from "./stores/ui.js";
 import { useUpdater } from "./hooks/useUpdater.js";
 import { LoginPage } from "./pages/LoginPage.js";
 import { RegisterPage } from "./pages/RegisterPage.js";
@@ -110,6 +111,7 @@ function UpdateToast() {
 
 export function App() {
   const { user, loading } = useAuthStore();
+  const appBorderStyle = useUIStore((s) => s.appBorderStyle);
 
   if (loading) {
     return (
@@ -120,7 +122,7 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${appBorderStyle !== "none" ? `app-border-${appBorderStyle}` : ""}`}>
       <div className="titlebar">
         <WindowControls />
       </div>

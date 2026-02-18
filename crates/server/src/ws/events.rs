@@ -188,6 +188,12 @@ pub enum ServerEvent {
         ring_style: String,
         #[serde(rename = "ringSpin")]
         ring_spin: bool,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "ringPatternSeed")]
+        ring_pattern_seed: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "bannerCss")]
+        banner_css: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "bannerPatternSeed")]
+        banner_pattern_seed: Option<i64>,
     },
     ChannelUpdate {
         #[serde(rename = "channelId")]
@@ -205,6 +211,12 @@ pub enum ServerEvent {
         ring_style: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none", rename = "ringSpin")]
         ring_spin: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "ringPatternSeed")]
+        ring_pattern_seed: Option<Option<i64>>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "bannerCss")]
+        banner_css: Option<Option<String>>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "bannerPatternSeed")]
+        banner_pattern_seed: Option<Option<i64>>,
     },
     ActivityUpdate {
         #[serde(rename = "userId")]
@@ -279,6 +291,39 @@ pub enum ServerEvent {
         session_id: String,
         #[serde(rename = "voiceChannelId")]
         voice_channel_id: String,
+    },
+    // Economy events
+    CaseOpened {
+        #[serde(rename = "userId")]
+        user_id: String,
+        username: String,
+        #[serde(rename = "itemName")]
+        item_name: String,
+        #[serde(rename = "itemRarity")]
+        item_rarity: String,
+        #[serde(rename = "caseName")]
+        case_name: String,
+    },
+    TradeOfferReceived {
+        #[serde(rename = "tradeId")]
+        trade_id: String,
+        #[serde(rename = "senderId")]
+        sender_id: String,
+        #[serde(rename = "senderUsername")]
+        sender_username: String,
+    },
+    TradeResolved {
+        #[serde(rename = "tradeId")]
+        trade_id: String,
+        status: String,
+    },
+    CoinsEarned {
+        #[serde(rename = "userId")]
+        user_id: String,
+        amount: i64,
+        reason: String,
+        #[serde(rename = "newBalance")]
+        new_balance: i64,
     },
     Error {
         message: String,

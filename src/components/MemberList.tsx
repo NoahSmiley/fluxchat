@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
-import { avatarColor, ringClass } from "../lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import { Crown, Shield, MessageSquare, Music, Gamepad2 } from "lucide-react";
 import type { MemberWithUser, ActivityInfo } from "../types/shared.js";
 
@@ -44,12 +44,12 @@ export function UserCard({
       style={{ top: position.top, right: position.right, left: position.left, bottom: position.bottom }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Banner — gradient from their avatar color */}
-      <div className="user-card-banner" style={{ background: `linear-gradient(135deg, ${color}, ${color}44)` }} />
+      {/* Banner — equipped banner or gradient from avatar color */}
+      <div className="user-card-banner" style={{ background: bannerBackground(member.bannerCss, member.bannerPatternSeed) ?? `linear-gradient(135deg, ${color}, ${color}44)` }} />
 
       {/* Avatar */}
       <div className="user-card-avatar-wrapper">
-        <div className={`user-card-avatar-ring ${ringClass(member.ringStyle, member.ringSpin, member.role)} ${isOnline ? "online" : ""}`} style={{ "--ring-color": color } as React.CSSProperties}>
+        <div className={`user-card-avatar-ring ${ringClass(member.ringStyle, member.ringSpin, member.role, false, member.ringPatternSeed)} ${isOnline ? "online" : ""}`} style={{ "--ring-color": color, ...ringGradientStyle(member.ringPatternSeed, member.ringStyle) } as React.CSSProperties}>
           <div className="user-card-avatar" style={{ background: color }}>
             {member.image ? (
               <img src={member.image} alt={member.username} className="user-card-avatar-img" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -159,7 +159,7 @@ export function MemberList() {
                 className={`member-item ${selectedUserId === m.userId ? "selected" : ""}`}
                 onClick={(e) => handleMemberClick(e, m.userId)}
               >
-                <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, !!activity)}`} style={{ "--ring-color": avatarColor(m.username) } as React.CSSProperties}>
+                <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, !!activity, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
                   <div className="member-avatar" style={{ background: avatarColor(m.username) }}>
                     {m.image ? (
                       <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -190,7 +190,7 @@ export function MemberList() {
               className={`member-item offline ${selectedUserId === m.userId ? "selected" : ""}`}
               onClick={(e) => handleMemberClick(e, m.userId)}
             >
-              <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role)}`} style={{ "--ring-color": avatarColor(m.username) } as React.CSSProperties}>
+              <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, false, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
                 <div className="member-avatar" style={{ background: avatarColor(m.username) }}>
                   {m.image ? (
                     <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />

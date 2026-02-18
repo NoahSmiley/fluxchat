@@ -2,9 +2,9 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { FluxLogo } from "./FluxLogo.js";
-import { Settings } from "lucide-react";
+import { Settings, Package } from "lucide-react";
 import { useUIStore } from "../stores/ui.js";
-import { avatarColor, ringClass } from "../lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
 import { UserCard } from "./MemberList.js";
 
 export function ServerSidebar() {
@@ -118,16 +118,18 @@ export function ServerSidebar() {
             {sortedMembers.map((m) => {
               const isOnline = onlineUsers.has(m.userId);
               const activity = userActivities[m.userId];
-              const rc = ringClass(m.ringStyle, m.ringSpin, m.role, !!activity);
+              const rc = ringClass(m.ringStyle, m.ringSpin, m.role, !!activity, m.ringPatternSeed);
+              const hasRareGlow = rc.includes("ring-rare-glow");
               return (
                 <div
                   key={m.userId}
-                  className={`sidebar-member-avatar ${!isOnline ? "offline" : ""} ${activeCardUserId === m.userId ? "selected" : ""}`}
+                  className={`sidebar-member-avatar ${!isOnline ? "offline" : ""} ${activeCardUserId === m.userId ? "selected" : ""}${hasRareGlow ? " has-rare-glow" : ""}`}
+                  style={ringGradientStyle(m.ringPatternSeed, m.ringStyle) as React.CSSProperties}
                   onMouseEnter={(e) => handleAvatarEnter(e, m.userId)}
                   onMouseLeave={handleAvatarLeave}
                   onClick={(e) => handleAvatarClick(e, m.userId)}
                 >
-                  <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(m.username) } as React.CSSProperties}>
+                  <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
                     <div className="member-avatar" style={{ background: avatarColor(m.username) }}>
                       {m.image ? (
                         <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -159,6 +161,13 @@ export function ServerSidebar() {
       <div className="server-sidebar-spacer" />
 
       <div className="server-sidebar-settings">
+        <button
+          className="economy-nav-btn"
+          onClick={() => useUIStore.getState().toggleEconomy()}
+          title="Economy"
+        >
+          <Package size={18} />
+        </button>
         <button
           className="server-sidebar-settings-btn"
           onClick={() => useUIStore.getState().openSettings()}

@@ -1,10 +1,16 @@
 pub mod auth;
+pub mod cases;
+pub mod craft;
 pub mod dms;
+pub mod economy;
 pub mod files;
+pub mod inventory;
 pub mod keys;
+pub mod marketplace;
 pub mod messages;
 pub mod servers;
 pub mod spotify;
+pub mod trades;
 pub mod users;
 pub mod voice;
 pub mod whitelist;
@@ -76,7 +82,34 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/spotify/sessions/channel/{voiceChannelId}", get(spotify::get_session))
         .route("/spotify/sessions/{sessionId}/queue", post(spotify::add_to_queue))
         .route("/spotify/sessions/{sessionId}/queue/{itemId}", delete(spotify::remove_from_queue))
-        .route("/spotify/sessions/{sessionId}/end", delete(spotify::delete_session));
+        .route("/spotify/sessions/{sessionId}/end", delete(spotify::delete_session))
+        // Economy
+        .route("/economy/wallet", get(economy::get_wallet))
+        .route("/economy/history", get(economy::get_coin_history))
+        .route("/economy/grant", post(economy::grant_coins))
+        .route("/economy/grant-item", post(economy::grant_item))
+        .route("/economy/clear-inventory", delete(economy::clear_inventory))
+        // Cases
+        .route("/cases", get(cases::list_cases))
+        .route("/cases/{caseId}", get(cases::get_case))
+        .route("/cases/{caseId}/open", post(cases::open_case))
+        // Inventory
+        .route("/inventory", get(inventory::get_inventory))
+        .route("/inventory/{itemId}", patch(inventory::equip_item))
+        .route("/users/{userId}/inventory", get(inventory::get_user_inventory))
+        // Trades
+        .route("/trades", get(trades::list_trades))
+        .route("/trades", post(trades::create_trade))
+        .route("/trades/{tradeId}/accept", post(trades::accept_trade))
+        .route("/trades/{tradeId}/decline", post(trades::decline_trade))
+        .route("/trades/{tradeId}/cancel", post(trades::cancel_trade))
+        // Marketplace
+        .route("/marketplace", get(marketplace::list_marketplace))
+        .route("/marketplace", post(marketplace::create_listing))
+        .route("/marketplace/{id}/buy", post(marketplace::buy_listing))
+        .route("/marketplace/{id}", delete(marketplace::cancel_listing))
+        // Crafting
+        .route("/craft", post(craft::craft_items));
 
     Router::new()
         .nest("/api/auth", auth_routes)

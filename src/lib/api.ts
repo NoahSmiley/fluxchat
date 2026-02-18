@@ -16,6 +16,15 @@ import type {
   ListeningSession,
   QueueItem,
   RingStyle,
+  Wallet,
+  CoinHistoryEntry,
+  CaseInfo,
+  CaseDetail,
+  InventoryItem,
+  CaseOpenResult,
+  Trade,
+  MarketplaceListing,
+  CraftResult,
 } from "../types/shared.js";
 
 import { API_BASE } from "./serverUrl.js";
@@ -86,7 +95,7 @@ export async function signOut() {
   return result;
 }
 
-export async function getSession(): Promise<{ user: { id: string; email: string; username: string; image?: string | null; ringStyle: RingStyle; ringSpin: boolean } } | null> {
+export async function getSession(): Promise<{ user: { id: string; email: string; username: string; image?: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId?: string | null; ringPatternSeed?: number | null; bannerCss?: string | null; bannerPatternSeed?: number | null } } | null> {
   const headers: Record<string, string> = {};
   const token = getStoredToken();
   if (token) {
@@ -104,7 +113,7 @@ export async function getSession(): Promise<{ user: { id: string; email: string;
 // ── User Profile ──
 
 export async function updateUserProfile(data: { username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; steamId?: string | null }) {
-  return request<{ id: string; username: string; email: string; image: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId: string | null }>("/users/me", {
+  return request<{ id: string; username: string; email: string; image: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId: string | null; ringPatternSeed: number | null; bannerCss: string | null; bannerPatternSeed: number | null }>("/users/me", {
     method: "PATCH",
     body: JSON.stringify(data),
   });
@@ -378,5 +387,132 @@ export async function removeFromQueue(sessionId: string, itemId: string) {
 export async function deleteListeningSession(sessionId: string) {
   return request<{ success: boolean }>(`/spotify/sessions/${sessionId}/end`, {
     method: "DELETE",
+  });
+}
+
+// ── Economy ──
+
+export async function getWallet() {
+  return request<Wallet>("/economy/wallet");
+}
+
+export async function getCoinHistory() {
+  return request<CoinHistoryEntry[]>("/economy/history");
+}
+
+export async function grantCoins(amount: number = 1000) {
+  return request<{ granted: number; newBalance: number }>("/economy/grant", {
+    method: "POST",
+    body: JSON.stringify({ amount }),
+  });
+}
+
+export async function grantItem(itemId: string, patternSeed?: number) {
+  return request<{ id: string; itemId: string; patternSeed: number | null }>("/economy/grant-item", {
+    method: "POST",
+    body: JSON.stringify({ itemId, patternSeed }),
+  });
+}
+
+export async function clearInventory() {
+  return request<{ cleared: boolean }>("/economy/clear-inventory", { method: "DELETE" });
+}
+
+// ── Cases ──
+
+export async function getCases() {
+  return request<CaseInfo[]>("/cases");
+}
+
+export async function getCase(caseId: string) {
+  return request<CaseDetail>(`/cases/${caseId}`);
+}
+
+export async function openCase(caseId: string) {
+  return request<CaseOpenResult>(`/cases/${caseId}/open`, { method: "POST" });
+}
+
+// ── Inventory ──
+
+export async function getInventory(filters?: { type?: string; rarity?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.type) params.set("type", filters.type);
+  if (filters?.rarity) params.set("rarity", filters.rarity);
+  const qs = params.toString();
+  return request<InventoryItem[]>(`/inventory${qs ? `?${qs}` : ""}`);
+}
+
+export async function getUserInventory(userId: string) {
+  return request<InventoryItem[]>(`/users/${userId}/inventory`);
+}
+
+export async function toggleEquipItem(itemId: string) {
+  return request<{ id: string; equipped: boolean }>(`/inventory/${itemId}`, { method: "PATCH" });
+}
+
+// ── Trades ──
+
+export async function getTrades() {
+  return request<Trade[]>("/trades");
+}
+
+export async function createTrade(data: {
+  receiverId: string;
+  senderItemIds: string[];
+  receiverItemIds: string[];
+  senderCoins?: number;
+  receiverCoins?: number;
+}) {
+  return request<{ id: string; senderId: string; receiverId: string; status: string; createdAt: string }>("/trades", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function acceptTrade(tradeId: string) {
+  return request<{ id: string; status: string }>(`/trades/${tradeId}/accept`, { method: "POST" });
+}
+
+export async function declineTrade(tradeId: string) {
+  return request<{ id: string; status: string }>(`/trades/${tradeId}/decline`, { method: "POST" });
+}
+
+export async function cancelTrade(tradeId: string) {
+  return request<{ id: string; status: string }>(`/trades/${tradeId}/cancel`, { method: "POST" });
+}
+
+// ── Marketplace ──
+
+export async function getMarketplace(filters?: { search?: string; rarity?: string; type?: string; sort?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.search) params.set("search", filters.search);
+  if (filters?.rarity) params.set("rarity", filters.rarity);
+  if (filters?.type) params.set("type", filters.type);
+  if (filters?.sort) params.set("sort", filters.sort);
+  const qs = params.toString();
+  return request<MarketplaceListing[]>(`/marketplace${qs ? `?${qs}` : ""}`);
+}
+
+export async function createMarketplaceListing(inventoryId: string, price: number) {
+  return request<{ id: string; sellerId: string; inventoryId: string; price: number; status: string; createdAt: string }>("/marketplace", {
+    method: "POST",
+    body: JSON.stringify({ inventoryId, price }),
+  });
+}
+
+export async function buyMarketplaceListing(listingId: string) {
+  return request<{ id: string; status: string; buyerId: string; newBalance: number }>(`/marketplace/${listingId}/buy`, { method: "POST" });
+}
+
+export async function cancelMarketplaceListing(listingId: string) {
+  return request<void>(`/marketplace/${listingId}`, { method: "DELETE" });
+}
+
+// ── Crafting ──
+
+export async function craftItems(inventoryIds: string[]) {
+  return request<CraftResult>("/craft", {
+    method: "POST",
+    body: JSON.stringify({ inventoryIds }),
   });
 }

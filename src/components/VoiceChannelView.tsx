@@ -9,7 +9,7 @@ import {
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
   Music, Beer,
 } from "lucide-react";
-import { avatarColor, ringClass } from "../lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
   // Request 1080p — matches the max resolution we actually publish
@@ -108,14 +108,14 @@ function StreamTile({ participantId, username, isPinned }: {
 }
 
 // ── Speaking Avatar ──
-function SpeakingAvatar({ username, image, audioLevel, speaking, large, role, memberRingStyle, memberRingSpin }: {
+function SpeakingAvatar({ username, image, audioLevel, speaking, large, role, memberRingStyle, memberRingSpin, memberRingPatternSeed }: {
   username: string; image?: string | null; audioLevel: number; speaking: boolean; large?: boolean; role?: string;
-  memberRingStyle?: string; memberRingSpin?: boolean;
+  memberRingStyle?: string; memberRingSpin?: boolean; memberRingPatternSeed?: number | null;
 }) {
   const intensity = speaking ? Math.min(audioLevel * 3, 1) : 0;
   const ringScale = 1 + intensity * 0.35;
   const ringOpacity = speaking ? 0.3 + intensity * 0.7 : 0;
-  const rc = ringClass(memberRingStyle, memberRingSpin, role);
+  const rc = ringClass(memberRingStyle, memberRingSpin, role, false, memberRingPatternSeed);
 
   return (
     <div className={`voice-avatar-wrapper ${large ? "large" : ""}`}>
@@ -123,7 +123,7 @@ function SpeakingAvatar({ username, image, audioLevel, speaking, large, role, me
         className={`voice-avatar-speaking-ring ${speaking ? "active" : ""}`}
         style={{ transform: `scale(${ringScale})`, opacity: ringOpacity }}
       />
-      <div className={`voice-participant-ring ${rc}`} style={{ "--ring-color": avatarColor(username) } as React.CSSProperties}>
+      <div className={`voice-participant-ring ${rc}`} style={{ "--ring-color": avatarColor(username), ...ringGradientStyle(memberRingPatternSeed, memberRingStyle) } as React.CSSProperties}>
         <div className={`voice-participant-avatar ${speaking ? "speaking" : ""} ${large ? "large" : ""}`}>
           {image ? (
             <img src={image} alt={username} className="avatar-img" />
@@ -293,6 +293,7 @@ export function VoiceChannelView() {
                   role={member?.role}
                   memberRingStyle={member?.ringStyle}
                   memberRingSpin={member?.ringSpin}
+                  memberRingPatternSeed={member?.ringPatternSeed}
                   large
                 />
                 <span className="voice-tile-name">

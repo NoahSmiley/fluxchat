@@ -178,3 +178,109 @@ CREATE TABLE IF NOT EXISTS "server_keys" (
     created_at TEXT NOT NULL,
     PRIMARY KEY (server_id, user_id)
 );
+
+-- Economy: wallets
+CREATE TABLE IF NOT EXISTS "wallet" (
+    user_id TEXT PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,
+    coins INTEGER NOT NULL DEFAULT 0,
+    lifetime_earned INTEGER NOT NULL DEFAULT 0
+);
+
+-- Economy: item catalog
+CREATE TABLE IF NOT EXISTS "item_catalog" (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    item_type TEXT NOT NULL,
+    rarity TEXT NOT NULL,
+    image_url TEXT,
+    preview_css TEXT,
+    card_series TEXT,
+    card_number TEXT,
+    is_holographic INTEGER NOT NULL DEFAULT 0,
+    tradeable INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+
+-- Economy: cases
+CREATE TABLE IF NOT EXISTS "cases" (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    cost_coins INTEGER NOT NULL DEFAULT 100,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+
+-- Economy: case items (loot table)
+CREATE TABLE IF NOT EXISTS "case_items" (
+    id TEXT PRIMARY KEY,
+    case_id TEXT NOT NULL REFERENCES "cases"(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL REFERENCES "item_catalog"(id) ON DELETE CASCADE,
+    weight INTEGER NOT NULL DEFAULT 100
+);
+CREATE INDEX IF NOT EXISTS idx_case_items_case ON case_items(case_id);
+
+-- Economy: inventory
+CREATE TABLE IF NOT EXISTS "inventory" (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL REFERENCES "item_catalog"(id) ON DELETE CASCADE,
+    equipped INTEGER NOT NULL DEFAULT 0,
+    obtained_from TEXT,
+    obtained_at TEXT NOT NULL,
+    source_case_id TEXT REFERENCES "cases"(id)
+);
+CREATE INDEX IF NOT EXISTS idx_inventory_user ON inventory(user_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_item ON inventory(item_id);
+
+-- Economy: trades
+CREATE TABLE IF NOT EXISTS "trades" (
+    id TEXT PRIMARY KEY,
+    sender_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    receiver_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    sender_coins INTEGER NOT NULL DEFAULT 0,
+    receiver_coins INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    message TEXT,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_trades_sender ON trades(sender_id);
+CREATE INDEX IF NOT EXISTS idx_trades_receiver ON trades(receiver_id);
+
+-- Economy: trade items
+CREATE TABLE IF NOT EXISTS "trade_items" (
+    id TEXT PRIMARY KEY,
+    trade_id TEXT NOT NULL REFERENCES "trades"(id) ON DELETE CASCADE,
+    inventory_id TEXT NOT NULL REFERENCES "inventory"(id),
+    side TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_trade_items_trade ON trade_items(trade_id);
+
+-- Economy: marketplace listings
+CREATE TABLE IF NOT EXISTS "marketplace_listings" (
+    id TEXT PRIMARY KEY,
+    seller_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    inventory_id TEXT NOT NULL REFERENCES "inventory"(id),
+    price_coins INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL,
+    sold_at TEXT,
+    buyer_id TEXT REFERENCES "user"(id)
+);
+CREATE INDEX IF NOT EXISTS idx_marketplace_seller ON marketplace_listings(seller_id);
+CREATE INDEX IF NOT EXISTS idx_marketplace_status ON marketplace_listings(status);
+CREATE INDEX IF NOT EXISTS idx_marketplace_buyer ON marketplace_listings(buyer_id);
+
+-- Economy: coin rewards log
+CREATE TABLE IF NOT EXISTS "coin_rewards_log" (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    amount INTEGER NOT NULL,
+    reason TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_coin_rewards_user_time ON coin_rewards_log(user_id, created_at);

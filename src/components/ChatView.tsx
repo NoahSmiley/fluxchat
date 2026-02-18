@@ -5,7 +5,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { ArrowUpRight, Pencil, Trash2, Paperclip, X } from "lucide-react";
 import { MessageAttachments } from "./MessageAttachments.js";
 import { LinkEmbed } from "./LinkEmbed.js";
-import { avatarColor, ringClass } from "../lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
 import { relativeTime } from "../lib/relativeTime.js";
 import { gateway } from "../lib/ws.js";
 
@@ -326,11 +326,11 @@ export function ChatView() {
           const senderRing = ringMap[msg.senderId];
           const msgReactions = reactions[msg.id] ?? [];
           const decoded = decodeContent(msg.id, msg.ciphertext);
-          const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole);
+          const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole, false, senderRing?.ringPatternSeed);
 
           return (
             <div key={msg.id} className={`message ${msg.senderId === user?.id ? "own" : ""}`}>
-              <div className={`message-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(senderName) } as React.CSSProperties}>
+              <div className={`message-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(senderName), ...ringGradientStyle(senderRing?.ringPatternSeed, senderRing?.ringStyle) } as React.CSSProperties}>
                 <div className="message-avatar">
                   {senderImage && <img src={senderImage} alt={senderName} className="avatar-img" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
                   <div className="avatar-fallback" style={{ background: avatarColor(senderName) }}>{senderName.charAt(0).toUpperCase()}</div>

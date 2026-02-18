@@ -14,8 +14,8 @@ pub async fn get_me(
     State(state): State<Arc<AppState>>,
     user: AuthUser,
 ) -> impl IntoResponse {
-    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>)>(
-        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id FROM "user" WHERE id = ?"#,
+    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>, Option<i64>, Option<String>, Option<i64>)>(
+        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed FROM "user" WHERE id = ?"#,
     )
     .bind(&user.id)
     .fetch_optional(&state.db)
@@ -24,7 +24,7 @@ pub async fn get_me(
     .flatten();
 
     match profile {
-        Some((id, username, email, image, ring_style, ring_spin, steam_id)) => Json(serde_json::json!({
+        Some((id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed)) => Json(serde_json::json!({
             "id": id,
             "username": username,
             "email": email,
@@ -32,6 +32,9 @@ pub async fn get_me(
             "ringStyle": ring_style,
             "ringSpin": ring_spin,
             "steamId": steam_id,
+            "ringPatternSeed": ring_pattern_seed,
+            "bannerCss": banner_css,
+            "bannerPatternSeed": banner_pattern_seed,
         }))
         .into_response(),
         None => (
@@ -140,7 +143,11 @@ pub async fn update_me(
     }
 
     if let Some(ref ring_style) = body.ring_style {
-        let valid = ["default", "chroma", "pulse", "wave", "ember", "frost", "neon", "galaxy", "none"];
+        let valid = [
+            "default", "chroma", "pulse", "wave", "ember", "frost", "neon", "galaxy", "none",
+            // Doppler ring finishes (from item_catalog preview_css)
+            "doppler", "gamma_doppler",
+        ];
         if !valid.contains(&ring_style.as_str()) {
             return (
                 StatusCode::BAD_REQUEST,
@@ -214,8 +221,8 @@ pub async fn update_me(
     }
 
     // Return updated profile
-    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>)>(
-        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id FROM "user" WHERE id = ?"#,
+    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>, Option<i64>, Option<String>, Option<i64>)>(
+        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed FROM "user" WHERE id = ?"#,
     )
     .bind(&user.id)
     .fetch_optional(&state.db)
@@ -224,7 +231,7 @@ pub async fn update_me(
     .flatten();
 
     match profile {
-        Some((id, username, email, image, ring_style, ring_spin, steam_id)) => {
+        Some((id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed)) => {
             // Broadcast profile update to all connected clients
             state
                 .gateway
@@ -239,6 +246,9 @@ pub async fn update_me(
                         }),
                         ring_style: body.ring_style.clone(),
                         ring_spin: body.ring_spin,
+                        ring_pattern_seed: None,
+                        banner_css: None,
+                        banner_pattern_seed: None,
                     },
                     None,
                 )
@@ -252,6 +262,9 @@ pub async fn update_me(
                 "ringStyle": ring_style,
                 "ringSpin": ring_spin,
                 "steamId": steam_id,
+                "ringPatternSeed": ring_pattern_seed,
+                "bannerCss": banner_css,
+                "bannerPatternSeed": banner_pattern_seed,
             }))
             .into_response()
         }

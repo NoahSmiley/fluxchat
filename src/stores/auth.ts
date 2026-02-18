@@ -10,6 +10,9 @@ interface AuthUser {
   ringStyle: RingStyle;
   ringSpin: boolean;
   steamId?: string | null;
+  ringPatternSeed?: number | null;
+  bannerCss?: string | null;
+  bannerPatternSeed?: number | null;
 }
 
 interface AuthState {
@@ -70,7 +73,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const result = await api.updateUserProfile(data);
     const current = get().user;
     if (current) {
-      set({ user: { ...current, username: result.username, image: result.image, ringStyle: result.ringStyle, ringSpin: result.ringSpin, steamId: result.steamId } });
+      set({ user: { ...current, username: result.username, image: result.image, ringStyle: result.ringStyle, ringSpin: result.ringSpin, steamId: result.steamId, ringPatternSeed: result.ringPatternSeed ?? null, bannerCss: result.bannerCss ?? null, bannerPatternSeed: result.bannerPatternSeed ?? null } });
     }
   },
 }));

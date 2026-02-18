@@ -26,7 +26,8 @@ export interface Channel {
 
 export type ChannelType = "text" | "voice" | "game" | "category";
 
-export type RingStyle = "default" | "chroma" | "pulse" | "wave" | "ember" | "frost" | "neon" | "galaxy" | "none";
+export type RingStyle = "default" | "chroma" | "pulse" | "wave" | "ember" | "frost" | "neon" | "galaxy" | "none"
+  | "doppler" | "gamma_doppler";
 
 export interface MemberWithUser {
   userId: string;
@@ -38,6 +39,9 @@ export interface MemberWithUser {
   ringStyle: RingStyle;
   ringSpin: boolean;
   steamId: string | null;
+  ringPatternSeed: number | null;
+  bannerCss: string | null;
+  bannerPatternSeed: number | null;
 }
 
 export type MemberRole = "owner" | "admin" | "member";
@@ -163,13 +167,13 @@ export type WSServerEvent =
   | { type: "message"; message: Message; attachments?: Attachment[] }
   | { type: "typing"; channelId: string; userId: string; active: boolean }
   | { type: "presence"; userId: string; status: PresenceStatus }
-  | { type: "member_joined"; serverId: string; userId: string; username: string; image: string | null; role: string; ringStyle: RingStyle; ringSpin: boolean }
+  | { type: "member_joined"; serverId: string; userId: string; username: string; image: string | null; role: string; ringStyle: RingStyle; ringSpin: boolean; steamId?: string | null; ringPatternSeed?: number | null; bannerCss?: string | null; bannerPatternSeed?: number | null }
   | { type: "member_left"; serverId: string; userId: string }
   | { type: "server_updated"; serverId: string; name: string }
   | { type: "server_deleted"; serverId: string }
   | { type: "member_role_updated"; serverId: string; userId: string; role: string }
   | { type: "channel_update"; channelId: string; bitrate: number | null }
-  | { type: "profile_update"; userId: string; username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean }
+  | { type: "profile_update"; userId: string; username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; ringPatternSeed?: number | null; bannerCss?: string | null; bannerPatternSeed?: number | null }
   | { type: "voice_state"; channelId: string; participants: VoiceParticipant[] }
   | { type: "reaction_add"; messageId: string; userId: string; emoji: string }
   | { type: "reaction_remove"; messageId: string; userId: string; emoji: string }
@@ -183,6 +187,10 @@ export type WSServerEvent =
   | { type: "spotify_queue_remove"; sessionId: string; voiceChannelId: string; itemId: string }
   | { type: "spotify_playback_sync"; sessionId: string; voiceChannelId: string; action: string; trackUri?: string; positionMs?: number }
   | { type: "spotify_session_ended"; sessionId: string; voiceChannelId: string }
+  | { type: "case_opened"; userId: string; username: string; itemName: string; itemRarity: ItemRarity; caseName: string }
+  | { type: "trade_offer_received"; tradeId: string; senderId: string; senderUsername: string }
+  | { type: "trade_resolved"; tradeId: string; status: string }
+  | { type: "coins_earned"; userId: string; amount: number; reason: string; newBalance: number }
   | { type: "error"; message: string };
 
 export type PresenceStatus = "online" | "idle" | "offline";
@@ -221,6 +229,144 @@ export interface PaginatedResponse<T> {
   cursor: string | null;
   hasMore: boolean;
 }
+
+// ── Economy types ──
+
+export type ItemRarity = "common" | "uncommon" | "rare" | "epic" | "legendary" | "ultra_rare";
+export type ItemType = "ring_style" | "name_color" | "chat_badge" | "profile_banner" | "message_effect" | "trading_card";
+
+export interface CatalogItem {
+  id: string;
+  name: string;
+  rarity: ItemRarity;
+  type: ItemType;
+  imageUrl: string | null;
+}
+
+export interface CaseInfo {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  price: number;
+  createdAt: string;
+}
+
+export interface CaseDetail extends CaseInfo {
+  active: boolean;
+  items: CaseItem[];
+}
+
+export interface CaseItem {
+  id: string;
+  catalogItemId: string;
+  name: string;
+  rarity: ItemRarity;
+  type: ItemType;
+  imageUrl: string | null;
+  weight: number;
+  previewCss: string | null;
+  cardSeries: string | null;
+  cardNumber: string | null;
+  isHolographic: boolean;
+}
+
+export interface InventoryItem {
+  id: string;
+  userId: string;
+  catalogItemId: string;
+  name: string;
+  rarity: ItemRarity;
+  type: ItemType;
+  imageUrl: string | null;
+  acquiredVia: string;
+  equipped: boolean;
+  createdAt: string;
+  previewCss: string | null;
+  cardSeries: string | null;
+  cardNumber: string | null;
+  isHolographic: boolean;
+  patternSeed: number | null;
+}
+
+export interface CaseOpenResult extends InventoryItem {
+  newBalance: number;
+}
+
+export interface Wallet {
+  id: string;
+  userId: string;
+  balance: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CoinHistoryEntry {
+  id: string;
+  userId: string;
+  amount: number;
+  reason: string;
+  createdAt: string;
+}
+
+export interface TradeItem {
+  inventoryId: string;
+  name: string;
+  rarity: ItemRarity;
+  type: ItemType;
+  imageUrl: string | null;
+  previewCss: string | null;
+  cardSeries: string | null;
+  cardNumber: string | null;
+  isHolographic: boolean;
+  patternSeed: number | null;
+}
+
+export interface Trade {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  senderCoins: number;
+  receiverCoins: number;
+  senderItems: TradeItem[];
+  receiverItems: TradeItem[];
+  status: "pending" | "accepted" | "declined" | "cancelled";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MarketplaceListing {
+  id: string;
+  sellerId: string;
+  sellerUsername: string;
+  inventoryId: string;
+  price: number;
+  status: string;
+  name: string;
+  rarity: ItemRarity;
+  type: ItemType;
+  imageUrl: string | null;
+  createdAt: string;
+  previewCss: string | null;
+  cardSeries: string | null;
+  cardNumber: string | null;
+  isHolographic: boolean;
+  patternSeed: number | null;
+}
+
+export interface CraftResult extends InventoryItem {
+  consumedItems: string[];
+}
+
+export const RARITY_ORDER: ItemRarity[] = ["common", "uncommon", "rare", "epic", "legendary", "ultra_rare"];
+
+export const RARITY_COLORS: Record<ItemRarity, string> = {
+  common: "#b0c3d9",
+  uncommon: "#5e98d9",
+  rare: "#4b69ff",
+  epic: "#8847ff",
+  legendary: "#d32ce6",
+  ultra_rare: "#eb4b4b",
+};
 
 export const MAX_USERNAME_LENGTH = 32;
 export const MIN_USERNAME_LENGTH = 2;

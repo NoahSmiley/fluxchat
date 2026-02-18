@@ -7,7 +7,7 @@ import { VoiceStatusBar } from "./VoiceStatusBar.js";
 import { MessageSquareText, Volume2, Settings, Monitor, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
-import { avatarColor, ringClass } from "../lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
 import * as api from "../lib/api.js";
 import {
   DndContext,
@@ -212,7 +212,7 @@ function SortableChannelItem({
             const voiceUser = voiceProps.isConnected ? voiceProps.voiceParticipants.find((v) => v.userId === p.userId) : null;
             return (
               <div key={p.userId} className="voice-channel-user">
-                <span className={`voice-avatar-ring ${ringClass(member?.ringStyle, member?.ringSpin, member?.role)}`}>
+                <span className={`voice-avatar-ring ${ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}`} style={{ ...ringGradientStyle(member?.ringPatternSeed, member?.ringStyle) } as React.CSSProperties}>
                   <span className={`voice-user-avatar ${voiceUser?.speaking ? "speaking" : ""}`} style={{ background: avatarColor(p.username) }}>
                     {member?.image ? (
                       <img src={member.image} alt={p.username} />
@@ -485,15 +485,14 @@ export function ChannelSidebar() {
           </DragOverlay>
         </DndContext>
 
-        {isOwnerOrAdmin && (
-          <button
-            className="channel-add-bottom-btn"
-            onClick={() => setCreateModal({ type: "text" })}
-            title="Create Channel"
-          >
-            <Plus size={14} />
-          </button>
-        )}
+        <div style={{ flex: 1 }} />
+        <button
+          className="channel-add-floating-btn"
+          onClick={() => setCreateModal({ type: "text" })}
+          title="Create Channel"
+        >
+          <Plus size={14} />
+        </button>
       </div>
 
       <VoiceStatusBar />

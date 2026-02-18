@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useVoiceStore } from "../stores/voice.js";
-import { useUIStore, type SidebarPosition } from "../stores/ui.js";
+import { useUIStore, type SidebarPosition, type AppBorderStyle } from "../stores/ui.js";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useKeybindsStore, type KeybindAction, type KeybindEntry } from "../stores/keybinds.js";
@@ -178,8 +178,19 @@ const SIDEBAR_POSITIONS: { value: SidebarPosition; label: string }[] = [
   { value: "bottom", label: "Bottom" },
 ];
 
+const APP_BORDER_STYLES: { value: AppBorderStyle; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "chroma", label: "Chroma" },
+  { value: "pulse", label: "Pulse" },
+  { value: "wave", label: "Wave" },
+  { value: "ember", label: "Ember" },
+  { value: "frost", label: "Frost" },
+  { value: "neon", label: "Neon" },
+  { value: "galaxy", label: "Galaxy" },
+];
+
 export function SettingsModal() {
-  const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition } = useUIStore();
+  const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition, appBorderStyle, setAppBorderStyle } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
   const { servers, activeServerId, updateServer, members } = useChatStore();
   const { user, updateProfile, logout } = useAuthStore();
@@ -515,6 +526,23 @@ export function SettingsModal() {
                       <div className="sidebar-pos-bar" />
                     </div>
                     <span className="ring-style-label">{sp.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">App Border</h3>
+              <p className="settings-card-desc">Add an animated ring border around the app window.</p>
+              <div className="ring-style-picker">
+                {APP_BORDER_STYLES.map((bs) => (
+                  <button
+                    key={bs.value}
+                    className={`ring-style-option ${appBorderStyle === bs.value ? "active" : ""}`}
+                    onClick={() => setAppBorderStyle(bs.value)}
+                  >
+                    <div className={`app-border-swatch ${bs.value !== "none" ? `app-border-swatch-${bs.value}` : ""}`} />
+                    <span className="ring-style-label">{bs.label}</span>
                   </button>
                 ))}
               </div>

@@ -128,8 +128,11 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
               type="range"
               min="0"
               max="100"
-              value={Math.round(volume * 100)}
-              onChange={(e) => setVolume(parseInt(e.target.value) / 100)}
+              value={Math.round(Math.sqrt(volume) * 100)}
+              onChange={(e) => {
+                const linear = parseInt(e.target.value) / 100;
+                setVolume(linear * linear);
+              }}
               className="volume-slider"
               title={`Volume: ${Math.round(volume * 100)}%`}
             />

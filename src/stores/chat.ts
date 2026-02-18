@@ -728,10 +728,10 @@ export function getUserRoleMap(members: MemberWithUser[]): Record<string, string
 }
 
 // Helper to get ring info map
-export function getUserRingMap(members: MemberWithUser[]): Record<string, { ringStyle: string; ringSpin: boolean }> {
-  const map: Record<string, { ringStyle: string; ringSpin: boolean }> = {};
+export function getUserRingMap(members: MemberWithUser[]): Record<string, { ringStyle: string; ringSpin: boolean; ringPatternSeed: number | null }> {
+  const map: Record<string, { ringStyle: string; ringSpin: boolean; ringPatternSeed: number | null }> = {};
   for (const m of members) {
-    map[m.userId] = { ringStyle: m.ringStyle ?? "default", ringSpin: m.ringSpin ?? false };
+    map[m.userId] = { ringStyle: m.ringStyle ?? "default", ringSpin: m.ringSpin ?? false, ringPatternSeed: m.ringPatternSeed ?? null };
   }
   return map;
 }
@@ -969,6 +969,10 @@ gateway.on((event) => {
               joinedAt: new Date().toISOString(),
               ringStyle: event.ringStyle ?? "default",
               ringSpin: event.ringSpin ?? false,
+              steamId: event.steamId ?? null,
+              ringPatternSeed: event.ringPatternSeed ?? null,
+              bannerCss: event.bannerCss ?? null,
+              bannerPatternSeed: event.bannerPatternSeed ?? null,
             }],
           }));
         }
@@ -1058,6 +1062,9 @@ gateway.on((event) => {
                 ...(event.image !== undefined ? { image: event.image } : {}),
                 ...(event.ringStyle !== undefined ? { ringStyle: event.ringStyle } : {}),
                 ...(event.ringSpin !== undefined ? { ringSpin: event.ringSpin } : {}),
+                ...(event.ringPatternSeed !== undefined ? { ringPatternSeed: event.ringPatternSeed } : {}),
+                ...(event.bannerCss !== undefined ? { bannerCss: event.bannerCss } : {}),
+                ...(event.bannerPatternSeed !== undefined ? { bannerPatternSeed: event.bannerPatternSeed } : {}),
               }
             : m
         ),

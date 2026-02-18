@@ -574,7 +574,7 @@ pub async fn list_members(
     }
 
     let members = sqlx::query_as::<_, MemberWithUser>(
-        r#"SELECT m.user_id, m.server_id, m.role, m.joined_at, u.username, u.image, u.ring_style, u.ring_spin, u.steam_id
+        r#"SELECT m.user_id, m.server_id, m.role, m.joined_at, u.username, u.image, u.ring_style, u.ring_spin, u.steam_id, u.ring_pattern_seed, u.banner_css, u.banner_pattern_seed
            FROM memberships m
            INNER JOIN "user" u ON u.id = m.user_id
            WHERE m.server_id = ?"#,
