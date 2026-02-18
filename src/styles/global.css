@@ -2459,14 +2459,17 @@ input:focus {
   position: relative;
 }
 
+.channel-sortable-active > .channel-item-wrapper {
+  position: relative;
+}
+
 .channel-sortable-active > .channel-item-wrapper::before {
   content: "";
   position: absolute;
   left: -8px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 2px;
+  bottom: 2px;
   width: 3px;
-  height: 60%;
   border-radius: 0 3px 3px 0;
   background: var(--text-primary);
 }
