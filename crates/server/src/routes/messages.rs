@@ -253,6 +253,83 @@ pub async fn search_messages(
     Json(serde_json::json!({"items": items})).into_response()
 }
 
+/// GET /api/servers/:serverId/messages/search
+pub async fn search_server_messages(
+    State(state): State<Arc<AppState>>,
+    user: AuthUser,
+    Path(server_id): Path<String>,
+    Query(query): Query<SearchQuery>,
+) -> impl IntoResponse {
+    let search_query = match query.q.as_deref() {
+        Some(q) if !q.trim().is_empty() => q.trim().to_string(),
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "Missing query"})),
+            )
+                .into_response()
+        }
+    };
+
+    // Verify membership
+    let is_member = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM memberships WHERE user_id = ? AND server_id = ?",
+    )
+    .bind(&user.id)
+    .bind(&server_id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(0);
+
+    if is_member == 0 {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({"error": "Not a member"})),
+        )
+            .into_response();
+    }
+
+    // Sanitize query for FTS5: strip special chars, append * for prefix matching
+    let fts_query: String = search_query
+        .split_whitespace()
+        .filter_map(|word| {
+            let clean: String = word
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '\'')
+                .collect();
+            if clean.is_empty() {
+                None
+            } else {
+                Some(format!("{}*", clean))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let items = match sqlx::query_as::<_, Message>(
+        "SELECT m.* FROM messages m
+         INNER JOIN (
+           SELECT message_id, rank FROM messages_fts WHERE messages_fts MATCH ?
+         ) fts ON fts.message_id = m.id
+         INNER JOIN channels c ON c.id = m.channel_id AND c.server_id = ?
+         ORDER BY fts.rank
+         LIMIT 50",
+    )
+    .bind(&fts_query)
+    .bind(&server_id)
+    .fetch_all(&state.db)
+    .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            eprintln!("FTS server search error: {:?}", e);
+            Vec::new()
+        }
+    };
+
+    Json(serde_json::json!({"items": items})).into_response()
+}
+
 /// GET /api/messages/reactions
 pub async fn get_reactions(
     State(state): State<Arc<AppState>>,

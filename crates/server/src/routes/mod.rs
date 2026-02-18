@@ -48,6 +48,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         // Messages
         .route("/channels/{channelId}/messages", get(messages::list_messages))
         .route("/channels/{channelId}/messages/search", get(messages::search_messages))
+        .route("/servers/{serverId}/messages/search", get(messages::search_server_messages))
         .route("/messages/reactions", get(messages::get_reactions))
         // DMs
         .route("/dms", get(dms::list_dms))

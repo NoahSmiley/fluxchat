@@ -442,11 +442,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   searchMessages: async (query) => {
-    const { activeChannelId } = get();
-    if (!activeChannelId || !query.trim()) return;
+    const { activeServerId } = get();
+    if (!activeServerId || !query.trim()) return;
     set({ searchQuery: query });
     try {
-      const result = await api.searchMessages(activeChannelId, query);
+      const result = await api.searchServerMessages(activeServerId, query);
       // Server-side FTS — results are already plaintext
       const cache: Record<string, string> = {};
       for (const msg of result.items) {

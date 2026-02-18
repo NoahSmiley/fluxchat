@@ -102,6 +102,7 @@ export function ChatView() {
   const roleMap = useMemo(() => getUserRoleMap(members), [members]);
   const ringMap = useMemo(() => getUserRingMap(members), [members]);
   const memberUsernames = useMemo(() => new Set(members.map((m) => m.username)), [members]);
+  const channelNameMap = useMemo(() => Object.fromEntries(channels.map((c) => [c.id, c.name])), [channels]);
 
   // Typing indicator: who's typing in current channel (excluding self)
   const typingNames = useMemo(() => {
@@ -297,7 +298,7 @@ export function ChatView() {
 
       {searchResults && (
         <div className="search-results-banner">
-          {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} for &quot;{searchQuery}&quot;
+          {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} for &quot;{searchQuery}&quot; across all channels
         </div>
       )}
 
@@ -332,6 +333,9 @@ export function ChatView() {
               <div className="message-content">
               <div className="message-header">
                 <span className="message-sender">{senderName}</span>
+                {searchResults && (
+                  <span className="search-result-channel">#{channelNameMap[msg.channelId] ?? "unknown"}</span>
+                )}
                 <span className="message-time" title={new Date(msg.createdAt).toLocaleString()}>{relativeTime(msg.createdAt)}</span>
               </div>
               <div className="message-body">

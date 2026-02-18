@@ -214,6 +214,12 @@ export async function searchMessages(channelId: string, query: string) {
   );
 }
 
+export async function searchServerMessages(serverId: string, query: string) {
+  return request<{ items: Message[] }>(
+    `/servers/${serverId}/messages/search?q=${encodeURIComponent(query)}`
+  );
+}
+
 // ── Reactions ──
 
 export async function getReactions(messageIds: string[]) {
