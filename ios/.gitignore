@@ -1,0 +1,15 @@
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# SPM
+FluxChat/.build/
+FluxChat/.swiftpm/
+
+# Generated project (regenerate with xcodegen)
+FluxChat/FluxChat.xcodeproj/
