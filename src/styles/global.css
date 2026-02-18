@@ -2493,7 +2493,16 @@ input:focus {
 
 .channel-item-wrapper .channel-item {
   flex: 1;
+  min-width: 0;
   padding: 4px 0;
+}
+
+.channel-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .channel-settings-btn {

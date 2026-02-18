@@ -213,7 +213,7 @@ function SortableChannelItem({
           onClick={onSelect}
         >
           {getChannelIcon(channel.type)}
-          {channel.name}
+          <span className="channel-item-name">{channel.name}</span>
           {isUnread && <span className="channel-unread-dot" />}
           {voiceProps?.hasScreenShare && (
             <span className="channel-live-badge"><Monitor size={10} /> LIVE</span>
