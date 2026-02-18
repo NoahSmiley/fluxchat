@@ -74,7 +74,7 @@ function extractUrls(text: string): string[] {
 export function ChatView() {
   const {
     messages, sendMessage, editMessage, deleteMessage, loadMoreMessages, hasMoreMessages, loadingMessages,
-    members, onlineUsers, reactions, addReaction, removeReaction,
+    members, onlineUsers, userStatuses, reactions, addReaction, removeReaction,
     searchMessages, searchResults, searchQuery, clearSearch,
     channels, activeChannelId, decryptedCache,
     pendingAttachments, uploadProgress, uploadFile, removePendingAttachment,
@@ -477,10 +477,10 @@ export function ChatView() {
                   ) : (
                     <span className="mention-avatar mention-avatar-fallback" style={{ background: avatarColor(m.username) }}>{m.username.charAt(0).toUpperCase()}</span>
                   )}
-                  <span className={`mention-status-dot ${onlineUsers.has(m.userId) ? "online" : "offline"}`} />
+                  <span className={`mention-status-dot ${userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline")}`} />
                 </div>
                 <span className="mention-username">{m.username}</span>
-                {!onlineUsers.has(m.userId) && <span className="mention-offline-label">Offline</span>}
+                {(() => { const s = userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline"); return s === "offline" ? <span className="mention-offline-label">Offline</span> : s === "idle" ? <span className="mention-offline-label">Idle</span> : s === "dnd" ? <span className="mention-offline-label">DND</span> : null; })()}
               </button>
             ))}
           </div>

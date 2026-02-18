@@ -14,8 +14,8 @@ pub async fn get_me(
     State(state): State<Arc<AppState>>,
     user: AuthUser,
 ) -> impl IntoResponse {
-    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>, Option<i64>, Option<String>, Option<i64>)>(
-        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed FROM "user" WHERE id = ?"#,
+    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>, Option<i64>, Option<String>, Option<i64>, String)>(
+        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed, status FROM "user" WHERE id = ?"#,
     )
     .bind(&user.id)
     .fetch_optional(&state.db)
@@ -24,7 +24,7 @@ pub async fn get_me(
     .flatten();
 
     match profile {
-        Some((id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed)) => Json(serde_json::json!({
+        Some((id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed, status)) => Json(serde_json::json!({
             "id": id,
             "username": username,
             "email": email,
@@ -35,6 +35,7 @@ pub async fn get_me(
             "ringPatternSeed": ring_pattern_seed,
             "bannerCss": banner_css,
             "bannerPatternSeed": banner_pattern_seed,
+            "status": status,
         }))
         .into_response(),
         None => (
@@ -221,8 +222,8 @@ pub async fn update_me(
     }
 
     // Return updated profile
-    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>, Option<i64>, Option<String>, Option<i64>)>(
-        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed FROM "user" WHERE id = ?"#,
+    let profile = sqlx::query_as::<_, (String, String, String, Option<String>, String, bool, Option<String>, Option<i64>, Option<String>, Option<i64>, String)>(
+        r#"SELECT id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed, status FROM "user" WHERE id = ?"#,
     )
     .bind(&user.id)
     .fetch_optional(&state.db)
@@ -231,7 +232,7 @@ pub async fn update_me(
     .flatten();
 
     match profile {
-        Some((id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed)) => {
+        Some((id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed, status)) => {
             // Broadcast profile update to all connected clients
             state
                 .gateway
@@ -265,6 +266,7 @@ pub async fn update_me(
                 "ringPatternSeed": ring_pattern_seed,
                 "bannerCss": banner_css,
                 "bannerPatternSeed": banner_pattern_seed,
+                "status": status,
             }))
             .into_response()
         }

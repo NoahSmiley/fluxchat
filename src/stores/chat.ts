@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment, ActivityInfo } from "../types/shared.js";
+import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment, ActivityInfo, PresenceStatus } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
@@ -21,7 +21,8 @@ interface ChatState {
   channels: Channel[];
   messages: Message[];
   members: MemberWithUser[];
-  onlineUsers: Set<string>;
+  onlineUsers: Set<string>; // derived from userStatuses for backwards compat
+  userStatuses: Record<string, PresenceStatus>;
   userActivities: Record<string, ActivityInfo>;
   activeServerId: string | null;
   activeChannelId: string | null;
@@ -84,6 +85,7 @@ interface ChatState {
   loadMoreDMMessages: () => Promise<void>;
   searchDMMessages: (query: string) => Promise<void>;
   clearDMSearch: () => void;
+  setMyStatus: (status: PresenceStatus) => void;
 }
 
 // Per-channel message cache for instant channel switching
@@ -144,6 +146,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   members: [],
   onlineUsers: new Set(),
+  userStatuses: {},
   userActivities: {},
   activeServerId: null,
   activeChannelId: null,
@@ -698,6 +701,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearDMSearch: () => {
     set({ dmSearchQuery: "", dmSearchResults: null });
   },
+
+  setMyStatus: (status) => {
+    gateway.send({ type: "update_status", status });
+  },
 }));
 
 // Helper to get username map
@@ -762,6 +769,7 @@ gateway.onConnect(() => {
   const user = authStoreRef?.getState()?.user;
   useChatStore.setState({
     onlineUsers: new Set(user ? [user.id] : []),
+    userStatuses: user ? { [user.id]: (user as any).status ?? "online" } : {},
     userActivities: {},
   });
 
@@ -863,12 +871,15 @@ gateway.on((event) => {
     case "presence":
       useChatStore.setState((s) => {
         const newSet = new Set(s.onlineUsers);
-        if (event.status === "online") {
-          newSet.add(event.userId);
-        } else {
+        const newStatuses = { ...s.userStatuses };
+        if (event.status === "offline") {
           newSet.delete(event.userId);
+          delete newStatuses[event.userId];
+        } else {
+          newSet.add(event.userId);
+          newStatuses[event.userId] = event.status as PresenceStatus;
         }
-        return { onlineUsers: newSet };
+        return { onlineUsers: newSet, userStatuses: newStatuses };
       });
       break;
 

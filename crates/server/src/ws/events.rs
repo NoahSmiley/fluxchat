@@ -116,6 +116,9 @@ pub enum ClientEvent {
         #[serde(rename = "drinkCount")]
         drink_count: i32,
     },
+    UpdateStatus {
+        status: String, // "online" | "idle" | "dnd" | "invisible"
+    },
     Ping,
 }
 

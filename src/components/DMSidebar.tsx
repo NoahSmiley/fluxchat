@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import * as api from "../lib/api.js";
 
 export function DMSidebar() {
-  const { dmChannels, openDM, loadDMChannels, onlineUsers } = useChatStore();
+  const { dmChannels, openDM, loadDMChannels, onlineUsers, userStatuses } = useChatStore();
   const [showSearch, setShowSearch] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [searchResults, setSearchResults] = useState<{ id: string; username: string }[]>([]);
@@ -57,7 +57,7 @@ export function DMSidebar() {
           />
           {searchResults.map((u) => (
             <button key={u.id} className="dm-search-result" onClick={() => handleStartDM(u.id)}>
-              <span className={`status-dot ${onlineUsers.has(u.id) ? "online" : "offline"}`} />
+              <span className={`status-dot ${userStatuses[u.id] ?? (onlineUsers.has(u.id) ? "online" : "offline")}`} />
               {u.username}
             </button>
           ))}

@@ -269,7 +269,7 @@ Implementation: `lib/ws.ts` (client), `crates/server/src/ws/` (server)
 send_message, typing_start, typing_stop, join_channel, leave_channel,
 voice_state_update, add_reaction, remove_reaction, edit_message, delete_message,
 send_dm, join_dm, leave_dm, update_activity, share_server_key, request_server_key,
-spotify_playback_control, voice_drink_update
+spotify_playback_control, voice_drink_update, update_status
 
 **Server → Client events**:
 message, typing, presence, member_joined, member_left, member_role_updated,
@@ -279,6 +279,8 @@ spotify_queue_update, spotify_queue_remove, spotify_playback_sync,
 dm_message, spotify_session_ended, error
 
 **Server architecture**: GatewayState holds clients (Tokio MPSC channels), subscription maps (channel_id → Set<ClientId>), voice participants per channel. Broadcasts go only to subscribed clients.
+
+**User Status/Presence**: Users have 5 statuses: online (green), idle (orange crescent moon), dnd (red), invisible (appears offline to others), offline (disconnected). Status stored in `user.status` DB column and `ConnectedClient.status` in gateway. Invisible users are broadcast as "offline" to others. Frontend tracks statuses in `userStatuses: Record<string, PresenceStatus>` alongside legacy `onlineUsers: Set<string>`. Auto-idle after 5 min of inactivity via `useIdleDetection` hook. DND suppresses desktop notifications and sounds.
 
 ---
 
@@ -476,3 +478,4 @@ KEY: changelog, changes, updates, history
 - **2026-02-17**: Channel sidebar active indicator fix. Moved the `::before` pseudo-element from `.channel-sortable-active` to `.channel-sortable-active > .channel-item-wrapper::before` so the white vertical bar indicator only spans the channel row, not the connected voice members below it.
 - **2026-02-17**: Zoom controls in titlebar. Added zoom in/out/reset buttons (magnifying glass icons from lucide-react) to the left of the min/max/close window controls. Uses Tauri's native `webviewWindow.setZoom()` API.
 - **2026-02-17**: Channel name ellipsis. Channel names now truncate with ellipsis instead of wrapping to multiple lines when space is tight. Channel name wrapped in `.channel-item-name` span with `overflow: hidden; text-overflow: ellipsis; white-space: nowrap`. Works correctly when hover buttons (settings cog) appear.
+- **2026-02-18**: User status system. 5 statuses: online, idle, dnd, invisible, offline. Backend: `status` column on user table, `UpdateStatus` WS event, `ConnectedClient.status` in gateway, invisible users broadcast as "offline". Frontend: `userStatuses` map in chat store (alongside legacy `onlineUsers`), status indicator dots on avatars in ServerSidebar/MemberList/DMSidebar/DMChatView/ChatView mentions, status selector dropdown in self UserCard popup, `useIdleDetection` hook (5 min auto-idle), DND notification/sound suppression in `lib/notifications.ts`. CSS: `.avatar-status-indicator` overlay, `.status-dot` variants for idle (crescent moon via box-shadow), dnd, invisible. Files: `db/mod.rs`, `routes/auth.rs`, `routes/users.rs`, `ws/events.rs`, `ws/gateway.rs`, `ws/handler.rs`, `types/shared.ts`, `stores/chat.ts`, `hooks/useIdleDetection.ts`, `lib/notifications.ts`, `components/MemberList.tsx`, `components/ServerSidebar.tsx`, `components/DMSidebar.tsx`, `components/DMChatView.tsx`, `components/ChatView.tsx`, `styles/global.css`.

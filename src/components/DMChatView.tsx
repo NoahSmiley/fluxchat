@@ -33,7 +33,7 @@ function renderDMContent(text: string): ReactNode[] {
 export function DMChatView() {
   const {
     dmMessages, sendDM, loadMoreDMMessages, dmHasMore, loadingMessages,
-    dmChannels, activeDMChannelId, onlineUsers,
+    dmChannels, activeDMChannelId, onlineUsers, userStatuses,
     searchDMMessages, dmSearchResults, dmSearchQuery, clearDMSearch,
     decryptedCache, members,
   } = useChatStore();
@@ -95,7 +95,7 @@ export function DMChatView() {
         <span className="dm-chat-title">
           {dm && (
             <>
-              <span className={`status-dot ${onlineUsers.has(dm.otherUser.id) ? "online" : "offline"}`} />
+              <span className={`status-dot ${userStatuses[dm.otherUser.id] ?? (onlineUsers.has(dm.otherUser.id) ? "online" : "offline")}`} />
               {dm.otherUser.username}
             </>
           )}

@@ -430,8 +430,8 @@ pub async fn get_session(
         _ => return Json(serde_json::json!(null)).into_response(),
     };
 
-    let row = sqlx::query_as::<_, (String, String, String, Option<String>, String, String, bool)>(
-        r#"SELECT u.id, u.email, u.username, u.image, s.expiresAt, u.ring_style, u.ring_spin
+    let row = sqlx::query_as::<_, (String, String, String, Option<String>, String, String, bool, String)>(
+        r#"SELECT u.id, u.email, u.username, u.image, s.expiresAt, u.ring_style, u.ring_spin, u.status
            FROM "session" s
            JOIN "user" u ON u.id = s.userId
            WHERE s.token = ?"#,
@@ -443,7 +443,7 @@ pub async fn get_session(
     .flatten();
 
     match row {
-        Some((id, email, username, image, expires_at, ring_style, ring_spin)) => {
+        Some((id, email, username, image, expires_at, ring_style, ring_spin, status)) => {
             let now = chrono::Utc::now().to_rfc3339();
             if expires_at < now {
                 return Json(serde_json::json!(null)).into_response();
@@ -456,6 +456,7 @@ pub async fn get_session(
                     "image": image,
                     "ringStyle": ring_style,
                     "ringSpin": ring_spin,
+                    "status": status,
                 }
             }))
             .into_response()

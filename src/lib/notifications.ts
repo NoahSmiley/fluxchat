@@ -1,3 +1,6 @@
+import { useChatStore } from "../stores/chat.js";
+import { useAuthStore } from "../stores/auth.js";
+
 // Notification preferences from localStorage
 function isSoundEnabled(): boolean {
   return localStorage.getItem("flux-sound-enabled") !== "false";
@@ -7,8 +10,14 @@ function isNotificationsEnabled(): boolean {
   return localStorage.getItem("flux-notifications-enabled") !== "false";
 }
 
+function isDND(): boolean {
+  const userId = useAuthStore.getState().user?.id;
+  if (!userId) return false;
+  return useChatStore.getState().userStatuses[userId] === "dnd";
+}
+
 export function playMessageSound() {
-  if (!isSoundEnabled()) return;
+  if (!isSoundEnabled() || isDND()) return;
   try {
     const ctx = new AudioContext();
     const gain = ctx.createGain();
@@ -38,7 +47,7 @@ export function playMessageSound() {
 }
 
 export function showDesktopNotification(senderName: string, text: string) {
-  if (!isNotificationsEnabled()) return;
+  if (!isNotificationsEnabled() || isDND()) return;
   if (typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
 

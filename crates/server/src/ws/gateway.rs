@@ -14,6 +14,7 @@ pub struct ConnectedClient {
     pub subscribed_dms: HashSet<String>,
     pub voice_channel_id: Option<String>,
     pub activity: Option<ActivityInfo>,
+    pub status: String, // "online" | "idle" | "dnd" | "invisible"
 }
 
 pub struct GatewayState {
@@ -50,6 +51,7 @@ impl GatewayState {
         user_id: String,
         username: String,
         tx: mpsc::UnboundedSender<String>,
+        status: String,
     ) {
         let client = ConnectedClient {
             user_id,
@@ -59,6 +61,7 @@ impl GatewayState {
             subscribed_dms: HashSet::new(),
             voice_channel_id: None,
             activity: None,
+            status,
         };
         self.clients.write().await.insert(client_id, client);
     }
@@ -246,17 +249,37 @@ impl GatewayState {
         }
     }
 
-    /// Get all online user IDs
-    pub async fn online_user_ids(&self) -> Vec<String> {
+    /// Get all online user IDs with their statuses (skips invisible users)
+    pub async fn online_user_statuses(&self) -> Vec<(String, String)> {
         let clients = self.clients.read().await;
         let mut seen = HashSet::new();
-        let mut ids = Vec::new();
+        let mut result = Vec::new();
         for client in clients.values() {
             if seen.insert(client.user_id.clone()) {
-                ids.push(client.user_id.clone());
+                if client.status != "invisible" {
+                    result.push((client.user_id.clone(), client.status.clone()));
+                }
             }
         }
-        ids
+        result
+    }
+
+    /// Set the status of a connected client
+    pub async fn set_status(&self, client_id: ClientId, status: String) {
+        if let Some(client) = self.clients.write().await.get_mut(&client_id) {
+            client.status = status;
+        }
+    }
+
+    /// Get the status of a user (from any of their connections)
+    pub async fn get_user_status(&self, user_id: &str) -> Option<String> {
+        let clients = self.clients.read().await;
+        for client in clients.values() {
+            if client.user_id == user_id {
+                return Some(client.status.clone());
+            }
+        }
+        None
     }
 
     /// Get all voice channel states

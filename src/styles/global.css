@@ -479,6 +479,7 @@ input:focus {
   flex-shrink: 0;
   transition: transform 0.15s, opacity 0.15s;
   border-radius: 50%;
+  position: relative;
 }
 
 /* Rare glow on sidebar avatars — uses pseudo to avoid overflow clipping */
@@ -2808,12 +2809,49 @@ input:focus {
   background: #43b581;
 }
 
+.status-dot.idle {
+  background: #faa61a;
+  border-radius: 50%;
+}
+
+.status-dot.dnd {
+  background: #f04747;
+}
+
+.status-dot.invisible {
+  background: #747f8d;
+}
+
 .status-dot.offline {
   background: #555;
 }
 
 .message-header .status-dot {
   align-self: center;
+}
+
+/* ── Avatar Status Indicator (overlay on avatars) ── */
+.avatar-status-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-primary);
+  z-index: 2;
+}
+
+.avatar-status-indicator.online {
+  background: #43b581;
+}
+
+.avatar-status-indicator.idle {
+  background: #faa61a;
+}
+
+.avatar-status-indicator.dnd {
+  background: #f04747;
 }
 
 /* ── Embedded Links ── */
@@ -3179,6 +3217,14 @@ input:focus {
   background: #43b581;
 }
 
+.dm-status-dot.idle {
+  background: #faa61a;
+}
+
+.dm-status-dot.dnd {
+  background: #f04747;
+}
+
 .dm-status-dot.offline {
   background: var(--text-muted);
 }
@@ -3435,11 +3481,11 @@ input:focus {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
 }
 
 .user-card-banner {
   height: 60px;
+  border-radius: 12px 12px 0 0;
 }
 
 .user-card-avatar-wrapper {
@@ -3581,6 +3627,83 @@ input:focus {
   color: var(--text-secondary);
 }
 
+/* ── Status selector (self user card) ── */
+.status-selector-wrapper {
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.status-selector-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 3px 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.status-selector-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.status-chevron {
+  transition: transform 0.15s;
+}
+
+.status-chevron.open {
+  transform: rotate(180deg);
+}
+
+.user-card-joined {
+  color: var(--text-secondary);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+.status-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px;
+  z-index: 20;
+  min-width: 160px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.status-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.status-picker-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.status-picker-option.active {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+}
+
 .user-card-actions {
   display: flex;
   gap: 6px;
@@ -3643,6 +3766,14 @@ input:focus {
 
 .mention-status-dot.online {
   background: #43b581;
+}
+
+.mention-status-dot.idle {
+  background: #faa61a;
+}
+
+.mention-status-dot.dnd {
+  background: #f04747;
 }
 
 .mention-status-dot.offline {

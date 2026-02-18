@@ -100,23 +100,36 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
     // Create mpsc channel for sending messages to this client
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
 
-    // Register client
+    // Read user's saved status preference from DB
+    let user_status = sqlx::query_scalar::<_, String>(
+        r#"SELECT status FROM "user" WHERE id = ?"#,
+    )
+    .bind(&user.id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten()
+    .unwrap_or_else(|| "online".to_string());
+
+    // Register client with their status
     state
         .gateway
-        .register(client_id, user.id.clone(), user.username.clone(), tx)
+        .register(client_id, user.id.clone(), user.username.clone(), tx, user_status.clone())
         .await;
 
-    // Broadcast online presence
-    state
-        .gateway
-        .broadcast_all(
-            &ServerEvent::Presence {
-                user_id: user.id.clone(),
-                status: "online".into(),
-            },
-            None,
-        )
-        .await;
+    // Broadcast online presence (invisible users don't broadcast)
+    if user_status != "invisible" {
+        state
+            .gateway
+            .broadcast_all(
+                &ServerEvent::Presence {
+                    user_id: user.id.clone(),
+                    status: user_status.clone(),
+                },
+                None,
+            )
+            .await;
+    }
 
     // Send current voice states
     let voice_states = state.gateway.all_voice_states().await;
@@ -133,9 +146,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
             .await;
     }
 
-    // Send online users
-    let online_ids = state.gateway.online_user_ids().await;
-    for uid in online_ids {
+    // Send online users with their statuses (invisible users are excluded)
+    let online_statuses = state.gateway.online_user_statuses().await;
+    for (uid, status) in online_statuses {
         if uid != user.id {
             state
                 .gateway
@@ -143,12 +156,24 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
                     client_id,
                     &ServerEvent::Presence {
                         user_id: uid,
-                        status: "online".into(),
+                        status,
                     },
                 )
                 .await;
         }
     }
+
+    // Send own status back to self (so invisible users know their own status)
+    state
+        .gateway
+        .send_to(
+            client_id,
+            &ServerEvent::Presence {
+                user_id: user.id.clone(),
+                status: user_status,
+            },
+        )
+        .await;
 
     // Send current activities of all online users
     let activities = state.gateway.get_all_activities().await;
@@ -204,10 +229,14 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
         _ = recv_task => {},
     }
 
-    // Clean up: unregister and handle voice leave
-    let old_voice = {
+    // Clean up: save state before unregistering
+    let (old_voice, was_invisible) = {
         let clients = state.gateway.clients.read().await;
-        clients.get(&client_id).and_then(|c| c.voice_channel_id.clone())
+        let client = clients.get(&client_id);
+        (
+            client.and_then(|c| c.voice_channel_id.clone()),
+            client.map(|c| c.status == "invisible").unwrap_or(false),
+        )
     };
 
     state.gateway.unregister(client_id).await;
@@ -239,17 +268,19 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
         )
         .await;
 
-    // Broadcast offline presence
-    state
-        .gateway
-        .broadcast_all(
-            &ServerEvent::Presence {
-                user_id: user.id,
-                status: "offline".into(),
-            },
-            None,
-        )
-        .await;
+    // Broadcast offline presence (invisible users were already showing as offline)
+    if !was_invisible {
+        state
+            .gateway
+            .broadcast_all(
+                &ServerEvent::Presence {
+                    user_id: user.id,
+                    status: "offline".into(),
+                },
+                None,
+            )
+            .await;
+    }
 }
 
 async fn handle_client_event(
@@ -840,6 +871,64 @@ async fn handle_client_event(
                     Some(client_id),
                 )
                 .await;
+        }
+        ClientEvent::UpdateStatus { status } => {
+            let valid = ["online", "idle", "dnd", "invisible"];
+            if !valid.contains(&status.as_str()) {
+                return;
+            }
+
+            // Get old status before updating
+            let old_status = state.gateway.get_user_status(&user.id).await.unwrap_or_else(|| "online".to_string());
+
+            // Update in gateway
+            state.gateway.set_status(client_id, status.clone()).await;
+
+            // Persist to DB
+            let _ = sqlx::query(r#"UPDATE "user" SET status = ? WHERE id = ?"#)
+                .bind(&status)
+                .bind(&user.id)
+                .execute(&state.db)
+                .await;
+
+            // Broadcast the effective presence to other users
+            if status == "invisible" {
+                // Switching to invisible: tell others we're "offline"
+                state.gateway.broadcast_all(
+                    &ServerEvent::Presence {
+                        user_id: user.id.clone(),
+                        status: "offline".into(),
+                    },
+                    None,
+                ).await;
+            } else if old_status == "invisible" {
+                // Coming out of invisible: tell others our new status
+                state.gateway.broadcast_all(
+                    &ServerEvent::Presence {
+                        user_id: user.id.clone(),
+                        status: status.clone(),
+                    },
+                    None,
+                ).await;
+            } else {
+                // Normal status change: broadcast to all
+                state.gateway.broadcast_all(
+                    &ServerEvent::Presence {
+                        user_id: user.id.clone(),
+                        status: status.clone(),
+                    },
+                    None,
+                ).await;
+            }
+
+            // Always send own status back to self (so client knows it took effect)
+            state.gateway.send_to(
+                client_id,
+                &ServerEvent::Presence {
+                    user_id: user.id.clone(),
+                    status,
+                },
+            ).await;
         }
         ClientEvent::Ping => {
             // No-op — just keeps connection alive

@@ -151,7 +151,7 @@ async function fetchLeetifyProfile(steamId: string): Promise<LeetifyProfile | nu
 
 // ── Main Component ──
 export function GameChannelView() {
-  const { members, onlineUsers, userActivities } = useChatStore();
+  const { members, onlineUsers, userStatuses, userActivities } = useChatStore();
   const { user } = useAuthStore();
   const { openSettings } = useUIStore();
   const [activeTab, setActiveTab] = useState<Tab>("team");

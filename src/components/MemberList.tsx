@@ -2,8 +2,15 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
-import { Crown, Shield, MessageSquare, Music, Gamepad2 } from "lucide-react";
-import type { MemberWithUser, ActivityInfo } from "../types/shared.js";
+import { Crown, Shield, MessageSquare, Music, Gamepad2, ChevronDown } from "lucide-react";
+import type { MemberWithUser, ActivityInfo, PresenceStatus } from "../types/shared.js";
+
+const STATUS_OPTIONS: { value: PresenceStatus; label: string }[] = [
+  { value: "online", label: "Online" },
+  { value: "idle", label: "Idle" },
+  { value: "dnd", label: "Do Not Disturb" },
+  { value: "invisible", label: "Invisible" },
+];
 
 export function RoleBadge({ role }: { role: string }) {
   if (role === "owner") return <Crown size={10} className="role-badge owner" />;
@@ -21,10 +28,19 @@ export function ActivityTag({ activity }: { activity: ActivityInfo }) {
   );
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  online: "Online",
+  idle: "Idle",
+  dnd: "Do Not Disturb",
+  invisible: "Invisible",
+  offline: "Offline",
+};
+
 export function UserCard({
   member,
   activity,
   isOnline,
+  status,
   position,
   onDM,
   isSelf,
@@ -32,11 +48,15 @@ export function UserCard({
   member: MemberWithUser;
   activity?: ActivityInfo;
   isOnline: boolean;
+  status?: PresenceStatus;
   position: { top?: number; right?: number; left?: number; bottom?: number };
   onDM: () => void;
   isSelf: boolean;
 }) {
   const color = avatarColor(member.username);
+  const effectiveStatus = status ?? (isOnline ? "online" : "offline");
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const { setMyStatus } = useChatStore();
 
   return (
     <div
@@ -66,9 +86,36 @@ export function UserCard({
           {member.username}
           <RoleBadge role={member.role} />
         </div>
-        <div className="user-card-meta">
-          {isOnline ? "Online" : "Offline"} &middot; Joined {new Date(member.joinedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-        </div>
+
+        {isSelf ? (
+          <div className="user-card-meta status-selector-wrapper">
+            <button className="status-selector-btn" onClick={() => setShowStatusPicker(!showStatusPicker)}>
+              <span className={`status-dot ${effectiveStatus}`} />
+              {STATUS_LABELS[effectiveStatus] ?? "Offline"}
+              <ChevronDown size={10} className={`status-chevron ${showStatusPicker ? "open" : ""}`} />
+            </button>
+            {showStatusPicker && (
+              <div className="status-picker-dropdown">
+                {STATUS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={`status-picker-option ${effectiveStatus === opt.value ? "active" : ""}`}
+                    onClick={() => { setMyStatus(opt.value); setShowStatusPicker(false); }}
+                  >
+                    <span className={`status-dot ${opt.value}`} />
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <span className="user-card-joined">&middot; Joined {new Date(member.joinedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
+          </div>
+        ) : (
+          <div className="user-card-meta">
+            <span className={`status-dot ${effectiveStatus}`} />
+            {STATUS_LABELS[effectiveStatus] ?? "Offline"} &middot; Joined {new Date(member.joinedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+          </div>
+        )}
 
         {activity && (
           <div className="user-card-activity">
@@ -90,19 +137,21 @@ export function UserCard({
           </div>
         )}
 
-        <div className="user-card-actions">
-          <button className="user-card-dm-btn" onClick={onDM}>
-            <MessageSquare size={12} />
-            Message
-          </button>
-        </div>
+        {!isSelf && (
+          <div className="user-card-actions">
+            <button className="user-card-dm-btn" onClick={onDM}>
+              <MessageSquare size={12} />
+              Message
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 export function MemberList() {
-  const { members, onlineUsers, userActivities, openDM, showDMs } = useChatStore();
+  const { members, onlineUsers, userStatuses, userActivities, openDM, showDMs } = useChatStore();
   const { user } = useAuthStore();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [cardPos, setCardPos] = useState({ top: 0, right: 0 });
@@ -153,13 +202,14 @@ export function MemberList() {
           <div className="member-section-label">{online.length} Online</div>
           {online.map((m) => {
             const activity = userActivities[m.userId];
+            const status = userStatuses[m.userId] ?? "online";
             return (
               <div
                 key={m.userId}
                 className={`member-item ${selectedUserId === m.userId ? "selected" : ""}`}
                 onClick={(e) => handleMemberClick(e, m.userId)}
               >
-                <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, !!activity, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
+                <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, !!activity, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle), position: "relative" } as React.CSSProperties}>
                   <div className="member-avatar" style={{ background: avatarColor(m.username) }}>
                     {m.image ? (
                       <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -167,6 +217,9 @@ export function MemberList() {
                       (m.username ?? "?").charAt(0).toUpperCase()
                     )}
                   </div>
+                  {status !== "offline" && status !== "invisible" && (
+                    <span className={`avatar-status-indicator ${status}`} />
+                  )}
                 </div>
                 <div className="member-info">
                   <span className="member-name">
@@ -215,6 +268,7 @@ export function MemberList() {
           member={selectedMember}
           activity={userActivities[selectedMember.userId]}
           isOnline={onlineUsers.has(selectedMember.userId)}
+          status={userStatuses[selectedMember.userId]}
           position={cardPos}
           onDM={() => handleDM(selectedMember.userId)}
           isSelf={selectedMember.userId === user?.id}

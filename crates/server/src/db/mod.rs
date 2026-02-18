@@ -343,6 +343,12 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         .await
         .ok();
 
+    // Migration: add user status preference (online, idle, dnd, invisible)
+    sqlx::query(r#"ALTER TABLE "user" ADD COLUMN status TEXT NOT NULL DEFAULT 'online'"#)
+        .execute(&pool)
+        .await
+        .ok();
+
     // Migration: add pattern_seed to inventory (for Doppler ring patterns)
     sqlx::query(r#"ALTER TABLE "inventory" ADD COLUMN pattern_seed INTEGER"#)
         .execute(&pool)

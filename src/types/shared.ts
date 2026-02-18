@@ -161,7 +161,8 @@ export type WSClientEvent =
   | { type: "share_server_key"; serverId: string; userId: string; encryptedKey: string }
   | { type: "request_server_key"; serverId: string }
   | { type: "spotify_playback_control"; sessionId: string; action: string; trackUri?: string; positionMs?: number }
-  | { type: "voice_drink_update"; channelId: string; drinkCount: number };
+  | { type: "voice_drink_update"; channelId: string; drinkCount: number }
+  | { type: "update_status"; status: string };
 
 export type WSServerEvent =
   | { type: "message"; message: Message; attachments?: Attachment[] }
@@ -193,7 +194,7 @@ export type WSServerEvent =
   | { type: "coins_earned"; userId: string; amount: number; reason: string; newBalance: number }
   | { type: "error"; message: string };
 
-export type PresenceStatus = "online" | "idle" | "offline";
+export type PresenceStatus = "online" | "idle" | "dnd" | "invisible" | "offline";
 
 export interface WhitelistEntry {
   id: string;

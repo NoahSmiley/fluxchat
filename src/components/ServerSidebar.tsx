@@ -8,7 +8,7 @@ import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js
 import { UserCard } from "./MemberList.js";
 
 export function ServerSidebar() {
-  const { servers, showingDMs, showDMs, selectServer, members, onlineUsers, userActivities, openDM } = useChatStore();
+  const { servers, showingDMs, showDMs, selectServer, members, onlineUsers, userStatuses, userActivities, openDM } = useChatStore();
   const { user } = useAuthStore();
 
   // Member avatar + user card state
@@ -117,6 +117,7 @@ export function ServerSidebar() {
         <div className="sidebar-members">
             {sortedMembers.map((m) => {
               const isOnline = onlineUsers.has(m.userId);
+              const status = userStatuses[m.userId] ?? "offline";
               const activity = userActivities[m.userId];
               const rc = ringClass(m.ringStyle, m.ringSpin, m.role, !!activity, m.ringPatternSeed);
               const hasRareGlow = rc.includes("ring-rare-glow");
@@ -138,6 +139,9 @@ export function ServerSidebar() {
                       )}
                     </div>
                   </div>
+                  {status !== "offline" && status !== "invisible" && (
+                    <span className={`avatar-status-indicator ${status}`} />
+                  )}
                 </div>
               );
             })}
@@ -151,6 +155,7 @@ export function ServerSidebar() {
             member={activeCardMember}
             activity={userActivities[activeCardMember.userId]}
             isOnline={onlineUsers.has(activeCardMember.userId)}
+            status={userStatuses[activeCardMember.userId]}
             position={cardPos}
             onDM={() => handleDMFromCard(activeCardMember.userId)}
             isSelf={activeCardMember.userId === user?.id}

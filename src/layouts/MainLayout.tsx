@@ -13,6 +13,7 @@ import { SettingsModal } from "../components/SettingsModal.js";
 import { EconomyView } from "../components/CaseOpeningModal.js";
 import { EconomyToasts } from "../components/EconomyToasts.js";
 import { useKeybindListener } from "../hooks/useKeybindListener.js";
+import { useIdleDetection } from "../hooks/useIdleDetection.js";
 import { useUIStore } from "../stores/ui.js";
 
 function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; side: "left" | "right" }) {
@@ -47,6 +48,7 @@ function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; s
 
 export function MainLayout() {
   useKeybindListener();
+  useIdleDetection();
   const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels, showingDMs, activeDMChannelId } = useChatStore();
   const { user } = useAuthStore();
   const showingEconomy = useUIStore((s) => s.showingEconomy);
