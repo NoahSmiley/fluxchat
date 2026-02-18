@@ -137,14 +137,12 @@ export function UserCard({
           </div>
         )}
 
-        {!isSelf && (
-          <div className="user-card-actions">
-            <button className="user-card-dm-btn" onClick={onDM}>
-              <MessageSquare size={12} />
-              Message
-            </button>
-          </div>
-        )}
+        <div className="user-card-actions">
+          <button className="user-card-dm-btn" onClick={onDM}>
+            <MessageSquare size={12} />
+            Message
+          </button>
+        </div>
       </div>
     </div>
   );

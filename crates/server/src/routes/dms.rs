@@ -294,7 +294,6 @@ pub async fn search_users(
 
     let items: Vec<serde_json::Value> = results
         .into_iter()
-        .filter(|(id, _)| id != &user.id)
         .map(|(id, username)| serde_json::json!({"id": id, "username": username}))
         .collect();
 
