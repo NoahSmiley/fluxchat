@@ -191,6 +191,23 @@ body {
   color: white;
 }
 
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  margin-right: 32px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.zoom-controls:hover {
+  opacity: 1;
+}
+
+.zoom-btn {
+  width: 24px;
+}
+
 /* ── Auth Pages ── */
 .auth-page {
   display: flex;

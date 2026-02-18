@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { Minus, Square, Copy, X } from "lucide-react";
+import { Minus, Square, Copy, X, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { useAuthStore } from "./stores/auth.js";
 import { useUIStore } from "./stores/ui.js";
 import { useUpdater } from "./hooks/useUpdater.js";
@@ -47,8 +47,41 @@ function WindowControls() {
     } catch {}
   }
 
+  const [zoom, setZoomState] = useState(1);
+
+  async function applyZoom(factor: number) {
+    try {
+      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+      await getCurrentWebviewWindow().setZoom(factor);
+      setZoomState(factor);
+    } catch {}
+  }
+
+  function handleZoomOut() {
+    applyZoom(Math.max(0.5, Math.round((zoom - 0.1) * 100) / 100));
+  }
+
+  function handleZoomReset() {
+    applyZoom(1);
+  }
+
+  function handleZoomIn() {
+    applyZoom(Math.min(2, Math.round((zoom + 0.1) * 100) / 100));
+  }
+
   return (
     <div className="window-controls">
+      <div className="zoom-controls">
+        <button className="window-control-btn zoom-btn" onClick={handleZoomOut} title="Zoom Out">
+          <ZoomOut size={12} />
+        </button>
+        <button className="window-control-btn zoom-btn" onClick={handleZoomReset} title={`Reset Zoom (${Math.round(zoom * 100)}%)`}>
+          <RotateCcw size={10} />
+        </button>
+        <button className="window-control-btn zoom-btn" onClick={handleZoomIn} title="Zoom In">
+          <ZoomIn size={12} />
+        </button>
+      </div>
       <button className="window-control-btn" onClick={handleMinimize} title="Minimize">
         <Minus size={12} />
       </button>
