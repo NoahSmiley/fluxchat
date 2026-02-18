@@ -7,7 +7,7 @@ export function PopoutApp() {
 
   return (
     <div className="popout-container">
-      <div className="titlebar" />
+      <div className="titlebar" data-tauri-drag-region />
       {type === "chat" && <PopoutChatView />}
       {type === "screenshare" && <PopoutScreenShareView />}
     </div>

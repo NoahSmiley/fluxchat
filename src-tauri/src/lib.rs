@@ -188,9 +188,9 @@ pub fn run() {
             #[cfg(windows)]
             global_keys::stop_global_key_listen,
         ])
-        .setup(|app| {
+        .setup(|_app| {
             #[cfg(windows)]
-            global_keys::init(app.handle());
+            global_keys::init(_app.handle());
             Ok(())
         })
         .run(tauri::generate_context!())

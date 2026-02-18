@@ -5,6 +5,7 @@ import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
 import { playMessageSound, showDesktopNotification } from "../lib/notifications.js";
 import { useCryptoStore } from "./crypto.js";
+import { useUIStore } from "./ui.js";
 
 // UTF-8-safe base64 encoding/decoding (btoa/atob only handle Latin-1)
 export function utf8ToBase64(str: string): string {
@@ -245,6 +246,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectChannel: async (channelId) => {
+    // Hide economy view when selecting a channel
+    useUIStore.getState().hideEconomy();
+
     // Skip if already viewing this channel
     if (get().activeChannelId === channelId) return;
 
@@ -492,6 +496,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectDM: async (dmChannelId) => {
+    // Hide economy view when selecting a DM
+    useUIStore.getState().hideEconomy();
+
     // Skip if already viewing this DM
     if (get().activeDMChannelId === dmChannelId && get().showingDMs) return;
 

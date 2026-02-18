@@ -2,14 +2,14 @@ port: 7880
 
 # Use the same API key/secret as the Flux server
 keys:
-  APIuC63SXBtVYqW: k8NWj5otVskjXf3h7sOIQHe48EgkorRP8sclPDMdoNy
+  fluxdevkey: fluxdevsecret_that_is_at_least_32chars_long
 
 rtc:
   port_range_start: 50000
-  port_range_end: 50001
+  port_range_end: 50060
   tcp_port: 7881
-  # Discover public IP via STUN (needed for internet access)
-  use_external_ip: true
+  use_external_ip: false
+  node_ip: 192.168.0.69
 
 room:
   auto_create: true
