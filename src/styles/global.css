@@ -2459,10 +2459,10 @@ input:focus {
   position: relative;
 }
 
-.channel-sortable-active::before {
+.channel-sortable-active > .channel-item-wrapper::before {
   content: "";
   position: absolute;
-  left: 0;
+  left: -8px;
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
