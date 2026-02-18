@@ -48,7 +48,7 @@ fn get_capture_sources() -> Vec<capture::CaptureSource> {
 #[cfg(windows)]
 #[tauri::command]
 fn get_system_idle_ms() -> u64 {
-    use windows::Win32::UI::WindowsAndMessaging::{GetLastInputInfo, LASTINPUTINFO};
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     use windows::Win32::System::SystemInformation::GetTickCount;
     unsafe {
         let mut lii = LASTINPUTINFO {
