@@ -1,6 +1,5 @@
 // End-to-end encryption module using Web Crypto API
 // ECDH P-256 for key exchange, AES-256-GCM for message encryption
-import { base64ToUtf8 } from "../stores/chat.js";
 
 const DB_NAME = "flux-crypto";
 const STORE_NAME = "keys";
@@ -250,19 +249,11 @@ export async function decrypt(ciphertext: string, key: CryptoKey): Promise<strin
   return new TextDecoder().decode(decrypted);
 }
 
-/** Decrypt a message, handling legacy base64 (mlsEpoch 0) and encrypted (mlsEpoch >= 1) */
+/** Decrypt an E2EE message */
 export async function decryptMessage(
   ciphertext: string,
   key: CryptoKey | null,
-  mlsEpoch: number,
 ): Promise<string> {
-  if (mlsEpoch === 0) {
-    try {
-      return base64ToUtf8(ciphertext);
-    } catch {
-      return "[unreadable message]";
-    }
-  }
   if (!key) return "[encrypted message - key unavailable]";
   try {
     return await decrypt(ciphertext, key);

@@ -16,7 +16,7 @@ interface CryptoState {
   setServerKey: (serverId: string, key: CryptoKey) => void;
   getDMKey: (dmChannelId: string, otherUserId: string) => Promise<CryptoKey>;
   encryptMessage: (plaintext: string, key: CryptoKey) => Promise<string>;
-  decryptMessage: (ciphertext: string, key: CryptoKey | null, mlsEpoch: number) => Promise<string>;
+  decryptMessage: (ciphertext: string, key: CryptoKey | null) => Promise<string>;
   handleKeyShared: (serverId: string, encryptedKey: string, senderId: string) => Promise<void>;
   handleKeyRequested: (serverId: string, requesterId: string) => Promise<void>;
   createAndStoreServerKey: (serverId: string) => Promise<void>;
@@ -122,8 +122,8 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
     return crypto.encrypt(plaintext, key);
   },
 
-  decryptMessage: async (ciphertext, key, mlsEpoch) => {
-    return crypto.decryptMessage(ciphertext, key, mlsEpoch);
+  decryptMessage: async (ciphertext, key) => {
+    return crypto.decryptMessage(ciphertext, key);
   },
 
   handleKeyShared: async (serverId, encryptedKey, senderId) => {

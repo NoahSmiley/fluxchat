@@ -81,7 +81,10 @@ interface ChatState {
   loadDMChannels: () => Promise<void>;
   selectDM: (dmChannelId: string) => Promise<void>;
   openDM: (userId: string) => Promise<void>;
-  sendDM: (content: string) => void;
+  sendDM: (content: string) => Promise<void>;
+  dmError: string | null;
+  clearDmError: () => void;
+  retryEncryptionSetup: () => Promise<void>;
   loadMoreDMMessages: () => Promise<void>;
   searchDMMessages: (query: string) => Promise<void>;
   clearDMSearch: () => void;
@@ -169,6 +172,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   dmSearchQuery: "",
   dmSearchResults: null,
   decryptedCache: {},
+  dmError: null,
   unreadChannels: new Set(),
   typingUsers: {},
 
@@ -307,10 +311,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Update cache with fresh data
         saveChannelCache(channelId, get());
 
-        // Decrypt all loaded messages
-        const cryptoState = useCryptoStore.getState();
-        const serverKey = get().activeServerId ? cryptoState.getServerKey(get().activeServerId!) : null;
-        decryptMessages(result.items, serverKey);
+        // Cache plaintext content for display
+        cacheMessageContent(result.items);
 
         // Load reactions for the fetched messages
         if (result.items.length > 0) {
@@ -350,37 +352,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messageCursor: result.cursor,
         loadingMessages: false,
       }));
-      // Decrypt loaded messages
-      const cryptoState = useCryptoStore.getState();
-      const serverKey = get().activeServerId ? cryptoState.getServerKey(get().activeServerId!) : null;
-      decryptMessages(result.items, serverKey);
+      // Cache plaintext content for display
+      cacheMessageContent(result.items);
     } catch {
       set({ loadingMessages: false });
     }
   },
 
   sendMessage: async (content) => {
-    const { activeChannelId, activeServerId, pendingAttachments } = get();
+    const { activeChannelId, pendingAttachments } = get();
     if (!activeChannelId || (!content.trim() && pendingAttachments.length === 0)) return;
-
-    const cryptoState = useCryptoStore.getState();
-    const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
-    let ciphertext: string;
-    let mlsEpoch: number;
-    if (key) {
-      ciphertext = await cryptoState.encryptMessage(content || " ", key);
-      mlsEpoch = 1;
-    } else {
-      ciphertext = utf8ToBase64(content || " ");
-      mlsEpoch = 0;
-    }
 
     const attachmentIds = pendingAttachments.map((a) => a.id);
     gateway.send({
       type: "send_message",
       channelId: activeChannelId,
-      ciphertext,
-      mlsEpoch,
+      content: content || " ",
       ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
     });
     if (pendingAttachments.length > 0) {
@@ -390,16 +377,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   editMessage: async (messageId, newContent) => {
     if (!newContent.trim()) return;
-    const { activeServerId } = get();
-    const cryptoState = useCryptoStore.getState();
-    const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
-    const ciphertext = key
-      ? await cryptoState.encryptMessage(newContent, key)
-      : utf8ToBase64(newContent);
     gateway.send({
       type: "edit_message",
       messageId,
-      ciphertext,
+      content: newContent,
     });
   },
 
@@ -461,28 +442,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   searchMessages: async (query) => {
-    const { activeChannelId, activeServerId } = get();
+    const { activeChannelId } = get();
     if (!activeChannelId || !query.trim()) return;
     set({ searchQuery: query });
     try {
       const result = await api.searchMessages(activeChannelId, query);
-      // Client-side decryption and filtering for E2EE
-      const cryptoState = useCryptoStore.getState();
-      const key = activeServerId ? cryptoState.getServerKey(activeServerId) : null;
-      const lowerQuery = query.toLowerCase();
-      const matched: Message[] = [];
+      // Server-side FTS — results are already plaintext
+      const cache: Record<string, string> = {};
       for (const msg of result.items) {
-        const text = await cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch);
-        if (text.toLowerCase().includes(lowerQuery)) {
-          matched.push(msg);
-          // Cache the decrypted text
-          useChatStore.setState((s) => ({
-            decryptedCache: { ...s.decryptedCache, [msg.id]: text },
-          }));
-        }
-        if (matched.length >= 50) break;
+        cache[msg.id] = msg.content;
       }
-      set({ searchResults: matched });
+      useChatStore.setState((s) => ({
+        decryptedCache: { ...s.decryptedCache, ...cache },
+      }));
+      set({ searchResults: result.items });
     } catch {
       set({ searchResults: [] });
     }
@@ -574,9 +547,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const cryptoState = useCryptoStore.getState();
         try {
           const key = cryptoState.keyPair ? await cryptoState.getDMKey(dmChannelId, dm.otherUser.id) : null;
-          decryptMessages(result.items, key);
+          decryptDMMessages(result.items, key);
         } catch {
-          decryptMessages(result.items, null);
+          decryptDMMessages(result.items, null);
         }
       }
     } catch {
@@ -611,28 +584,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const dm = dmChannels.find((d) => d.id === activeDMChannelId);
     const cryptoState = useCryptoStore.getState();
-    let ciphertext: string;
-    let mlsEpoch: number;
-    try {
-      if (dm && cryptoState.keyPair) {
-        const key = await cryptoState.getDMKey(activeDMChannelId, dm.otherUser.id);
-        ciphertext = await cryptoState.encryptMessage(content, key);
-        mlsEpoch = 1;
-      } else {
-        ciphertext = utf8ToBase64(content);
-        mlsEpoch = 0;
-      }
-    } catch {
-      ciphertext = utf8ToBase64(content);
-      mlsEpoch = 0;
+    if (!dm || !cryptoState.keyPair) {
+      set({ dmError: "Encryption keys not available. Try reinitializing encryption." });
+      return;
     }
+    let ciphertext: string;
+    try {
+      const key = await cryptoState.getDMKey(activeDMChannelId, dm.otherUser.id);
+      ciphertext = await cryptoState.encryptMessage(content, key);
+    } catch (e) {
+      console.error("DM encryption failed:", e);
+      set({ dmError: "Failed to encrypt message. Try reinitializing encryption." });
+      return;
+    }
+    set({ dmError: null });
 
     gateway.send({
       type: "send_dm",
       dmChannelId: activeDMChannelId,
       ciphertext,
-      mlsEpoch,
+      mlsEpoch: 1,
     });
+  },
+
+  clearDmError: () => set({ dmError: null }),
+
+  retryEncryptionSetup: async () => {
+    set({ dmError: null });
+    const cryptoState = useCryptoStore.getState();
+    // Reset initialized flag so initialize() runs again
+    useCryptoStore.setState({ initialized: false });
+    await cryptoState.initialize();
+    if (!useCryptoStore.getState().keyPair) {
+      set({ dmError: "Encryption setup failed. Please restart the app." });
+    }
   },
 
   loadMoreDMMessages: async () => {
@@ -654,9 +639,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const cryptoState = useCryptoStore.getState();
         try {
           const key = cryptoState.keyPair ? await cryptoState.getDMKey(activeDMChannelId, dm.otherUser.id) : null;
-          decryptMessages(result.items, key);
+          decryptDMMessages(result.items, key);
         } catch {
-          decryptMessages(result.items, null);
+          decryptDMMessages(result.items, null);
         }
       }
     } catch {
@@ -683,7 +668,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const lowerQuery = query.toLowerCase();
       const matched: DMMessage[] = [];
       for (const msg of result.items) {
-        const text = await cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch);
+        const text = await cryptoState.decryptMessage(msg.ciphertext, key);
         if (text.toLowerCase().includes(lowerQuery)) {
           matched.push(msg);
           useChatStore.setState((s) => ({
@@ -743,13 +728,24 @@ export function getUserRingMap(members: MemberWithUser[]): Record<string, { ring
   return map;
 }
 
-// Bulk-decrypt messages into the cache
-async function decryptMessages(messages: (Message | DMMessage)[], key: CryptoKey | null) {
+// Cache plaintext channel messages into the decryptedCache
+function cacheMessageContent(messages: Message[]) {
+  const cache: Record<string, string> = {};
+  for (const msg of messages) {
+    cache[msg.id] = msg.content;
+  }
+  useChatStore.setState((s) => ({
+    decryptedCache: { ...s.decryptedCache, ...cache },
+  }));
+}
+
+// Bulk-decrypt DM messages into the cache (DMs remain E2EE)
+async function decryptDMMessages(messages: DMMessage[], key: CryptoKey | null) {
   const cryptoState = useCryptoStore.getState();
   const cache: Record<string, string> = {};
   await Promise.all(
     messages.map(async (msg) => {
-      cache[msg.id] = await cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch);
+      cache[msg.id] = await cryptoState.decryptMessage(msg.ciphertext, key);
     }),
   );
   useChatStore.setState((s) => ({
@@ -772,6 +768,11 @@ gateway.onConnect(() => {
     userStatuses: user ? { [user.id]: (user as any).status ?? "online" } : {},
     userActivities: {},
   });
+
+  // Re-subscribe to active channel/DM so the server knows we're watching
+  const { activeChannelId, activeDMChannelId } = useChatStore.getState();
+  if (activeChannelId) gateway.send({ type: "join_channel", channelId: activeChannelId });
+  if (activeDMChannelId) gateway.send({ type: "join_dm", dmChannelId: activeDMChannelId });
 
   // Initialize E2EE crypto
   useCryptoStore.getState().initialize().catch((e) => console.error("Crypto init failed:", e));
@@ -833,25 +834,21 @@ gateway.on((event) => {
           cached.messages = [...cached.messages, msg];
         }
       }
-      // Decrypt and cache
+      // Cache plaintext content for display
+      useChatStore.setState((s) => ({
+        decryptedCache: { ...s.decryptedCache, [msg.id]: msg.content },
+      }));
+      // Notification
       {
-        const cryptoState = useCryptoStore.getState();
-        const key = state.activeServerId ? cryptoState.getServerKey(state.activeServerId) : null;
-        cryptoState.decryptMessage(msg.ciphertext, key, msg.mlsEpoch).then((text) => {
-          useChatStore.setState((s) => ({
-            decryptedCache: { ...s.decryptedCache, [msg.id]: text },
-          }));
-          // Notification
-          const authUser = authStoreRef?.getState()?.user;
-          if (authUser && msg.senderId !== authUser.id) {
-            if (msg.channelId !== state.activeChannelId || !document.hasFocus()) {
-              const usernameMap = getUsernameMap(state.members);
-              const senderName = usernameMap[msg.senderId] ?? "Someone";
-              playMessageSound();
-              showDesktopNotification(senderName, text);
-            }
+        const authUser = authStoreRef?.getState()?.user;
+        if (authUser && msg.senderId !== authUser.id) {
+          if (msg.channelId !== state.activeChannelId || !document.hasFocus()) {
+            const usernameMap = getUsernameMap(state.members);
+            const senderName = usernameMap[msg.senderId] ?? "Someone";
+            playMessageSound();
+            showDesktopNotification(senderName, msg.content);
           }
-        });
+        }
       }
       break;
     }
@@ -899,27 +896,16 @@ gateway.on((event) => {
       useChatStore.setState((s) => ({
         messages: s.messages.map((m) =>
           m.id === event.messageId
-            ? { ...m, ciphertext: event.ciphertext, editedAt: event.editedAt }
+            ? { ...m, content: event.content, editedAt: event.editedAt }
             : m
         ),
         searchResults: s.searchResults?.map((m) =>
           m.id === event.messageId
-            ? { ...m, ciphertext: event.ciphertext, editedAt: event.editedAt }
+            ? { ...m, content: event.content, editedAt: event.editedAt }
             : m
         ) ?? null,
+        decryptedCache: { ...s.decryptedCache, [event.messageId]: event.content },
       }));
-      // Re-decrypt edited message
-      {
-        const cryptoState = useCryptoStore.getState();
-        const key = state.activeServerId ? cryptoState.getServerKey(state.activeServerId) : null;
-        // Edited messages use mlsEpoch 1 if encrypted
-        const epoch = key ? 1 : 0;
-        cryptoState.decryptMessage(event.ciphertext, key, epoch).then((text) => {
-          useChatStore.setState((s) => ({
-            decryptedCache: { ...s.decryptedCache, [event.messageId]: text },
-          }));
-        });
-      }
       break;
     }
 
@@ -1106,7 +1092,7 @@ gateway.on((event) => {
               key = await cryptoState.getDMKey(event.message.dmChannelId, dm.otherUser.id);
             }
           } catch { /* no key */ }
-          const text = await cryptoState.decryptMessage(event.message.ciphertext, key, event.message.mlsEpoch);
+          const text = await cryptoState.decryptMessage(event.message.ciphertext, key);
           useChatStore.setState((s) => ({
             decryptedCache: { ...s.decryptedCache, [event.message.id]: text },
           }));

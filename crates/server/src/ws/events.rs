@@ -25,16 +25,14 @@ pub enum ClientEvent {
     SendMessage {
         #[serde(rename = "channelId")]
         channel_id: String,
-        ciphertext: String,
-        #[serde(rename = "mlsEpoch")]
-        mls_epoch: i64,
+        content: String,
         #[serde(default, rename = "attachmentIds")]
         attachment_ids: Vec<String>,
     },
     EditMessage {
         #[serde(rename = "messageId")]
         message_id: String,
-        ciphertext: String,
+        content: String,
     },
     TypingStart {
         #[serde(rename = "channelId")]
@@ -135,7 +133,7 @@ pub enum ServerEvent {
     MessageEdit {
         #[serde(rename = "messageId")]
         message_id: String,
-        ciphertext: String,
+        content: String,
         #[serde(rename = "editedAt")]
         edited_at: String,
     },

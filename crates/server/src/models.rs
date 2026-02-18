@@ -57,8 +57,7 @@ pub struct Message {
     pub id: String,
     pub channel_id: String,
     pub sender_id: String,
-    pub ciphertext: String,
-    pub mls_epoch: i64,
+    pub content: String,
     pub created_at: String,
     pub edited_at: Option<String>,
 }

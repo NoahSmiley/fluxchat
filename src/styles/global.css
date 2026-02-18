@@ -83,6 +83,7 @@ body {
   border: 2px solid transparent;
   pointer-events: none;
   z-index: 99999;
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -3040,6 +3041,34 @@ input:focus {
   font-weight: 500;
 }
 
+.dm-encryption-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin: 0 16px;
+  background: rgba(220, 38, 38, 0.15);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: var(--radius);
+  color: #fca5a5;
+  font-size: 13px;
+}
+
+.dm-encryption-error button {
+  padding: 2px 10px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dm-encryption-error button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
 .message-input-wrapper {
   position: relative;
 }
@@ -4477,6 +4506,7 @@ input:focus {
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -5400,9 +5430,9 @@ input:focus {
 }
 
 /* Default — keep existing behavior (no override) */
-.ring-style-default {
-  /* no override — uses existing .active / .chroma role-based classes */
-}
+/* .ring-style-default {
+  no override — uses existing .active / .chroma role-based classes
+} */
 
 /* Spin toggle — rotation via ::before so avatar stays still */
 .ring-spin-active {
@@ -5626,6 +5656,7 @@ input:focus {
   border-radius: 6px;
   border: 2px solid transparent;
   pointer-events: none;
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;

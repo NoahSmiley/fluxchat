@@ -161,7 +161,7 @@ pub async fn search_messages(
     Path(channel_id): Path<String>,
     Query(query): Query<SearchQuery>,
 ) -> impl IntoResponse {
-    let _q = match query.q.as_deref() {
+    let search_query = match query.q.as_deref() {
         Some(q) if !q.trim().is_empty() => q.trim().to_string(),
         _ => {
             return (
@@ -210,16 +210,45 @@ pub async fn search_messages(
             .into_response();
     }
 
-    // Return raw messages for client-side decryption and filtering (E2EE)
-    let mut items = sqlx::query_as::<_, Message>(
-        "SELECT * FROM messages WHERE channel_id = ? ORDER BY created_at DESC LIMIT 500",
+    // Sanitize query for FTS5: strip special chars, append * for prefix matching
+    // e.g. "web" → "web*" which matches "web", "webster", "website", etc.
+    let fts_query: String = search_query
+        .split_whitespace()
+        .filter_map(|word| {
+            let clean: String = word
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '\'')
+                .collect();
+            if clean.is_empty() {
+                None
+            } else {
+                Some(format!("{}*", clean))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    // Server-side full-text search via FTS5
+    let items = match sqlx::query_as::<_, Message>(
+        "SELECT m.* FROM messages m
+         INNER JOIN (
+           SELECT message_id, rank FROM messages_fts WHERE messages_fts MATCH ?
+         ) fts ON fts.message_id = m.id
+         WHERE m.channel_id = ?
+         ORDER BY fts.rank
+         LIMIT 50",
     )
+    .bind(&fts_query)
     .bind(&channel_id)
     .fetch_all(&state.db)
     .await
-    .unwrap_or_default();
-
-    items.reverse();
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            eprintln!("FTS search error: {:?}", e);
+            Vec::new()
+        }
+    };
 
     Json(serde_json::json!({"items": items})).into_response()
 }

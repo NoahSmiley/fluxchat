@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type ReactNode, type KeyboardEvent, type DragEvent, type ClipboardEvent } from "react";
-import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap, base64ToUtf8 } from "../stores/chat.js";
-import { useCryptoStore } from "../stores/crypto.js";
+import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { ArrowUpRight, Pencil, Trash2, Paperclip, X } from "lucide-react";
 import { MessageAttachments } from "./MessageAttachments.js";
@@ -183,15 +182,9 @@ export function ChatView() {
     }
   }
 
-  function decodeContent(msgId: string, ciphertext: string): string {
-    // Use pre-decrypted cache (populated by chat store on message load/receive)
+  function decodeContent(msgId: string, content: string): string {
     if (decryptedCache[msgId]) return decryptedCache[msgId];
-    // Fallback for legacy messages
-    try {
-      return base64ToUtf8(ciphertext);
-    } catch {
-      return "[encrypted message]";
-    }
+    return content;
   }
 
   function handlePopOut() {
@@ -325,7 +318,7 @@ export function ChatView() {
           const senderRole = roleMap[msg.senderId] ?? "member";
           const senderRing = ringMap[msg.senderId];
           const msgReactions = reactions[msg.id] ?? [];
-          const decoded = decodeContent(msg.id, msg.ciphertext);
+          const decoded = decodeContent(msg.id, msg.content);
           const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole, false, senderRing?.ringPatternSeed);
 
           return (

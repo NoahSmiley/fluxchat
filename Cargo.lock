@@ -1016,6 +1016,7 @@ dependencies = [
  "dotenvy",
  "flux-shared",
  "futures",
+ "libsqlite3-sys",
  "livekit-api",
  "nanoid",
  "rand 0.8.5",

@@ -87,8 +87,7 @@ CREATE TABLE IF NOT EXISTS "messages" (
     id TEXT PRIMARY KEY,
     channel_id TEXT NOT NULL REFERENCES "channels"(id) ON DELETE CASCADE,
     sender_id TEXT NOT NULL REFERENCES "user"(id),
-    ciphertext TEXT NOT NULL,
-    mls_epoch INTEGER NOT NULL DEFAULT 0,
+    content TEXT NOT NULL,
     created_at TEXT NOT NULL,
     edited_at TEXT
 );
@@ -165,7 +164,6 @@ CREATE TABLE IF NOT EXISTS "link_previews" (
 CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
     message_id,
     plaintext,
-    content='',
     tokenize='porter unicode61'
 );
 

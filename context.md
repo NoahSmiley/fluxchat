@@ -133,7 +133,9 @@ Schema file: `crates/server/src/db/schema.sql`
 
 **channel** — id (TEXT PK), server_id (FK), name, type (text|voice|game|category), bitrate, parent_id (FK channel, for categories), position, created_at
 
-**message** — id (TEXT PK), channel_id (FK), sender_id (FK user), ciphertext, mls_epoch (0=plain, 1=encrypted), created_at, edited_at
+**message** — id (TEXT PK), channel_id (FK), sender_id (FK user), content (plaintext), created_at, edited_at
+
+**messages_fts** — FTS5 virtual table (porter stemming + unicode61 tokenizer). Columns: message_id, plaintext. Populated on message create/edit, cleaned on delete. Used for server-side full-text search on text channels.
 
 **reaction** — id, message_id (FK), user_id (FK), emoji, created_at
 
@@ -292,13 +294,17 @@ Implementation: `lib/crypto.ts` (Web Crypto API), `stores/crypto.ts` (Zustand)
 
 **User key pair**: ECDH P-256, generated on first use, stored in IndexedDB. Public key uploaded to server as base64 JWK. Private key never leaves the client.
 
-**Server group key**: One AES-256-GCM key per server. Created by server owner, wrapped with each member's ECDH public key, distributed via REST + WebSocket.
+**Server group key**: One AES-256-GCM key per server. Created by server owner, wrapped with each member's ECDH public key, distributed via REST + WebSocket. Used for **voice/video E2EE only** (not text messages).
 
-**DM key**: Derived via ECDH(myPrivate, theirPublic) → HKDF(SHA-256, salt=dmChannelId, info="flux-dm") → AES-256-GCM key. Self-DMs supported (user can message themselves); uses ECDH(myPrivate, myPublic) for key derivation.
+**Text channel messages**: Stored as **plaintext** on the server in the `content` column. Not E2EE — encrypted in transit via TLS only. This enables server-side full-text search via FTS5.
 
-**Message format**: AES-256-GCM encrypt → base64(iv || ciphertext || tag) stored in `ciphertext` column. `mls_epoch=0` means plaintext fallback (base64-encoded), `mls_epoch=1` means encrypted.
+**DM messages**: Fully E2EE. Key derived via ECDH(myPrivate, theirPublic) → HKDF(SHA-256, salt=dmChannelId, info="flux-dm") → AES-256-GCM key. Stored as `ciphertext` + `mls_epoch` in `dm_messages` table. Self-DMs supported (uses ECDH(myPrivate, myPublic) for key derivation).
 
-**Fallback**: If no key available, messages are base64-encoded plaintext (not encrypted).
+**Voice/Video**: E2EE via LiveKit's `ExternalE2EEKeyProvider` using the server group key. The key is exported as base64 and set on the provider before connecting to the room.
+
+**DM message format**: AES-256-GCM encrypt → base64(iv || ciphertext || tag) stored in `ciphertext` column. `mls_epoch=0` means plaintext fallback (base64-encoded), `mls_epoch=1` means encrypted.
+
+**Search**: Text channels use server-side FTS5 (fast, tokenized, porter-stemmed). DMs use client-side decrypt-and-filter (fetch 500 messages, decrypt, substring match).
 
 ---
 
@@ -443,7 +449,7 @@ KEY: patterns, conventions, architecture, decisions
 - **Cursor pagination**: Messages use cursor (last message ID), 50 per page.
 - **Message caching**: 3-level cache (per-channel, per-server, per-DM) for instant channel switching.
 - **Reconnect**: WebSocket auto-reconnects with exponential backoff (1s → 30s).
-- **Encryption fallback**: If no key, messages stored as base64 plaintext (mls_epoch=0).
+- **Encryption**: Text channel messages are plaintext on the server (not E2EE). DMs are E2EE. Voice/video are E2EE via server group key.
 - **SQLite WAL mode**: Write-ahead logging for concurrent reads during writes.
 - **Idempotent schema**: All CREATE TABLE use IF NOT EXISTS. Migrations via ALTER TABLE.
 - **Path alias**: `@/*` maps to `./src/*` in TypeScript imports.
@@ -462,7 +468,10 @@ KEY: quirks, gotchas, bugs, watch-out, traps
 - CORS mirrors request origin (permissive) — fine for desktop app, would need tightening for web deployment.
 - WebSocket auth uses token in query string (visible in logs) — acceptable for desktop, less ideal for web.
 - Spotify integration requires both client ID/secret AND a linked user account to function.
-- The `mls_epoch` field name is a holdover — it's not actually MLS protocol, just 0=plain/1=encrypted.
+- The `mls_epoch` field in `dm_messages` is a holdover name — it's not actually MLS protocol, just 0=plain/1=encrypted.
+- Text channel messages use `content` (plaintext). DM messages use `ciphertext` + `mls_epoch` (E2EE). Don't confuse the two schemas.
+- SQLite FTS5 requires `libsqlite3-sys` with `bundled` feature — system SQLite often lacks FTS5. Do NOT use `content=''` (contentless) FTS5 tables if you need to JOIN on column values.
+- WebSocket `send()` silently drops messages when not connected — any early sends (before WS open) are lost. Always re-subscribe in `onConnect`.
 
 ---
 
@@ -479,4 +488,7 @@ KEY: changelog, changes, updates, history
 - **2026-02-17**: Zoom controls in titlebar. Added zoom in/out/reset buttons (magnifying glass icons from lucide-react) to the left of the min/max/close window controls. Uses Tauri's native `webviewWindow.setZoom()` API.
 - **2026-02-17**: Channel name ellipsis. Channel names now truncate with ellipsis instead of wrapping to multiple lines when space is tight. Channel name wrapped in `.channel-item-name` span with `overflow: hidden; text-overflow: ellipsis; white-space: nowrap`. Works correctly when hover buttons (settings cog) appear.
 - **2026-02-18**: Self-DMs. Users can DM themselves (notes to self). Removed self-filter from `search_users` in `routes/dms.rs`, removed `!isSelf` guard on Message button in UserCard (`MemberList.tsx`).
+- **2026-02-18**: Plaintext text channels + server-side FTS search. Text channel messages are no longer E2EE — stored as plaintext in `messages.content` column (was `ciphertext` + `mls_epoch`). Server indexes all channel messages in `messages_fts` (FTS5, porter stemming, unicode61) for fast full-text search. DMs remain fully E2EE with `ciphertext`/`mls_epoch`. Voice/video remain E2EE via server group key + LiveKit ExternalE2EEKeyProvider. Search in text channels is now server-side FTS5 (was client-side decrypt-and-filter). Frontend sends/receives plaintext for channel messages; DM encryption path unchanged. DB must be wiped for this migration (no backwards compat). Files changed: schema.sql, models.rs, events.rs, handler.rs, messages.rs, shared.ts, chat.ts, ChatView.tsx, PopoutChatView.tsx.
+- **2026-02-18**: FTS5 search fixes. (1) Removed `content=''` from FTS5 table definition — contentless tables can't return column values for JOINs. (2) Added prefix matching with `*` wildcard so "web" matches "webster". (3) Added `libsqlite3-sys = { version = "0.30", features = ["bundled"] }` to Cargo.toml — system SQLite may not have FTS5 compiled in; bundling guarantees FTS5 support. (4) Added error logging for FTS queries.
+- **2026-02-18**: WS startup race condition fix. `gateway.send()` silently drops messages when WS is not connected. On app startup, `selectServer` sends `join_channel` before WS connects, so the server never knows the client is subscribed. Fixed by re-subscribing to the active channel/DM in `gateway.onConnect` handler in `chat.ts`.
 - **2026-02-18**: User status system. 5 statuses: online, idle, dnd, invisible, offline. Backend: `status` column on user table, `UpdateStatus` WS event, `ConnectedClient.status` in gateway, invisible users broadcast as "offline". Frontend: `userStatuses` map in chat store (alongside legacy `onlineUsers`), status indicator dots on avatars in ServerSidebar/MemberList/DMSidebar/DMChatView/ChatView mentions, status selector dropdown in self UserCard popup, `useIdleDetection` hook (5 min auto-idle), DND notification/sound suppression in `lib/notifications.ts`. CSS: `.avatar-status-indicator` overlay, `.status-dot` variants for idle (crescent moon via box-shadow), dnd, invisible. Files: `db/mod.rs`, `routes/auth.rs`, `routes/users.rs`, `ws/events.rs`, `ws/gateway.rs`, `ws/handler.rs`, `types/shared.ts`, `stores/chat.ts`, `hooks/useIdleDetection.ts`, `lib/notifications.ts`, `components/MemberList.tsx`, `components/ServerSidebar.tsx`, `components/DMSidebar.tsx`, `components/DMChatView.tsx`, `components/ChatView.tsx`, `styles/global.css`.

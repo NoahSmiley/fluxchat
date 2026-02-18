@@ -304,11 +304,10 @@ async fn handle_client_event(
         }
         ClientEvent::SendMessage {
             channel_id,
-            ciphertext,
-            mls_epoch,
+            content,
             attachment_ids,
         } => {
-            if let Err(e) = flux_shared::validation::validate_message_content(&ciphertext) {
+            if let Err(e) = flux_shared::validation::validate_message_content(&content) {
                 state
                     .gateway
                     .send_to(client_id, &ServerEvent::Error { message: e })
@@ -320,14 +319,13 @@ async fn handle_client_event(
             let now = chrono::Utc::now().to_rfc3339();
 
             let result = sqlx::query(
-                r#"INSERT INTO messages (id, channel_id, sender_id, ciphertext, mls_epoch, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)"#,
+                r#"INSERT INTO messages (id, channel_id, sender_id, content, created_at)
+                   VALUES (?, ?, ?, ?, ?)"#,
             )
             .bind(&id)
             .bind(&channel_id)
             .bind(&user.id)
-            .bind(&ciphertext)
-            .bind(mls_epoch)
+            .bind(&content)
             .bind(&now)
             .execute(&state.db)
             .await;
@@ -335,6 +333,15 @@ async fn handle_client_event(
             if result.is_err() {
                 return;
             }
+
+            // Index in FTS for full-text search
+            let _ = sqlx::query(
+                "INSERT INTO messages_fts (message_id, plaintext) VALUES (?, ?)",
+            )
+            .bind(&id)
+            .bind(&content)
+            .execute(&state.db)
+            .await;
 
             // Link attachments to this message
             let mut attachments = Vec::new();
@@ -369,8 +376,7 @@ async fn handle_client_event(
                 id,
                 channel_id: channel_id.clone(),
                 sender_id: user.id.clone(),
-                ciphertext,
-                mls_epoch,
+                content,
                 created_at: now,
                 edited_at: None,
             };
@@ -382,9 +388,9 @@ async fn handle_client_event(
         }
         ClientEvent::EditMessage {
             message_id,
-            ciphertext,
+            content,
         } => {
-            if let Err(e) = flux_shared::validation::validate_message_content(&ciphertext) {
+            if let Err(e) = flux_shared::validation::validate_message_content(&content) {
                 state
                     .gateway
                     .send_to(client_id, &ServerEvent::Error { message: e })
@@ -423,11 +429,24 @@ async fn handle_client_event(
             let now = chrono::Utc::now().to_rfc3339();
 
             let _ = sqlx::query(
-                "UPDATE messages SET ciphertext = ?, edited_at = ? WHERE id = ?",
+                "UPDATE messages SET content = ?, edited_at = ? WHERE id = ?",
             )
-            .bind(&ciphertext)
+            .bind(&content)
             .bind(&now)
             .bind(&message_id)
+            .execute(&state.db)
+            .await;
+
+            // Update FTS index
+            let _ = sqlx::query("DELETE FROM messages_fts WHERE message_id = ?")
+                .bind(&message_id)
+                .execute(&state.db)
+                .await;
+            let _ = sqlx::query(
+                "INSERT INTO messages_fts (message_id, plaintext) VALUES (?, ?)",
+            )
+            .bind(&message_id)
+            .bind(&content)
             .execute(&state.db)
             .await;
 
@@ -437,7 +456,7 @@ async fn handle_client_event(
                     &channel_id,
                     &ServerEvent::MessageEdit {
                         message_id,
-                        ciphertext,
+                        content,
                         edited_at: now,
                     },
                     None,
@@ -472,6 +491,12 @@ async fn handle_client_event(
                     .await;
                 return;
             }
+
+            // Delete from FTS index
+            let _ = sqlx::query("DELETE FROM messages_fts WHERE message_id = ?")
+                .bind(&message_id)
+                .execute(&state.db)
+                .await;
 
             // Delete the message (attachments cascade)
             let _ = sqlx::query("DELETE FROM messages WHERE id = ?")

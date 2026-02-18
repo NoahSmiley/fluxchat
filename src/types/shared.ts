@@ -65,8 +65,7 @@ export interface Message {
   id: string;
   channelId: string;
   senderId: string;
-  ciphertext: string;
-  mlsEpoch: number;
+  content: string;
   createdAt: string;
   editedAt?: string;
   attachments?: Attachment[];
@@ -144,7 +143,7 @@ export interface SpotifyTrack {
 }
 
 export type WSClientEvent =
-  | { type: "send_message"; channelId: string; ciphertext: string; mlsEpoch: number; attachmentIds?: string[] }
+  | { type: "send_message"; channelId: string; content: string; attachmentIds?: string[] }
   | { type: "typing_start"; channelId: string }
   | { type: "typing_stop"; channelId: string }
   | { type: "join_channel"; channelId: string }
@@ -152,7 +151,7 @@ export type WSClientEvent =
   | { type: "voice_state_update"; channelId: string; action: "join" | "leave" }
   | { type: "add_reaction"; messageId: string; emoji: string }
   | { type: "remove_reaction"; messageId: string; emoji: string }
-  | { type: "edit_message"; messageId: string; ciphertext: string }
+  | { type: "edit_message"; messageId: string; content: string }
   | { type: "delete_message"; messageId: string }
   | { type: "send_dm"; dmChannelId: string; ciphertext: string; mlsEpoch: number }
   | { type: "join_dm"; dmChannelId: string }
@@ -178,7 +177,7 @@ export type WSServerEvent =
   | { type: "voice_state"; channelId: string; participants: VoiceParticipant[] }
   | { type: "reaction_add"; messageId: string; userId: string; emoji: string }
   | { type: "reaction_remove"; messageId: string; userId: string; emoji: string }
-  | { type: "message_edit"; messageId: string; ciphertext: string; editedAt: string }
+  | { type: "message_edit"; messageId: string; content: string; editedAt: string }
   | { type: "message_delete"; messageId: string; channelId: string }
   | { type: "dm_message"; message: DMMessage }
   | { type: "activity_update"; userId: string; activity: ActivityInfo | null }

@@ -35,7 +35,7 @@ export function DMChatView() {
     dmMessages, sendDM, loadMoreDMMessages, dmHasMore, loadingMessages,
     dmChannels, activeDMChannelId, onlineUsers, userStatuses,
     searchDMMessages, dmSearchResults, dmSearchQuery, clearDMSearch,
-    decryptedCache, members,
+    decryptedCache, members, dmError, clearDmError, retryEncryptionSetup,
   } = useChatStore();
   const { user } = useAuthStore();
   const [input, setInput] = useState("");
@@ -49,11 +49,13 @@ export function DMChatView() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [dmMessages]);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
-    sendDM(input);
-    setInput("");
+    await sendDM(input);
+    if (!useChatStore.getState().dmError) {
+      setInput("");
+    }
   }
 
   function handleScroll() {
@@ -164,6 +166,13 @@ export function DMChatView() {
         <div ref={messagesEndRef} />
       </div>
 
+      {dmError && (
+        <div className="dm-encryption-error">
+          <span>{dmError}</span>
+          <button onClick={retryEncryptionSetup}>Retry</button>
+          <button onClick={clearDmError}>Dismiss</button>
+        </div>
+      )}
       <div className="message-input-wrapper">
         <form className="message-input-form" onSubmit={handleSubmit}>
           <input

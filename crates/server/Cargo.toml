@@ -15,6 +15,8 @@ tower-http = { version = "0.6", features = ["cors"] }
 
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
+# Bundle SQLite from source to guarantee FTS5 support
+libsqlite3-sys = { version = "0.30", features = ["bundled"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
