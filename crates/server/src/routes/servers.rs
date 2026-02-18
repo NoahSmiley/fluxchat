@@ -173,14 +173,14 @@ pub async fn create_channel(
                 if p.channel_type != "category" {
                     return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Parent must be a category"}))).into_response();
                 }
-                // Check nesting depth (max 4 levels of categories)
+                // Check nesting depth (max 3 levels of categories — 4th level is channels only)
                 if body.channel_type == "category" {
                     let mut depth = 1;
                     let mut current_parent = Some(pid.clone());
                     while let Some(ref cpid) = current_parent {
                         depth += 1;
-                        if depth > 4 {
-                            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Maximum category nesting depth is 4"}))).into_response();
+                        if depth > 3 {
+                            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Maximum category nesting depth is 3"}))).into_response();
                         }
                         let pp = sqlx::query_scalar::<_, Option<String>>(
                             "SELECT parent_id FROM channels WHERE id = ?",

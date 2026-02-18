@@ -11,9 +11,27 @@ interface Props {
   onClose: () => void;
 }
 
+const MAX_CATEGORY_DEPTH = 3;
+
 export function CreateChannelModal({ serverId, defaultType, parentId, onClose }: Props) {
+  const channels = useChatStore((s) => s.channels);
+
+  // Compute depth of the parent category (0 = root)
+  let parentDepth = 0;
+  if (parentId) {
+    let current = parentId;
+    while (current) {
+      parentDepth++;
+      const ch = channels.find((c) => c.id === current);
+      current = ch?.parentId ?? "";
+    }
+  }
+  const canCreateCategory = parentDepth < MAX_CATEGORY_DEPTH;
+
   const [name, setName] = useState("");
-  const [type, setType] = useState<ChannelType>(defaultType);
+  const [type, setType] = useState<ChannelType>(
+    defaultType === "category" && !canCreateCategory ? "text" : defaultType
+  );
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -68,13 +86,15 @@ export function CreateChannelModal({ serverId, defaultType, parentId, onClose }:
           >
             <Gamepad2 size={16} style={{ display: "inline", verticalAlign: "middle" }} /> Game
           </button>
-          <button
-            className={`channel-type-option ${type === "category" ? "selected" : ""}`}
-            onClick={() => setType("category")}
-            type="button"
-          >
-            <Folder size={16} style={{ display: "inline", verticalAlign: "middle" }} /> Category
-          </button>
+          {canCreateCategory && (
+            <button
+              className={`channel-type-option ${type === "category" ? "selected" : ""}`}
+              onClick={() => setType("category")}
+              type="button"
+            >
+              <Folder size={16} style={{ display: "inline", verticalAlign: "middle" }} /> Category
+            </button>
+          )}
         </div>
 
         <form onSubmit={handleSubmit}>

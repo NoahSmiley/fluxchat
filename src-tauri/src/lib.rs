@@ -1,5 +1,7 @@
 mod activity;
 mod capture;
+#[cfg(windows)]
+mod global_keys;
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -158,7 +160,16 @@ pub fn run() {
             get_capture_sources,
             detect_activity,
             start_oauth_listener,
+            #[cfg(windows)]
+            global_keys::start_global_key_listen,
+            #[cfg(windows)]
+            global_keys::stop_global_key_listen,
         ])
+        .setup(|app| {
+            #[cfg(windows)]
+            global_keys::init(app.handle());
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

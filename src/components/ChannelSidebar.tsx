@@ -33,7 +33,7 @@ import { CSS } from "@dnd-kit/utilities";
 // ];
 
 const COLLAPSE_KEY = "flux-collapsed-categories";
-const DROP_INTO_CATEGORY_DWELL_MS = 800;
+const DROP_INTO_CATEGORY_DWELL_MS = 1000;
 
 function loadCollapsed(): Set<string> {
   try {
@@ -60,7 +60,13 @@ function buildTree(channels: Channel[]): TreeNode[] {
     childMap.get(key)!.push(ch);
   }
   for (const [, list] of childMap) {
-    list.sort((a, b) => a.position - b.position);
+    // Channels always before categories, then by position within each group
+    list.sort((a, b) => {
+      const aIsCat = a.type === "category" ? 1 : 0;
+      const bIsCat = b.type === "category" ? 1 : 0;
+      if (aIsCat !== bIsCat) return aIsCat - bIsCat;
+      return a.position - b.position;
+    });
   }
 
   function build(parentId: string | null, depth: number): TreeNode[] {
@@ -76,15 +82,33 @@ function buildTree(channels: Channel[]): TreeNode[] {
   return build(null, 0);
 }
 
-function flattenTree(nodes: TreeNode[], collapsed: Set<string>): TreeNode[] {
+function flattenTree(nodes: TreeNode[], collapsed: Set<string>, activeChannelId?: string | null): TreeNode[] {
   const result: TreeNode[] = [];
   for (const node of nodes) {
     result.push(node);
-    if (node.channel.type === "category" && !collapsed.has(node.channel.id)) {
-      result.push(...flattenTree(node.children, collapsed));
+    if (node.channel.type === "category") {
+      if (!collapsed.has(node.channel.id)) {
+        result.push(...flattenTree(node.children, collapsed, activeChannelId));
+      } else if (activeChannelId) {
+        // Category is collapsed, but peek inside for the active channel
+        const activeChild = findActiveChild(node.children, activeChannelId);
+        if (activeChild) result.push(activeChild);
+      }
     }
   }
   return result;
+}
+
+/** Recursively search children for the active channel, returning it (with correct depth) if found */
+function findActiveChild(nodes: TreeNode[], activeChannelId: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.channel.id === activeChannelId) return node;
+    if (node.channel.type === "category") {
+      const found = findActiveChild(node.children, activeChannelId);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 function getChannelIcon(type: ChannelType, size = 14) {
@@ -146,7 +170,7 @@ function SortableChannelItem({
   if (channel.type === "category") {
     return (
       <div ref={setNodeRef} style={style} {...attributes}>
-        <div className={`channel-category-header ${isDropTarget ? "channel-category-drop-target" : ""}`}>
+        <div className={`channel-category-header ${depth === 0 ? "channel-category-root" : ""} ${isDropTarget ? "channel-category-drop-target" : ""}`}>
           {isOwnerOrAdmin && (
             <span className="channel-drag-handle" {...listeners}>
               <GripVertical size={12} />
@@ -177,7 +201,7 @@ function SortableChannelItem({
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div ref={setNodeRef} style={style} {...attributes} className={isActive ? "channel-sortable-active" : undefined}>
       <div className="channel-item-wrapper">
         {isOwnerOrAdmin && (
           <span className="channel-drag-handle" {...listeners}>
@@ -249,14 +273,13 @@ export function ChannelSidebar() {
   const [settingsChannel, setSettingsChannel] = useState<Channel | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dropTargetCategoryId, setDropTargetCategoryId] = useState<string | null>(null);
-  const hoverCategoryRef = useRef<string | null>(null);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dwellRef = useRef<{ catId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   const dropIntoCategoryRef = useRef<string | null>(null);
 
   const allChannels = channels;
 
   const tree = useMemo(() => buildTree(allChannels), [allChannels]);
-  const flatList = useMemo(() => flattenTree(tree, collapsed), [tree, collapsed]);
+  const flatList = useMemo(() => flattenTree(tree, collapsed, activeChannelId), [tree, collapsed, activeChannelId]);
   const flatIds = useMemo(() => flatList.map((n) => n.channel.id), [flatList]);
 
   const toggleCollapse = useCallback((id: string) => {
@@ -273,19 +296,22 @@ export function ChannelSidebar() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
+  function clearDwell() {
+    if (dwellRef.current) clearTimeout(dwellRef.current.timer);
+    dwellRef.current = null;
+  }
+
   function handleDragStart(event: DragStartEvent) {
     setActiveId(event.active.id as string);
     setDropTargetCategoryId(null);
-    hoverCategoryRef.current = null;
+    clearDwell();
     dropIntoCategoryRef.current = null;
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
   }
 
   function handleDragOver(event: DragOverEvent) {
     const { active, over } = event;
     if (!over || !active) {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      hoverCategoryRef.current = null;
+      clearDwell();
       dropIntoCategoryRef.current = null;
       setDropTargetCategoryId(null);
       return;
@@ -293,43 +319,68 @@ export function ChannelSidebar() {
     const activeNode = flatList.find((n) => n.channel.id === active.id);
     const overNode = flatList.find((n) => n.channel.id === over.id);
     if (!activeNode || !overNode) {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      hoverCategoryRef.current = null;
+      clearDwell();
       dropIntoCategoryRef.current = null;
       setDropTargetCategoryId(null);
       return;
     }
 
-    // Dwell-time: hover over a category for 300ms to activate "drop into" mode
-    // Quick drag past = reorder as sibling
-    if (overNode.channel.type === "category" && activeNode.channel.type !== "category") {
-      if (hoverCategoryRef.current !== overNode.channel.id) {
-        // Started hovering over a new category
-        hoverCategoryRef.current = overNode.channel.id;
+    // Dwell-time: hover over a category to activate "drop into" mode
+    // Timer only resets when a DIFFERENT category is hovered — immune to DnD swap
+    // animations that briefly change `over` to non-category items
+    if (overNode.channel.type === "category" && overNode.channel.id !== activeNode.channel.id) {
+      // When dragging upward, dnd-kit's `over` can be off by one due to swap
+      // animations — it reports the category below the visual position. If the
+      // item directly above `over` in the flat list is also a category, that's
+      // the one the user is actually hovering over visually.
+      const activeIdx = flatList.findIndex((n) => n.channel.id === active.id);
+      const overIdx = flatList.findIndex((n) => n.channel.id === over.id);
+      let dwellCatId = overNode.channel.id;
+      if (activeIdx > overIdx && overIdx > 0) {
+        const aboveNode = flatList[overIdx - 1];
+        if (aboveNode.channel.type === "category" && aboveNode.channel.id !== activeNode.channel.id) {
+          dwellCatId = aboveNode.channel.id;
+        }
+      }
+
+      const currentLockedCat = dropIntoCategoryRef.current;
+      const hoveredCatId = dwellCatId;
+
+      // If already locked onto this same category, no changes needed
+      if (currentLockedCat === hoveredCatId) return;
+
+      // Hovering over a different category than what's locked/pending — restart dwell
+      if (currentLockedCat) {
         dropIntoCategoryRef.current = null;
         setDropTargetCategoryId(null);
-        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-        const catId = overNode.channel.id;
-        hoverTimerRef.current = setTimeout(() => {
-          dropIntoCategoryRef.current = catId;
-          setDropTargetCategoryId(catId);
-        }, DROP_INTO_CATEGORY_DWELL_MS);
       }
-      // If already activated, keep it
-    } else {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      hoverCategoryRef.current = null;
-      dropIntoCategoryRef.current = null;
-      setDropTargetCategoryId(null);
+
+      if (!dwellRef.current || dwellRef.current.catId !== hoveredCatId) {
+        // Started hovering over a new category — start timer
+        clearDwell();
+        dwellRef.current = {
+          catId: hoveredCatId,
+          timer: setTimeout(() => {
+            dropIntoCategoryRef.current = hoveredCatId;
+            setDropTargetCategoryId(hoveredCatId);
+          }, DROP_INTO_CATEGORY_DWELL_MS),
+        };
+      }
+      // If same category, keep timer running
+    } else if (dropIntoCategoryRef.current) {
+      // Still locked in but over a non-category — keep it (immune to swap animations)
+      return;
     }
+    // NOTE: we intentionally do NOT clear dwellRef when over changes to a non-category,
+    // because DnD swap animations briefly change `over` to other items. The dwell only
+    // resets when a DIFFERENT category is hovered (handled above).
   }
 
   async function handleDragEnd(event: DragEndEvent) {
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     const activatedCategory = dropIntoCategoryRef.current;
     setActiveId(null);
     setDropTargetCategoryId(null);
-    hoverCategoryRef.current = null;
+    clearDwell();
     dropIntoCategoryRef.current = null;
 
     const { active, over } = event;
@@ -343,72 +394,81 @@ export function ChannelSidebar() {
     // - If dwell-time activated a category → drop INTO that category
     // - Over a child of a category → become sibling in that category
     // - Over a root item (or quick drag past category) → stay at root
+    const isActiveCategory = activeNode.channel.type === "category";
+
     let newParentId: string | null;
-    if (activatedCategory && activeNode.channel.type !== "category") {
+    if (activatedCategory && activatedCategory !== (active.id as string)) {
       newParentId = activatedCategory;
     } else {
       newParentId = overNode.channel.parentId;
     }
 
-    // Validate: parent must be a category
+    // Validate: parent must be a category, and not a descendant of the dragged item
     if (newParentId) {
       const parent = allChannels.find((c) => c.id === newParentId);
       if (!parent || parent.type !== "category") {
         newParentId = null;
+      } else if (isActiveCategory) {
+        // Prevent circular reference: can't drop a category into its own descendants
+        let checkId: string | null = newParentId;
+        while (checkId) {
+          if (checkId === active.id) { newParentId = null; break; }
+          checkId = allChannels.find((c) => c.id === checkId)?.parentId ?? null;
+        }
       }
     }
-
     const sameParent = (activeNode.channel.parentId ?? null) === (newParentId ?? null);
     const items: ReorderItem[] = [];
 
+    // Helper: given all siblings at a level, build position assignments
+    // with channels-first ordering, returning ReorderItem[]
+    function assignPositions(siblings: Channel[], parentId: string | null): ReorderItem[] {
+      const sorted = [...siblings].sort((a, b) => a.position - b.position);
+      const channels = sorted.filter((c) => c.type !== "category");
+      const categories = sorted.filter((c) => c.type === "category");
+      const ordered = [...channels, ...categories];
+      return ordered.map((c, i) => ({ id: c.id, parentId, position: i }));
+    }
+
     if (sameParent) {
-      // Same-parent reorder: use arrayMove pattern (exclude hardcoded game channels)
-      const siblings = allChannels
+      // Same-parent reorder: only reorder within the same type group
+      const allSiblings = allChannels
         .filter((c) => (c.parentId ?? null) === (newParentId ?? null))
         .sort((a, b) => a.position - b.position);
 
-      const oldIdx = siblings.findIndex((c) => c.id === active.id);
-      const newIdx = siblings.findIndex((c) => c.id === over.id);
+      // Split into type groups
+      const typeGroup = allSiblings.filter((c) => (c.type === "category") === isActiveCategory);
+      const oldIdx = typeGroup.findIndex((c) => c.id === active.id);
+      const newIdx = typeGroup.findIndex((c) => c.id === over.id);
       if (oldIdx < 0 || newIdx < 0) return;
 
-      // Array move: remove from old position, insert at new
-      const reordered = [...siblings];
+      // Array move within the type group
+      const reordered = [...typeGroup];
       const [moved] = reordered.splice(oldIdx, 1);
       reordered.splice(newIdx, 0, moved);
 
-      for (let i = 0; i < reordered.length; i++) {
-        items.push({ id: reordered[i].id, parentId: newParentId, position: i });
+      // Reassemble: channels first, then categories
+      const otherGroup = allSiblings.filter((c) => (c.type === "category") !== isActiveCategory);
+      const fullList = isActiveCategory
+        ? [...otherGroup, ...reordered]
+        : [...reordered, ...otherGroup];
+
+      for (let i = 0; i < fullList.length; i++) {
+        items.push({ id: fullList[i].id, parentId: newParentId, position: i });
       }
     } else {
       // Cross-parent move: remove from old parent, add to new parent
-      // New parent siblings (without the moved item)
+      // Place the item at the end of its type group in the new parent
       const newSiblings = allChannels
-        .filter((c) => (c.parentId ?? null) === (newParentId ?? null) && c.id !== (active.id as string))
-        .sort((a, b) => a.position - b.position);
+        .filter((c) => (c.parentId ?? null) === (newParentId ?? null) && c.id !== (active.id as string));
 
-      // Insert before or after the over item depending on drag direction
-      const overIdx = newSiblings.findIndex((c) => c.id === over.id);
-      const activeFlatIdx = flatList.findIndex((n) => n.channel.id === active.id);
-      const overFlatIdx = flatList.findIndex((n) => n.channel.id === over.id);
-      // Dragging upward (from below) → insert before; dragging downward → insert after
-      const insertIdx = overIdx >= 0
-        ? (activeFlatIdx > overFlatIdx ? overIdx : overIdx + 1)
-        : newSiblings.length;
-
-      const reordered = [...newSiblings];
-      reordered.splice(insertIdx, 0, activeNode.channel);
-
-      for (let i = 0; i < reordered.length; i++) {
-        items.push({ id: reordered[i].id, parentId: newParentId, position: i });
-      }
+      const withMoved = [...newSiblings, activeNode.channel];
+      items.push(...assignPositions(withMoved, newParentId));
 
       // Reorder old siblings to close the gap
       const oldSiblings = allChannels
-        .filter((c) => (c.parentId ?? null) === (activeNode.channel.parentId ?? null) && c.id !== (active.id as string))
-        .sort((a, b) => a.position - b.position);
-      for (let i = 0; i < oldSiblings.length; i++) {
-        items.push({ id: oldSiblings[i].id, parentId: activeNode.channel.parentId, position: i });
-      }
+        .filter((c) => (c.parentId ?? null) === (activeNode.channel.parentId ?? null) && c.id !== (active.id as string));
+      items.push(...assignPositions(oldSiblings, activeNode.channel.parentId));
     }
 
     // Optimistic update
