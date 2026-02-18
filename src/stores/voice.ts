@@ -325,6 +325,12 @@ function startAudioLevelPolling() {
     const localLevel = getLocalMicLevel();
     levels[room.localParticipant.identity] = localLevel;
 
+    // Track last non-silence transmission for idle detection
+    const VOICE_ACTIVE_THRESHOLD = 0.01;
+    if (!state.isMuted && localLevel > VOICE_ACTIVE_THRESHOLD) {
+      useVoiceStore.setState({ lastSpokeAt: Date.now() });
+    }
+
     // Use pipeline analysers for remote participants (more reliable than p.audioLevel)
     const { participantTrackMap } = state;
     for (const p of room.remoteParticipants.values()) {
@@ -464,6 +470,9 @@ interface VoiceState {
   // Voice channel occupancy (from WebSocket, for sidebar)
   channelParticipants: Record<string, VoiceParticipant[]>;
 
+  // Timestamp of last non-silence mic transmission (ms, 0 if never) — used by idle detection
+  lastSpokeAt: number;
+
   // Actions
   joinVoiceChannel: (channelId: string) => Promise<void>;
   leaveVoiceChannel: () => void;
@@ -518,6 +527,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   screenShareQuality: "720p30",
   participants: [],
   channelParticipants: {},
+  lastSpokeAt: 0,
 
   joinVoiceChannel: async (channelId: string) => {
     const { room: existingRoom, connectedChannelId, audioSettings } = get();

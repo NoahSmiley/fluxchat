@@ -45,6 +45,28 @@ fn get_capture_sources() -> Vec<capture::CaptureSource> {
     capture::get_sources()
 }
 
+#[cfg(windows)]
+#[tauri::command]
+fn get_system_idle_ms() -> u64 {
+    use windows::Win32::UI::WindowsAndMessaging::{GetLastInputInfo, LASTINPUTINFO};
+    use windows::Win32::System::SystemInformation::GetTickCount;
+    unsafe {
+        let mut lii = LASTINPUTINFO {
+            cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32,
+            dwTime: 0,
+        };
+        let _ = GetLastInputInfo(&mut lii);
+        let now = GetTickCount();
+        now.wrapping_sub(lii.dwTime) as u64
+    }
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+fn get_system_idle_ms() -> u64 {
+    0
+}
+
 #[tauri::command]
 fn detect_activity() -> Option<activity::DetectedActivity> {
     activity::detect_activity()
@@ -159,6 +181,7 @@ pub fn run() {
             close_popout_window,
             get_capture_sources,
             detect_activity,
+            get_system_idle_ms,
             start_oauth_listener,
             #[cfg(windows)]
             global_keys::start_global_key_listen,
