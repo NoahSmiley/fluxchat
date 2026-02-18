@@ -294,7 +294,7 @@ Implementation: `lib/crypto.ts` (Web Crypto API), `stores/crypto.ts` (Zustand)
 
 **Server group key**: One AES-256-GCM key per server. Created by server owner, wrapped with each member's ECDH public key, distributed via REST + WebSocket.
 
-**DM key**: Derived via ECDH(myPrivate, theirPublic) → HKDF(SHA-256, salt=dmChannelId, info="flux-dm") → AES-256-GCM key.
+**DM key**: Derived via ECDH(myPrivate, theirPublic) → HKDF(SHA-256, salt=dmChannelId, info="flux-dm") → AES-256-GCM key. Self-DMs supported (user can message themselves); uses ECDH(myPrivate, myPublic) for key derivation.
 
 **Message format**: AES-256-GCM encrypt → base64(iv || ciphertext || tag) stored in `ciphertext` column. `mls_epoch=0` means plaintext fallback (base64-encoded), `mls_epoch=1` means encrypted.
 
@@ -478,4 +478,5 @@ KEY: changelog, changes, updates, history
 - **2026-02-17**: Channel sidebar active indicator fix. Moved the `::before` pseudo-element from `.channel-sortable-active` to `.channel-sortable-active > .channel-item-wrapper::before` so the white vertical bar indicator only spans the channel row, not the connected voice members below it.
 - **2026-02-17**: Zoom controls in titlebar. Added zoom in/out/reset buttons (magnifying glass icons from lucide-react) to the left of the min/max/close window controls. Uses Tauri's native `webviewWindow.setZoom()` API.
 - **2026-02-17**: Channel name ellipsis. Channel names now truncate with ellipsis instead of wrapping to multiple lines when space is tight. Channel name wrapped in `.channel-item-name` span with `overflow: hidden; text-overflow: ellipsis; white-space: nowrap`. Works correctly when hover buttons (settings cog) appear.
+- **2026-02-18**: Self-DMs. Users can DM themselves (notes to self). Removed self-filter from `search_users` in `routes/dms.rs`, removed `!isSelf` guard on Message button in UserCard (`MemberList.tsx`).
 - **2026-02-18**: User status system. 5 statuses: online, idle, dnd, invisible, offline. Backend: `status` column on user table, `UpdateStatus` WS event, `ConnectedClient.status` in gateway, invisible users broadcast as "offline". Frontend: `userStatuses` map in chat store (alongside legacy `onlineUsers`), status indicator dots on avatars in ServerSidebar/MemberList/DMSidebar/DMChatView/ChatView mentions, status selector dropdown in self UserCard popup, `useIdleDetection` hook (5 min auto-idle), DND notification/sound suppression in `lib/notifications.ts`. CSS: `.avatar-status-indicator` overlay, `.status-dot` variants for idle (crescent moon via box-shadow), dnd, invisible. Files: `db/mod.rs`, `routes/auth.rs`, `routes/users.rs`, `ws/events.rs`, `ws/gateway.rs`, `ws/handler.rs`, `types/shared.ts`, `stores/chat.ts`, `hooks/useIdleDetection.ts`, `lib/notifications.ts`, `components/MemberList.tsx`, `components/ServerSidebar.tsx`, `components/DMSidebar.tsx`, `components/DMChatView.tsx`, `components/ChatView.tsx`, `styles/global.css`.
