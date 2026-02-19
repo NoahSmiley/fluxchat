@@ -3,7 +3,7 @@
 
 ## MINOR
 
-entrance sounds
+entrance and exit sounds
 
 check to see how often app polls for new users to display + status changes, make sure its okay
 
@@ -21,8 +21,6 @@ allow choosing duration time when selecting displayed statuses other than online
 ## MAJOR
 
 break up huge files like global.css
-
-add min and max zoom
 
 mouse over reactions to see who made them
 
