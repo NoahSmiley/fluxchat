@@ -6,6 +6,7 @@ livekit.yaml
 
 # Dependencies
 node_modules/
+pnpm-lock.yaml
 
 # Build output
 dist/
