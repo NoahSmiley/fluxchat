@@ -37,6 +37,18 @@ interface ChatState {
 
   // Search
   searchQuery: string;
+  searchFilters: {
+    fromUserId?: string;
+    fromUsername?: string;
+    inChannelId?: string;
+    inChannelName?: string;
+    has?: string;
+    mentionsUserId?: string;
+    mentionsUsername?: string;
+    before?: string;
+    on?: string;
+    after?: string;
+  };
   searchResults: Message[] | null;
 
   // File uploads
@@ -75,7 +87,8 @@ interface ChatState {
   leaveServer: (serverId: string) => Promise<void>;
   addReaction: (messageId: string, emoji: string) => void;
   removeReaction: (messageId: string, emoji: string) => void;
-  searchMessages: (query: string) => Promise<void>;
+  searchMessages: (query: string, filters?: { fromUserId?: string; fromUsername?: string; inChannelId?: string; inChannelName?: string; has?: string; mentionsUserId?: string; mentionsUsername?: string; before?: string; on?: string; after?: string }) => Promise<void>;
+  searchUserActivity: (userId: string, username: string) => Promise<void>;
   clearSearch: () => void;
   showDMs: () => void;
   loadDMChannels: () => Promise<void>;
@@ -160,6 +173,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   channelsLoaded: false,
   reactions: {},
   searchQuery: "",
+  searchFilters: {},
   searchResults: null,
   pendingAttachments: [],
   uploadProgress: {},
@@ -199,6 +213,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       showingDMs: false,
       activeDMChannelId: null,
       searchQuery: "",
+      searchFilters: {},
       searchResults: null,
       dmMessages: [],
       // Restore cached data instantly (or keep current if no cache)
@@ -266,6 +281,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messageCursor: null,
         loadingMessages: false,
         searchQuery: "",
+        searchFilters: {},
         searchResults: null,
         dmMessages: [],
       });
@@ -289,6 +305,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messageCursor: cached?.cursor ?? null,
       loadingMessages: false,
       searchQuery: "",
+      searchFilters: {},
       searchResults: null,
       dmMessages: [],
       unreadChannels: newUnread,
@@ -441,12 +458,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
     gateway.send({ type: "remove_reaction", messageId, emoji });
   },
 
-  searchMessages: async (query) => {
+  searchMessages: async (query, filters = {}) => {
     const { activeServerId } = get();
-    if (!activeServerId || !query.trim()) return;
-    set({ searchQuery: query });
+    if (!activeServerId) return;
+    const hasFilters = !!(filters.fromUserId || filters.inChannelId || filters.has || filters.mentionsUserId || filters.before || filters.on || filters.after);
+    if (!query.trim() && !hasFilters) return;
+    set({ searchQuery: query, searchFilters: filters });
     try {
-      const result = await api.searchServerMessages(activeServerId, query);
+      const result = await api.searchServerMessages(activeServerId, {
+        q: query.trim() || undefined,
+        senderId: filters.fromUserId,
+        channelId: filters.inChannelId,
+        has: filters.has,
+        mentionsUsername: filters.mentionsUsername,
+        before: filters.before,
+        on: filters.on,
+        after: filters.after,
+      });
       // Server-side FTS — results are already plaintext
       const cache: Record<string, string> = {};
       for (const msg of result.items) {
@@ -461,8 +489,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  searchUserActivity: async (userId, username) => {
+    const { activeServerId } = get();
+    if (!activeServerId) return;
+    set({
+      searchQuery: "",
+      searchFilters: { fromUserId: userId, fromUsername: username },
+    });
+    try {
+      // Parallel: messages FROM the user + messages containing their name as text
+      // (FTS tokenizes @username as "username", so this catches both @username mentions and bare text)
+      const [fromResult, textResult] = await Promise.all([
+        api.searchServerMessages(activeServerId, { senderId: userId }),
+        api.searchServerMessages(activeServerId, { q: username }),
+      ]);
+      const seen = new Set<string>();
+      const merged: Message[] = [];
+      for (const msg of [...fromResult.items, ...textResult.items]) {
+        if (!seen.has(msg.id)) { seen.add(msg.id); merged.push(msg); }
+      }
+      merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const cache: Record<string, string> = {};
+      for (const msg of merged) cache[msg.id] = msg.content;
+      useChatStore.setState((s) => ({ decryptedCache: { ...s.decryptedCache, ...cache } }));
+      set({ searchResults: merged });
+    } catch {
+      set({ searchResults: [] });
+    }
+  },
+
   clearSearch: () => {
-    set({ searchQuery: "", searchResults: null });
+    set({ searchQuery: "", searchFilters: {}, searchResults: null });
   },
 
   showDMs: () => {
@@ -477,6 +534,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       activeServerId: null,
       activeChannelId: null,
       searchQuery: "",
+      searchFilters: {},
       searchResults: null,
     });
     get().loadDMChannels();
@@ -519,6 +577,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: [],
       reactions: {},
       searchQuery: "",
+      searchFilters: {},
       searchResults: null,
       dmMessages: cachedDM?.messages ?? [],
       dmHasMore: cachedDM?.hasMore ?? false,

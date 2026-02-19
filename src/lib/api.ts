@@ -214,10 +214,28 @@ export async function searchMessages(channelId: string, query: string) {
   );
 }
 
-export async function searchServerMessages(serverId: string, query: string) {
-  return request<{ items: Message[] }>(
-    `/servers/${serverId}/messages/search?q=${encodeURIComponent(query)}`
-  );
+export interface ServerSearchOptions {
+  q?: string;
+  senderId?: string;
+  channelId?: string;
+  has?: string;
+  mentionsUsername?: string;
+  before?: string;
+  on?: string;
+  after?: string;
+}
+
+export async function searchServerMessages(serverId: string, opts: ServerSearchOptions) {
+  const params = new URLSearchParams();
+  if (opts.q) params.set("q", opts.q);
+  if (opts.senderId) params.set("sender_id", opts.senderId);
+  if (opts.channelId) params.set("channel_id", opts.channelId);
+  if (opts.has) params.set("has", opts.has);
+  if (opts.mentionsUsername) params.set("mentions_username", opts.mentionsUsername);
+  if (opts.before) params.set("before", opts.before);
+  if (opts.on) params.set("on", opts.on);
+  if (opts.after) params.set("after", opts.after);
+  return request<{ items: Message[] }>(`/servers/${serverId}/messages/search?${params}`);
 }
 
 // ── Reactions ──

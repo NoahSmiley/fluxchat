@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type
 import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { ArrowUpRight, Pencil, Trash2, Paperclip, X } from "lucide-react";
+import { SearchBar } from "./SearchBar.js";
 import { MessageAttachments } from "./MessageAttachments.js";
 import { LinkEmbed } from "./LinkEmbed.js";
 import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
@@ -74,14 +75,13 @@ export function ChatView() {
   const {
     messages, sendMessage, editMessage, deleteMessage, loadMoreMessages, hasMoreMessages, loadingMessages,
     members, onlineUsers, userStatuses, reactions, addReaction, removeReaction,
-    searchMessages, searchResults, searchQuery, clearSearch,
+    searchResults, searchQuery, searchFilters, searchUserActivity,
     channels, activeChannelId, decryptedCache,
     pendingAttachments, uploadProgress, uploadFile, removePendingAttachment,
     typingUsers,
   } = useChatStore();
   const { user } = useAuthStore();
   const [input, setInput] = useState("");
-  const [searchInput, setSearchInput] = useState("");
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editInput, setEditInput] = useState("");
@@ -193,13 +193,6 @@ export function ChatView() {
   }
 
 
-  function handleSearchSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (searchInput.trim()) {
-      searchMessages(searchInput.trim());
-    }
-  }
-
   function startEditing(msgId: string, currentText: string) {
     setEditingMsgId(msgId);
     setEditInput(currentText);
@@ -277,19 +270,7 @@ export function ChatView() {
       <div className="chat-header">
         <span className="chat-header-channel">{channels.find((c) => c.id === activeChannelId)?.name}</span>
         <div className="chat-header-actions">
-          <form className="search-bar" onSubmit={handleSearchSubmit}>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-            {searchResults && (
-              <button type="button" className="btn-small" onClick={() => { clearSearch(); setSearchInput(""); }}>
-                Clear
-              </button>
-            )}
-          </form>
+          <SearchBar />
           <button className="btn-small popout-btn" onClick={handlePopOut} title="Pop out chat">
             <ArrowUpRight size={14} />
           </button>
@@ -298,7 +279,18 @@ export function ChatView() {
 
       {searchResults && (
         <div className="search-results-banner">
-          {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} for &quot;{searchQuery}&quot; across all channels
+          {(() => {
+            const parts: string[] = [];
+            if (searchQuery) parts.push(`"${searchQuery}"`);
+            if (searchFilters.fromUsername) parts.push(`from ${searchFilters.fromUsername}`);
+            if (searchFilters.inChannelName) parts.push(`in #${searchFilters.inChannelName}`);
+            if (searchFilters.has) parts.push(`has: ${searchFilters.has}`);
+            if (searchFilters.mentionsUsername) parts.push(`mentions @${searchFilters.mentionsUsername}`);
+            if (searchFilters.before) parts.push(`before ${searchFilters.before}`);
+            if (searchFilters.on) parts.push(`on ${searchFilters.on}`);
+            if (searchFilters.after) parts.push(`after ${searchFilters.after}`);
+            return `${searchResults.length} result${searchResults.length !== 1 ? "s" : ""}${parts.length > 0 ? " — " + parts.join(", ") : ""}`;
+          })()}
         </div>
       )}
 
