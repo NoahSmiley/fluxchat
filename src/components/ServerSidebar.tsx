@@ -11,6 +11,7 @@ export function ServerSidebar() {
   const { servers, showingDMs, showDMs, selectServer, members, onlineUsers, userStatuses, userActivities, openDM } = useChatStore();
   const { user } = useAuthStore();
   const showingEconomy = useUIStore((s) => s.showingEconomy);
+  const showDummyUsers = useUIStore((s) => s.showDummyUsers);
 
   // Member avatar + user card state
   const [activeCardUserId, setActiveCardUserId] = useState<string | null>(null);
@@ -148,7 +149,7 @@ export function ServerSidebar() {
               );
             })}
             {/* DEBUG: dummy sidebar avatars — online first, offline at bottom */}
-            {[
+            {showDummyUsers && [
               { userId: "__s1", username: "xKira", ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=1", online: true },
               { userId: "__s2", username: "Blaze", ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=8", online: true },
               { userId: "__s3", username: "PhaseShift", ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/64?img=12", online: true },

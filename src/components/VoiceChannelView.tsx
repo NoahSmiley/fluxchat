@@ -10,6 +10,7 @@ import {
   Music,
 } from "lucide-react";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
+import { useUIStore } from "../stores/ui.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
   // Request 1080p — matches the max resolution we actually publish
@@ -176,6 +177,7 @@ export function VoiceChannelView() {
     setScreenShareQuality,
   } = useVoiceStore();
   const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
+  const showDummyUsers = useUIStore((s) => s.showDummyUsers);
   const [activeTab, setActiveTab] = useState<"voice" | "music">("voice");
   const [showQualityPicker, setShowQualityPicker] = useState(false);
 
@@ -290,7 +292,7 @@ export function VoiceChannelView() {
           {/* Participants */}
           <div className="voice-participants-grid">
             {/* DEBUG: dummy voice tiles */}
-            {[
+            {showDummyUsers && [
               { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=1" },
               { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=8" },
               { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/128?img=12" },

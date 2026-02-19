@@ -256,6 +256,8 @@ function SortableChannelItem({
     transition,
   } = useSortable({ id: channel.id });
 
+  const showDummyUsers = useUIStore((s) => s.showDummyUsers);
+
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -328,7 +330,7 @@ function SortableChannelItem({
       {channel.type === "voice" && voiceProps && voiceProps.participants.length > 0 && (
         <div className="voice-channel-users">
           {/* DEBUG: dummy sidebar users */}
-          {[
+          {showDummyUsers && [
             { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=1" },
             { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=8" },
             { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/64?img=12" },
