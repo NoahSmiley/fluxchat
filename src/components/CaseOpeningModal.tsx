@@ -726,7 +726,7 @@ export function EconomyView() {
     <div className="economy-view">
       {/* Header */}
       <div className="economy-view-header">
-        <h2 className="economy-view-title">Economy</h2>
+        <h2 className="economy-view-title">FluxFloat</h2>
         <div className="economy-header-right">
           <button className="economy-grant-btn" onClick={() => grantCoins(1000)} title="Dev: Add 1000 coins">
             + 1000

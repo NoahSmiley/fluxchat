@@ -9,7 +9,64 @@ import { RegisterPage } from "./pages/RegisterPage.js";
 import { MainLayout } from "./layouts/MainLayout.js";
 import { SpotifyCallback } from "./pages/SpotifyCallback.js";
 
-function WindowControls() {
+const isMac = navigator.platform.toUpperCase().includes("MAC");
+
+function MacWindowControls() {
+  const [hovered, setHovered] = useState(false);
+
+  async function handleClose() {
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().close();
+    } catch {}
+  }
+
+  async function handleMinimize() {
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().minimize();
+    } catch {}
+  }
+
+  async function handleMaximize() {
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      await getCurrentWindow().toggleMaximize();
+    } catch {}
+  }
+
+  return (
+    <div
+      className="mac-window-controls"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <button className="mac-dot mac-close" onClick={handleClose} title="Close">
+        {hovered && (
+          <svg width="6" height="6" viewBox="0 0 6 6">
+            <path d="M0.5 0.5L5.5 5.5M5.5 0.5L0.5 5.5" stroke="rgba(0,0,0,0.65)" strokeWidth="1.2" />
+          </svg>
+        )}
+      </button>
+      <button className="mac-dot mac-minimize" onClick={handleMinimize} title="Minimize">
+        {hovered && (
+          <svg width="6" height="2" viewBox="0 0 6 2">
+            <path d="M0.5 1H5.5" stroke="rgba(0,0,0,0.65)" strokeWidth="1.2" />
+          </svg>
+        )}
+      </button>
+      <button className="mac-dot mac-maximize" onClick={handleMaximize} title="Maximize">
+        {hovered && (
+          <svg width="6" height="6" viewBox="0 0 6 6">
+            <path d="M0.5 2L3 0.5L5.5 2V5.5H0.5V2Z" fill="rgba(0,0,0,0.65)" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function WindowsWindowControls() {
   const [maximized, setMaximized] = useState(false);
 
   const checkMaximized = useCallback(async () => {
@@ -47,6 +104,22 @@ function WindowControls() {
     } catch {}
   }
 
+  return (
+    <div className="window-controls">
+      <button className="window-control-btn" onClick={handleMinimize} title="Minimize">
+        <Minus size={12} />
+      </button>
+      <button className="window-control-btn" onClick={handleMaximize} title={maximized ? "Restore" : "Maximize"}>
+        {maximized ? <Copy size={10} /> : <Square size={10} />}
+      </button>
+      <button className="window-control-btn window-control-close" onClick={handleClose} title="Close">
+        <X size={12} />
+      </button>
+    </div>
+  );
+}
+
+function ZoomControls() {
   const [zoom, setZoomState] = useState(1);
 
   async function applyZoom(factor: number) {
@@ -70,26 +143,15 @@ function WindowControls() {
   }
 
   return (
-    <div className="window-controls">
-      <div className="zoom-controls">
-        <button className="window-control-btn zoom-btn" onClick={handleZoomOut} title="Zoom Out">
-          <ZoomOut size={12} />
-        </button>
-        <button className="window-control-btn zoom-btn" onClick={handleZoomReset} title={`Reset Zoom (${Math.round(zoom * 100)}%)`}>
-          <RotateCcw size={10} />
-        </button>
-        <button className="window-control-btn zoom-btn" onClick={handleZoomIn} title="Zoom In">
-          <ZoomIn size={12} />
-        </button>
-      </div>
-      <button className="window-control-btn" onClick={handleMinimize} title="Minimize">
-        <Minus size={12} />
+    <div className="zoom-controls">
+      <button className="window-control-btn zoom-btn" onClick={handleZoomOut} title="Zoom Out">
+        <ZoomOut size={12} />
       </button>
-      <button className="window-control-btn" onClick={handleMaximize} title={maximized ? "Restore" : "Maximize"}>
-        {maximized ? <Copy size={10} /> : <Square size={10} />}
+      <button className="window-control-btn zoom-btn" onClick={handleZoomReset} title={`Reset Zoom (${Math.round(zoom * 100)}%)`}>
+        <RotateCcw size={10} />
       </button>
-      <button className="window-control-btn window-control-close" onClick={handleClose} title="Close">
-        <X size={12} />
+      <button className="window-control-btn zoom-btn" onClick={handleZoomIn} title="Zoom In">
+        <ZoomIn size={12} />
       </button>
     </div>
   );
@@ -156,8 +218,10 @@ export function App() {
 
   return (
     <div className={`app-shell ${appBorderStyle !== "none" ? `app-border-${appBorderStyle}` : ""}`}>
-      <div className="titlebar">
-        <WindowControls />
+      <div className={`titlebar ${isMac ? "titlebar-mac" : ""}`} data-tauri-drag-region>
+        {isMac && <MacWindowControls />}
+        <ZoomControls />
+        {!isMac && <WindowsWindowControls />}
       </div>
       <div className="app-body">
         <Routes>

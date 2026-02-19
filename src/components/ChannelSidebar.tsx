@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { Channel, ChannelType, ReorderItem } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
+import { useUIStore } from "../stores/ui.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
 import { MessageSquareText, Volume2, Settings, Monitor, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
@@ -265,6 +266,7 @@ function SortableChannelItem({
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels } = useChatStore();
   const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants } = useVoiceStore();
+  const showingEconomy = useUIStore((s) => s.showingEconomy);
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
 
@@ -514,7 +516,7 @@ export function ChannelSidebar() {
                 <SortableChannelItem
                   key={ch.id}
                   node={node}
-                  isActive={ch.id === activeChannelId}
+                  isActive={ch.id === activeChannelId && !showingEconomy}
                   isUnread={isUnread}
                   isCollapsed={collapsed.has(ch.id)}
                   onToggleCollapse={() => toggleCollapse(ch.id)}
