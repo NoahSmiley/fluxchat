@@ -232,6 +232,11 @@ let audioLevelInterval: ReturnType<typeof setInterval> | null = null;
 let gatedSilentSince: number | null = null; // timestamp when audio dropped below threshold
 let isGated = false; // whether the noise gate is currently muting the mic
 
+// Per-user speaking hysteresis — instant on, 200ms hold before off
+const SPEAKING_THRESHOLD = 0.005;
+const SPEAKING_HOLD_MS = 200;
+const userLastSpokeMap = new Map<string, number>(); // userId → timestamp of last above-threshold
+
 // Local mic analyser for real-time level metering
 let localAnalyserCtx: AudioContext | null = null;
 let localAnalyser: AnalyserNode | null = null;
@@ -340,6 +345,32 @@ function startAudioLevelPolling() {
     }
     useVoiceStore.setState({ audioLevels: levels });
 
+    // ── Speaking hysteresis: instant on, 200ms hold off ──
+    const now = Date.now();
+    const prevSpeaking = state.speakingUserIds;
+    const nextSpeaking = new Set<string>();
+    for (const [uid, level] of Object.entries(levels)) {
+      if (level > SPEAKING_THRESHOLD) {
+        userLastSpokeMap.set(uid, now);
+        nextSpeaking.add(uid);
+      } else {
+        const lastSpoke = userLastSpokeMap.get(uid);
+        if (lastSpoke && now - lastSpoke < SPEAKING_HOLD_MS) {
+          nextSpeaking.add(uid); // hold speaking state
+        }
+      }
+    }
+    // Only update store if the set actually changed (avoids unnecessary re-renders)
+    let changed = nextSpeaking.size !== prevSpeaking.size;
+    if (!changed) {
+      for (const uid of nextSpeaking) {
+        if (!prevSpeaking.has(uid)) { changed = true; break; }
+      }
+    }
+    if (changed) {
+      useVoiceStore.setState({ speakingUserIds: nextSpeaking });
+    }
+
     // ── Noise gate logic ──
     const { audioSettings, isMuted } = state;
     if (!audioSettings.inputSensitivityEnabled || isMuted) {
@@ -382,6 +413,7 @@ function stopAudioLevelPolling() {
   teardownLocalAnalyser();
   isGated = false;
   gatedSilentSince = null;
+  userLastSpokeMap.clear();
 }
 
 // ── Types ──
@@ -456,6 +488,8 @@ interface VoiceState {
 
   // Audio levels (0-1 per participant, updated at 20fps)
   audioLevels: Record<string, number>;
+  // Debounced speaking state — instant on, 200ms hold off (no flicker)
+  speakingUserIds: Set<string>;
 
   // Screen share
   isScreenSharing: boolean;
@@ -520,6 +554,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   participantVolumes: {},
   participantTrackMap: {},
   audioLevels: {},
+  speakingUserIds: new Set<string>(),
   isScreenSharing: false,
   screenSharers: [],
   pinnedScreenShare: null,
@@ -759,6 +794,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           screenSharers: [],
           participantTrackMap: {},
           audioLevels: {},
+          speakingUserIds: new Set<string>(),
           pinnedScreenShare: null,
         });
       });
@@ -913,6 +949,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       screenSharers: [],
       participantTrackMap: {},
       audioLevels: {},
+      speakingUserIds: new Set<string>(),
       pinnedScreenShare: null,
     });
   },

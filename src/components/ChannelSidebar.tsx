@@ -5,7 +5,7 @@ import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
 import { useUIStore } from "../stores/ui.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
-import { MessageSquareText, Volume2, Settings, Monitor, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical } from "lucide-react";
+import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
 import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
@@ -121,6 +121,12 @@ function getChannelIcon(type: ChannelType, size = 14) {
   }
 }
 
+/** Tiny component so only the mic icon re-renders when speaking state changes, not the whole sidebar */
+function SpeakingMic({ userId }: { userId: string }) {
+  const isSpeaking = useVoiceStore((s) => s.speakingUserIds.has(userId));
+  return <Mic size={14} className={`voice-speaking-mic ${isSpeaking ? "active" : ""}`} />;
+}
+
 function SortableChannelItem({
   node,
   isActive,
@@ -148,7 +154,6 @@ function SortableChannelItem({
     hasScreenShare: boolean;
     members: ReturnType<typeof useChatStore.getState>["members"];
     voiceParticipants: ReturnType<typeof useVoiceStore.getState>["participants"];
-    audioLevels: Record<string, number>;
   };
   isDragging?: boolean;
   isDropTarget?: boolean;
@@ -236,7 +241,6 @@ function SortableChannelItem({
           {voiceProps.participants.map((p) => {
             const member = voiceProps.members.find((m) => m.userId === p.userId);
             const voiceUser = voiceProps.isConnected ? voiceProps.voiceParticipants.find((v) => v.userId === p.userId) : null;
-            const isSpeaking = voiceProps.isConnected && (voiceProps.audioLevels[p.userId] ?? 0) > 0.01;
             return (
               <div key={p.userId} className="voice-channel-user">
                 <span className={`voice-avatar-ring ${ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}`} style={{ ...ringGradientStyle(member?.ringPatternSeed, member?.ringStyle) } as React.CSSProperties}>
@@ -248,7 +252,6 @@ function SortableChannelItem({
                     )}
                   </span>
                 </span>
-                <span className={`voice-speaking-dot ${isSpeaking ? "active" : ""}`} />
                 <span className="voice-user-name">{p.username}</span>
                 {p.drinkCount > 0 && (
                   <span className="drink-badge" title={`${p.drinkCount} drink${p.drinkCount !== 1 ? "s" : ""}`}>
@@ -257,6 +260,7 @@ function SortableChannelItem({
                 )}
                 {voiceUser?.isMuted && <MicOff size={14} className="voice-user-status-icon" />}
                 {voiceUser?.isDeafened && <HeadphoneOff size={14} className="voice-user-status-icon" />}
+                <SpeakingMic userId={p.userId} />
               </div>
             );
           })}
@@ -268,7 +272,7 @@ function SortableChannelItem({
 
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels } = useChatStore();
-  const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants, audioLevels } = useVoiceStore();
+  const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants } = useVoiceStore();
   const showingEconomy = useUIStore((s) => s.showingEconomy);
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
@@ -534,7 +538,6 @@ export function ChannelSidebar() {
                     hasScreenShare,
                     members,
                     voiceParticipants,
-                    audioLevels,
                   } : undefined}
                 />
               );

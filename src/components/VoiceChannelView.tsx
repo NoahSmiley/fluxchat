@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useVoiceStore } from "../stores/voice.js";
 import { useChatStore } from "../stores/chat.js";
@@ -108,20 +108,57 @@ function StreamTile({ participantId, username, isPinned }: {
 }
 
 // ── Speaking Avatar ──
-function SpeakingAvatar({ username, image, audioLevel, speaking, large, role, memberRingStyle, memberRingSpin, memberRingPatternSeed }: {
-  username: string; image?: string | null; audioLevel: number; speaking: boolean; large?: boolean; role?: string;
+// The glow ring animates via rAF reading audio levels directly from the store (no re-render).
+// Only the binary speaking boolean triggers a React re-render.
+function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle, memberRingSpin, memberRingPatternSeed }: {
+  userId: string; username: string; image?: string | null; large?: boolean; role?: string;
   memberRingStyle?: string; memberRingSpin?: boolean; memberRingPatternSeed?: number | null;
 }) {
-  const intensity = speaking ? Math.min(audioLevel * 3, 1) : 0;
-  const ringScale = 1 + intensity * 0.35;
-  const ringOpacity = speaking ? 0.3 + intensity * 0.7 : 0;
+  const speaking = useVoiceStore((s) => s.speakingUserIds.has(userId));
+  const ringRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number>(0);
   const rc = ringClass(memberRingStyle, memberRingSpin, role, false, memberRingPatternSeed);
+
+  // Determine the ring color — use the avatar's base color as the speaking ring color
+  const ringColor = avatarColor(username);
+
+  // Animate the speaking ring at 60fps by reading audioLevels directly — no React re-render
+  useEffect(() => {
+    if (!speaking) {
+      // Reset ring when not speaking
+      if (ringRef.current) {
+        ringRef.current.style.transform = "scale(1)";
+        ringRef.current.style.opacity = "0";
+        ringRef.current.style.boxShadow = "none";
+      }
+      return;
+    }
+    let smoothed = 0;
+    function animate() {
+      const raw = useVoiceStore.getState().audioLevels[userId] ?? 0;
+      // Smooth: fast attack, slow release
+      smoothed = raw > smoothed ? raw * 0.7 + smoothed * 0.3 : raw * 0.15 + smoothed * 0.85;
+      const intensity = Math.min(smoothed * 10, 1);
+      const scale = 1 + intensity * 0.5;
+      const opacity = 0.4 + intensity * 0.6;
+      const glowSize = Math.round(4 + intensity * 16);
+      if (ringRef.current) {
+        ringRef.current.style.transform = `scale(${scale})`;
+        ringRef.current.style.opacity = `${opacity}`;
+        ringRef.current.style.boxShadow = `0 0 ${glowSize}px ${ringColor}`;
+      }
+      rafRef.current = requestAnimationFrame(animate);
+    }
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [speaking, userId, ringColor]);
 
   return (
     <div className={`voice-avatar-wrapper ${large ? "large" : ""}`}>
       <div
+        ref={ringRef}
         className={`voice-avatar-speaking-ring ${speaking ? "active" : ""}`}
-        style={{ transform: `scale(${ringScale})`, opacity: ringOpacity }}
+        style={{ transform: "scale(1)", opacity: 0, background: ringColor }}
       />
       <div className={`voice-participant-ring ${rc}`} style={{ "--ring-color": avatarColor(username), ...ringGradientStyle(memberRingPatternSeed, memberRingStyle) } as React.CSSProperties}>
         <div className={`voice-participant-avatar ${speaking ? "speaking" : ""} ${large ? "large" : ""}`}>
@@ -132,6 +169,17 @@ function SpeakingAvatar({ username, image, audioLevel, speaking, large, role, me
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Wraps a participant tile so the speaking class updates via store subscription, not parent re-render */
+function ParticipantTile({ userId, username, children }: { userId: string; username: string; children: ReactNode }) {
+  const speaking = useVoiceStore((s) => s.speakingUserIds.has(userId));
+  const color = avatarColor(username);
+  return (
+    <div className={`voice-participant-tile ${speaking ? "speaking" : ""}`} style={{ "--ring-color": color } as React.CSSProperties}>
+      {children}
     </div>
   );
 }
@@ -152,7 +200,6 @@ export function VoiceChannelView() {
     pinnedScreenShare,
     theatreMode,
     participantVolumes,
-    audioLevels,
     joinVoiceChannel,
     leaveVoiceChannel,
     toggleMute,
@@ -281,15 +328,11 @@ export function VoiceChannelView() {
             {participants.map((user) => {
               const member = members.find((m) => m.userId === user.userId);
               return (
-              <div
-                key={user.userId}
-                className={`voice-participant-tile ${user.speaking ? "speaking" : ""}`}
-              >
+              <ParticipantTile key={user.userId} userId={user.userId} username={user.username}>
                 <SpeakingAvatar
+                  userId={user.userId}
                   username={user.username}
                   image={member?.image}
-                  audioLevel={audioLevels[user.userId] ?? 0}
-                  speaking={user.speaking}
                   role={member?.role}
                   memberRingStyle={member?.ringStyle}
                   memberRingSpin={member?.ringSpin}
@@ -322,7 +365,7 @@ export function VoiceChannelView() {
                     />
                   </div>
                 )}
-              </div>
+              </ParticipantTile>
             );
             })}
           </div>
