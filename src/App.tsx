@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Minus, Square, Copy, X, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { useAuthStore } from "./stores/auth.js";
@@ -119,38 +119,71 @@ function WindowsWindowControls() {
   );
 }
 
+const MIN_ZOOM = 0.8;
+const MAX_ZOOM = 1.5;
+
 function ZoomControls() {
-  const [zoom, setZoomState] = useState(1);
+  const [zoom, setZoomState] = useState(() => {
+    const stored = localStorage.getItem("app-zoom");
+    return stored ? parseFloat(stored) : 1;
+  });
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
 
   async function applyZoom(factor: number) {
+    const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(factor * 100) / 100));
     try {
       const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-      await getCurrentWebviewWindow().setZoom(factor);
-      setZoomState(factor);
+      await getCurrentWebviewWindow().setZoom(clamped);
+      setZoomState(clamped);
+      localStorage.setItem("app-zoom", String(clamped));
     } catch {}
   }
 
-  function handleZoomOut() {
-    applyZoom(Math.max(0.5, Math.round((zoom - 0.1) * 100) / 100));
-  }
+  // Apply stored zoom on mount
+  useEffect(() => {
+    import("@tauri-apps/api/webviewWindow").then(({ getCurrentWebviewWindow }) => {
+      getCurrentWebviewWindow().setZoom(zoomRef.current).catch(() => {});
+    }).catch(() => {});
+  }, []);
 
-  function handleZoomReset() {
-    applyZoom(1);
-  }
-
-  function handleZoomIn() {
-    applyZoom(Math.min(2, Math.round((zoom + 0.1) * 100) / 100));
-  }
+  // Intercept Ctrl+scroll and Ctrl+/-/0 to keep state in sync with native shortcuts
+  useEffect(() => {
+    function handleWheel(e: WheelEvent) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      applyZoom(zoomRef.current + (e.deltaY < 0 ? 0.1 : -0.1));
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (!e.ctrlKey) return;
+      if (e.key === "=" || e.key === "+") {
+        e.preventDefault();
+        applyZoom(zoomRef.current + 0.1);
+      } else if (e.key === "-") {
+        e.preventDefault();
+        applyZoom(zoomRef.current - 0.1);
+      } else if (e.key === "0") {
+        e.preventDefault();
+        applyZoom(1);
+      }
+    }
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   return (
     <div className="zoom-controls">
-      <button className="window-control-btn zoom-btn" onClick={handleZoomOut} title="Zoom Out">
+      <button className="window-control-btn zoom-btn" onClick={() => applyZoom(zoom - 0.1)} title="Zoom Out" disabled={zoom <= MIN_ZOOM}>
         <ZoomOut size={12} />
       </button>
-      <button className="window-control-btn zoom-btn" onClick={handleZoomReset} title={`Reset Zoom (${Math.round(zoom * 100)}%)`}>
+      <button className="window-control-btn zoom-btn" onClick={() => applyZoom(1)} title={`Reset Zoom (${Math.round(zoom * 100)}%)`}>
         <RotateCcw size={10} />
       </button>
-      <button className="window-control-btn zoom-btn" onClick={handleZoomIn} title="Zoom In">
+      <button className="window-control-btn zoom-btn" onClick={() => applyZoom(zoom + 0.1)} title="Zoom In" disabled={zoom >= MAX_ZOOM}>
         <ZoomIn size={12} />
       </button>
     </div>

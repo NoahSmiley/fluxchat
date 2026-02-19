@@ -1,16 +1,30 @@
 # TODO
 
+
+## MINOR
+
+entrance sounds
+
 check to see how often app polls for new users to display + status changes, make sure its okay
 
 make draggable area for channels in sidebar not appear in browser but instead have a small spacer there so the space between channel icon and left of section remain same or similar between app and browser
+
+a page for users to view the devices theyve logged into the app with
+- something like what you see on github: settings > sessions
+- this would potentially be part of a better solution than localStorage for storing things like soundboard volume which may be different not just per user but per device
+
+text channels and messages should be able to be copied then pasted in a message and show up as tags that when clicked bring the user to that channel or message
+
+allow choosing duration time when selecting displayed statuses other than online
+
+
+## MAJOR
 
 break up huge files like global.css
 
 add min and max zoom
 
-a page for users to view the devices theyve logged into the app with
-- something like what you see on github: settings > sessions
-- this would potentially be part of a better solution than localStorage for storing things like soundboard volume which may be different not just per user but per device
+mouse over reactions to see who made them
 
 improve app sounds (join, leave, clicky sounds) (notification sounds are good) (some sounds seem questionably reliable, they don't always play when they should)
 
@@ -24,8 +38,6 @@ when connected to voice on one device, connecting to voice on another device wit
 channels with unread messages need a white semicircle to the left of them similar to the white bar that appears on a selected channel. same width and radius as the white bar but remove height down to circle
 - there also needs to be a more prominent indicator than above, likely with a number, for unread mentions in text channels
 
-text channels and messages should be able to be copied then pasted in a message and show up as tags that when clicked bring the user to that channel or message
-
 more customizable profiles
 - date registered
 - connections (socials, platforms)
@@ -33,8 +45,6 @@ more customizable profiles
 
 better emojis and emoji system
 - soundboard sound creation menu needs update for emoji input after this
-
-add entrance sounds
 
 add message replies
 
@@ -57,8 +67,6 @@ text channel (minor) events
 add pins for text channels and DMs
 
 add reactions menu for viewing and, if admin, editing reactions
-
-allow choosing duration time when selecting displayed statuses other than online
 
 
 ## CONTEXT MENUS (RIGHT CLICKING THINGS)
