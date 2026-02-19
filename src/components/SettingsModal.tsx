@@ -188,7 +188,7 @@ const APP_BORDER_STYLES: { value: AppBorderStyle; label: string }[] = [
 ];
 
 export function SettingsModal() {
-  const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition, appBorderStyle, setAppBorderStyle } = useUIStore();
+  const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition, appBorderStyle, setAppBorderStyle, showDummyUsers, toggleDummyUsers } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
   const { servers, activeServerId, updateServer } = useChatStore();
   const { user, updateProfile, logout } = useAuthStore();
@@ -687,6 +687,13 @@ export function SettingsModal() {
               <button className="btn-small" onClick={() => { navigator.clipboard.writeText(dumpLogs()).then(() => { setLogsCopied(true); setTimeout(() => setLogsCopied(false), 2000); }); }}>
                 {logsCopied ? "Copied!" : "Copy Logs"}
               </button>
+            </div>
+            <div className="settings-row">
+              <div className="settings-row-info">
+                <span className="settings-row-label">Dummy Users</span>
+                <span className="settings-row-desc">Show placeholder users in sidebars and voice channels</span>
+              </div>
+              <ToggleSwitch checked={showDummyUsers} onChange={toggleDummyUsers} />
             </div>
           </div>
         )}

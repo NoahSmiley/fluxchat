@@ -10,6 +10,7 @@ interface UIState {
   showingEconomy: boolean;
   sidebarPosition: SidebarPosition;
   appBorderStyle: AppBorderStyle;
+  showDummyUsers: boolean;
   openSettings: () => void;
   closeSettings: () => void;
   openServerSettings: () => void;
@@ -19,6 +20,7 @@ interface UIState {
   toggleEconomy: () => void;
   setSidebarPosition: (pos: SidebarPosition) => void;
   setAppBorderStyle: (style: AppBorderStyle) => void;
+  toggleDummyUsers: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -29,6 +31,7 @@ export const useUIStore = create<UIState>()(
       showingEconomy: false,
       sidebarPosition: "left",
       appBorderStyle: "none",
+      showDummyUsers: true,
       openSettings: () => set({ settingsOpen: true }),
       closeSettings: () => set({ settingsOpen: false }),
       openServerSettings: () => set({ serverSettingsOpen: true }),
@@ -38,12 +41,14 @@ export const useUIStore = create<UIState>()(
       toggleEconomy: () => set((s) => ({ showingEconomy: !s.showingEconomy })),
       setSidebarPosition: (pos) => set({ sidebarPosition: pos }),
       setAppBorderStyle: (style) => set({ appBorderStyle: style }),
+      toggleDummyUsers: () => set((s) => ({ showDummyUsers: !s.showDummyUsers })),
     }),
     {
       name: "flux-ui",
       partialize: (state) => ({
         sidebarPosition: state.sidebarPosition,
         appBorderStyle: state.appBorderStyle,
+        showDummyUsers: state.showDummyUsers,
       }),
     }
   )
