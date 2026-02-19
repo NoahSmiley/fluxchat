@@ -70,7 +70,7 @@ export function UserCard({
       {/* Avatar */}
       <div className="user-card-avatar-wrapper">
         <div className={`user-card-avatar-ring ${ringClass(member.ringStyle, member.ringSpin, member.role, false, member.ringPatternSeed)} ${isOnline ? "online" : ""}`} style={{ "--ring-color": color, ...ringGradientStyle(member.ringPatternSeed, member.ringStyle) } as React.CSSProperties}>
-          <div className="user-card-avatar" style={{ background: color }}>
+          <div className="user-card-avatar" style={{ background: member.image ? 'transparent' : color }}>
             {member.image ? (
               <img src={member.image} alt={member.username} className="user-card-avatar-img" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             ) : (
@@ -208,7 +208,7 @@ export function MemberList() {
                 onClick={(e) => handleMemberClick(e, m.userId)}
               >
                 <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, !!activity, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle), position: "relative" } as React.CSSProperties}>
-                  <div className="member-avatar" style={{ background: avatarColor(m.username) }}>
+                  <div className="member-avatar" style={{ background: m.image ? 'transparent' : avatarColor(m.username) }}>
                     {m.image ? (
                       <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     ) : (
@@ -242,7 +242,7 @@ export function MemberList() {
               onClick={(e) => handleMemberClick(e, m.userId)}
             >
               <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, false, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
-                <div className="member-avatar" style={{ background: avatarColor(m.username) }}>
+                <div className="member-avatar" style={{ background: m.image ? 'transparent' : avatarColor(m.username) }}>
                   {m.image ? (
                     <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                   ) : (
