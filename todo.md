@@ -4,6 +4,8 @@ check to see how often app polls for new users to display + status changes, make
 
 make draggable area for channels in sidebar not appear in browser but instead have a small spacer there so the space between channel icon and left of section remain same or similar between app and browser
 
+break up huge files like global.css
+
 add min and max zoom
 
 nickname system - users can have an alias that is their display name in the group chat. users can edit each others nickname.

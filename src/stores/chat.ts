@@ -1196,7 +1196,8 @@ gateway.on((event) => {
         if (connectedChannelId !== event.channelId) return;
         const audioUrl = `${API_BASE}/files/${event.audioAttachmentId}/${event.audioFilename}`;
         const audio = new Audio(audioUrl);
-        audio.volume = event.volume;
+        const masterVolume = parseFloat(localStorage.getItem("soundboard-master-volume") ?? "1");
+        audio.volume = Math.min(1, event.volume * masterVolume);
         audio.play().catch(() => {});
       });
       break;

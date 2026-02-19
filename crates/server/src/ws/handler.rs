@@ -1004,7 +1004,7 @@ async fn handle_client_event(
                         volume,
                         username: user.username.clone(),
                     },
-                    Some(client_id),
+                    None,
                 )
                 .await;
         }

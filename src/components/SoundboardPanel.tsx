@@ -28,10 +28,6 @@ export function SoundboardPanel({ serverId, channelId }: { serverId: string; cha
   }, [serverId]);
 
   function handlePlay(sound: SoundboardSound) {
-    const audioUrl = `${API_BASE}/files/${sound.audioAttachmentId}/${sound.audioFilename}`;
-    const audio = new Audio(audioUrl);
-    audio.volume = Math.min(1, sound.volume * masterVolume);
-    audio.play().catch(() => {});
     gateway.send({ type: "play_sound", channelId, soundId: sound.id });
   }
 
