@@ -25,6 +25,7 @@ import type {
   Trade,
   MarketplaceListing,
   CraftResult,
+  SoundboardSound,
 } from "../types/shared.js";
 
 import { API_BASE } from "./serverUrl.js";
@@ -538,5 +539,53 @@ export async function craftItems(inventoryIds: string[]) {
   return request<CraftResult>("/craft", {
     method: "POST",
     body: JSON.stringify({ inventoryIds }),
+  });
+}
+
+// ── Soundboard ──
+
+export async function getSoundboardSounds(serverId: string) {
+  return request<SoundboardSound[]>(`/servers/${serverId}/soundboard`);
+}
+
+export async function createSoundboardSound(serverId: string, data: {
+  name: string;
+  emoji?: string;
+  audioAttachmentId: string;
+  imageAttachmentId?: string;
+  volume: number;
+}) {
+  return request<SoundboardSound>(`/servers/${serverId}/soundboard`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateSoundboardSound(
+  serverId: string,
+  soundId: string,
+  data: { name: string; emoji?: string; imageAttachmentId?: string; volume: number },
+) {
+  return request<SoundboardSound>(`/servers/${serverId}/soundboard/${soundId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSoundboardSound(serverId: string, soundId: string) {
+  return request<void>(`/servers/${serverId}/soundboard/${soundId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function favoriteSoundboardSound(serverId: string, soundId: string) {
+  return request<void>(`/servers/${serverId}/soundboard/${soundId}/favorite`, {
+    method: "POST",
+  });
+}
+
+export async function unfavoriteSoundboardSound(serverId: string, soundId: string) {
+  return request<void>(`/servers/${serverId}/soundboard/${soundId}/favorite`, {
+    method: "DELETE",
   });
 }

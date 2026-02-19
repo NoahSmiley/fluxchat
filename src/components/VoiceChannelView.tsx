@@ -4,6 +4,7 @@ import { useVoiceStore } from "../stores/voice.js";
 import { useChatStore } from "../stores/chat.js";
 import { useSpotifyStore } from "../stores/spotify.js";
 import { MusicPanel } from "./MusicPanel.js";
+import { SoundboardPanel } from "./SoundboardPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
@@ -153,7 +154,7 @@ function ParticipantTile({ userId, username, banner, children }: { userId: strin
 
 // ── Main Export ──
 export function VoiceChannelView() {
-  const { channels, activeChannelId, members } = useChatStore();
+  const { channels, activeChannelId, activeServerId, members } = useChatStore();
   const {
     room,
     connectedChannelId,
@@ -178,7 +179,7 @@ export function VoiceChannelView() {
   } = useVoiceStore();
   const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
-  const [activeTab, setActiveTab] = useState<"voice" | "music">("voice");
+  const [activeTab, setActiveTab] = useState<"voice" | "music" | "sounds">("voice");
   const [showQualityPicker, setShowQualityPicker] = useState(false);
 
   const channel = channels.find((c) => c.id === activeChannelId);
@@ -226,6 +227,12 @@ export function VoiceChannelView() {
           >
             <Music size={14} /> Music
           </button>
+          <button
+            className={`voice-tab ${activeTab === "sounds" ? "active" : ""}`}
+            onClick={() => setActiveTab("sounds")}
+          >
+            <Volume2 size={14} /> Sounds
+          </button>
         </div>
       )}
 
@@ -256,6 +263,10 @@ export function VoiceChannelView() {
 
       {isConnected && activeTab === "music" && activeChannelId && (
         <MusicPanel voiceChannelId={activeChannelId} />
+      )}
+
+      {isConnected && activeTab === "sounds" && activeServerId && activeChannelId && (
+        <SoundboardPanel serverId={activeServerId} channelId={activeChannelId} />
       )}
 
       {isConnected && activeTab === "voice" && (

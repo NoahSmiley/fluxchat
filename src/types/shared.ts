@@ -142,6 +142,22 @@ export interface SpotifyTrack {
   duration_ms: number;
 }
 
+export interface SoundboardSound {
+  id: string;
+  serverId: string;
+  name: string;
+  emoji: string | null;
+  audioAttachmentId: string;
+  audioFilename: string;
+  imageAttachmentId: string | null;
+  imageFilename: string | null;
+  volume: number;
+  createdBy: string;
+  creatorUsername: string;
+  createdAt: string;
+  favorited: boolean;
+}
+
 export type WSClientEvent =
   | { type: "send_message"; channelId: string; content: string; attachmentIds?: string[] }
   | { type: "typing_start"; channelId: string }
@@ -161,7 +177,8 @@ export type WSClientEvent =
   | { type: "request_server_key"; serverId: string }
   | { type: "spotify_playback_control"; sessionId: string; action: string; trackUri?: string; positionMs?: number }
   | { type: "voice_drink_update"; channelId: string; drinkCount: number }
-  | { type: "update_status"; status: string };
+  | { type: "update_status"; status: string }
+  | { type: "play_sound"; channelId: string; soundId: string };
 
 export type WSServerEvent =
   | { type: "message"; message: Message; attachments?: Attachment[] }
@@ -191,6 +208,7 @@ export type WSServerEvent =
   | { type: "trade_offer_received"; tradeId: string; senderId: string; senderUsername: string }
   | { type: "trade_resolved"; tradeId: string; status: string }
   | { type: "coins_earned"; userId: string; amount: number; reason: string; newBalance: number }
+  | { type: "soundboard_play"; channelId: string; soundId: string; audioAttachmentId: string; audioFilename: string; imageAttachmentId?: string; imageFilename?: string; volume: number; username: string }
   | { type: "error"; message: string };
 
 export type PresenceStatus = "online" | "idle" | "dnd" | "invisible" | "offline";

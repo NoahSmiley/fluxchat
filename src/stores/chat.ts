@@ -6,6 +6,7 @@ import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
 import { playMessageSound, showDesktopNotification } from "../lib/notifications.js";
 import { useCryptoStore } from "./crypto.js";
 import { useUIStore } from "./ui.js";
+import { API_BASE } from "../lib/serverUrl.js";
 
 // UTF-8-safe base64 encoding/decoding (btoa/atob only handle Latin-1)
 export function utf8ToBase64(str: string): string {
@@ -1186,6 +1187,18 @@ gateway.on((event) => {
           }
         })();
       }
+      break;
+    }
+
+    case "soundboard_play": {
+      import("./voice.js").then((mod) => {
+        const { connectedChannelId } = mod.useVoiceStore.getState();
+        if (connectedChannelId !== event.channelId) return;
+        const audioUrl = `${API_BASE}/files/${event.audioAttachmentId}/${event.audioFilename}`;
+        const audio = new Audio(audioUrl);
+        audio.volume = event.volume;
+        audio.play().catch(() => {});
+      });
       break;
     }
   }

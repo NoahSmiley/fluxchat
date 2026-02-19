@@ -160,6 +160,27 @@ CREATE TABLE IF NOT EXISTS "link_previews" (
     fetched_at TEXT NOT NULL
 );
 
+-- Soundboard
+CREATE TABLE IF NOT EXISTS "soundboard_sounds" (
+    id TEXT PRIMARY KEY,
+    server_id TEXT NOT NULL REFERENCES "servers"(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    emoji TEXT,
+    audio_attachment_id TEXT NOT NULL REFERENCES "attachments"(id) ON DELETE CASCADE,
+    image_attachment_id TEXT REFERENCES "attachments"(id) ON DELETE SET NULL,
+    volume REAL NOT NULL DEFAULT 1.0,
+    created_by TEXT NOT NULL REFERENCES "user"(id),
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_soundboard_server ON soundboard_sounds(server_id);
+
+CREATE TABLE IF NOT EXISTS "soundboard_favorites" (
+    user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    sound_id TEXT NOT NULL REFERENCES soundboard_sounds(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, sound_id)
+);
+
 -- Full-text search
 CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
     message_id,

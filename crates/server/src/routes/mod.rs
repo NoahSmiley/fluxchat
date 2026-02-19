@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod cases;
+pub mod soundboard;
 pub mod craft;
 pub mod dms;
 pub mod economy;
@@ -110,7 +111,12 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/marketplace/{id}/buy", post(marketplace::buy_listing))
         .route("/marketplace/{id}", delete(marketplace::cancel_listing))
         // Crafting
-        .route("/craft", post(craft::craft_items));
+        .route("/craft", post(craft::craft_items))
+        // Soundboard
+        .route("/servers/{serverId}/soundboard", get(soundboard::list_sounds))
+        .route("/servers/{serverId}/soundboard", post(soundboard::create_sound))
+        .route("/servers/{serverId}/soundboard/{soundId}", patch(soundboard::update_sound).delete(soundboard::delete_sound))
+        .route("/servers/{serverId}/soundboard/{soundId}/favorite", post(soundboard::favorite_sound).delete(soundboard::unfavorite_sound));
 
     Router::new()
         .nest("/api/auth", auth_routes)
