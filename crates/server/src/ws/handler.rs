@@ -330,7 +330,9 @@ async fn handle_client_event(
             .execute(&state.db)
             .await;
 
-            if result.is_err() {
+            if let Err(e) = result {
+                tracing::error!("Failed to insert message: {:?}", e);
+                state.gateway.send_to(client_id, &ServerEvent::Error { message: format!("Failed to save message: {}", e) }).await;
                 return;
             }
 

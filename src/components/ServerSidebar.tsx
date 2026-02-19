@@ -114,7 +114,7 @@ export function ServerSidebar() {
         <FluxLogo size={36} />
       </div>
 
-      {sortedMembers.length > 0 && (
+      {sortedMembers.length >= 0 && (
         <div className="sidebar-members">
             {sortedMembers.map((m) => {
               const isSelf = m.userId === user?.id;
@@ -126,7 +126,7 @@ export function ServerSidebar() {
               return (
                 <div
                   key={m.userId}
-                  className={`sidebar-member-avatar ${!isOnline ? "offline" : ""} ${activeCardUserId === m.userId ? "selected" : ""}${hasRareGlow ? " has-rare-glow" : ""}`}
+                  className={`sidebar-member-avatar ${isSelf ? "sticky-self" : ""} ${!isOnline ? "offline" : ""} ${activeCardUserId === m.userId ? "selected" : ""}${hasRareGlow ? " has-rare-glow" : ""}`}
                   style={ringGradientStyle(m.ringPatternSeed, m.ringStyle) as React.CSSProperties}
                   onMouseEnter={(e) => handleAvatarEnter(e, m.userId)}
                   onMouseLeave={handleAvatarLeave}
@@ -147,6 +147,48 @@ export function ServerSidebar() {
                 </div>
               );
             })}
+            {/* DEBUG: dummy sidebar avatars — online first, offline at bottom */}
+            {[
+              { userId: "__s1", username: "xKira", ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=1", online: true },
+              { userId: "__s2", username: "Blaze", ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=8", online: true },
+              { userId: "__s3", username: "PhaseShift", ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/64?img=12", online: true },
+              { userId: "__s4", username: "Cosmo", ringStyle: "emerald", ringSpin: false, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/64?img=15", online: true },
+              { userId: "__s6", username: "Prism", ringStyle: "doppler", ringSpin: false, ringPatternSeed: 77, role: "member", image: "https://i.pravatar.cc/64?img=33", online: true },
+              { userId: "__s7", username: "Nyx", ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 150, role: "member", image: "https://i.pravatar.cc/64?img=47", online: true },
+              { userId: "__s8", username: "ZeroDay", ringStyle: "ruby", ringSpin: true, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/64?img=51", online: true },
+              { userId: "__s9", username: "Voltex", ringStyle: "sapphire", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=5", online: true },
+              { userId: "__s10", username: "Nova", ringStyle: "emerald", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=9", online: true },
+              { userId: "__s11", username: "Cipher", ringStyle: "chroma", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=18", online: true },
+              { userId: "__s12", username: "Wraith", ringStyle: "doppler", ringSpin: true, ringPatternSeed: 99, role: "member", image: "https://i.pravatar.cc/64?img=25", online: true },
+              { userId: "__s14", username: "Flux", ringStyle: "ruby", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/64?img=36", online: true },
+              { userId: "__s16", username: "Raze", ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/64?img=44", online: true },
+              { userId: "__s18", username: "Pixel", ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=52", online: true },
+              { userId: "__s19", username: "Glitch", ringStyle: "doppler", ringSpin: false, ringPatternSeed: 55, role: "member", image: "https://i.pravatar.cc/64?img=56", online: true },
+              { userId: "__s20", username: "Nexus", ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 120, role: "member", image: "https://i.pravatar.cc/64?img=60", online: true },
+              // offline users at bottom
+              { userId: "__s5", username: "ghost404", ringStyle: "default", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=22", online: false },
+              { userId: "__s13", username: "Shade", ringStyle: "gamma_doppler", ringSpin: false, ringPatternSeed: 200, role: "member", image: "https://i.pravatar.cc/64?img=30", online: false },
+              { userId: "__s15", username: "Ember", ringStyle: "default", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=41", online: false },
+              { userId: "__s17", username: "Drift", ringStyle: "emerald", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=48", online: false },
+            ].map((d) => {
+              const rc = ringClass(d.ringStyle, d.ringSpin, d.role, false, d.ringPatternSeed);
+              const hasRareGlow = rc.includes("ring-rare-glow");
+              return (
+                <div
+                  key={d.userId}
+                  className={`sidebar-member-avatar ${!d.online ? "offline" : ""}${hasRareGlow ? " has-rare-glow" : ""}`}
+                  style={ringGradientStyle(d.ringPatternSeed, d.ringStyle) as React.CSSProperties}
+                >
+                  <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(d.username), ...ringGradientStyle(d.ringPatternSeed, d.ringStyle) } as React.CSSProperties}>
+                    <div className="member-avatar" style={{ background: 'transparent' }}>
+                      <img src={d.image} alt={d.username} className="avatar-img-sm" />
+                    </div>
+                  </div>
+                  {d.online && <span className="avatar-status-indicator online" />}
+                </div>
+              );
+            })}
+            {/* END DEBUG */}
         </div>
       )}
 

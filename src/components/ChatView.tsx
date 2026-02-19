@@ -15,6 +15,7 @@ const URL_REGEX = /https?:\/\/[^\s<]+/g;
 const MENTION_REGEX = /@([a-zA-Z0-9_-]+)/g;
 
 function renderMessageContent(text: string, memberUsernames: Set<string>): ReactNode[] {
+  if (!text) return [text ?? ""];
   const segments: ReactNode[] = [];
   let lastIndex = 0;
 
@@ -61,6 +62,7 @@ function renderMessageContent(text: string, memberUsernames: Set<string>): React
 }
 
 function extractUrls(text: string): string[] {
+  if (!text) return [];
   URL_REGEX.lastIndex = 0;
   const urls: string[] = [];
   let match: RegExpExecArray | null;
@@ -185,7 +187,7 @@ export function ChatView() {
 
   function decodeContent(msgId: string, content: string): string {
     if (decryptedCache[msgId]) return decryptedCache[msgId];
-    return content;
+    return content ?? "";
   }
 
   function handlePopOut() {

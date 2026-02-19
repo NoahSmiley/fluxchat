@@ -29,22 +29,22 @@ class FluxWebSocket {
       url = `${url}${sep}token=${encodeURIComponent(token)}`;
     }
     dbg("ws", `connect url=${url.replace(/token=[^&]+/, "token=***")}`);
-    this.ws = new WebSocket(url);
+    const ws = new WebSocket(url);
+    this.ws = ws;
 
-    this.ws.onopen = () => {
+    ws.onopen = () => {
+      if (this.ws !== ws) return; // stale socket from StrictMode remount
       dbg("ws", "connected");
       this.reconnectDelay = WS_RECONNECT_BASE_DELAY;
       this.startHeartbeat();
       for (const handler of this.connectHandlers) handler();
     };
 
-    this.ws.onmessage = (e) => {
+    ws.onmessage = (e) => {
+      if (this.ws !== ws) return;
       try {
         const event: WSServerEvent = JSON.parse(e.data);
-        // Log all events except high-frequency ones
-        if (event.type !== "typing") {
-          dbg("ws", `recv ${event.type}`, event);
-        }
+        dbg("ws", `recv ${event.type}`, event);
         for (const handler of this.handlers) {
           handler(event);
         }
@@ -53,7 +53,8 @@ class FluxWebSocket {
       }
     };
 
-    this.ws.onclose = (e) => {
+    ws.onclose = (e) => {
+      if (this.ws !== ws) return; // stale socket — a newer connect() already replaced us
       dbg("ws", `closed code=${e.code} reason=${e.reason} clean=${e.wasClean}`);
       this.stopHeartbeat();
       if (this.shouldReconnect) {
@@ -62,9 +63,10 @@ class FluxWebSocket {
       }
     };
 
-    this.ws.onerror = (e) => {
+    ws.onerror = (e) => {
+      if (this.ws !== ws) return; // stale socket — don't close the new one
       dbg("ws", "error", e);
-      this.ws?.close();
+      ws.close();
     };
   }
 

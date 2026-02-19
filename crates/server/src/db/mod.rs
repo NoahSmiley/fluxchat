@@ -34,6 +34,17 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         }
     }
 
+    // Migration: rename messages.ciphertext → content (old E2EE schema)
+    sqlx::query(r#"ALTER TABLE "messages" RENAME COLUMN ciphertext TO content"#)
+        .execute(&pool)
+        .await
+        .ok();
+    // Also rename dm_messages.ciphertext if it was already named that
+    sqlx::query(r#"ALTER TABLE "dm_messages" RENAME COLUMN plaintext TO ciphertext"#)
+        .execute(&pool)
+        .await
+        .ok();
+
     // Migrations: add columns that may not exist in older databases
     sqlx::query(r#"ALTER TABLE "user" ADD COLUMN public_key TEXT"#)
         .execute(&pool)

@@ -14,6 +14,11 @@ export function getGatewayUrl(): string {
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     return url.toString();
   }
+  // In dev mode, connect directly to the backend WS instead of going through
+  // Vite's proxy, which can silently drop server→client WS frames.
+  if (import.meta.env.DEV) {
+    return "ws://127.0.0.1:3001/gateway";
+  }
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}/gateway`;
 }

@@ -515,7 +515,7 @@ input:focus {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
@@ -535,6 +535,14 @@ input:focus {
   transition: transform 0.15s, opacity 0.15s;
   border-radius: 50%;
   position: relative;
+}
+
+.sidebar-member-avatar.sticky-self {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-primary);
+  padding: 2px 0;
 }
 
 /* Rare glow on sidebar avatars — uses pseudo to avoid overflow clipping */
@@ -564,8 +572,8 @@ input:focus {
 }
 
 .sidebar-member-avatar .member-avatar-ring {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
 }
 
 .sidebar-member-avatar:hover {
@@ -1151,7 +1159,7 @@ input:focus {
 
 /* ── Server Sidebar User ── */
 .server-sidebar-spacer {
-  flex: 1;
+  flex: 0;
 }
 
 .server-sidebar-user {
@@ -1518,11 +1526,36 @@ input:focus {
   background: var(--bg-secondary);
   width: 140px;
   position: relative;
-  transition: background 0.15s;
+  transition: background 0.15s, box-shadow 0.2s ease;
 }
 
 .voice-participant-tile.speaking {
   background: color-mix(in srgb, var(--ring-color, #888) 10%, transparent);
+  box-shadow: 0 0 0 2px #43b581, 0 0 12px rgba(67, 181, 129, 0.4);
+}
+
+/* Banner background in voice tiles */
+.voice-participant-tile.has-banner {
+  overflow: hidden;
+}
+
+.voice-participant-tile.has-banner.speaking {
+  box-shadow: 0 0 0 2px #43b581, 0 0 16px rgba(67, 181, 129, 0.5);
+}
+
+.voice-tile-banner {
+  position: absolute;
+  inset: 0;
+  background: var(--tile-banner);
+  background-size: cover;
+  background-position: center;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.voice-participant-tile.has-banner > *:not(.voice-tile-banner) {
+  position: relative;
+  z-index: 1;
 }
 
 .voice-tile-name {
@@ -1881,11 +1914,27 @@ input:focus {
   background: var(--bg-hover);
 }
 
+/* Hover-to-inspect card overlay */
+.voice-user-card-overlay {
+  position: fixed;
+  z-index: 9999;
+}
+
+.voice-user-card-overlay .user-card {
+  position: fixed;
+  animation: card-pop-in 0.15s ease-out;
+}
+
+@keyframes card-pop-in {
+  from { opacity: 0; transform: scale(0.95) translateX(-4px); }
+  to   { opacity: 1; transform: scale(1) translateX(0); }
+}
+
 /* Voice avatar ring */
 .voice-avatar-ring {
   position: relative;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   padding: 2px;
   flex-shrink: 0;
@@ -1938,12 +1987,31 @@ input:focus {
   margin-left: auto;
   color: var(--text-muted, #555);
   opacity: 0.25;
+  transition: color 0.15s, opacity 0.15s, filter 0.15s;
 }
 
 .voice-speaking-mic.active {
   color: #43b581;
   opacity: 1;
   filter: drop-shadow(0 0 4px rgba(67, 181, 129, 0.6));
+}
+
+/* Muted — red mic-off, still shows speaking pulse */
+.voice-speaking-mic.muted {
+  color: #ed4245;
+  opacity: 0.6;
+}
+
+.voice-speaking-mic.muted.active {
+  color: #ed4245;
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(237, 66, 69, 0.6));
+}
+
+/* Deafened — small headphone icon, dim */
+.voice-speaking-mic.deafened {
+  color: #ed4245;
+  opacity: 0.5;
 }
 
 .voice-user-name {
@@ -2902,10 +2970,10 @@ input:focus {
 /* ── Avatar Status Indicator (overlay on avatars) ── */
 .avatar-status-indicator {
   position: absolute;
-  bottom: 1px;
-  right: 1px;
-  width: 14px;
-  height: 14px;
+  bottom: 0px;
+  right: 0px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   border: 2px solid var(--bg-primary);
   z-index: 2;
@@ -2913,19 +2981,23 @@ input:focus {
 
 .avatar-status-indicator.online {
   background: #43b581;
+  opacity: 0.7;
 }
 
 .avatar-status-indicator.idle {
   background: #faa61a;
+  opacity: 0.7;
 }
 
 .avatar-status-indicator.dnd {
   background: #f04747;
+  opacity: 0.8;
 }
 
 .avatar-status-indicator.invisible {
   background: #747f8d !important;
   visibility: visible !important;
+  opacity: 0.6;
 }
 
 /* ── Embedded Links ── */

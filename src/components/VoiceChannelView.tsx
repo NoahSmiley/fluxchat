@@ -7,9 +7,9 @@ import { MusicPanel } from "./MusicPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
-  Music, Beer,
+  Music,
 } from "lucide-react";
-import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
   // Request 1080p — matches the max resolution we actually publish
@@ -115,51 +115,10 @@ function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle,
   memberRingStyle?: string; memberRingSpin?: boolean; memberRingPatternSeed?: number | null;
 }) {
   const speaking = useVoiceStore((s) => s.speakingUserIds.has(userId));
-  const ringRef = useRef<HTMLDivElement>(null);
-  const rafRef = useRef<number>(0);
   const rc = ringClass(memberRingStyle, memberRingSpin, role, false, memberRingPatternSeed);
-
-  // Determine the ring color — use the avatar's base color as the speaking ring color
-  const ringColor = avatarColor(username);
-
-  // Animate the speaking ring at 60fps by reading audioLevels directly — no React re-render
-  useEffect(() => {
-    if (!speaking) {
-      // Reset ring when not speaking
-      if (ringRef.current) {
-        ringRef.current.style.transform = "scale(1)";
-        ringRef.current.style.opacity = "0";
-        ringRef.current.style.boxShadow = "none";
-      }
-      return;
-    }
-    let smoothed = 0;
-    function animate() {
-      const raw = useVoiceStore.getState().audioLevels[userId] ?? 0;
-      // Smooth: fast attack, slow release
-      smoothed = raw > smoothed ? raw * 0.7 + smoothed * 0.3 : raw * 0.15 + smoothed * 0.85;
-      const intensity = Math.min(smoothed * 10, 1);
-      const scale = 1 + intensity * 0.5;
-      const opacity = 0.4 + intensity * 0.6;
-      const glowSize = Math.round(4 + intensity * 16);
-      if (ringRef.current) {
-        ringRef.current.style.transform = `scale(${scale})`;
-        ringRef.current.style.opacity = `${opacity}`;
-        ringRef.current.style.boxShadow = `0 0 ${glowSize}px ${ringColor}`;
-      }
-      rafRef.current = requestAnimationFrame(animate);
-    }
-    rafRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [speaking, userId, ringColor]);
 
   return (
     <div className={`voice-avatar-wrapper ${large ? "large" : ""}`}>
-      <div
-        ref={ringRef}
-        className={`voice-avatar-speaking-ring ${speaking ? "active" : ""}`}
-        style={{ transform: "scale(1)", opacity: 0, background: ringColor }}
-      />
       <div className={`voice-participant-ring ${rc}`} style={{ "--ring-color": avatarColor(username), ...ringGradientStyle(memberRingPatternSeed, memberRingStyle) } as React.CSSProperties}>
         <div className={`voice-participant-avatar ${speaking ? "speaking" : ""} ${large ? "large" : ""}`}>
           {image ? (
@@ -174,11 +133,18 @@ function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle,
 }
 
 /** Wraps a participant tile so the speaking class updates via store subscription, not parent re-render */
-function ParticipantTile({ userId, username, children }: { userId: string; username: string; children: ReactNode }) {
+function ParticipantTile({ userId, username, banner, children }: { userId: string; username: string; banner?: string; children: ReactNode }) {
   const speaking = useVoiceStore((s) => s.speakingUserIds.has(userId));
   const color = avatarColor(username);
   return (
-    <div className={`voice-participant-tile ${speaking ? "speaking" : ""}`} style={{ "--ring-color": color } as React.CSSProperties}>
+    <div
+      className={`voice-participant-tile ${speaking ? "speaking" : ""} ${banner ? "has-banner" : ""}`}
+      style={{
+        "--ring-color": color,
+        ...(banner ? { "--tile-banner": banner } : {}),
+      } as React.CSSProperties}
+    >
+      {banner && <div className="voice-tile-banner" />}
       {children}
     </div>
   );
@@ -208,8 +174,6 @@ export function VoiceChannelView() {
     setParticipantVolume,
     screenShareQuality,
     setScreenShareQuality,
-    channelParticipants,
-    incrementDrinkCount,
   } = useVoiceStore();
   const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
   const [activeTab, setActiveTab] = useState<"voice" | "music">("voice");
@@ -325,10 +289,37 @@ export function VoiceChannelView() {
 
           {/* Participants */}
           <div className="voice-participants-grid">
+            {/* DEBUG: dummy voice tiles */}
+            {[
+              { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=1" },
+              { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=8" },
+              { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/128?img=12" },
+              { userId: "__d4", username: "Cosmo", bannerCss: "space", bannerPatternSeed: null, ringStyle: "emerald", ringSpin: false, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/128?img=15" },
+              { userId: "__d5", username: "ghost404", bannerCss: null, bannerPatternSeed: null, ringStyle: "default", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=22" },
+              { userId: "__d6", username: "Prism", bannerCss: "gamma_doppler", bannerPatternSeed: 77, ringStyle: "doppler", ringSpin: false, ringPatternSeed: 77, role: "member", image: "https://i.pravatar.cc/128?img=33" },
+              { userId: "__d7", username: "Nyx", bannerCss: "cityscape", bannerPatternSeed: null, ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 150, role: "member", image: "https://i.pravatar.cc/128?img=47" },
+              { userId: "__d8", username: "ZeroDay", bannerCss: "doppler", bannerPatternSeed: 200, ringStyle: "ruby", ringSpin: true, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/128?img=51" },
+            ].map((d) => (
+              <ParticipantTile key={d.userId} userId={d.userId} username={d.username} banner={bannerBackground(d.bannerCss, d.bannerPatternSeed)}>
+                <SpeakingAvatar
+                  userId={d.userId}
+                  username={d.username}
+                  image={d.image}
+                  role={d.role}
+                  memberRingStyle={d.ringStyle}
+                  memberRingSpin={d.ringSpin}
+                  memberRingPatternSeed={d.ringPatternSeed}
+                  large
+                />
+                <span className="voice-tile-name">{d.username}</span>
+              </ParticipantTile>
+            ))}
+            {/* END DEBUG */}
             {participants.map((user) => {
               const member = members.find((m) => m.userId === user.userId);
+              const tileBanner = bannerBackground(member?.bannerCss, member?.bannerPatternSeed);
               return (
-              <ParticipantTile key={user.userId} userId={user.userId} username={user.username}>
+              <ParticipantTile key={user.userId} userId={user.userId} username={user.username} banner={tileBanner}>
                 <SpeakingAvatar
                   userId={user.userId}
                   username={user.username}
@@ -341,10 +332,6 @@ export function VoiceChannelView() {
                 />
                 <span className="voice-tile-name">
                   {user.username}
-                  {(() => {
-                    const drinks = (channelParticipants[connectedChannelId!] || []).find((p) => p.userId === user.userId)?.drinkCount ?? 0;
-                    return drinks > 0 ? <span className="drink-badge">🍺{drinks}</span> : null;
-                  })()}
                   {(user.isMuted || user.isDeafened) && (
                     <span className="voice-tile-status-icons">
                       {user.isMuted && <MicOff size={14} className="voice-tile-status-icon" />}
@@ -467,13 +454,6 @@ export function VoiceChannelView() {
               </div>
             )}
           </div>
-          <button
-            className="voice-ctrl-btn drink-btn"
-            onClick={incrementDrinkCount}
-            title="Take a drink! 🍺"
-          >
-            <Beer size={20} />
-          </button>
           <button
             className="voice-ctrl-btn disconnect"
             onClick={leaveVoiceChannel}

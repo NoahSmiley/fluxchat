@@ -1,14 +1,16 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import type { Channel, ChannelType, ReorderItem } from "../types/shared.js";
+import type { Channel, ChannelType, ReorderItem, MemberWithUser } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
 import { useUIStore } from "../stores/ui.js";
+import { useAuthStore } from "../stores/auth.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
+import { UserCard } from "./MemberList.js";
 import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
-import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import * as api from "../lib/api.js";
 import {
   DndContext,
@@ -122,9 +124,96 @@ function getChannelIcon(type: ChannelType, size = 14) {
 }
 
 /** Tiny component so only the mic icon re-renders when speaking state changes, not the whole sidebar */
-function SpeakingMic({ userId }: { userId: string }) {
+function SpeakingMic({ userId, isMuted, isDeafened }: { userId: string; isMuted?: boolean; isDeafened?: boolean }) {
   const isSpeaking = useVoiceStore((s) => s.speakingUserIds.has(userId));
+  if (isDeafened) {
+    return <HeadphoneOff size={12} className="voice-speaking-mic deafened" />;
+  }
+  if (isMuted) {
+    return <MicOff size={14} className={`voice-speaking-mic muted ${isSpeaking ? "active" : ""}`} />;
+  }
   return <Mic size={14} className={`voice-speaking-mic ${isSpeaking ? "active" : ""}`} />;
+}
+
+/** Voice user row with hover-to-inspect UserCard */
+function VoiceUserRow({
+  userId, username, image, member, banner, ringStyle, ringClassName,
+  isMuted, isDeafened, allMembers,
+}: {
+  userId: string;
+  username: string;
+  image?: string | null;
+  member?: MemberWithUser;
+  banner?: string;
+  ringStyle: React.CSSProperties;
+  ringClassName: string;
+  isMuted?: boolean;
+  isDeafened?: boolean;
+  allMembers: MemberWithUser[];
+}) {
+  const [showCard, setShowCard] = useState(false);
+  const [cardPos, setCardPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const rowRef = useRef<HTMLDivElement>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { user } = useAuthStore();
+  const { onlineUsers, userStatuses, userActivities, openDM, showDMs } = useChatStore();
+
+  const handleMouseEnter = () => {
+    if (!member) return;
+    hoverTimer.current = setTimeout(() => {
+      if (rowRef.current) {
+        const rect = rowRef.current.getBoundingClientRect();
+        // Position card to the right of the row
+        setCardPos({ top: rect.top - 40, left: rect.right + 8 });
+        setShowCard(true);
+      }
+    }, 350); // Short delay to avoid accidental popups
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setShowCard(false);
+  };
+
+  return (
+    <>
+      <div
+        ref={rowRef}
+        className="voice-channel-user"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <span
+          className={`voice-avatar-ring ${ringClassName}`}
+          style={ringStyle}
+        >
+          <span className="voice-user-avatar" style={{ background: image ? 'transparent' : avatarColor(username) }}>
+            {image ? (
+              <img src={image} alt={username} />
+            ) : (
+              username.charAt(0).toUpperCase()
+            )}
+          </span>
+        </span>
+        <span className="voice-user-name">{username}</span>
+        <SpeakingMic userId={userId} isMuted={isMuted} isDeafened={isDeafened} />
+      </div>
+      {showCard && member && createPortal(
+        <div className="voice-user-card-overlay" onMouseLeave={handleMouseLeave}>
+          <UserCard
+            member={member}
+            activity={userActivities[userId]}
+            isOnline={onlineUsers.has(userId)}
+            status={userStatuses[userId]}
+            position={{ top: cardPos.top, left: cardPos.left }}
+            onDM={() => { openDM(userId); showDMs(); setShowCard(false); }}
+            isSelf={userId === user?.id}
+          />
+        </div>,
+        document.body
+      )}
+    </>
+  );
 }
 
 function SortableChannelItem({
@@ -149,7 +238,7 @@ function SortableChannelItem({
   onSettings: () => void;
   isOwnerOrAdmin: boolean;
   voiceProps?: {
-    participants: { userId: string; username: string; drinkCount: number }[];
+    participants: { userId: string; username: string }[];
     isConnected: boolean;
     hasScreenShare: boolean;
     members: ReturnType<typeof useChatStore.getState>["members"];
@@ -238,30 +327,50 @@ function SortableChannelItem({
       </div>
       {channel.type === "voice" && voiceProps && voiceProps.participants.length > 0 && (
         <div className="voice-channel-users">
+          {/* DEBUG: dummy sidebar users */}
+          {[
+            { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=1" },
+            { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=8" },
+            { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/64?img=12" },
+            { userId: "__d4", username: "Cosmo", bannerCss: "space", bannerPatternSeed: null, ringStyle: "emerald", ringSpin: false, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/64?img=15" },
+            { userId: "__d5", username: "ghost404", bannerCss: null, bannerPatternSeed: null, ringStyle: "default", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=22" },
+            { userId: "__d6", username: "Prism", bannerCss: "gamma_doppler", bannerPatternSeed: 77, ringStyle: "doppler", ringSpin: false, ringPatternSeed: 77, role: "member", image: "https://i.pravatar.cc/64?img=33" },
+            { userId: "__d7", username: "Nyx", bannerCss: "cityscape", bannerPatternSeed: null, ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 150, role: "member", image: "https://i.pravatar.cc/64?img=47" },
+            { userId: "__d8", username: "ZeroDay", bannerCss: "doppler", bannerPatternSeed: 200, ringStyle: "ruby", ringSpin: true, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/64?img=51" },
+          ].map((d) => (
+            <VoiceUserRow
+              key={d.userId}
+              userId={d.userId}
+              username={d.username}
+              image={d.image}
+              member={undefined}
+              banner={bannerBackground(d.bannerCss, d.bannerPatternSeed)}
+              ringStyle={{ ...ringGradientStyle(d.ringPatternSeed, d.ringStyle) } as React.CSSProperties}
+              ringClassName={ringClass(d.ringStyle, d.ringSpin, d.role, false, d.ringPatternSeed)}
+              isMuted={d.userId === "__d2"}
+              isDeafened={d.userId === "__d4"}
+              allMembers={voiceProps.members}
+            />
+          ))}
+          {/* END DEBUG */}
           {voiceProps.participants.map((p) => {
             const member = voiceProps.members.find((m) => m.userId === p.userId);
             const voiceUser = voiceProps.isConnected ? voiceProps.voiceParticipants.find((v) => v.userId === p.userId) : null;
+            const banner = bannerBackground(member?.bannerCss, member?.bannerPatternSeed);
             return (
-              <div key={p.userId} className="voice-channel-user">
-                <span className={`voice-avatar-ring ${ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}`} style={{ ...ringGradientStyle(member?.ringPatternSeed, member?.ringStyle) } as React.CSSProperties}>
-                  <span className="voice-user-avatar" style={{ background: member?.image ? 'transparent' : avatarColor(p.username) }}>
-                    {member?.image ? (
-                      <img src={member.image} alt={p.username} />
-                    ) : (
-                      p.username.charAt(0).toUpperCase()
-                    )}
-                  </span>
-                </span>
-                <span className="voice-user-name">{p.username}</span>
-                {p.drinkCount > 0 && (
-                  <span className="drink-badge" title={`${p.drinkCount} drink${p.drinkCount !== 1 ? "s" : ""}`}>
-                    🍺{p.drinkCount}
-                  </span>
-                )}
-                {voiceUser?.isMuted && <MicOff size={14} className="voice-user-status-icon" />}
-                {voiceUser?.isDeafened && <HeadphoneOff size={14} className="voice-user-status-icon" />}
-                <SpeakingMic userId={p.userId} />
-              </div>
+              <VoiceUserRow
+                key={p.userId}
+                userId={p.userId}
+                username={p.username}
+                image={member?.image}
+                member={member}
+                banner={banner}
+                ringStyle={{ ...ringGradientStyle(member?.ringPatternSeed, member?.ringStyle) } as React.CSSProperties}
+                ringClassName={ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}
+                isMuted={voiceUser?.isMuted}
+                isDeafened={voiceUser?.isDeafened}
+                allMembers={voiceProps.members}
+              />
             );
           })}
         </div>
