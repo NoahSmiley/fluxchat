@@ -133,7 +133,7 @@ export function ServerSidebar() {
                   onClick={(e) => handleAvatarClick(e, m.userId)}
                 >
                   <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
-                    <div className="member-avatar" style={{ background: avatarColor(m.username) }}>
+                    <div className="member-avatar" style={{ background: m.image ? 'transparent' : avatarColor(m.username) }}>
                       {m.image ? (
                         <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                       ) : (

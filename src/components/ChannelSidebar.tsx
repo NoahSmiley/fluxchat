@@ -148,6 +148,7 @@ function SortableChannelItem({
     hasScreenShare: boolean;
     members: ReturnType<typeof useChatStore.getState>["members"];
     voiceParticipants: ReturnType<typeof useVoiceStore.getState>["participants"];
+    audioLevels: Record<string, number>;
   };
   isDragging?: boolean;
   isDropTarget?: boolean;
@@ -235,10 +236,11 @@ function SortableChannelItem({
           {voiceProps.participants.map((p) => {
             const member = voiceProps.members.find((m) => m.userId === p.userId);
             const voiceUser = voiceProps.isConnected ? voiceProps.voiceParticipants.find((v) => v.userId === p.userId) : null;
+            const isSpeaking = voiceProps.isConnected && (voiceProps.audioLevels[p.userId] ?? 0) > 0.01;
             return (
               <div key={p.userId} className="voice-channel-user">
                 <span className={`voice-avatar-ring ${ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}`} style={{ ...ringGradientStyle(member?.ringPatternSeed, member?.ringStyle) } as React.CSSProperties}>
-                  <span className={`voice-user-avatar ${voiceUser?.speaking ? "speaking" : ""}`} style={{ background: avatarColor(p.username) }}>
+                  <span className="voice-user-avatar" style={{ background: member?.image ? 'transparent' : avatarColor(p.username) }}>
                     {member?.image ? (
                       <img src={member.image} alt={p.username} />
                     ) : (
@@ -246,6 +248,7 @@ function SortableChannelItem({
                     )}
                   </span>
                 </span>
+                <span className={`voice-speaking-dot ${isSpeaking ? "active" : ""}`} />
                 <span className="voice-user-name">{p.username}</span>
                 {p.drinkCount > 0 && (
                   <span className="drink-badge" title={`${p.drinkCount} drink${p.drinkCount !== 1 ? "s" : ""}`}>
@@ -265,7 +268,7 @@ function SortableChannelItem({
 
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels } = useChatStore();
-  const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants } = useVoiceStore();
+  const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants, audioLevels } = useVoiceStore();
   const showingEconomy = useUIStore((s) => s.showingEconomy);
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
@@ -531,6 +534,7 @@ export function ChannelSidebar() {
                     hasScreenShare,
                     members,
                     voiceParticipants,
+                    audioLevels,
                   } : undefined}
                 />
               );

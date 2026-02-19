@@ -8,6 +8,60 @@ import { ItemPreview } from "./items/ItemPreview.js";
 import { ItemViewer3D } from "./items/ItemViewer3D.js";
 import { seedToPattern, type DopplerType } from "./items/dopplerPattern.js";
 
+// ── Case Illustrations ──
+
+const CASE_THEMES: Record<string, { primary: string; secondary: string; accent: string; glow: string }> = {
+  case_standard: { primary: "#4b69ff", secondary: "#3a54cc", accent: "#6b8aff", glow: "#4b69ff" },
+  case_premium:  { primary: "#d32ee6", secondary: "#a024b3", accent: "#e96bfa", glow: "#d32ee6" },
+  case_founders: { primary: "#f5c563", secondary: "#d4a032", accent: "#ffe08a", glow: "#f5c563" },
+};
+
+function CaseIllustration({ caseId, size = 80 }: { caseId: string; size?: number }) {
+  const theme = CASE_THEMES[caseId] ?? CASE_THEMES.case_standard;
+  const id = `cg-${caseId}`;
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120" fill="none">
+      <defs>
+        <linearGradient id={`${id}-body`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={theme.primary} />
+          <stop offset="100%" stopColor={theme.secondary} />
+        </linearGradient>
+        <linearGradient id={`${id}-lid`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={theme.accent} />
+          <stop offset="100%" stopColor={theme.primary} />
+        </linearGradient>
+        <filter id={`${id}-glow`}><feGaussianBlur stdDeviation="4" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+      </defs>
+      {/* Glow behind */}
+      <ellipse cx="60" cy="100" rx="36" ry="8" fill={theme.glow} opacity="0.25" filter={`url(#${id}-glow)`} />
+      {/* Box body */}
+      <rect x="22" y="48" width="76" height="50" rx="6" fill={`url(#${id}-body)`} opacity="0.9" />
+      {/* Metal edge trim */}
+      <rect x="22" y="48" width="76" height="4" rx="2" fill={theme.accent} opacity="0.5" />
+      {/* Lock plate */}
+      <rect x="50" y="62" width="20" height="14" rx="3" fill="rgba(0,0,0,0.35)" />
+      <circle cx="60" cy="69" r="3" fill={theme.accent} opacity="0.8" />
+      {/* Lid — slightly raised */}
+      <path d="M20 50 L24 26 Q26 22 30 22 L90 22 Q94 22 96 26 L100 50 Z" fill={`url(#${id}-lid)`} opacity="0.95" />
+      {/* Lid highlight */}
+      <path d="M30 26 L90 26" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeLinecap="round" />
+      {/* Side accents */}
+      <rect x="30" y="54" width="2" height="38" rx="1" fill="rgba(255,255,255,0.12)" />
+      <rect x="88" y="54" width="2" height="38" rx="1" fill="rgba(255,255,255,0.12)" />
+      {/* Star / emblem based on tier */}
+      {caseId === "case_founders" && (
+        <polygon points="60,30 63,39 73,39 65,45 68,54 60,48 52,54 55,45 47,39 57,39" fill="#1a1a1a" opacity="0.5" />
+      )}
+      {caseId === "case_premium" && (
+        <path d="M54 34 L60 28 L66 34 L60 40 Z" fill="rgba(255,255,255,0.35)" />
+      )}
+      {caseId === "case_standard" && (
+        <circle cx="60" cy="36" r="6" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+      )}
+    </svg>
+  );
+}
+
 // ── Shared helpers ──
 
 function rarityLabel(r: ItemRarity) {
@@ -218,7 +272,7 @@ function CasesTab() {
             <div className="case-loading">No cases available</div>
           ) : cases.map((c) => (
             <button key={c.id} className="case-card" onClick={() => handleSelectCase(c)}>
-              <div className="case-card-icon"><Package size={40} /></div>
+              <div className="case-card-icon"><CaseIllustration caseId={c.id} size={80} /></div>
               <div className="case-card-name">{c.name}</div>
               <div className="case-card-price"><Coins size={12} /><span>{c.price}</span></div>
             </button>
@@ -231,7 +285,7 @@ function CasesTab() {
       ) : caseDetail ? (
         <div className="case-detail">
           <div className="case-detail-header">
-            <div className="case-detail-icon"><Package size={56} /></div>
+            <div className="case-detail-icon"><CaseIllustration caseId={caseDetail.id} size={72} /></div>
             <div className="case-detail-info">
               <h3>{caseDetail.name}</h3>
               <div className="case-detail-price"><Coins size={14} /><span>{caseDetail.price} coins</span></div>
