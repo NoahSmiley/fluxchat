@@ -38,6 +38,9 @@ src/                          # React frontend
     ServerSidebar.tsx         # Server icon list (left rail)
     MemberList.tsx            # Voice channel participant display
     MusicPanel.tsx            # Spotify playback controls + queue
+    SoundboardPanel.tsx       # Voice channel soundboard grid (play, preview, favorite, master volume)
+    SoundboardTab.tsx         # Server settings soundboard management (upload, waveform trim, delete)
+    SearchBar.tsx             # Advanced message search bar with filter tag UI (from/in/has/mentions/dates)
     PopoutChatView.tsx        # Pop-out chat window
     PopoutScreenShareView.tsx # Pop-out screen share window
     CreateChannelModal.tsx    # New channel dialog
@@ -283,14 +286,14 @@ Implementation: `lib/ws.ts` (client), `crates/server/src/ws/` (server)
 send_message, typing_start, typing_stop, join_channel, leave_channel,
 voice_state_update, add_reaction, remove_reaction, edit_message, delete_message,
 send_dm, join_dm, leave_dm, update_activity, share_server_key, request_server_key,
-spotify_playback_control, voice_drink_update, update_status
+spotify_playback_control, voice_drink_update, update_status, play_sound
 
 **Server → Client events**:
 message, typing, presence, member_joined, member_left, member_role_updated,
 reaction_add, reaction_remove, message_edit, message_delete, channel_update,
 profile_update, voice_state, activity_update, server_key_shared, server_key_requested,
 spotify_queue_update, spotify_queue_remove, spotify_playback_sync,
-dm_message, spotify_session_ended, error
+dm_message, spotify_session_ended, soundboard_play, error
 
 **Server architecture**: GatewayState holds clients (Tokio MPSC channels), subscription maps (channel_id → Set<ClientId>), voice participants per channel. Broadcasts go only to subscribed clients.
 
