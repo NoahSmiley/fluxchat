@@ -2856,8 +2856,8 @@ input:focus {
 /* ── Status Dots (Online/Offline) ── */
 .status-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -2890,10 +2890,10 @@ input:focus {
 /* ── Avatar Status Indicator (overlay on avatars) ── */
 .avatar-status-indicator {
   position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 10px;
-  height: 10px;
+  bottom: -1px;
+  right: -1px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid var(--bg-primary);
   z-index: 2;
@@ -3418,8 +3418,8 @@ input:focus {
   position: absolute;
   bottom: -1px;
   right: -1px;
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   border: 1.5px solid rgba(14, 14, 14, 0.95);
 }
@@ -3667,8 +3667,8 @@ input:focus {
   position: absolute;
   bottom: -1px;
   right: -1px;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid var(--bg-secondary);
 }
@@ -4218,8 +4218,8 @@ input:focus {
   position: absolute;
   bottom: -1px;
   right: -1px;
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   border: 2px solid var(--bg-secondary);
 }
