@@ -10,6 +10,7 @@ import { DMChatView } from "../components/DMChatView.js";
 import { GameChannelView } from "../components/GameChannelView.js";
 import { requestNotificationPermission } from "../lib/notifications.js";
 import { SettingsModal } from "../components/SettingsModal.js";
+import { ServerSettingsPage } from "../components/ServerSettingsPage.js";
 import { EconomyView } from "../components/CaseOpeningModal.js";
 import { EconomyToasts } from "../components/EconomyToasts.js";
 import { useKeybindListener } from "../hooks/useKeybindListener.js";
@@ -52,6 +53,7 @@ export function MainLayout() {
   const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels, showingDMs, activeDMChannelId } = useChatStore();
   const { user } = useAuthStore();
   const showingEconomy = useUIStore((s) => s.showingEconomy);
+  const serverSettingsOpen = useUIStore((s) => s.serverSettingsOpen);
   const [sidebarWidth, setSidebarWidth] = useState(240);
 
   useEffect(() => {
@@ -182,6 +184,7 @@ export function MainLayout() {
       </main>
 
       <SettingsModal />
+      {serverSettingsOpen && <ServerSettingsPage />}
       <EconomyToasts />
     </div>
   );

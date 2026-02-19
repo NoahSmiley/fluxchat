@@ -6,11 +6,14 @@ export type AppBorderStyle = "none" | "chroma" | "pulse" | "wave" | "ember" | "f
 
 interface UIState {
   settingsOpen: boolean;
+  serverSettingsOpen: boolean;
   showingEconomy: boolean;
   sidebarPosition: SidebarPosition;
   appBorderStyle: AppBorderStyle;
   openSettings: () => void;
   closeSettings: () => void;
+  openServerSettings: () => void;
+  closeServerSettings: () => void;
   showEconomy: () => void;
   hideEconomy: () => void;
   toggleEconomy: () => void;
@@ -22,11 +25,14 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       settingsOpen: false,
+      serverSettingsOpen: false,
       showingEconomy: false,
       sidebarPosition: "left",
       appBorderStyle: "none",
       openSettings: () => set({ settingsOpen: true }),
       closeSettings: () => set({ settingsOpen: false }),
+      openServerSettings: () => set({ serverSettingsOpen: true }),
+      closeServerSettings: () => set({ serverSettingsOpen: false }),
       showEconomy: () => set({ showingEconomy: true }),
       hideEconomy: () => set({ showingEconomy: false }),
       toggleEconomy: () => set((s) => ({ showingEconomy: !s.showingEconomy })),

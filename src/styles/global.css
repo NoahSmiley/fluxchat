@@ -685,6 +685,56 @@ input:focus {
   top: auto;
 }
 
+/* ── Channel Sidebar Header ── */
+.channel-sidebar-header {
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 12px;
+  height: 48px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  gap: 4px;
+}
+
+.channel-sidebar-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.channel-sidebar-header-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-sidebar-header-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.channel-sidebar-header:hover .channel-sidebar-header-btn {
+  opacity: 1;
+}
+
+.channel-sidebar-header-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.07);
+}
+
 /* ── Channel Sidebar ── */
 .channel-sidebar {
   background: var(--bg-primary);

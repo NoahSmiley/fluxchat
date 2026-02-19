@@ -382,7 +382,7 @@ function SortableChannelItem({
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels } = useChatStore();
   const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants } = useVoiceStore();
-  const showingEconomy = useUIStore((s) => s.showingEconomy);
+  const { showingEconomy, openServerSettings } = useUIStore();
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
 
@@ -612,6 +612,20 @@ export function ChannelSidebar() {
 
   return (
     <div className="channel-sidebar">
+      {server && (
+        <div className="channel-sidebar-header" onClick={isOwnerOrAdmin ? openServerSettings : undefined} style={{ cursor: isOwnerOrAdmin ? "pointer" : "default" }}>
+          <span className="channel-sidebar-header-title">{server.name}</span>
+          {isOwnerOrAdmin && (
+            <button
+              className="channel-sidebar-header-btn"
+              title="Server Settings"
+              onClick={(e) => { e.stopPropagation(); openServerSettings(); }}
+            >
+              <Settings size={14} />
+            </button>
+          )}
+        </div>
+      )}
       <div className="channel-list">
         <DndContext
           sensors={sensors}

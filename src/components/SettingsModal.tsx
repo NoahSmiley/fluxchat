@@ -8,10 +8,9 @@ import { useSpotifyStore } from "../stores/spotify.js";
 import { useUpdater } from "../hooks/useUpdater.js";
 import { getDebugEnabled, setDebugEnabled, dumpLogs } from "../lib/debug.js";
 import { avatarColor } from "../lib/avatarColor.js";
-import { X, Copy, Check, Trash2 } from "lucide-react";
-import type { RingStyle, WhitelistEntry } from "../types/shared.js";
+import { X, Copy, Check } from "lucide-react";
+import type { RingStyle } from "../types/shared.js";
 import { AvatarCropModal } from "./AvatarCropModal.js";
-import * as api from "../lib/api.js";
 
 function useMicLevel(enabled: boolean): { level: number; status: string } {
   const [level, setLevel] = useState(0);
@@ -145,7 +144,7 @@ function KeybindButton({ entry }: { entry: KeybindEntry }) {
   );
 }
 
-type SettingsTab = "profile" | "appearance" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "server" | "debug";
+type SettingsTab = "profile" | "appearance" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "debug";
 
 const TAB_LABELS: Record<SettingsTab, string> = {
   profile: "Profile",
@@ -155,7 +154,6 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   updates: "Updates",
   spotify: "Spotify",
   cs2: "CS2 / Leetify",
-  server: "Server",
   debug: "Debug",
 };
 
@@ -192,7 +190,7 @@ const APP_BORDER_STYLES: { value: AppBorderStyle; label: string }[] = [
 export function SettingsModal() {
   const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition, appBorderStyle, setAppBorderStyle } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
-  const { servers, activeServerId, updateServer, members } = useChatStore();
+  const { servers, activeServerId, updateServer } = useChatStore();
   const { user, updateProfile, logout } = useAuthStore();
   const { keybinds } = useKeybindsStore();
   const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore();
@@ -200,9 +198,6 @@ export function SettingsModal() {
   const { level: micLevel } = useMicLevel(settingsOpen && audioSettings.inputSensitivityEnabled);
   const [debugMode, setDebugMode] = useState(getDebugEnabled);
   const [logsCopied, setLogsCopied] = useState(false);
-  const [serverNameInput, setServerNameInput] = useState("");
-  const [serverNameSaving, setServerNameSaving] = useState(false);
-  const [editingServerName, setEditingServerName] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [ringSaving, setRingSaving] = useState(false);
 
@@ -214,55 +209,12 @@ export function SettingsModal() {
   const [cropImage, setCropImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Whitelist state
-  const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([]);
-  const [whitelistInput, setWhitelistInput] = useState("");
-  const [whitelistLoading, setWhitelistLoading] = useState(false);
-
   const server = servers.find((s) => s.id === activeServerId) ?? servers[0];
-  const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
 
   // Stop recording keybind when modal closes
   useEffect(() => {
     return () => { useKeybindsStore.getState().stopRecording(); };
   }, []);
-
-  // Load whitelist when server tab opens
-  useEffect(() => {
-    if (settingsOpen && isOwnerOrAdmin) {
-      api.getWhitelist().then(setWhitelist).catch(() => {});
-    }
-  }, [settingsOpen, isOwnerOrAdmin]);
-
-  async function handleAddWhitelist() {
-    const email = whitelistInput.trim();
-    if (!email) return;
-    setWhitelistLoading(true);
-    try {
-      const added = await api.addToWhitelist([email]);
-      if (added.length > 0) {
-        setWhitelist((prev) => [...added, ...prev]);
-      }
-      setWhitelistInput("");
-    } catch { /* ignore */ }
-    setWhitelistLoading(false);
-  }
-
-  async function handleRemoveWhitelist(id: string) {
-    try {
-      await api.removeFromWhitelist(id);
-      setWhitelist((prev) => prev.filter((e) => e.id !== id));
-    } catch { /* ignore */ }
-  }
-
-  async function handleToggleRole(member: { userId: string; role: string }) {
-    const newRole = member.role === "admin" ? "member" : "admin";
-    try {
-      await api.updateMemberRole(member.userId, newRole);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update role");
-    }
-  }
 
   async function handleUsernameSubmit() {
     if (!usernameInput.trim() || usernameInput.trim() === user?.username) {
@@ -330,7 +282,7 @@ export function SettingsModal() {
 
   if (!settingsOpen) return null;
 
-  const tabs: SettingsTab[] = ["profile", "appearance", "voice", "keybinds", "updates", "spotify", "cs2", ...(isOwnerOrAdmin ? ["server" as SettingsTab] : []), "debug"];
+  const tabs: SettingsTab[] = ["profile", "appearance", "voice", "keybinds", "updates", "spotify", "cs2", "debug"];
 
   return (
     <div className="settings-page">
@@ -714,83 +666,6 @@ export function SettingsModal() {
             <h3 className="settings-card-title">CS2 / Leetify Integration</h3>
             <p className="settings-card-desc" style={{ color: "var(--text-muted)", fontStyle: "italic" }}>Coming Soon</p>
           </div>
-        )}
-
-        {activeTab === "server" && isOwnerOrAdmin && server && (
-          <>
-            <div className="settings-card">
-              <h3 className="settings-card-title">Server Management</h3>
-              <div className="settings-row">
-                <div className="settings-row-info">
-                  <span className="settings-row-label">Server Name</span>
-                  <span className="settings-row-desc">{server.name}</span>
-                </div>
-                {!editingServerName && (
-                  <button className="btn-small" onClick={() => { setServerNameInput(server.name); setEditingServerName(true); }}>Rename</button>
-                )}
-              </div>
-              {editingServerName && (
-                <div className="settings-row" style={{ gap: 8 }}>
-                  <input type="text" value={serverNameInput} onChange={(e) => setServerNameInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && serverNameInput.trim()) { setServerNameSaving(true); updateServer(server.id, serverNameInput.trim()).then(() => { setEditingServerName(false); setServerNameSaving(false); }).catch(() => setServerNameSaving(false)); } if (e.key === "Escape") setEditingServerName(false); }} autoFocus style={{ flex: 1 }} />
-                  <button className="btn-small btn-primary" disabled={serverNameSaving} onClick={() => { if (!serverNameInput.trim()) return; setServerNameSaving(true); updateServer(server.id, serverNameInput.trim()).then(() => { setEditingServerName(false); setServerNameSaving(false); }).catch(() => setServerNameSaving(false)); }}>Save</button>
-                  <button className="btn-small" onClick={() => setEditingServerName(false)}>Cancel</button>
-                </div>
-              )}
-            </div>
-
-            <div className="settings-card">
-              <h3 className="settings-card-title">Email Whitelist</h3>
-              <p className="settings-card-desc">Only whitelisted emails can register.</p>
-              <div className="settings-row" style={{ gap: 8 }}>
-                <input
-                  type="email"
-                  placeholder="user@example.com"
-                  value={whitelistInput}
-                  onChange={(e) => setWhitelistInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleAddWhitelist(); }}
-                  style={{ flex: 1 }}
-                />
-                <button className="btn-small btn-primary" onClick={handleAddWhitelist} disabled={whitelistLoading}>Add</button>
-              </div>
-              {whitelist.map((entry) => (
-                <div key={entry.id} className="settings-row">
-                  <div className="settings-row-info">
-                    <span className="settings-row-label">{entry.email}</span>
-                  </div>
-                  <button className="btn-small btn-danger" onClick={() => handleRemoveWhitelist(entry.id)} title="Remove">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-              {whitelist.length === 0 && (
-                <p className="settings-card-desc" style={{ opacity: 0.5 }}>No emails whitelisted yet.</p>
-              )}
-            </div>
-
-            <div className="settings-card">
-              <h3 className="settings-card-title">Members</h3>
-              <p className="settings-card-desc">Manage member roles. Owner can demote any admin. Admins can promote members and demote admins within 72h of their promotion.</p>
-              {members
-                .filter((m) => m.serverId === server.id)
-                .sort((a, b) => {
-                  const order = { owner: 0, admin: 1, member: 2 };
-                  return (order[a.role] ?? 3) - (order[b.role] ?? 3);
-                })
-                .map((m) => (
-                <div key={m.userId} className="settings-row">
-                  <div className="settings-row-info">
-                    <span className="settings-row-label">{m.username}</span>
-                    <span className="settings-row-desc">{m.role}</span>
-                  </div>
-                  {m.role !== "owner" && m.userId !== user?.id && (
-                    <button className="btn-small" onClick={() => handleToggleRole(m)}>
-                      {m.role === "admin" ? "Demote" : "Promote"}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
         )}
 
         {activeTab === "debug" && (
