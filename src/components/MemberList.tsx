@@ -77,6 +77,9 @@ export function UserCard({
               (member.username ?? "?").charAt(0).toUpperCase()
             )}
           </div>
+          {effectiveStatus !== "offline" && (effectiveStatus !== "invisible" || isSelf) && (
+            <span className={`avatar-status-indicator ${effectiveStatus}`} />
+          )}
         </div>
       </div>
 
@@ -200,6 +203,7 @@ export function MemberList() {
           <div className="member-section-label">{online.length} Online</div>
           {online.map((m) => {
             const activity = userActivities[m.userId];
+            const isSelf = m.userId === user?.id;
             const status = userStatuses[m.userId] ?? "online";
             return (
               <div
@@ -215,7 +219,7 @@ export function MemberList() {
                       (m.username ?? "?").charAt(0).toUpperCase()
                     )}
                   </div>
-                  {status !== "offline" && status !== "invisible" && (
+                  {status !== "offline" && (status !== "invisible" || isSelf) && (
                     <span className={`avatar-status-indicator ${status}`} />
                   )}
                 </div>

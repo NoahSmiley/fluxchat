@@ -117,7 +117,8 @@ export function ServerSidebar() {
       {sortedMembers.length > 0 && (
         <div className="sidebar-members">
             {sortedMembers.map((m) => {
-              const isOnline = onlineUsers.has(m.userId);
+              const isSelf = m.userId === user?.id;
+              const isOnline = isSelf || onlineUsers.has(m.userId);
               const status = userStatuses[m.userId] ?? "offline";
               const activity = userActivities[m.userId];
               const rc = ringClass(m.ringStyle, m.ringSpin, m.role, !!activity, m.ringPatternSeed);
@@ -140,7 +141,7 @@ export function ServerSidebar() {
                       )}
                     </div>
                   </div>
-                  {status !== "offline" && status !== "invisible" && (
+                  {status !== "offline" && (status !== "invisible" || isSelf) && (
                     <span className={`avatar-status-indicator ${status}`} />
                   )}
                 </div>

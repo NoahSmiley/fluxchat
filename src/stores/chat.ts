@@ -755,6 +755,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setMyStatus: (status) => {
     gateway.send({ type: "update_status", status });
+    // Update auth store's user.status so self avatar always shows correct status regardless
+    // of WebSocket event ordering (server broadcasts "offline" for invisible to all incl. self).
+    const authState = authStoreRef?.getState();
+    if (authState?.user) {
+      authStoreRef!.setState({ user: { ...authState.user, status } });
+    }
   },
 }));
 
@@ -831,7 +837,7 @@ gateway.onConnect(() => {
   const user = authStoreRef?.getState()?.user;
   useChatStore.setState({
     onlineUsers: new Set(user ? [user.id] : []),
-    userStatuses: user ? { [user.id]: (user as any).status ?? "online" } : {},
+    userStatuses: user ? { [user.id]: (user.status as PresenceStatus) ?? "online" } : {},
     userActivities: {},
   });
 
@@ -931,7 +937,13 @@ gateway.on((event) => {
       });
       break;
 
-    case "presence":
+    case "presence": {
+      const selfId = authStoreRef?.getState()?.user?.id;
+      // The server broadcasts "offline" to mask invisible users from others, but also sends
+      // that broadcast to the user themselves. Skip only those "offline" masking events for self
+      // so they don't wipe out our local "invisible" status. Real status updates (e.g. "invisible"
+      // sent directly via send_to) are still accepted.
+      if (event.userId === selfId && event.status === "offline") break;
       useChatStore.setState((s) => {
         const newSet = new Set(s.onlineUsers);
         const newStatuses = { ...s.userStatuses };
@@ -945,6 +957,7 @@ gateway.on((event) => {
         return { onlineUsers: newSet, userStatuses: newStatuses };
       });
       break;
+    }
 
     case "activity_update":
       useChatStore.setState((s) => {

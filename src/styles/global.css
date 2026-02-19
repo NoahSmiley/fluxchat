@@ -2876,7 +2876,9 @@ input:focus {
 }
 
 .status-dot.invisible {
-  background: #747f8d;
+  background: #747f8d !important;
+  visibility: visible !important;
+  display: inline-block !important;
 }
 
 .status-dot.offline {
@@ -2890,8 +2892,8 @@ input:focus {
 /* ── Avatar Status Indicator (overlay on avatars) ── */
 .avatar-status-indicator {
   position: absolute;
-  bottom: -1px;
-  right: -1px;
+  bottom: 1px;
+  right: 1px;
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -2909,6 +2911,11 @@ input:focus {
 
 .avatar-status-indicator.dnd {
   background: #f04747;
+}
+
+.avatar-status-indicator.invisible {
+  background: #747f8d !important;
+  visibility: visible !important;
 }
 
 /* ── Embedded Links ── */

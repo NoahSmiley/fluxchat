@@ -13,6 +13,7 @@ interface AuthUser {
   ringPatternSeed?: number | null;
   bannerCss?: string | null;
   bannerPatternSeed?: number | null;
+  status?: string;
 }
 
 interface AuthState {
