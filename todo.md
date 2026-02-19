@@ -8,6 +8,10 @@ break up huge files like global.css
 
 add min and max zoom
 
+a page for users to view the devices theyve logged into the app with
+- something like what you see on github: settings > sessions
+- this would potentially be part of a better solution than localStorage for storing things like soundboard volume which may be different not just per user but per device
+
 improve app sounds (join, leave, clicky sounds) (notification sounds are good) (some sounds seem questionably reliable, they don't always play when they should)
 
 nickname system - users can have an alias that is their display name in the group chat. users can edit each others nickname.
