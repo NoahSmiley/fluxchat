@@ -24,8 +24,6 @@ maybe add another section to music (in voice channel) that can play uploaded mp3
 
 break up huge files like global.css
 
-mouse over reactions to see who made them
-
 improve app sounds (join, leave, clicky sounds) (notification sounds are good) (some sounds seem questionably reliable, they don't always play when they should)
 
 nickname system - users can have an alias that is their display name in the group chat. users can edit each others nickname.
