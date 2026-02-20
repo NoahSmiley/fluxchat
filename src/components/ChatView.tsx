@@ -631,6 +631,7 @@ export function ChatView() {
             contentEditable
             suppressContentEditableWarning
             className="message-input"
+            data-testid="message-input"
             data-placeholder="Type a message..."
             onInput={handleDivInput}
             onKeyDown={handleDivKeyDown}

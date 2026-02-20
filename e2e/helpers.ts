@@ -234,10 +234,9 @@ export async function selectChannel(page: Page, channelName: string) {
  * Send a message in the current chat view by typing into the message input and pressing Enter.
  */
 export async function sendMessage(page: Page, text: string) {
-  const input = page.locator(
-    'input[placeholder*="message" i], textarea[placeholder*="message" i], [data-testid="message-input"], .chat-input input, .chat-input textarea',
-  ).first();
-  await input.fill(text);
+  const input = page.locator('[data-testid="message-input"], input.message-input').first();
+  await input.click();
+  await input.pressSequentially(text, { delay: 20 });
   await input.press("Enter");
   await page.waitForTimeout(500);
 }
@@ -343,4 +342,45 @@ export async function setupTwoUsers(
   await registerUser(pageB, bob.email, bob.username, bob.password);
 
   return { pageA, pageB, alice, bob };
+}
+
+/**
+ * Navigate to a settings tab within the settings modal.
+ * Assumes settings modal is already open.
+ */
+export async function navigateToSettingsTab(page: Page, tabName: string) {
+  await page.locator(`.settings-nav-item:has-text("${tabName}")`).click();
+  await page.waitForTimeout(300);
+}
+
+/**
+ * Set a localStorage value.
+ */
+export async function setLocalStorage(page: Page, key: string, value: string) {
+  await page.evaluate(([k, v]) => localStorage.setItem(k, v), [key, value]);
+}
+
+/**
+ * Get a localStorage value.
+ */
+export async function getLocalStorage(page: Page, key: string): Promise<string | null> {
+  return await page.evaluate((k) => localStorage.getItem(k), key);
+}
+
+/**
+ * Remove a localStorage key.
+ */
+export async function removeLocalStorage(page: Page, key: string) {
+  await page.evaluate((k) => localStorage.removeItem(k), key);
+}
+
+/**
+ * Execute the Konami code sequence (↑↑↓↓←→←→).
+ */
+export async function enterKonamiCode(page: Page) {
+  const keys = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight"];
+  for (const key of keys) {
+    await page.keyboard.press(key);
+    await page.waitForTimeout(50);
+  }
 }

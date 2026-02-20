@@ -65,15 +65,14 @@ test.describe("Messaging", () => {
 
     await selectChannel(page, "general");
 
-    const input = page.locator(
-      'input[placeholder*="message" i], textarea[placeholder*="message" i]',
-    ).first();
-    await input.fill("Test message");
+    const input = page.locator('[data-testid="message-input"], input.message-input').first();
+    await input.click();
+    await input.pressSequentially("Test message", { delay: 20 });
     await input.press("Enter");
     await page.waitForTimeout(500);
 
-    // Input should be empty after sending
-    await expect(input).toHaveValue("", { timeout: 3000 });
+    // contentEditable div should be empty after sending
+    await expect(input).toHaveText("", { timeout: 3000 });
   });
 
   test("empty message is not sent", async ({ page }) => {
@@ -84,14 +83,13 @@ test.describe("Messaging", () => {
     await createChannel(page, "empty-test", "text");
     await selectChannel(page, "empty-test");
 
-    const input = page.locator(
-      'input[placeholder*="message" i], textarea[placeholder*="message" i]',
-    ).first();
+    const input = page.locator('[data-testid="message-input"], input.message-input').first();
 
     // Count existing messages before pressing enter
     const countBefore = await page.locator('.message, [class*="message-row"]').count();
 
     // Press enter on empty input
+    await input.click();
     await input.press("Enter");
     await page.waitForTimeout(500);
 
