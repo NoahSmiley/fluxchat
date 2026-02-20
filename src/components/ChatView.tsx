@@ -14,6 +14,7 @@ import twemoji from "twemoji";
 import { renderMessageContent, renderEmoji, isEmojiOnly, getEmojiLabel, TWEMOJI_OPTIONS } from "../lib/emoji.js";
 import { API_BASE } from "../lib/serverUrl.js";
 import EmojiPicker from "./EmojiPicker.js";
+import ContextMenu from "./ContextMenu.js";
 
 // ── Contenteditable helpers ───────────────────────────────────────────────
 
@@ -119,7 +120,7 @@ export function ChatView() {
     typingUsers, customEmojis,
   } = useChatStore();
   const { user } = useAuthStore();
-  const { highlightOwnMessages } = useUIStore();
+  const { highlightOwnMessages, spellcheck, showSendButton, setSpellcheck, setShowSendButton } = useUIStore();
   const inputValueRef = useRef(""); // stores current input text without triggering re-renders
   const [hasContent, setHasContent] = useState(false); // only flips at empty↔non-empty boundary
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
@@ -139,6 +140,15 @@ export function ChatView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const emojiTooltipActiveRef = useRef(false); // guard against redundant setEmojiTooltip(null) calls
+  const [chatboxMenu, setChatboxMenu] = useState<{ x: number; y: number } | null>(null);
+  const [msgMenu, setMsgMenu] = useState<{
+    x: number; y: number;
+    msgId: string;
+    isOwnMsg: boolean;
+    decoded: string;
+    contextLink: string | null;
+    contextImgSrc: string | null;
+  } | null>(null);
 
   // Mention autocomplete
   const [mentionActive, setMentionActive] = useState(false);
@@ -460,7 +470,18 @@ export function ChatView() {
           const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole, false, senderRing?.ringPatternSeed);
 
           return (
-            <div key={msg.id} className={`message ${msg.senderId === user?.id ? "own" : ""}`}>
+            <div
+              key={msg.id}
+              className={`message ${msg.senderId === user?.id ? "own" : ""}`}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                const target = e.target as HTMLElement;
+                const link = target.closest("a") as HTMLAnchorElement | null;
+                const img = (target instanceof HTMLImageElement && !target.classList.contains("emoji") && !target.classList.contains("custom-emoji"))
+                  ? target : null;
+                setMsgMenu({ x: e.clientX, y: e.clientY, msgId: msg.id, isOwnMsg: msg.senderId === user?.id, decoded, contextLink: link?.href ?? null, contextImgSrc: img?.src ?? null });
+              }}
+            >
               <div className={`message-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(senderName), ...ringGradientStyle(senderRing?.ringPatternSeed, senderRing?.ringStyle) } as React.CSSProperties}>
                 <div className="message-avatar">
                   {senderImage && <img src={senderImage} alt={senderName} className="avatar-img" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
@@ -717,12 +738,14 @@ export function ChatView() {
             ref={inputRef}
             contentEditable
             suppressContentEditableWarning
+            spellCheck={spellcheck}
             className="message-input"
             data-testid="message-input"
             data-placeholder="Type a message..."
             onInput={handleDivInput}
             onKeyDown={handleDivKeyDown}
             onPaste={handleDivPaste}
+            onContextMenu={(e) => { e.preventDefault(); setChatboxMenu({ x: e.clientX, y: e.clientY }); }}
             onBlur={() => {
               const div = inputRef.current;
               const sel = window.getSelection();
@@ -749,11 +772,72 @@ export function ChatView() {
               />
             )}
           </div>
-          <button type="submit" className="btn-send" disabled={!hasContent && pendingAttachments.length === 0}>
-            Send
-          </button>
+          {showSendButton && (
+            <button type="submit" className="btn-send" disabled={!hasContent && pendingAttachments.length === 0}>
+              Send
+            </button>
+          )}
         </form>
       </div>
+
+      {chatboxMenu && (
+        <ContextMenu
+          x={chatboxMenu.x}
+          y={chatboxMenu.y}
+          onClose={() => setChatboxMenu(null)}
+          items={[
+            {
+              label: "Paste",
+              onClick: async () => {
+                setChatboxMenu(null);
+                try {
+                  const text = await navigator.clipboard.readText();
+                  if (text) {
+                    inputRef.current?.focus();
+                    document.execCommand("insertText", false, text);
+                  }
+                } catch {
+                  // Clipboard access denied — silently ignore
+                }
+              },
+            },
+            { type: "separator" },
+            {
+              label: "Spellcheck",
+              checked: spellcheck,
+              onClick: () => setSpellcheck(!spellcheck),
+            },
+            {
+              label: "Show send button",
+              checked: showSendButton,
+              onClick: () => setShowSendButton(!showSendButton),
+            },
+          ]}
+        />
+      )}
+
+      {msgMenu && (
+        <ContextMenu
+          x={msgMenu.x}
+          y={msgMenu.y}
+          onClose={() => setMsgMenu(null)}
+          items={[
+            ...(msgMenu.isOwnMsg ? [{ label: "Edit message", onClick: () => { startEditing(msgMenu.msgId, msgMenu.decoded); setMsgMenu(null); } }] : []),
+            { label: "Add reaction", onClick: () => { setEmojiPickerMsgId(msgMenu.msgId); setMsgMenu(null); } },
+            ...(msgMenu.decoded.trim() ? [{ label: "Copy text", onClick: () => { navigator.clipboard.writeText(msgMenu.decoded); setMsgMenu(null); } }] : []),
+            ...(msgMenu.contextLink ? [
+              { type: "separator" as const },
+              { label: "Open link", onClick: () => { window.open(msgMenu.contextLink!, "_blank"); setMsgMenu(null); } },
+              { label: "Copy link", onClick: () => { navigator.clipboard.writeText(msgMenu.contextLink!); setMsgMenu(null); } },
+            ] : []),
+            ...(msgMenu.contextImgSrc ? [
+              { type: "separator" as const },
+              { label: "Open image", onClick: () => { window.open(msgMenu.contextImgSrc!, "_blank"); setMsgMenu(null); } },
+              { label: "Save image", onClick: () => { const a = document.createElement("a"); a.href = msgMenu.contextImgSrc!; a.download = ""; a.click(); setMsgMenu(null); } },
+            ] : []),
+          ]}
+        />
+      )}
     </div>
   );
 }

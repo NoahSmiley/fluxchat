@@ -6,6 +6,7 @@ import { Settings, ShoppingBag } from "lucide-react";
 import { useUIStore } from "../stores/ui.js";
 import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
 import { UserCard } from "./MemberList.js";
+import ContextMenu from "./ContextMenu.js";
 
 export function ServerSidebar() {
   const { servers, showingDMs, showDMs, selectServer, members, onlineUsers, userStatuses, userActivities, openDM } = useChatStore();
@@ -16,6 +17,7 @@ export function ServerSidebar() {
   // Member avatar + user card state
   const [activeCardUserId, setActiveCardUserId] = useState<string | null>(null);
   const [cardPos, setCardPos] = useState<{ top?: number; right?: number; left?: number; bottom?: number }>({ top: 0 });
+  const [avatarCtxMenu, setAvatarCtxMenu] = useState<{ x: number; y: number; userId: string } | null>(null);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardHoveredRef = useRef(false);
   const sidebarPosition = useUIStore((s) => s.sidebarPosition);
@@ -132,6 +134,7 @@ export function ServerSidebar() {
                   onMouseEnter={(e) => handleAvatarEnter(e, m.userId)}
                   onMouseLeave={handleAvatarLeave}
                   onClick={(e) => handleAvatarClick(e, m.userId)}
+                  onContextMenu={!isSelf ? (e) => { e.preventDefault(); e.stopPropagation(); setAvatarCtxMenu({ x: e.clientX, y: e.clientY, userId: m.userId }); } : undefined}
                 >
                   <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
                     <div className="member-avatar" style={{ background: m.image ? 'transparent' : avatarColor(m.username) }}>
@@ -206,6 +209,17 @@ export function ServerSidebar() {
             isSelf={activeCardMember.userId === user?.id}
           />
         </div>
+      )}
+
+      {avatarCtxMenu && (
+        <ContextMenu
+          x={avatarCtxMenu.x}
+          y={avatarCtxMenu.y}
+          onClose={() => setAvatarCtxMenu(null)}
+          items={[
+            { label: "Message", onClick: () => { handleDMFromCard(avatarCtxMenu.userId); setAvatarCtxMenu(null); } },
+          ]}
+        />
       )}
 
       <div className="server-sidebar-spacer" />

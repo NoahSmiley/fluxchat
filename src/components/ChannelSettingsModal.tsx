@@ -11,7 +11,7 @@ interface Props {
   onClose: () => void;
 }
 
-function DeleteConfirmDialog({
+export function DeleteConfirmDialog({
   channelName,
   isCategory,
   onConfirm,
@@ -28,7 +28,7 @@ function DeleteConfirmDialog({
   const matches = confirmText === channelName;
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 110 }} onClick={onCancel}>
+    <div className="modal-overlay" style={{ zIndex: 9100 }} onClick={onCancel}>
       <div className="modal delete-confirm-modal" onClick={(e) => e.stopPropagation()}>
         <div className="delete-confirm-icon">
           <AlertTriangle size={32} />

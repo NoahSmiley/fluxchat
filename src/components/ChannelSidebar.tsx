@@ -9,7 +9,8 @@ import { VoiceStatusBar } from "./VoiceStatusBar.js";
 import { UserCard } from "./MemberList.js";
 import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
-import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
+import { ChannelSettingsModal, DeleteConfirmDialog } from "./ChannelSettingsModal.js";
+import ContextMenu from "./ContextMenu.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import * as api from "../lib/api.js";
 import {
@@ -224,6 +225,7 @@ function SortableChannelItem({
   onToggleCollapse,
   onSelect,
   onSettings,
+  onContextMenu,
   isOwnerOrAdmin,
   voiceProps,
   isDragging,
@@ -236,6 +238,7 @@ function SortableChannelItem({
   onToggleCollapse: () => void;
   onSelect: () => void;
   onSettings: () => void;
+  onContextMenu: (e: React.MouseEvent, ch: Channel) => void;
   isOwnerOrAdmin: boolean;
   voiceProps?: {
     participants: { userId: string; username: string }[];
@@ -277,6 +280,7 @@ function SortableChannelItem({
           <button
             className="channel-category-toggle"
             onClick={onToggleCollapse}
+            onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, channel); }}
           >
             <ChevronRight
               size={12}
@@ -309,6 +313,7 @@ function SortableChannelItem({
         <button
           className={`channel-item ${isActive ? "active" : ""} ${isUnread ? "unread" : ""} ${voiceProps?.isConnected ? "voice-connected" : ""}`}
           onClick={onSelect}
+          onContextMenu={isOwnerOrAdmin ? (e) => { e.preventDefault(); onContextMenu(e, channel); } : undefined}
         >
           {getChannelIcon(channel.type)}
           <span className="channel-item-name">{channel.name}</span>
@@ -391,6 +396,9 @@ export function ChannelSidebar() {
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
   const [createModal, setCreateModal] = useState<{ type: ChannelType; parentId?: string } | null>(null);
   const [settingsChannel, setSettingsChannel] = useState<Channel | null>(null);
+  const [channelCtxMenu, setChannelCtxMenu] = useState<{ x: number; y: number; channel: Channel } | null>(null);
+  const [deletingChannel, setDeletingChannel] = useState<Channel | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dropTargetCategoryId, setDropTargetCategoryId] = useState<string | null>(null);
   const dwellRef = useRef<{ catId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
@@ -654,6 +662,7 @@ export function ChannelSidebar() {
                   onToggleCollapse={() => toggleCollapse(ch.id)}
                   onSelect={() => ch.type !== "category" && selectChannel(ch.id)}
                   onSettings={() => setSettingsChannel(ch)}
+                  onContextMenu={(e, ch) => setChannelCtxMenu({ x: e.clientX, y: e.clientY, channel: ch })}
                   isOwnerOrAdmin={!!isOwnerOrAdmin}
                   isDragging={activeId === ch.id}
                   isDropTarget={ch.type === "category" && dropTargetCategoryId === ch.id}
@@ -706,6 +715,58 @@ export function ChannelSidebar() {
           channel={settingsChannel}
           serverId={activeServerId}
           onClose={() => setSettingsChannel(null)}
+        />,
+        document.body
+      )}
+
+      {channelCtxMenu && (() => {
+        const ch = channelCtxMenu.channel;
+        const isCategory = ch.type === "category";
+        const items: import("./ContextMenu.js").ContextMenuEntry[] = isCategory
+          ? [
+              {
+                label: collapsed.has(ch.id) ? "Expand" : "Collapse",
+                onClick: () => { toggleCollapse(ch.id); setChannelCtxMenu(null); },
+              },
+              ...(isOwnerOrAdmin ? [
+                { type: "separator" as const },
+                { label: "Edit category", onClick: () => { setSettingsChannel(ch); setChannelCtxMenu(null); } },
+                { label: "Delete category", danger: true, onClick: () => { setDeletingChannel(ch); setChannelCtxMenu(null); } },
+              ] : []),
+            ]
+          : [
+              { label: "Edit channel", onClick: () => { setSettingsChannel(ch); setChannelCtxMenu(null); } },
+              { type: "separator" as const },
+              { label: "Delete channel", danger: true, onClick: () => { setDeletingChannel(ch); setChannelCtxMenu(null); } },
+            ];
+        return (
+          <ContextMenu
+            x={channelCtxMenu.x}
+            y={channelCtxMenu.y}
+            onClose={() => setChannelCtxMenu(null)}
+            items={items}
+          />
+        );
+      })()}
+
+      {deletingChannel && activeServerId && createPortal(
+        <DeleteConfirmDialog
+          channelName={deletingChannel.name}
+          isCategory={deletingChannel.type === "category"}
+          deleting={isDeleting}
+          onCancel={() => setDeletingChannel(null)}
+          onConfirm={async () => {
+            setIsDeleting(true);
+            try {
+              await api.deleteChannel(activeServerId, deletingChannel.id);
+              const { channels, activeChannelId, selectChannel } = useChatStore.getState();
+              const remaining = channels.filter((c) => c.id !== deletingChannel.id);
+              useChatStore.setState({ channels: remaining });
+              if (activeChannelId === deletingChannel.id && remaining.length > 0) selectChannel(remaining[0].id);
+              setDeletingChannel(null);
+            } catch { /* ignore */ }
+            finally { setIsDeleting(false); }
+          }}
         />,
         document.body
       )}

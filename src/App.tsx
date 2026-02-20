@@ -8,7 +8,7 @@ import { LoginPage } from "./pages/LoginPage.js";
 import { RegisterPage } from "./pages/RegisterPage.js";
 import { MainLayout } from "./layouts/MainLayout.js";
 import { SpotifyCallback } from "./pages/SpotifyCallback.js";
-import { prefetchEmojiFavorites } from "./components/EmojiPicker.js";
+import { prefetchEmojiFavorites } from "./lib/emojiCache.js";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 
@@ -241,6 +241,13 @@ function UpdateToast() {
 export function App() {
   const { user, loading } = useAuthStore();
   const appBorderStyle = useUIStore((s) => s.appBorderStyle);
+
+  // Suppress the browser/OS native context menu everywhere
+  useEffect(() => {
+    const handler = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener("contextmenu", handler);
+    return () => document.removeEventListener("contextmenu", handler);
+  }, []);
 
   useEffect(() => {
     if (user) prefetchEmojiFavorites();

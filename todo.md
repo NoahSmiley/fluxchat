@@ -20,6 +20,8 @@ allow choosing duration time when selecting displayed statuses other than online
 
 ## MAJOR
 
+text chat box currently cant show multiple lines, needs fix
+
 maybe add another section to music (in voice channel) that can play uploaded mp3s
 
 break up huge files like global.css
@@ -77,18 +79,15 @@ add reactions menu for viewing and, if admin, editing reactions
   - only mentions
   - none
   - default for category (if in category) (default if in category)
-- edit channel
-- delete channel
 
-### voice channels
+<!-- ### voice channels
 
 - copy link to channel (can be pasted to link user to channel (brings user to where they would be if they clicked said voice channel))
 - join without entrance sound
-- edit channel
+- edit channel -->
 
 ### categories
 
-- collapse/expand (recursive collapse, nonrecursive expand)
 - mute category
   - for amount of time
 - notification settings 
@@ -97,11 +96,9 @@ add reactions menu for viewing and, if admin, editing reactions
   - none
 
 ### messages
-- add reaction
 - view reactions
 - edit message (if yours)
 - reply
-- copy message contents
 - copy link to message
 - copy link in message (if right click directly on link in message)
 - open link in message (if right click directly on link in message)
@@ -116,11 +113,3 @@ add reactions menu for viewing and, if admin, editing reactions
 - change nickname
 - mute (prevents notifications and unread indicators from messages from this user)
 - ban (if admin and selected is not admin)
-
-### text channel chatbox
-- paste
-- spellcheck checkbox
-- send button checkbox maybe?
-
-### emoji in emoji picker
-- add to favorites
