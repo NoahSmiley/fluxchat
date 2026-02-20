@@ -8,7 +8,7 @@ import { SoundboardPanel } from "./SoundboardPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
-  Music,
+  Music, Square,
 } from "lucide-react";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import { useUIStore } from "../stores/ui.js";
@@ -148,6 +148,50 @@ function ParticipantTile({ userId, username, banner, children }: { userId: strin
     >
       {banner && <div className="voice-tile-banner" />}
       {children}
+    </div>
+  );
+}
+
+// ── Lobby Music Bar (Easter Egg) ──
+function LobbyMusicBar() {
+  const lobbyMusicPlaying = useVoiceStore((s) => s.lobbyMusicPlaying);
+  const lobbyMusicVolume = useVoiceStore((s) => s.lobbyMusicVolume);
+  const setLobbyMusicVolume = useVoiceStore((s) => s.setLobbyMusicVolume);
+  const stopLobbyMusicAction = useVoiceStore((s) => s.stopLobbyMusicAction);
+
+  if (!lobbyMusicPlaying) return null;
+
+  return (
+    <div className="lobby-music-bar">
+      <div className="lobby-music-info">
+        <Music size={16} className="lobby-music-icon" />
+        <span className="lobby-music-label">Waiting Room Music</span>
+      </div>
+      <div className="lobby-music-controls">
+        <button
+          className="lobby-music-mute-btn"
+          onClick={() => setLobbyMusicVolume(lobbyMusicVolume > 0 ? 0 : 0.15)}
+          title={lobbyMusicVolume === 0 ? "Unmute" : "Mute"}
+        >
+          {lobbyMusicVolume === 0 ? <VolumeX size={16} /> : <Volume1 size={16} />}
+        </button>
+        <input
+          type="range"
+          min="0"
+          max="50"
+          value={Math.round(lobbyMusicVolume * 100)}
+          onChange={(e) => setLobbyMusicVolume(parseInt(e.target.value) / 100)}
+          className="volume-slider lobby-music-slider"
+          title={`Volume: ${Math.round(lobbyMusicVolume * 100)}%`}
+        />
+        <button
+          className="lobby-music-stop-btn"
+          onClick={stopLobbyMusicAction}
+          title="Stop"
+        >
+          <Square size={14} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -369,6 +413,9 @@ export function VoiceChannelView() {
             );
             })}
           </div>
+
+          {/* Lobby music bar (easter egg) */}
+          <LobbyMusicBar />
 
           {/* Mini now-playing bar (Spotify or YouTube) */}
           {session && (() => {

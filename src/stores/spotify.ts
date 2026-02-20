@@ -531,6 +531,8 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
   startSession: async (voiceChannelId) => {
     dbg("spotify", `startSession channel=${voiceChannelId}`);
+    // Stop lobby music when a jam session starts
+    import("./voice.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
     const { player } = get();
     player?.pause();
     get().stopYouTube();
@@ -993,6 +995,8 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   // ── Play YouTube: creates/reuses audio element, sets track state ──
   playYouTube: (videoId, trackInfo) => {
     dbg("spotify", `playYouTube videoId=${videoId}`, trackInfo);
+    // Stop lobby music when YouTube plays
+    import("./voice.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
     const { player } = get();
     player?.pause();
 

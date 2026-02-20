@@ -1168,8 +1168,11 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 16px;
+  padding: 8px 16px;
   border-top: 1px solid var(--border);
+  height: 56px;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .message-input {
@@ -1177,7 +1180,8 @@ input:focus {
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 12px 20px;
+  padding: 0 20px;
+  height: 38px;
   color: var(--text-primary);
   font-size: 14px;
   outline: none;
@@ -1195,7 +1199,8 @@ input:focus {
 }
 
 .btn-send {
-  padding: 10px 20px;
+  padding: 0 20px;
+  height: 38px;
   background: var(--accent);
   color: #000;
   border: none;
@@ -1744,6 +1749,92 @@ input:focus {
   font-size: 14px;
 }
 
+/* ── Lobby Music Bar (Easter Egg) ── */
+.lobby-music-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(114, 137, 218, 0.12), rgba(114, 137, 218, 0.06));
+  border-top: 1px solid rgba(114, 137, 218, 0.2);
+  flex-shrink: 0;
+  animation: lobby-bar-slide-up 3s ease-out;
+  overflow: hidden;
+}
+
+@keyframes lobby-bar-slide-up {
+  from {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  to {
+    max-height: 60px;
+    opacity: 1;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+}
+
+.lobby-music-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lobby-music-icon {
+  color: #7289da;
+  flex-shrink: 0;
+  animation: lobby-icon-pulse 2s ease-in-out infinite;
+}
+
+@keyframes lobby-icon-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.lobby-music-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7289da;
+  white-space: nowrap;
+}
+
+.lobby-music-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.lobby-music-mute-btn,
+.lobby-music-stop-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.lobby-music-mute-btn:hover,
+.lobby-music-stop-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lobby-music-slider {
+  width: 80px;
+}
+
 /* ── Voice Controls Bar (bottom) ── */
 /* Mini now-playing bar (voice tab) */
 .voice-now-playing {
@@ -2144,6 +2235,16 @@ input:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.02em;
+}
+
+.voice-status-label.lobby-music-unlocked {
+  animation: lobby-unlock-flash 1.5s ease-out;
+}
+
+@keyframes lobby-unlock-flash {
+  0% { color: #43b581; }
+  20% { color: #7289da; }
+  100% { color: #43b581; }
 }
 
 .voice-status-channel {

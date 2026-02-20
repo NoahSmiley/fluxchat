@@ -200,6 +200,9 @@ export function SettingsModal() {
   const [logsCopied, setLogsCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [ringSaving, setRingSaving] = useState(false);
+  const [lobbyMusicEnabled, setLobbyMusicEnabled] = useState(
+    () => localStorage.getItem("flux-lobby-music-enabled") !== "false"
+  );
 
   // Profile editing state
   const [editingUsername, setEditingUsername] = useState(false);
@@ -585,6 +588,25 @@ export function SettingsModal() {
                 <input type="range" min="0" max="20000" step="100" value={audioSettings.lowPassFrequency} onChange={(e) => updateAudioSetting("lowPassFrequency", parseInt(e.target.value))} className="settings-slider" />
               </div>
             </div>
+
+            {localStorage.getItem("flux-lobby-music-unlocked") === "true" && (
+              <div className="settings-card">
+                <h3 className="settings-card-title">Lobby Music</h3>
+                <div className="settings-row">
+                  <div className="settings-row-info">
+                    <span className="settings-row-label">Play ambient music when alone</span>
+                    <span className="settings-row-desc">Lofi tunes fade in after 30s alone in a voice channel</span>
+                  </div>
+                  <ToggleSwitch
+                    checked={lobbyMusicEnabled}
+                    onChange={(v) => {
+                      localStorage.setItem("flux-lobby-music-enabled", v ? "true" : "false");
+                      setLobbyMusicEnabled(v);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </>
         )}
 
