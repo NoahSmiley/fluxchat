@@ -1,23 +1,8 @@
-mod config;
-mod db;
-mod middleware;
-mod models;
-mod routes;
-mod ws;
-
-use config::Config;
+use flux_server::{config::Config, db, routes, ws, AppState};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use axum::http::{HeaderName, Method};
 use tower_http::cors::CorsLayer;
-
-pub struct AppState {
-    pub db: sqlx::SqlitePool,
-    pub config: Config,
-    pub gateway: Arc<ws::gateway::GatewayState>,
-    /// Temporary storage for Spotify PKCE: nonce → (userId, codeVerifier)
-    pub spotify_auth_pending: tokio::sync::RwLock<std::collections::HashMap<String, (String, String)>>,
-}
 
 #[tokio::main]
 async fn main() {
@@ -49,7 +34,19 @@ async fn main() {
         config: config.clone(),
         gateway: Arc::new(ws::gateway::GatewayState::new()),
         spotify_auth_pending: tokio::sync::RwLock::new(std::collections::HashMap::new()),
+        youtube_url_cache: tokio::sync::RwLock::new(std::collections::HashMap::new()),
     });
+
+    // Check for yt-dlp
+    match tokio::process::Command::new("yt-dlp").arg("--version").output().await {
+        Ok(output) if output.status.success() => {
+            let version = String::from_utf8_lossy(&output.stdout);
+            tracing::info!("yt-dlp found: {}", version.trim());
+        }
+        _ => {
+            tracing::warn!("yt-dlp not found on PATH — YouTube audio features will be unavailable");
+        }
+    }
 
     // Build router
     let app = routes::build_router(state.clone())

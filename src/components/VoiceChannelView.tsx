@@ -177,7 +177,7 @@ export function VoiceChannelView() {
     screenShareQuality,
     setScreenShareQuality,
   } = useVoiceStore();
-  const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
+  const { loadSession, account, playerState, session, queue, volume, setVolume, youtubeTrack } = useSpotifyStore();
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
   const [activeTab, setActiveTab] = useState<"voice" | "music" | "sounds">("voice");
   const [showQualityPicker, setShowQualityPicker] = useState(false);
@@ -370,18 +370,22 @@ export function VoiceChannelView() {
             })}
           </div>
 
-          {/* Mini now-playing bar */}
-          {session && playerState?.track_window?.current_track && (() => {
-            const track = playerState.track_window.current_track!;
+          {/* Mini now-playing bar (Spotify or YouTube) */}
+          {session && (() => {
+            const spotifyTrack = playerState?.track_window?.current_track;
+            const npName = youtubeTrack ? youtubeTrack.name : spotifyTrack?.name;
+            const npArtist = youtubeTrack ? youtubeTrack.artist : spotifyTrack?.artists.map(a => a.name).join(", ");
+            const npArt = youtubeTrack ? youtubeTrack.imageUrl : spotifyTrack?.album.images[0]?.url;
+            if (!npName) return null;
             const nextTrack = queue[0];
             return (
               <div className="voice-now-playing">
-                {track.album.images[0] && (
-                  <img src={track.album.images[0].url} alt="" className="voice-np-art" />
+                {npArt && (
+                  <img src={npArt} alt="" className="voice-np-art" />
                 )}
                 <div className="voice-np-info">
-                  <span className="voice-np-name">{track.name}</span>
-                  <span className="voice-np-artist">{track.artists.map(a => a.name).join(", ")}</span>
+                  <span className="voice-np-name">{npName}</span>
+                  <span className="voice-np-artist">{npArtist}</span>
                 </div>
                 <div className="voice-np-volume">
                   <button

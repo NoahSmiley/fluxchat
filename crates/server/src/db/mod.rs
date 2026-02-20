@@ -118,6 +118,14 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
     .await
     .ok();
 
+    // Migration: add source column to session_queue
+    sqlx::query(
+        r#"ALTER TABLE "session_queue" ADD COLUMN source TEXT NOT NULL DEFAULT 'spotify'"#,
+    )
+    .execute(&pool)
+    .await
+    .ok();
+
     // Migration: add role_updated_at to memberships
     sqlx::query(r#"ALTER TABLE "memberships" ADD COLUMN role_updated_at TEXT"#)
         .execute(&pool)

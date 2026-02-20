@@ -14,7 +14,7 @@ export function VoiceStatusBar() {
   return (
     <div className="voice-status-bar">
       <div className="voice-status-info">
-        <span className="voice-status-label">Voice Connected</span>
+        <span className="voice-status-label">Connected</span>
         <span className="voice-status-channel">{channel?.name ?? "Unknown"}</span>
       </div>
       <div className="voice-status-controls">

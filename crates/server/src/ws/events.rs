@@ -107,6 +107,8 @@ pub enum ClientEvent {
         track_uri: Option<String>,
         #[serde(rename = "positionMs")]
         position_ms: Option<i64>,
+        #[serde(default = "default_source_str")]
+        source: String,
     },
     VoiceDrinkUpdate {
         #[serde(rename = "channelId")]
@@ -284,6 +286,7 @@ pub enum ServerEvent {
         track_uri: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none", rename = "positionMs")]
         position_ms: Option<i64>,
+        source: String,
     },
     SpotifyQueueRemove {
         #[serde(rename = "sessionId")]
@@ -351,4 +354,8 @@ pub enum ServerEvent {
     Error {
         message: String,
     },
+}
+
+fn default_source_str() -> String {
+    "spotify".to_string()
 }
