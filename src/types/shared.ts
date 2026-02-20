@@ -21,6 +21,9 @@ export interface Channel {
   bitrate: number | null;
   parentId: string | null;
   position: number;
+  isRoom: boolean;
+  isPersistent: boolean;
+  creatorId: string | null;
   createdAt: string;
 }
 
@@ -235,6 +238,8 @@ export type WSServerEvent =
   | { type: "trade_resolved"; tradeId: string; status: string }
   | { type: "coins_earned"; userId: string; amount: number; reason: string; newBalance: number }
   | { type: "soundboard_play"; channelId: string; soundId: string; audioAttachmentId: string; audioFilename: string; imageAttachmentId?: string; imageFilename?: string; volume: number; username: string }
+  | { type: "room_created"; channel: Channel }
+  | { type: "room_deleted"; channelId: string; serverId: string }
   | { type: "error"; message: string };
 
 export type PresenceStatus = "online" | "idle" | "dnd" | "invisible" | "offline";
@@ -251,6 +256,7 @@ export interface CreateChannelRequest {
   type: ChannelType;
   bitrate?: number;
   parentId?: string;
+  isRoom?: boolean;
 }
 
 export interface ReorderItem {

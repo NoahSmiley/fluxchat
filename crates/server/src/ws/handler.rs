@@ -244,6 +244,37 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
     // Broadcast voice state update if was in voice
     if let Some(channel_id) = old_voice {
         let participants = state.gateway.voice_channel_participants(&channel_id).await;
+
+        // Auto-delete empty temporary rooms on disconnect
+        if participants.is_empty() {
+            let room_info = sqlx::query_as::<_, (i64, i64, String)>(
+                "SELECT is_room, is_persistent, server_id FROM channels WHERE id = ?",
+            )
+            .bind(&channel_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
+
+            if let Some((1, 0, ref server_id)) = room_info {
+                sqlx::query("DELETE FROM channels WHERE id = ?")
+                    .bind(&channel_id)
+                    .execute(&state.db)
+                    .await
+                    .ok();
+                state
+                    .gateway
+                    .broadcast_all(
+                        &ServerEvent::RoomDeleted {
+                            channel_id: channel_id.clone(),
+                            server_id: server_id.clone(),
+                        },
+                        None,
+                    )
+                    .await;
+            }
+        }
+
         state
             .gateway
             .broadcast_all(
@@ -575,6 +606,34 @@ async fn handle_client_event(
                             .bind(&left_channel)
                             .execute(&state.db)
                             .await;
+
+                            // Auto-delete empty temporary rooms
+                            let room_info = sqlx::query_as::<_, (i64, i64, String)>(
+                                "SELECT is_room, is_persistent, server_id FROM channels WHERE id = ?",
+                            )
+                            .bind(&left_channel)
+                            .fetch_optional(&state.db)
+                            .await
+                            .ok()
+                            .flatten();
+
+                            if let Some((1, 0, ref server_id)) = room_info {
+                                sqlx::query("DELETE FROM channels WHERE id = ?")
+                                    .bind(&left_channel)
+                                    .execute(&state.db)
+                                    .await
+                                    .ok();
+                                state
+                                    .gateway
+                                    .broadcast_all(
+                                        &ServerEvent::RoomDeleted {
+                                            channel_id: left_channel.clone(),
+                                            server_id: server_id.clone(),
+                                        },
+                                        None,
+                                    )
+                                    .await;
+                            }
                         }
 
                         state

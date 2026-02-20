@@ -1203,6 +1203,41 @@ gateway.on((event) => {
       break;
     }
 
+    case "room_created": {
+      // Add room to channels if it belongs to the active server
+      if (event.channel.serverId === state.activeServerId) {
+        useChatStore.setState((s) => ({
+          channels: [...s.channels, event.channel],
+        }));
+      }
+      break;
+    }
+
+    case "room_deleted": {
+      if (event.serverId === state.activeServerId) {
+        // Find the lobby to redirect users
+        const lobby = state.channels.find(
+          (c) => c.serverId === event.serverId && c.isRoom && c.isPersistent,
+        );
+
+        useChatStore.setState((s) => ({
+          channels: s.channels.filter((c) => c.id !== event.channelId),
+          ...(s.activeChannelId === event.channelId
+            ? { activeChannelId: lobby?.id ?? null, messages: [], reactions: {} }
+            : {}),
+        }));
+
+        // If user is in the deleted room, move them to the lobby
+        import("./voice.js").then((mod) => {
+          const voiceState = mod.useVoiceStore.getState();
+          if (voiceState.connectedChannelId === event.channelId && lobby) {
+            voiceState.joinVoiceChannel(lobby.id);
+          }
+        });
+      }
+      break;
+    }
+
     case "soundboard_play": {
       import("./voice.js").then((mod) => {
         const store = mod.useVoiceStore.getState();

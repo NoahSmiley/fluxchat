@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::{Attachment, DmMessage, Message, QueueItem, VoiceParticipant};
+use crate::models::{Attachment, Channel, DmMessage, Message, QueueItem, VoiceParticipant};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityInfo {
@@ -317,6 +317,16 @@ pub enum ServerEvent {
         image_filename: Option<String>,
         volume: f64,
         username: String,
+    },
+    // Room events
+    RoomCreated {
+        channel: Channel,
+    },
+    RoomDeleted {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "serverId")]
+        server_id: String,
     },
     // Economy events
     CaseOpened {

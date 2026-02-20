@@ -7,7 +7,7 @@ import { useUIStore } from "../stores/ui.js";
 import { useAuthStore } from "../stores/auth.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
 import { UserCard } from "./MemberList.js";
-import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical, Radio } from "lucide-react";
+import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical, Radio, Phone } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
@@ -388,7 +388,7 @@ function SortableChannelItem({
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels } = useChatStore();
   const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants } = useVoiceStore();
-  const { showingEconomy, openServerSettings } = useUIStore();
+  const { showingEconomy, openServerSettings, showDummyUsers } = useUIStore();
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
 
@@ -400,7 +400,12 @@ export function ChannelSidebar() {
   const dwellRef = useRef<{ catId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   const dropIntoCategoryRef = useRef<string | null>(null);
 
-  const allChannels = channels;
+  // Split channels: hide non-room voice channels (they're replaced by the rooms system)
+  const regularChannels = useMemo(() => channels.filter((c) => !c.isRoom && c.type !== "voice"), [channels]);
+  const rooms = useMemo(() => channels.filter((c) => c.isRoom), [channels]);
+  const persistentRoom = useMemo(() => rooms.find((r) => r.isPersistent), [rooms]);
+
+  const allChannels = regularChannels;
 
   const tree = useMemo(() => buildTree(allChannels), [allChannels]);
   const flatList = useMemo(() => flattenTree(tree, collapsed, activeChannelId), [tree, collapsed, activeChannelId]);
@@ -696,6 +701,152 @@ export function ChannelSidebar() {
           <Plus size={14} />
         </button>
       </div>
+
+      {/* ── Join Voice Button + Room Participants (pinned to bottom) ── */}
+      {(() => {
+        const isInVoice = !!connectedChannelId;
+        // Gather all voice channels (rooms + legacy voice) that have participants
+        const voiceChannels = channels.filter((c) => c.type === "voice");
+
+        // Merge real participants with dummy users for the lobby
+        const DUMMY_VOICE_USERS = [
+          { userId: "__d1", username: "xKira", drinkCount: 0 },
+          { userId: "__d2", username: "Blaze", drinkCount: 0 },
+          { userId: "__d3", username: "PhaseShift", drinkCount: 0 },
+          { userId: "__d4", username: "Cosmo", drinkCount: 0 },
+          { userId: "__d5", username: "ghost404", drinkCount: 0 },
+          { userId: "__d6", username: "Prism", drinkCount: 0 },
+          { userId: "__d7", username: "Nyx", drinkCount: 0 },
+          { userId: "__d8", username: "ZeroDay", drinkCount: 0 },
+        ];
+
+        const DUMMY_IMAGES: Record<string, string> = showDummyUsers ? {
+          __d1: "https://i.pravatar.cc/64?img=1", __d2: "https://i.pravatar.cc/64?img=8",
+          __d3: "https://i.pravatar.cc/64?img=12", __d4: "https://i.pravatar.cc/64?img=15",
+          __d5: "https://i.pravatar.cc/64?img=22", __d6: "https://i.pravatar.cc/64?img=33",
+          __d7: "https://i.pravatar.cc/64?img=47", __d8: "https://i.pravatar.cc/64?img=51",
+        } : {};
+
+        const DUMMY_MEMBERS: { userId: string; username: string; image: string; ringStyle: string; ringSpin: boolean; ringPatternSeed: number | null; bannerCss: string | null; bannerPatternSeed: number | null; role: string }[] = showDummyUsers ? [
+          { userId: "__d1", username: "xKira", image: "https://i.pravatar.cc/64?img=1", ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, bannerCss: "aurora", bannerPatternSeed: null, role: "member" },
+          { userId: "__d2", username: "Blaze", image: "https://i.pravatar.cc/64?img=8", ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, bannerCss: "sunset", bannerPatternSeed: null, role: "member" },
+          { userId: "__d3", username: "PhaseShift", image: "https://i.pravatar.cc/64?img=12", ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, bannerCss: "doppler", bannerPatternSeed: 42, role: "owner" },
+          { userId: "__d4", username: "Cosmo", image: "https://i.pravatar.cc/64?img=15", ringStyle: "emerald", ringSpin: false, ringPatternSeed: null, bannerCss: "space", bannerPatternSeed: null, role: "admin" },
+          { userId: "__d5", username: "ghost404", image: "https://i.pravatar.cc/64?img=22", ringStyle: "default", ringSpin: false, ringPatternSeed: null, bannerCss: null, bannerPatternSeed: null, role: "member" },
+          { userId: "__d6", username: "Prism", image: "https://i.pravatar.cc/64?img=33", ringStyle: "doppler", ringSpin: false, ringPatternSeed: 77, bannerCss: "gamma_doppler", bannerPatternSeed: 77, role: "member" },
+          { userId: "__d7", username: "Nyx", image: "https://i.pravatar.cc/64?img=47", ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 150, bannerCss: "cityscape", bannerPatternSeed: null, role: "member" },
+          { userId: "__d8", username: "ZeroDay", image: "https://i.pravatar.cc/64?img=51", ringStyle: "ruby", ringSpin: true, ringPatternSeed: null, bannerCss: "doppler", bannerPatternSeed: 200, role: "admin" },
+        ] : [];
+
+        const voiceWithUsers = voiceChannels
+          .map((c) => {
+            const real = channelParticipants[c.id] ?? [];
+            // Add dummy users to the persistent lobby
+            const allParticipants = (showDummyUsers && c.isPersistent) ? [...DUMMY_VOICE_USERS, ...real] : real;
+            return { channel: c, participants: allParticipants };
+          })
+          .filter((r) => r.participants.length > 0);
+        const totalVoiceUsers = voiceWithUsers.reduce((sum, r) => sum + r.participants.length, 0);
+
+        const screenSharerIds = new Set(screenSharers.map((s) => s.participantId));
+
+        return (
+          <div className="join-voice-section">
+            {voiceWithUsers.length > 0 && (
+              <div className="voice-room-users-list">
+                {voiceWithUsers.map(({ channel: vc, participants }) => (
+                  <div key={vc.id} className="voice-room-group">
+                    <div className="voice-room-group-label">
+                      {vc.isPersistent ? "Lobby" : vc.name}
+                      <span className="voice-room-group-count">{participants.length}</span>
+                    </div>
+                    {isInVoice ? (
+                      /* ── Connected: show detailed rows with speaking indicators ── */
+                      <div className="voice-room-detailed">
+                        {/* Dummy users */}
+                        {showDummyUsers && vc.isPersistent && DUMMY_MEMBERS.map((d) => (
+                          <VoiceUserRow
+                            key={d.userId}
+                            userId={d.userId}
+                            username={d.username}
+                            image={d.image}
+                            member={undefined}
+                            banner={bannerBackground(d.bannerCss, d.bannerPatternSeed)}
+                            ringStyle={{ ...ringGradientStyle(d.ringPatternSeed, d.ringStyle) } as React.CSSProperties}
+                            ringClassName={ringClass(d.ringStyle, d.ringSpin, d.role, false, d.ringPatternSeed)}
+                            isMuted={d.userId === "__d2"}
+                            isDeafened={d.userId === "__d4"}
+                            allMembers={members}
+                          />
+                        ))}
+                        {/* Real participants (skip dummies) */}
+                        {participants.filter((p) => !p.userId.startsWith("__d")).map((p) => {
+                          const member = members.find((m) => m.userId === p.userId);
+                          const voiceUser = connectedChannelId === vc.id ? voiceParticipants.find((v) => v.userId === p.userId) : null;
+                          return (
+                            <VoiceUserRow
+                              key={p.userId}
+                              userId={p.userId}
+                              username={p.username}
+                              image={member?.image}
+                              member={member}
+                              banner={bannerBackground(member?.bannerCss, member?.bannerPatternSeed)}
+                              ringStyle={{ ...ringGradientStyle(member?.ringPatternSeed, member?.ringStyle) } as React.CSSProperties}
+                              ringClassName={ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}
+                              isMuted={voiceUser?.isMuted}
+                              isDeafened={voiceUser?.isDeafened}
+                              isStreaming={screenSharerIds.has(p.userId)}
+                              allMembers={members}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* ── Not connected: compact avatar circles (at-a-glance) ── */
+                      <div className="voice-room-avatars">
+                        {participants.map((p) => {
+                          const member = members.find((m) => m.userId === p.userId);
+                          const image = DUMMY_IMAGES[p.userId] ?? member?.image;
+                          return (
+                            <span
+                              key={p.userId}
+                              className="voice-room-avatar"
+                              style={{ background: image ? "transparent" : avatarColor(p.username) }}
+                              title={p.username}
+                            >
+                              {image ? (
+                                <img src={image} alt={p.username} />
+                              ) : (
+                                p.username.charAt(0).toUpperCase()
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!isInVoice && persistentRoom && (
+              <button
+                className="join-voice-btn"
+                onClick={() => {
+                  selectChannel(persistentRoom.id);
+                  useVoiceStore.getState().joinVoiceChannel(persistentRoom.id);
+                }}
+              >
+                <Phone size={16} />
+                <span>Join Voice</span>
+                {totalVoiceUsers > 0 && (
+                  <span className="join-voice-count">{totalVoiceUsers}</span>
+                )}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       <VoiceStatusBar />
 

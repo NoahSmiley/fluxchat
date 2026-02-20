@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useVoiceStore } from "../stores/voice.js";
 import { useChatStore } from "../stores/chat.js";
+import { useAuthStore } from "../stores/auth.js";
 import { useSpotifyStore } from "../stores/spotify.js";
+import * as api from "../lib/api.js";
 import { MusicPanel } from "./MusicPanel.js";
 import { SoundboardPanel } from "./SoundboardPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
-  Music, Square, Eye, Radio,
+  Music, Square, Eye, Radio, Plus,
 } from "lucide-react";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import { useUIStore } from "../stores/ui.js";
@@ -242,6 +244,102 @@ function LobbyMusicBar() {
   );
 }
 
+// ── Room Switcher Bar ──
+// Simple pill-style row: "Lobby (9) | Room 1 (3) [x] | +"
+function RoomSwitcherBar() {
+  const { channels, activeServerId } = useChatStore();
+  const { connectedChannelId, channelParticipants, joinVoiceChannel } = useVoiceStore();
+  const { user } = useAuthStore();
+  const [creating, setCreating] = useState(false);
+
+  const rooms = useMemo(() => channels.filter((c) => c.isRoom), [channels]);
+  const persistentRoom = useMemo(() => rooms.find((r) => r.isPersistent), [rooms]);
+  const temporaryRooms = useMemo(() => rooms.filter((r) => !r.isPersistent), [rooms]);
+
+  const allRooms = useMemo(() => {
+    const result = [];
+    if (persistentRoom) result.push(persistentRoom);
+    result.push(...temporaryRooms);
+    return result;
+  }, [persistentRoom, temporaryRooms]);
+
+  async function handleCreateRoom() {
+    if (!activeServerId || creating) return;
+    setCreating(true);
+    try {
+      const name = `Room ${temporaryRooms.length + 1}`;
+      const newRoom = await api.createRoom(activeServerId, name);
+      useChatStore.getState().selectChannel(newRoom.id);
+      joinVoiceChannel(newRoom.id);
+    } catch (err) {
+      console.error("Failed to create room:", err);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function handleCloseRoom(roomId: string) {
+    if (!activeServerId) return;
+    try {
+      await api.deleteChannel(activeServerId, roomId);
+    } catch (err) {
+      console.error("Failed to close room:", err);
+    }
+  }
+
+  // Only show if there are breakout rooms (no bar needed when it's just the lobby)
+  if (temporaryRooms.length === 0) {
+    return (
+      <div className="room-switcher">
+        <button className="room-switcher-create" onClick={handleCreateRoom} disabled={creating}>
+          <Plus size={12} />
+          {creating ? "Creating..." : "Break out"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="room-switcher">
+      {allRooms.map((room) => {
+        const count = (channelParticipants[room.id] ?? []).length;
+        const isCurrent = connectedChannelId === room.id;
+        const isCreator = !room.isPersistent && room.creatorId === user?.id;
+        return (
+          <button
+            key={room.id}
+            className={`room-switcher-pill ${isCurrent ? "active" : ""}`}
+            onClick={() => {
+              if (!isCurrent) {
+                useChatStore.getState().selectChannel(room.id);
+                joinVoiceChannel(room.id);
+              }
+            }}
+          >
+            {room.isPersistent ? "Lobby" : room.name}
+            {count > 0 && <span className="room-switcher-count">{count}</span>}
+            {isCreator && (
+              <span
+                className="room-switcher-close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCloseRoom(room.id);
+                }}
+                title="Close room"
+              >
+                &times;
+              </span>
+            )}
+          </button>
+        );
+      })}
+      <button className="room-switcher-create" onClick={handleCreateRoom} disabled={creating}>
+        <Plus size={12} />
+      </button>
+    </div>
+  );
+}
+
 // ── Main Export ──
 export function VoiceChannelView() {
   const { channels, activeChannelId, activeServerId, members } = useChatStore();
@@ -272,7 +370,15 @@ export function VoiceChannelView() {
   const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music" | "sounds">("voice");
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
-  const allScreenSharers = showDummyUsers
+  // Track if we're switching rooms (was connected, now reconnecting)
+  const wasInVoice = useRef(false);
+  useEffect(() => {
+    if (isConnected) wasInVoice.current = true;
+    else if (!connecting) wasInVoice.current = false;
+  }, [isConnected, connecting]);
+  // Show voice UI during room switches (keep UI stable instead of flashing "Connecting...")
+  const showVoiceUI = isConnected || (connecting && wasInVoice.current);
+  const allScreenSharers = (showDummyUsers && channel?.isPersistent)
     ? [...screenSharers, ...DUMMY_STREAMERS]
     : screenSharers;
   const hasScreenShares = allScreenSharers.length > 0;
@@ -308,7 +414,7 @@ export function VoiceChannelView() {
 
   return (
     <div className={`voice-channel-view ${theatreMode ? "theatre" : ""}`}>
-      {isConnected && (
+      {showVoiceUI && (
         <div className="voice-channel-tabs">
           <button
             className={`voice-tab ${activeTab === "voice" ? "active" : ""}`}
@@ -342,36 +448,44 @@ export function VoiceChannelView() {
         <div className="voice-error">{connectionError}</div>
       )}
 
-      {!isConnected && !connecting && (
+      {!showVoiceUI && !connecting && (
         <div className="voice-join-prompt">
           <span className="voice-join-icon"><Volume2 size={48} /></span>
-          <h2>{channel?.name ?? "Voice Channel"}</h2>
-          <p>No one is currently in this voice channel.</p>
+          <h2>{channel?.name ?? "Voice"}</h2>
+          <p>Join voice to talk with others and access breakout rooms.</p>
           <button
             className="btn-primary voice-join-btn"
-            onClick={() => activeChannelId && joinVoiceChannel(activeChannelId)}
+            onClick={() => {
+              // Always join the persistent lobby by default
+              const lobby = channels.find((c) => c.isRoom && c.isPersistent && c.serverId === activeServerId);
+              const targetId = lobby?.id ?? activeChannelId;
+              if (targetId) {
+                useChatStore.getState().selectChannel(targetId);
+                joinVoiceChannel(targetId);
+              }
+            }}
           >
             Join Voice
           </button>
         </div>
       )}
 
-      {connecting && (
+      {connecting && !showVoiceUI && (
         <div className="voice-connecting">
           <div className="loading-spinner" />
           <p>Connecting...</p>
         </div>
       )}
 
-      {isConnected && activeTab === "music" && activeChannelId && (
+      {showVoiceUI && activeTab === "music" && activeChannelId && (
         <MusicPanel voiceChannelId={activeChannelId} />
       )}
 
-      {isConnected && activeTab === "sounds" && activeServerId && activeChannelId && (
+      {showVoiceUI && activeTab === "sounds" && activeServerId && activeChannelId && (
         <SoundboardPanel serverId={activeServerId} channelId={activeChannelId} />
       )}
 
-      {isConnected && activeTab === "streams" && (() => {
+      {showVoiceUI && activeTab === "streams" && (() => {
         const localIsSharing = isScreenSharing;
         const viewerCount = participants.length - screenSharers.length;
         const isDummy = (id: string) => id.startsWith("__d");
@@ -475,12 +589,15 @@ export function VoiceChannelView() {
         );
       })()}
 
-      {isConnected && activeTab === "voice" && (
+      {showVoiceUI && activeTab === "voice" && (
         <>
+          {/* Room switcher */}
+          <RoomSwitcherBar />
+
           {/* Participants */}
           <div className="voice-participants-grid">
-            {/* DEBUG: dummy voice tiles */}
-            {showDummyUsers && [
+            {/* DEBUG: dummy voice tiles (only in persistent lobby) */}
+            {showDummyUsers && channel?.isPersistent && [
               { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=1" },
               { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=8" },
               { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/128?img=12" },
@@ -523,10 +640,10 @@ export function VoiceChannelView() {
                 />
                 <span className="voice-tile-name">
                   {user.username}
-                  {(user.isMuted || user.isDeafened) && (
+                  {!!(user.isMuted || user.isDeafened) && (
                     <span className="voice-tile-status-icons">
-                      {user.isMuted && <MicOff size={14} className="voice-tile-status-icon" />}
-                      {user.isDeafened && <HeadphoneOff size={14} className="voice-tile-status-icon" />}
+                      {!!user.isMuted && <MicOff size={14} className="voice-tile-status-icon" />}
+                      {!!user.isDeafened && <HeadphoneOff size={14} className="voice-tile-status-icon" />}
                     </span>
                   )}
                 </span>
@@ -550,6 +667,7 @@ export function VoiceChannelView() {
 
           {/* Lobby music bar (easter egg) */}
           <LobbyMusicBar />
+
 
           {/* Mini now-playing bar (Spotify or YouTube) */}
           {session && (() => {

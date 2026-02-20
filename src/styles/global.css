@@ -790,6 +790,217 @@ input:focus {
   margin: 8px 16px;
 }
 
+/* ── Rooms Section ── */
+
+/* ── Join Voice Button (Sidebar) ── */
+
+.join-voice-section {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.join-voice-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #22c55e;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.join-voice-btn:hover {
+  background: #16a34a;
+}
+
+.join-voice-btn:active {
+  transform: scale(0.98);
+}
+
+.join-voice-count {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Voice Room Users in Sidebar (compact avatars) ── */
+
+.voice-room-users-list {
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voice-room-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.voice-room-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.voice-room-group-count {
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0 4px;
+  border-radius: 6px;
+  line-height: 14px;
+  color: var(--text-muted);
+}
+
+.voice-room-detailed {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.voice-room-avatars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.voice-room-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.voice-room-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Room Switcher Bar (inside VoiceChannelView) ── */
+
+.room-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 8px;
+  flex-wrap: wrap;
+}
+
+.room-switcher-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.room-switcher-pill:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.room-switcher-pill.active {
+  border-color: #22c55e;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.room-switcher-count {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--bg-tertiary);
+  padding: 0 5px;
+  border-radius: 8px;
+  line-height: 16px;
+  color: var(--text-muted);
+}
+
+.room-switcher-pill.active .room-switcher-count {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.room-switcher-create {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 20px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.room-switcher-create:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.room-switcher-create:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.room-switcher-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  margin-left: 2px;
+}
+
+.room-switcher-close:hover {
+  color: #f04747;
+  background: rgba(240, 71, 71, 0.15);
+}
+
 
 
 /* ── Server Settings Modal ── */

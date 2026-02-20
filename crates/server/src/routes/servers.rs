@@ -136,28 +136,49 @@ pub async fn create_channel(
     .ok()
     .flatten();
 
-    match role.as_deref() {
-        Some("owner") | Some("admin") => {}
-        _ => {
+    // Rooms: any server member can create; regular channels require admin/owner
+    if body.is_room {
+        if role.is_none() {
             return (
                 StatusCode::FORBIDDEN,
-                Json(serde_json::json!({"error": "Insufficient permissions"})),
+                Json(serde_json::json!({"error": "Not a member of this server"})),
             )
-                .into_response()
+                .into_response();
+        }
+    } else {
+        match role.as_deref() {
+            Some("owner") | Some("admin") => {}
+            _ => {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(serde_json::json!({"error": "Insufficient permissions"})),
+                )
+                    .into_response()
+            }
         }
     }
 
+    // Rooms are always voice with no parent
+    let channel_type = if body.is_room { "voice".to_string() } else { body.channel_type.clone() };
+    let parent_id_input = if body.is_room { None } else { body.parent_id.clone() };
+
     // Validate channel type
-    if !["text", "voice", "game", "category"].contains(&body.channel_type.as_str()) {
+    if !["text", "voice", "game", "category"].contains(&channel_type.as_str()) {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Invalid channel type"}))).into_response();
     }
 
-    if let Err(e) = flux_shared::validation::validate_channel_name(&body.name) {
+    // Rooms allow free-form names; regular channels use strict validation
+    if body.is_room {
+        let trimmed = body.name.trim();
+        if trimmed.is_empty() || trimmed.len() > 64 {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Room name must be 1-64 characters"}))).into_response();
+        }
+    } else if let Err(e) = flux_shared::validation::validate_channel_name(&body.name) {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": e}))).into_response();
     }
 
     // Validate parent_id if provided
-    let parent_id = if let Some(ref pid) = body.parent_id {
+    let parent_id = if let Some(ref pid) = parent_id_input {
         let parent = sqlx::query_as::<_, Channel>(
             "SELECT * FROM channels WHERE id = ? AND server_id = ?",
         )
@@ -210,11 +231,13 @@ pub async fn create_channel(
     let channel_id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
     let name = body.name.trim().to_string();
-    let bitrate = if body.channel_type == "voice" {
+    let bitrate = if channel_type == "voice" {
         body.bitrate
     } else {
         None
     };
+    let is_room: i64 = if body.is_room { 1 } else { 0 };
+    let creator_id: Option<String> = if body.is_room { Some(user.id.clone()) } else { None };
 
     // Auto-assign position: max sibling position + 1
     let max_pos = if parent_id.is_some() {
@@ -240,29 +263,47 @@ pub async fn create_channel(
     let position = max_pos.unwrap_or(-1) + 1;
 
     let _ = sqlx::query(
-        "INSERT INTO channels (id, server_id, name, type, bitrate, parent_id, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO channels (id, server_id, name, type, bitrate, parent_id, position, is_room, is_persistent, creator_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
     )
     .bind(&channel_id)
     .bind(&server_id)
     .bind(&name)
-    .bind(&body.channel_type)
+    .bind(&channel_type)
     .bind(bitrate)
     .bind(&parent_id)
     .bind(position)
+    .bind(is_room)
+    .bind(&creator_id)
     .bind(&now)
     .execute(&state.db)
     .await;
 
     let channel = Channel {
         id: channel_id,
-        server_id,
+        server_id: server_id.clone(),
         name,
-        channel_type: body.channel_type,
+        channel_type: channel_type.clone(),
         bitrate,
         parent_id,
         position,
+        is_room,
+        is_persistent: 0,
+        creator_id,
         created_at: now,
     };
+
+    // Broadcast room creation to all connected clients
+    if body.is_room {
+        state
+            .gateway
+            .broadcast_all(
+                &crate::ws::events::ServerEvent::RoomCreated {
+                    channel: channel.clone(),
+                },
+                None,
+            )
+            .await;
+    }
 
     (StatusCode::CREATED, Json(channel)).into_response()
 }
@@ -285,18 +326,7 @@ pub async fn update_channel(
     .ok()
     .flatten();
 
-    match role.as_deref() {
-        Some("owner") | Some("admin") => {}
-        _ => {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(serde_json::json!({"error": "Insufficient permissions"})),
-            )
-                .into_response()
-        }
-    }
-
-    // Find channel
+    // Find channel first so we can check room permissions
     let channel = sqlx::query_as::<_, Channel>(
         "SELECT * FROM channels WHERE id = ? AND server_id = ?",
     )
@@ -317,6 +347,32 @@ pub async fn update_channel(
                 .into_response()
         }
     };
+
+    // Permission check: rooms allow creator to rename (unless persistent lobby — admin/owner only)
+    let is_admin_or_owner = matches!(role.as_deref(), Some("owner") | Some("admin"));
+    if channel.is_room == 1 {
+        if channel.is_persistent == 1 && !is_admin_or_owner {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Only admins can rename the lobby"})),
+            )
+                .into_response();
+        }
+        let is_creator = channel.creator_id.as_deref() == Some(&user.id);
+        if !is_admin_or_owner && !is_creator {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Insufficient permissions"})),
+            )
+                .into_response();
+        }
+    } else if !is_admin_or_owner {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({"error": "Insufficient permissions"})),
+        )
+            .into_response();
+    }
 
     if let Some(ref name) = body.name {
         if let Err(e) = flux_shared::validation::validate_channel_name(name) {
@@ -355,6 +411,9 @@ pub async fn update_channel(
         bitrate: new_bitrate,
         parent_id: channel.parent_id,
         position: channel.position,
+        is_room: channel.is_room,
+        is_persistent: channel.is_persistent,
+        creator_id: channel.creator_id,
         created_at: channel.created_at,
     };
 
@@ -392,11 +451,41 @@ pub async fn delete_channel(
     .ok()
     .flatten();
 
-    match role.as_deref() {
-        Some("owner") | Some("admin") => {}
-        _ => {
+    // Look up channel for room checks
+    let channel = sqlx::query_as::<_, Channel>(
+        "SELECT * FROM channels WHERE id = ? AND server_id = ?",
+    )
+    .bind(&channel_id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let channel = match channel {
+        Some(c) => c,
+        None => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    // Can't delete persistent lobby
+    if channel.is_persistent == 1 {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({"error": "Cannot delete persistent lobby"})),
+        )
+            .into_response();
+    }
+
+    let is_admin_or_owner = matches!(role.as_deref(), Some("owner") | Some("admin"));
+
+    if channel.is_room == 1 {
+        // Room creator OR admin/owner can delete
+        let is_creator = channel.creator_id.as_deref() == Some(&user.id);
+        if !is_admin_or_owner && !is_creator {
             return (StatusCode::FORBIDDEN).into_response();
         }
+    } else if !is_admin_or_owner {
+        return (StatusCode::FORBIDDEN).into_response();
     }
 
     let _ = sqlx::query("DELETE FROM channels WHERE id = ? AND server_id = ?")
@@ -404,6 +493,20 @@ pub async fn delete_channel(
         .bind(&server_id)
         .execute(&state.db)
         .await;
+
+    // Broadcast room deletion if it was a room
+    if channel.is_room == 1 {
+        state
+            .gateway
+            .broadcast_all(
+                &crate::ws::events::ServerEvent::RoomDeleted {
+                    channel_id: channel_id.clone(),
+                    server_id: server_id.clone(),
+                },
+                None,
+            )
+            .await;
+    }
 
     StatusCode::NO_CONTENT.into_response()
 }
