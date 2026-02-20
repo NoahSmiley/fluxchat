@@ -188,7 +188,7 @@ const APP_BORDER_STYLES: { value: AppBorderStyle; label: string }[] = [
 ];
 
 export function SettingsModal() {
-  const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition, appBorderStyle, setAppBorderStyle, showDummyUsers, toggleDummyUsers } = useUIStore();
+  const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition, appBorderStyle, setAppBorderStyle, showDummyUsers, toggleDummyUsers, highlightOwnMessages, setHighlightOwnMessages } = useUIStore();
   const { audioSettings, updateAudioSetting } = useVoiceStore();
   const { servers, activeServerId, updateServer } = useChatStore();
   const { user, updateProfile, logout } = useAuthStore();
@@ -483,6 +483,17 @@ export function SettingsModal() {
                     <span className="ring-style-label">{sp.label}</span>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">Messages</h3>
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">Highlight your messages</span>
+                  <span className="settings-row-desc">Show a subtle background on messages you sent.</span>
+                </div>
+                <ToggleSwitch checked={highlightOwnMessages} onChange={setHighlightOwnMessages} />
               </div>
             </div>
 
