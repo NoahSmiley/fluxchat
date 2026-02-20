@@ -1182,12 +1182,11 @@ input:focus {
 
 .message-input-form {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   padding: 8px 16px;
   border-top: 1px solid var(--border);
-  height: 56px;
-  align-items: center;
+  min-height: 56px;
   box-sizing: border-box;
 }
 
@@ -1195,14 +1194,19 @@ input:focus {
   flex: 1;
   background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 0 20px;
-  height: 38px;
-  line-height: 38px;
+  border-radius: 16px;
+  padding: 8px 16px;
+  min-height: 38px;
+  max-height: 160px;
+  overflow-y: auto;
+  line-height: 1.4;
   color: var(--text-primary);
   font-size: 14px;
   outline: none;
   user-select: text;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  box-sizing: border-box;
 }
 
 .message-input:focus {
@@ -3394,6 +3398,21 @@ img.custom-emoji {
   width: 2.4em;
   height: 2.4em;
   vertical-align: -0.4em;
+}
+
+/* ── Avatar username tooltip (server sidebar) ── */
+.avatar-name-tooltip {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
 }
 
 /* ── Emoji hover tooltip (messages) ── */

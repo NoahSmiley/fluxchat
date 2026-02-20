@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { FluxLogo } from "./FluxLogo.js";
@@ -9,19 +9,16 @@ import { UserCard } from "./MemberList.js";
 import ContextMenu from "./ContextMenu.js";
 
 export function ServerSidebar() {
-  const { servers, showingDMs, showDMs, selectServer, members, onlineUsers, userStatuses, userActivities, openDM } = useChatStore();
+  const { servers, showDMs, selectServer, members, onlineUsers, userStatuses, userActivities, openDM } = useChatStore();
   const { user } = useAuthStore();
   const showingEconomy = useUIStore((s) => s.showingEconomy);
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
+  const sidebarPosition = useUIStore((s) => s.sidebarPosition);
 
-  // Member avatar + user card state
   const [activeCardUserId, setActiveCardUserId] = useState<string | null>(null);
   const [cardPos, setCardPos] = useState<{ top?: number; right?: number; left?: number; bottom?: number }>({ top: 0 });
+  const [hoverTooltip, setHoverTooltip] = useState<{ username: string; style: React.CSSProperties } | null>(null);
   const [avatarCtxMenu, setAvatarCtxMenu] = useState<{ x: number; y: number; userId: string } | null>(null);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cardHoveredRef = useRef(false);
-  const sidebarPosition = useUIStore((s) => s.sidebarPosition);
-  const useClickMode = sidebarPosition === "left";
 
   const sortedMembers = useMemo(() => {
     const byName = (a: typeof members[0], b: typeof members[0]) =>
@@ -33,17 +30,13 @@ export function ServerSidebar() {
     return me ? [me, ...online, ...offline] : [...online, ...offline];
   }, [members, onlineUsers, user?.id]);
 
-  const clearHoverTimer = useCallback(() => {
-    if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
-  }, []);
-
-  // Close card on outside click (click mode only)
+  // Close card on outside click
   useEffect(() => {
-    if (!useClickMode || !activeCardUserId) return;
+    if (!activeCardUserId) return;
     function handleOutsideClick() { setActiveCardUserId(null); }
     document.addEventListener("click", handleOutsideClick);
     return () => document.removeEventListener("click", handleOutsideClick);
-  }, [useClickMode, activeCardUserId]);
+  }, [activeCardUserId]);
 
   function computeCardPos(el: HTMLElement) {
     const rect = el.getBoundingClientRect();
@@ -58,43 +51,37 @@ export function ServerSidebar() {
     }
   }
 
-  // Hover handlers (non-left orientations)
-  function handleAvatarEnter(e: React.MouseEvent, userId: string) {
-    if (useClickMode) return;
-    clearHoverTimer();
-    computeCardPos(e.currentTarget as HTMLElement);
-    setActiveCardUserId(userId);
+  function computeTooltipStyle(el: HTMLElement): React.CSSProperties {
+    const rect = el.getBoundingClientRect();
+    const cy = rect.top + rect.height / 2;
+    const cx = rect.left + rect.width / 2;
+    if (sidebarPosition === "right") {
+      return { left: rect.left - 8, top: cy, transform: "translate(-100%, -50%)" };
+    } else if (sidebarPosition === "top") {
+      return { left: cx, top: rect.bottom + 8, transform: "translateX(-50%)" };
+    } else if (sidebarPosition === "bottom") {
+      return { left: cx, top: rect.top - 8, transform: "translate(-50%, -100%)" };
+    } else {
+      return { left: rect.right + 8, top: cy, transform: "translateY(-50%)" };
+    }
+  }
+
+  function handleAvatarEnter(e: React.MouseEvent, username: string) {
+    setHoverTooltip({ username, style: computeTooltipStyle(e.currentTarget as HTMLElement) });
   }
 
   function handleAvatarLeave() {
-    if (useClickMode) return;
-    clearHoverTimer();
-    hoverTimerRef.current = setTimeout(() => {
-      if (!cardHoveredRef.current) setActiveCardUserId(null);
-    }, 200);
+    setHoverTooltip(null);
   }
 
-  function handleCardEnter() { if (!useClickMode) { clearHoverTimer(); cardHoveredRef.current = true; } }
-  function handleCardLeave() {
-    if (useClickMode) return;
-    cardHoveredRef.current = false;
-    hoverTimerRef.current = setTimeout(() => setActiveCardUserId(null), 200);
-  }
-
-  // Click handler — in left mode, toggle card; in other modes, go to DMs
   function handleAvatarClick(e: React.MouseEvent, userId: string) {
-    if (useClickMode) {
-      e.stopPropagation();
-      if (activeCardUserId === userId) {
-        setActiveCardUserId(null);
-      } else {
-        computeCardPos(e.currentTarget as HTMLElement);
-        setActiveCardUserId(userId);
-      }
-    } else {
+    e.stopPropagation();
+    setHoverTooltip(null);
+    if (activeCardUserId === userId) {
       setActiveCardUserId(null);
-      showDMs();
-      openDM(userId);
+    } else {
+      computeCardPos(e.currentTarget as HTMLElement);
+      setActiveCardUserId(userId);
     }
   }
 
@@ -131,10 +118,10 @@ export function ServerSidebar() {
                   key={m.userId}
                   className={`sidebar-member-avatar ${isSelf ? "sticky-self" : ""} ${!isOnline ? "offline" : ""} ${activeCardUserId === m.userId ? "selected" : ""}${hasRareGlow ? " has-rare-glow" : ""}`}
                   style={ringGradientStyle(m.ringPatternSeed, m.ringStyle) as React.CSSProperties}
-                  onMouseEnter={(e) => handleAvatarEnter(e, m.userId)}
+                  onMouseEnter={(e) => handleAvatarEnter(e, m.username)}
                   onMouseLeave={handleAvatarLeave}
                   onClick={(e) => handleAvatarClick(e, m.userId)}
-                  onContextMenu={!isSelf ? (e) => { e.preventDefault(); e.stopPropagation(); setAvatarCtxMenu({ x: e.clientX, y: e.clientY, userId: m.userId }); } : undefined}
+                  onContextMenu={!isSelf ? (e) => { e.preventDefault(); e.stopPropagation(); setHoverTooltip(null); setAvatarCtxMenu({ x: e.clientX, y: e.clientY, userId: m.userId }); } : undefined}
                 >
                   <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
                     <div className="member-avatar" style={{ background: m.image ? 'transparent' : avatarColor(m.username) }}>
@@ -182,6 +169,8 @@ export function ServerSidebar() {
                   key={d.userId}
                   className={`sidebar-member-avatar ${!d.online ? "offline" : ""}${hasRareGlow ? " has-rare-glow" : ""}`}
                   style={ringGradientStyle(d.ringPatternSeed, d.ringStyle) as React.CSSProperties}
+                  onMouseEnter={(e) => handleAvatarEnter(e, d.username)}
+                  onMouseLeave={handleAvatarLeave}
                 >
                   <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(d.username), ...ringGradientStyle(d.ringPatternSeed, d.ringStyle) } as React.CSSProperties}>
                     <div className="member-avatar" style={{ background: 'transparent' }}>
@@ -198,7 +187,7 @@ export function ServerSidebar() {
 
       {/* User card popup */}
       {activeCardMember && (
-        <div onClick={(e) => e.stopPropagation()} onMouseEnter={handleCardEnter} onMouseLeave={handleCardLeave}>
+        <div onClick={(e) => e.stopPropagation()}>
           <UserCard
             member={activeCardMember}
             activity={userActivities[activeCardMember.userId]}
@@ -208,6 +197,13 @@ export function ServerSidebar() {
             onDM={() => handleDMFromCard(activeCardMember.userId)}
             isSelf={activeCardMember.userId === user?.id}
           />
+        </div>
+      )}
+
+      {/* Username hover tooltip */}
+      {hoverTooltip && (
+        <div className="avatar-name-tooltip" style={hoverTooltip.style}>
+          {hoverTooltip.username}
         </div>
       )}
 
