@@ -47,7 +47,7 @@ dotenvy = "0.15"
 chrono = { version = "0.4", features = ["serde"] }
 
 # HTTP client (link previews)
-reqwest = { version = "0.12", features = ["rustls-tls", "json"] }
+reqwest = { version = "0.12", features = ["rustls-tls", "json", "stream"] }
 
 # URL parsing / encoding
 url = "2"
@@ -58,3 +58,7 @@ tokio-util = { version = "0.7", features = ["io"] }
 
 # Futures for WebSocket
 futures = "0.3"
+
+[dev-dependencies]
+axum-test = "18"
+tokio-tungstenite = "0.26"

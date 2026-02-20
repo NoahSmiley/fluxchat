@@ -566,6 +566,17 @@ async fn handle_client_event(
                     if let Some(left_channel) = state.gateway.voice_leave(client_id).await {
                         let participants =
                             state.gateway.voice_channel_participants(&left_channel).await;
+
+                        // If channel is now empty, pause any active jam session
+                        if participants.is_empty() {
+                            let _ = sqlx::query(
+                                r#"UPDATE "listening_sessions" SET "is_playing" = 0, "updated_at" = datetime('now') WHERE "voice_channel_id" = ? AND "is_playing" = 1"#,
+                            )
+                            .bind(&left_channel)
+                            .execute(&state.db)
+                            .await;
+                        }
+
                         state
                             .gateway
                             .broadcast_all(
@@ -808,6 +819,7 @@ async fn handle_client_event(
             action,
             track_uri,
             position_ms,
+            source,
         } => {
             // Verify user is the session host
             let session = sqlx::query_as::<_, (String, String)>(
@@ -894,6 +906,7 @@ async fn handle_client_event(
                         action,
                         track_uri,
                         position_ms,
+                        source,
                     },
                     Some(client_id),
                 )

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { API_BASE } from "../lib/serverUrl.js";
-import type { SpotifyAccount, ListeningSession, QueueItem, SpotifyTrack, WSServerEvent } from "../types/shared.js";
+import type { SpotifyAccount, ListeningSession, QueueItem, SpotifyTrack, WSServerEvent, YouTubeTrack } from "../types/shared.js";
 import { dbg } from "../lib/debug.js";
 
 // PKCE helpers
@@ -90,6 +90,17 @@ interface SpotifyState {
   polling: boolean;
   oauthError: string | null;
 
+  // YouTube
+  youtubeAudio: HTMLAudioElement | null;
+  youtubeTrack: { id: string; name: string; artist: string; imageUrl: string; durationMs: number } | null;
+  youtubeProgress: number;
+  youtubeDuration: number;
+  youtubePaused: boolean;
+  searchSource: "spotify" | "youtube";
+  youtubeSearchResults: YouTubeTrack[];
+  showSearch: boolean;
+  searchInput: string;
+
   loadAccount: () => Promise<void>;
   startOAuthFlow: () => Promise<void>;
   unlinkAccount: () => Promise<void>;
@@ -105,13 +116,21 @@ interface SpotifyState {
   endSession: () => Promise<void>;
   addTrackToQueue: (track: SpotifyTrack) => Promise<void>;
   removeFromQueue: (itemId: string) => Promise<void>;
-  play: (trackUri?: string) => void;
+  play: (trackUri?: string, source?: string) => void;
   pause: () => void;
   skip: (trackUri?: string) => void;
   seek: (ms: number) => void;
   setVolume: (vol: number) => void;
   handleWSEvent: (event: WSServerEvent) => void;
   cleanup: () => void;
+  stopYouTube: () => void;
+  setShowSearch: (show: boolean) => void;
+  setSearchInput: (input: string) => void;
+  setSearchSource: (source: "spotify" | "youtube") => void;
+  searchYouTube: (query: string) => Promise<void>;
+  addYouTubeToQueue: (track: YouTubeTrack) => Promise<void>;
+  playYouTube: (videoId: string, trackInfo?: { name: string; artist: string; imageUrl: string; durationMs: number }) => void;
+  pauseYouTube: () => void;
 }
 
 let wsUnsub: (() => void) | null = null;
@@ -176,6 +195,15 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   searchLoading: false,
   polling: false,
   oauthError: null,
+  youtubeAudio: null,
+  youtubeTrack: null,
+  youtubeProgress: 0,
+  youtubeDuration: 0,
+  youtubePaused: true,
+  searchSource: "spotify" as const,
+  youtubeSearchResults: [],
+  showSearch: false,
+  searchInput: "",
 
   loadAccount: async () => {
     dbg("spotify", "loadAccount");
@@ -440,7 +468,25 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   updateActivity: () => {
-    const { playerState } = get();
+    const { playerState, youtubeTrack, youtubePaused, youtubeProgress } = get();
+
+    // YouTube activity
+    if (youtubeTrack && !youtubePaused) {
+      gateway.send({
+        type: "update_activity",
+        activity: {
+          name: youtubeTrack.name,
+          activityType: "listening",
+          artist: youtubeTrack.artist,
+          albumArt: youtubeTrack.imageUrl || undefined,
+          durationMs: youtubeTrack.durationMs,
+          progressMs: Math.round(youtubeProgress),
+        },
+      });
+      return;
+    }
+
+    // Spotify activity
     if (!playerState || !playerState.track_window.current_track) {
       gateway.send({ type: "update_activity", activity: null });
       return;
@@ -485,9 +531,12 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
   startSession: async (voiceChannelId) => {
     dbg("spotify", `startSession channel=${voiceChannelId}`);
+    // Stop lobby music when a jam session starts
+    import("./voice.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
     const { player } = get();
     player?.pause();
-    set({ playerState: null, queue: [], searchResults: [] });
+    get().stopYouTube();
+    set({ playerState: null, queue: [], searchResults: [], youtubeSearchResults: [], searchInput: "", showSearch: false });
     await api.createListeningSession(voiceChannelId);
     await get().loadSession(voiceChannelId);
     dbg("spotify", "startSession complete", { sessionId: get().session?.id });
@@ -551,7 +600,9 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     dbg("spotify", "leaveSession");
     const { player } = get();
     player?.pause();
-    set({ session: null, queue: [], isHost: false });
+    get().stopYouTube();
+    set({ session: null, queue: [], isHost: false, playerState: null });
+    gateway.send({ type: "update_activity", activity: null });
   },
 
   endSession: async () => {
@@ -559,12 +610,14 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     if (!session) return;
     dbg("spotify", `endSession sessionId=${session.id}`);
     player?.pause();
+    get().stopYouTube();
     try {
       await api.deleteListeningSession(session.id);
     } catch (e) {
       dbg("spotify", "endSession error", e);
     }
-    set({ session: null, queue: [], isHost: false });
+    set({ session: null, queue: [], isHost: false, playerState: null });
+    gateway.send({ type: "update_activity", activity: null });
   },
 
   addTrackToQueue: async (track) => {
@@ -590,71 +643,121 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     await api.removeFromQueue(session.id, itemId);
   },
 
-  play: async (trackUri) => {
-    const { session, player, queue } = get();
+  // ── Play: handles play-from-search, play-from-queue, and resume ──
+  play: async (trackUri?: string, source?: string) => {
+    const { session, player, queue, youtubeTrack } = get();
     if (!session) return;
-    dbg("spotify", `play trackUri=${trackUri ?? "(resume)"}`, { sessionId: session.id, hasPlayer: !!player });
 
-    // Remove track from queue if it's in there
-    if (trackUri) {
-      const queueItem = queue.find((item) => item.trackUri === trackUri);
-      if (queueItem) {
-        set((s) => ({ queue: s.queue.filter((item) => item.trackUri !== trackUri) }));
-        api.removeFromQueue(session.id, queueItem.id);
+    // Determine the effective source
+    let effectiveSource = source ?? queue.find(i => i.trackUri === trackUri)?.source ?? undefined;
+
+    // Resume case: no trackUri means resume whatever is currently active
+    if (!trackUri) {
+      if (youtubeTrack) {
+        // Resume YouTube
+        dbg("spotify", "play: resuming YouTube");
+        const audio = get().youtubeAudio;
+        if (audio) {
+          audio.play();
+          set({ youtubePaused: false });
+        }
+        gateway.send({
+          type: "spotify_playback_control",
+          sessionId: session.id,
+          action: "play",
+          positionMs: Math.round(get().youtubeProgress),
+          source: "youtube",
+        });
+        get().updateActivity();
+        return;
       }
+      // Resume Spotify
+      dbg("spotify", "play: resuming Spotify");
+      player?.resume();
+      gateway.send({
+        type: "spotify_playback_control",
+        sessionId: session.id,
+        action: "play",
+        positionMs: get().playerState?.position ?? 0,
+        source: "spotify",
+      });
+      return;
     }
 
+    // Default source to spotify if still unknown
+    if (!effectiveSource) effectiveSource = "spotify";
+
+    // Remove from queue if present
+    const queueItem = queue.find((item) => item.trackUri === trackUri);
+    if (queueItem) {
+      set((s) => ({ queue: s.queue.filter((item) => item.trackUri !== trackUri) }));
+      api.removeFromQueue(session.id, queueItem.id);
+    }
+
+    // Broadcast to other session members
     gateway.send({
       type: "spotify_playback_control",
       sessionId: session.id,
       action: "play",
       trackUri,
       positionMs: 0,
+      source: effectiveSource,
     });
 
-    // Also control local player
-    if (player && trackUri) {
+    if (effectiveSource === "youtube") {
+      // Build track info from queue or search results
+      const searchItem = get().youtubeSearchResults.find(t => t.id === trackUri);
+      const trackInfo = queueItem
+        ? { name: queueItem.trackName, artist: queueItem.trackArtist, imageUrl: queueItem.trackImageUrl ?? "", durationMs: queueItem.trackDurationMs }
+        : searchItem
+        ? { name: searchItem.title, artist: searchItem.channel, imageUrl: searchItem.thumbnail, durationMs: searchItem.durationMs }
+        : undefined;
+      get().playYouTube(trackUri, trackInfo);
+    } else {
+      // Switch to Spotify
+      get().stopYouTube();
       const deviceId = await get().ensureDeviceId();
-      if (deviceId) {
-        await playOnDevice(deviceId, [trackUri]);
-      }
-    } else if (player) {
-      player.resume();
+      if (deviceId) await playOnDevice(deviceId, [trackUri]);
     }
   },
 
+  // ── Pause: pauses whichever player is active ──
   pause: () => {
-    const { session, player, playerState } = get();
+    const { session, player, playerState, youtubeTrack } = get();
     if (!session) return;
-    dbg("spotify", `pause position=${playerState?.position}`, { sessionId: session.id });
+
+    const ytActive = youtubeTrack && !get().youtubePaused;
 
     gateway.send({
       type: "spotify_playback_control",
       sessionId: session.id,
       action: "pause",
-      positionMs: playerState?.position,
+      positionMs: ytActive ? Math.round(get().youtubeProgress) : playerState?.position,
+      source: ytActive ? "youtube" : "spotify",
     });
 
-    player?.pause();
+    if (ytActive) {
+      get().youtubeAudio?.pause();
+    } else {
+      player?.pause();
+    }
+    get().updateActivity();
   },
 
+  // ── Skip: advance to next queue item or stop ──
   skip: async (trackUri) => {
     const { session, player, queue } = get();
     if (!session) return;
 
-    // Find next track in queue if no URI provided
+    const nextItem = trackUri ? queue.find(i => i.trackUri === trackUri) : queue[0];
     const nextTrack = trackUri ?? queue[0]?.trackUri;
-    dbg("spotify", `skip nextTrack=${nextTrack ?? "(none)"}`, { queueLength: queue.length });
+    const nextSource = nextItem?.source ?? "spotify";
 
-    // No next track — stop playback and clear now-playing
+    // Nothing to skip to — stop everything
     if (!nextTrack) {
-      gateway.send({
-        type: "spotify_playback_control",
-        sessionId: session.id,
-        action: "pause",
-        positionMs: 0,
-      });
+      gateway.send({ type: "spotify_playback_control", sessionId: session.id, action: "pause", positionMs: 0, source: "spotify" });
       player?.pause();
+      get().stopYouTube();
       set({ playerState: null });
       gateway.send({ type: "update_activity", activity: null });
       return;
@@ -665,37 +768,55 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       sessionId: session.id,
       action: "skip",
       trackUri: nextTrack,
+      source: nextSource,
     });
 
-    // Remove the track we're skipping to from the queue
     set((s) => ({ queue: s.queue.filter((item) => item.trackUri !== nextTrack) }));
 
-    // Ensure we have a device and play the next track
-    const deviceId = await get().ensureDeviceId();
-    if (deviceId) {
-      await playOnDevice(deviceId, [nextTrack]);
+    if (nextSource === "youtube") {
+      player?.pause();
+      get().playYouTube(nextTrack, nextItem ? {
+        name: nextItem.trackName,
+        artist: nextItem.trackArtist,
+        imageUrl: nextItem.trackImageUrl ?? "",
+        durationMs: nextItem.trackDurationMs,
+      } : undefined);
+    } else {
+      get().stopYouTube();
+      const deviceId = await get().ensureDeviceId();
+      if (deviceId) await playOnDevice(deviceId, [nextTrack]);
     }
   },
 
+  // ── Seek: routes to correct player ──
   seek: (ms) => {
-    const { session, player } = get();
+    const { session, player, youtubeTrack } = get();
     if (!session) return;
     dbg("spotify", `seek ms=${ms}`);
+
+    const ytActive = !!youtubeTrack;
 
     gateway.send({
       type: "spotify_playback_control",
       sessionId: session.id,
       action: "seek",
       positionMs: ms,
+      source: ytActive ? "youtube" : "spotify",
     });
 
-    player?.seek(ms);
+    if (ytActive) {
+      const audio = get().youtubeAudio;
+      if (audio) audio.currentTime = ms / 1000;
+    } else {
+      player?.seek(ms);
+    }
   },
 
   setVolume: (vol) => {
-    const { player } = get();
+    const { player, youtubeAudio } = get();
     set({ volume: vol });
     player?.setVolume(vol);
+    if (youtubeAudio) youtubeAudio.volume = vol;
   },
 
   handleWSEvent: (event) => {
@@ -731,6 +852,43 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
           sessionMatch: session?.id === event.sessionId,
         });
         if (!session || session.id !== event.sessionId) break;
+
+        const source = (event as any).source ?? "spotify";
+
+        if (source === "youtube") {
+          const findTrackInfo = (videoId: string) => {
+            const qi = get().queue.find(i => i.trackUri === videoId);
+            if (qi) return { name: qi.trackName, artist: qi.trackArtist, imageUrl: qi.trackImageUrl ?? "", durationMs: qi.trackDurationMs };
+            const si = get().youtubeSearchResults.find(t => t.id === videoId);
+            if (si) return { name: si.title, artist: si.channel, imageUrl: si.thumbnail, durationMs: si.durationMs };
+            return undefined;
+          };
+
+          if (event.action === "play" && event.trackUri) {
+            player?.pause();
+            get().playYouTube(event.trackUri, findTrackInfo(event.trackUri));
+          } else if (event.action === "play" && !event.trackUri) {
+            // Resume YouTube
+            const audio = get().youtubeAudio;
+            if (audio) { audio.play(); set({ youtubePaused: false }); }
+          } else if (event.action === "pause") {
+            get().youtubeAudio?.pause();
+          } else if (event.action === "seek" && event.positionMs != null) {
+            const audio = get().youtubeAudio;
+            if (audio) audio.currentTime = event.positionMs / 1000;
+          } else if (event.action === "skip" && event.trackUri) {
+            player?.pause();
+            const info = findTrackInfo(event.trackUri);
+            set((s) => ({ queue: s.queue.filter((item) => item.trackUri !== event.trackUri) }));
+            get().playYouTube(event.trackUri, info);
+          }
+          break;
+        }
+
+        // Spotify sync — stop YouTube first
+        if (event.action === "play" || event.action === "skip") {
+          get().stopYouTube();
+        }
 
         // Sync playback from another session member
         const playTrackOnDevice = async (uri: string) => {
@@ -769,18 +927,118 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
         dbg("spotify", `WS spotify_session_ended sessionId=${event.sessionId}`, { currentSession: session?.id });
         if (session && session.id === event.sessionId) {
           player?.pause();
-          set({ session: null, queue: [], isHost: false });
+          get().stopYouTube();
+          set({ session: null, queue: [], isHost: false, playerState: null });
+          gateway.send({ type: "update_activity", activity: null });
         }
         break;
       }
     }
   },
 
+  // ── Stop YouTube completely: pause, clear src, reset state ──
+  stopYouTube: () => {
+    const { youtubeAudio } = get();
+    if (youtubeAudio) {
+      youtubeAudio.pause();
+      youtubeAudio.src = "";
+    }
+    set({ youtubeTrack: null, youtubePaused: true, youtubeProgress: 0, youtubeDuration: 0 });
+  },
+
   cleanup: () => {
     get().disconnectPlayer();
+    get().stopYouTube();
     if (wsUnsub) {
       wsUnsub();
       wsUnsub = null;
     }
+  },
+
+  setShowSearch: (show) => set({ showSearch: show }),
+  setSearchInput: (input) => set({ searchInput: input }),
+  setSearchSource: (source) => {
+    set({ searchSource: source });
+    const { searchInput } = get();
+    if (!searchInput.trim()) return;
+    if (source === "youtube" && get().youtubeSearchResults.length === 0) {
+      get().searchYouTube(searchInput.trim());
+    } else if (source === "spotify" && get().searchResults.length === 0) {
+      get().searchTracks(searchInput.trim());
+    }
+  },
+
+  searchYouTube: async (query) => {
+    if (!query.trim()) { set({ youtubeSearchResults: [] }); return; }
+    set({ searchLoading: true });
+    try {
+      const data = await api.searchYouTubeTracks(query);
+      set({ youtubeSearchResults: data.tracks ?? [] });
+    } catch { set({ youtubeSearchResults: [] }); }
+    finally { set({ searchLoading: false }); }
+  },
+
+  addYouTubeToQueue: async (track) => {
+    const { session } = get();
+    if (!session) return;
+    await api.addToQueue(session.id, {
+      trackUri: track.id,
+      trackName: track.title,
+      trackArtist: track.channel,
+      trackAlbum: track.channel,
+      trackImageUrl: track.thumbnail,
+      trackDurationMs: track.durationMs,
+      source: "youtube",
+    });
+  },
+
+  // ── Play YouTube: creates/reuses audio element, sets track state ──
+  playYouTube: (videoId, trackInfo) => {
+    dbg("spotify", `playYouTube videoId=${videoId}`, trackInfo);
+    // Stop lobby music when YouTube plays
+    import("./voice.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
+    const { player } = get();
+    player?.pause();
+
+    // Set track state FIRST so UI renders immediately
+    set({
+      youtubeTrack: trackInfo
+        ? { id: videoId, ...trackInfo }
+        : { id: videoId, name: videoId, artist: "YouTube", imageUrl: "", durationMs: 0 },
+      youtubePaused: false,
+      playerState: null,
+    });
+
+    let audio = get().youtubeAudio;
+    if (!audio) {
+      audio = new Audio();
+      audio.addEventListener("timeupdate", () => {
+        set({ youtubeProgress: audio!.currentTime * 1000 });
+      });
+      audio.addEventListener("loadedmetadata", () => {
+        set({ youtubeDuration: audio!.duration * 1000 });
+      });
+      audio.addEventListener("ended", () => {
+        set({ youtubePaused: true });
+        get().skip();
+      });
+      // Don't let browser pause/play events override our state during loading
+      // We manage youtubePaused explicitly in play/pause/stopYouTube
+      set({ youtubeAudio: audio });
+    }
+
+    audio.src = api.getYouTubeAudioUrl(videoId);
+    audio.volume = get().volume;
+    audio.play().catch((e) => {
+      dbg("spotify", "playYouTube audio.play() failed", e);
+    });
+
+    get().updateActivity();
+  },
+
+  pauseYouTube: () => {
+    const { youtubeAudio } = get();
+    if (youtubeAudio) youtubeAudio.pause();
+    set({ youtubePaused: true });
   },
 }));

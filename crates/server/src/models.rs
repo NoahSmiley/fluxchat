@@ -311,6 +311,7 @@ pub struct QueueItem {
     pub added_by_user_id: String,
     pub position: i64,
     pub created_at: String,
+    pub source: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -322,6 +323,12 @@ pub struct AddToQueueRequest {
     pub track_album: Option<String>,
     pub track_image_url: Option<String>,
     pub track_duration_ms: i64,
+    #[serde(default = "default_source")]
+    pub source: String,
+}
+
+fn default_source() -> String {
+    "spotify".to_string()
 }
 
 #[derive(Debug, Clone)]

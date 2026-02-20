@@ -557,8 +557,8 @@ pub async fn add_to_queue(
 
     let _ = sqlx::query(
         r#"INSERT INTO "session_queue"
-           (id, session_id, track_uri, track_name, track_artist, track_album, track_image_url, track_duration_ms, added_by_user_id, position, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+           (id, session_id, track_uri, track_name, track_artist, track_album, track_image_url, track_duration_ms, added_by_user_id, position, created_at, source)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
     .bind(&item_id)
     .bind(&session_id)
@@ -571,6 +571,7 @@ pub async fn add_to_queue(
     .bind(&user.id)
     .bind(position)
     .bind(&now)
+    .bind(&body.source)
     .execute(&state.db)
     .await;
 
@@ -586,6 +587,7 @@ pub async fn add_to_queue(
         added_by_user_id: user.id.clone(),
         position,
         created_at: now,
+        source: body.source,
     };
 
     let voice_channel_id = sqlx::query_scalar::<_, String>(

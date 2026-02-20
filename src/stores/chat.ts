@@ -1205,8 +1205,9 @@ gateway.on((event) => {
 
     case "soundboard_play": {
       import("./voice.js").then((mod) => {
-        const { connectedChannelId } = mod.useVoiceStore.getState();
-        if (connectedChannelId !== event.channelId) return;
+        const store = mod.useVoiceStore.getState();
+        if (store.connectedChannelId !== event.channelId) return;
+        store.stopLobbyMusicAction();
         const audioUrl = `${API_BASE}/files/${event.audioAttachmentId}/${event.audioFilename}`;
         const audio = new Audio(audioUrl);
         const masterVolume = parseFloat(localStorage.getItem("soundboard-master-volume") ?? "1");

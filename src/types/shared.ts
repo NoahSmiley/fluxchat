@@ -132,6 +132,7 @@ export interface QueueItem {
   addedByUserId: string;
   position: number;
   createdAt: string;
+  source: string;
 }
 
 export interface SpotifyTrack {
@@ -140,6 +141,14 @@ export interface SpotifyTrack {
   artists: { name: string }[];
   album: { name: string; images: { url: string; width: number; height: number }[] };
   duration_ms: number;
+}
+
+export interface YouTubeTrack {
+  id: string;
+  title: string;
+  channel: string;
+  thumbnail: string;
+  durationMs: number;
 }
 
 export interface SoundboardSound {
@@ -192,7 +201,7 @@ export type WSClientEvent =
   | { type: "update_activity"; activity: ActivityInfo | null }
   | { type: "share_server_key"; serverId: string; userId: string; encryptedKey: string }
   | { type: "request_server_key"; serverId: string }
-  | { type: "spotify_playback_control"; sessionId: string; action: string; trackUri?: string; positionMs?: number }
+  | { type: "spotify_playback_control"; sessionId: string; action: string; trackUri?: string; positionMs?: number; source?: string }
   | { type: "voice_drink_update"; channelId: string; drinkCount: number }
   | { type: "update_status"; status: string }
   | { type: "play_sound"; channelId: string; soundId: string };
@@ -219,7 +228,7 @@ export type WSServerEvent =
   | { type: "server_key_requested"; serverId: string; userId: string }
   | { type: "spotify_queue_update"; sessionId: string; voiceChannelId: string; queueItem: QueueItem }
   | { type: "spotify_queue_remove"; sessionId: string; voiceChannelId: string; itemId: string }
-  | { type: "spotify_playback_sync"; sessionId: string; voiceChannelId: string; action: string; trackUri?: string; positionMs?: number }
+  | { type: "spotify_playback_sync"; sessionId: string; voiceChannelId: string; action: string; trackUri?: string; positionMs?: number; source?: string }
   | { type: "spotify_session_ended"; sessionId: string; voiceChannelId: string }
   | { type: "case_opened"; userId: string; username: string; itemName: string; itemRarity: ItemRarity; caseName: string }
   | { type: "trade_offer_received"; tradeId: string; senderId: string; senderUsername: string }

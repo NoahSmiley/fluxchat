@@ -226,6 +226,117 @@ function destroyDtln() {
   }
 }
 
+// ── Lobby Music (Easter Egg) ──
+
+let lobbyMusicTimer: ReturnType<typeof setTimeout> | null = null;
+let lobbyMusicAudio: HTMLAudioElement | null = null;
+let lobbyMusicGain: GainNode | null = null;
+let lobbyMusicCtx: AudioContext | null = null;
+
+function checkLobbyMusic() {
+  if (localStorage.getItem("flux-lobby-music-unlocked") !== "true") return;
+  if (localStorage.getItem("flux-lobby-music-enabled") === "false") return;
+
+  const { room } = useVoiceStore.getState();
+  if (!room) return;
+
+  const isAlone = room.remoteParticipants.size === 0;
+
+  if (isAlone) {
+    if (!lobbyMusicTimer && !lobbyMusicAudio) {
+      lobbyMusicTimer = setTimeout(() => {
+        lobbyMusicTimer = null;
+        startLobbyMusic();
+      }, 30_000);
+    }
+  } else {
+    if (lobbyMusicTimer) {
+      clearTimeout(lobbyMusicTimer);
+      lobbyMusicTimer = null;
+    }
+    if (lobbyMusicAudio) {
+      fadeOutLobbyMusic();
+    }
+  }
+}
+
+function startLobbyMusic() {
+  if (lobbyMusicAudio) return;
+
+  const vol = useVoiceStore.getState().lobbyMusicVolume;
+  const audio = new Audio("/lobby-music.mp3");
+  audio.loop = true;
+
+  const ctx = new AudioContext();
+  const source = ctx.createMediaElementSource(audio);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 3);
+
+  source.connect(gain);
+  gain.connect(ctx.destination);
+
+  audio.play().catch(() => {
+    ctx.close().catch(() => {});
+    useVoiceStore.setState({ lobbyMusicPlaying: false });
+  });
+
+  lobbyMusicAudio = audio;
+  lobbyMusicGain = gain;
+  lobbyMusicCtx = ctx;
+  useVoiceStore.setState({ lobbyMusicPlaying: true });
+}
+
+function fadeOutLobbyMusic() {
+  if (!lobbyMusicGain || !lobbyMusicCtx || !lobbyMusicAudio) return;
+
+  const gain = lobbyMusicGain;
+  const ctx = lobbyMusicCtx;
+  const audio = lobbyMusicAudio;
+
+  gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2);
+
+  setTimeout(() => {
+    audio.pause();
+    audio.src = "";
+    ctx.close().catch(() => {});
+  }, 2200);
+
+  lobbyMusicAudio = null;
+  lobbyMusicGain = null;
+  lobbyMusicCtx = null;
+  useVoiceStore.setState({ lobbyMusicPlaying: false });
+}
+
+function stopLobbyMusic() {
+  if (lobbyMusicTimer) {
+    clearTimeout(lobbyMusicTimer);
+    lobbyMusicTimer = null;
+  }
+  if (lobbyMusicAudio) {
+    lobbyMusicAudio.pause();
+    lobbyMusicAudio.src = "";
+  }
+  if (lobbyMusicCtx) {
+    lobbyMusicCtx.close().catch(() => {});
+  }
+  lobbyMusicAudio = null;
+  lobbyMusicGain = null;
+  lobbyMusicCtx = null;
+  useVoiceStore.setState({ lobbyMusicPlaying: false });
+}
+
+// Clean up lobby music on app close
+window.addEventListener("beforeunload", stopLobbyMusic);
+
+function setLobbyMusicGain(volume: number) {
+  if (lobbyMusicGain && lobbyMusicCtx) {
+    lobbyMusicGain.gain.setValueAtTime(lobbyMusicGain.gain.value, lobbyMusicCtx.currentTime);
+    lobbyMusicGain.gain.linearRampToValueAtTime(volume, lobbyMusicCtx.currentTime + 0.1);
+  }
+}
+
 // ── Audio Level Polling + Noise Gate ──
 
 let audioLevelInterval: ReturnType<typeof setInterval> | null = null;
@@ -507,6 +618,10 @@ interface VoiceState {
   // Timestamp of last non-silence mic transmission (ms, 0 if never) — used by idle detection
   lastSpokeAt: number;
 
+  // Lobby music (easter egg)
+  lobbyMusicPlaying: boolean;
+  lobbyMusicVolume: number;
+
   // Actions
   joinVoiceChannel: (channelId: string) => Promise<void>;
   leaveVoiceChannel: () => void;
@@ -522,6 +637,8 @@ interface VoiceState {
   toggleTheatreMode: () => void;
   setScreenShareQuality: (quality: ScreenShareQuality) => void;
   incrementDrinkCount: () => void;
+  setLobbyMusicVolume: (volume: number) => void;
+  stopLobbyMusicAction: () => void;
 
   // Internal
   _updateParticipants: () => void;
@@ -563,6 +680,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   participants: [],
   channelParticipants: {},
   lastSpokeAt: 0,
+  lobbyMusicPlaying: false,
+  lobbyMusicVolume: parseFloat(localStorage.getItem("flux-lobby-music-volume") ?? "0.15"),
 
   joinVoiceChannel: async (channelId: string) => {
     const { room: existingRoom, connectedChannelId, audioSettings } = get();
@@ -679,12 +798,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         dbg("voice", `ParticipantConnected identity=${p.identity} name=${p.name}`);
         playJoinSound();
         get()._updateParticipants();
+        checkLobbyMusic();
       });
       room.on(RoomEvent.ParticipantDisconnected, (p) => {
         dbg("voice", `ParticipantDisconnected identity=${p.identity}`);
         playLeaveSound();
         get()._updateParticipants();
         get()._updateScreenSharers();
+        checkLobbyMusic();
       });
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
         dbg("voice", `ActiveSpeakersChanged count=${speakers.length}`, speakers.map((s) => s.identity));
@@ -855,6 +976,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       get()._updateParticipants();
       get()._updateScreenSharers();
       startAudioLevelPolling();
+      checkLobbyMusic();
 
       // If push-to-talk is configured, start muted
       const { keybinds } = useKeybindsStore.getState();
@@ -897,6 +1019,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     playLeaveSound();
     stopAudioLevelPolling();
+    stopLobbyMusic();
 
     // Stop Spotify playback when leaving voice
     try {
@@ -1199,6 +1322,16 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     const participants = channelParticipants[connectedChannelId] || [];
     const current = participants.find((p) => p.userId === me)?.drinkCount ?? 0;
     gateway.send({ type: "voice_drink_update", channelId: connectedChannelId, drinkCount: current + 1 });
+  },
+
+  setLobbyMusicVolume: (volume: number) => {
+    localStorage.setItem("flux-lobby-music-volume", String(volume));
+    set({ lobbyMusicVolume: volume });
+    setLobbyMusicGain(volume);
+  },
+
+  stopLobbyMusicAction: () => {
+    stopLobbyMusic();
   },
 
   _updateParticipants: () => {

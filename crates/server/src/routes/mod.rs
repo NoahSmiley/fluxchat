@@ -12,6 +12,7 @@ pub mod marketplace;
 pub mod messages;
 pub mod servers;
 pub mod spotify;
+pub mod youtube;
 pub mod trades;
 pub mod users;
 pub mod voice;
@@ -86,6 +87,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/spotify/sessions/{sessionId}/queue", post(spotify::add_to_queue))
         .route("/spotify/sessions/{sessionId}/queue/{itemId}", delete(spotify::remove_from_queue))
         .route("/spotify/sessions/{sessionId}/end", delete(spotify::delete_session))
+        // YouTube
+        .route("/youtube/search", get(youtube::search))
+        .route("/youtube/audio/{videoId}", get(youtube::stream_audio))
         // Economy
         .route("/economy/wallet", get(economy::get_wallet))
         .route("/economy/history", get(economy::get_coin_history))

@@ -8,7 +8,7 @@ import { SoundboardPanel } from "./SoundboardPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
-  Music,
+  Music, Square,
 } from "lucide-react";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import { useUIStore } from "../stores/ui.js";
@@ -152,6 +152,50 @@ function ParticipantTile({ userId, username, banner, children }: { userId: strin
   );
 }
 
+// ── Lobby Music Bar (Easter Egg) ──
+function LobbyMusicBar() {
+  const lobbyMusicPlaying = useVoiceStore((s) => s.lobbyMusicPlaying);
+  const lobbyMusicVolume = useVoiceStore((s) => s.lobbyMusicVolume);
+  const setLobbyMusicVolume = useVoiceStore((s) => s.setLobbyMusicVolume);
+  const stopLobbyMusicAction = useVoiceStore((s) => s.stopLobbyMusicAction);
+
+  if (!lobbyMusicPlaying) return null;
+
+  return (
+    <div className="lobby-music-bar">
+      <div className="lobby-music-info">
+        <Music size={16} className="lobby-music-icon" />
+        <span className="lobby-music-label">Waiting Room Music</span>
+      </div>
+      <div className="lobby-music-controls">
+        <button
+          className="lobby-music-mute-btn"
+          onClick={() => setLobbyMusicVolume(lobbyMusicVolume > 0 ? 0 : 0.15)}
+          title={lobbyMusicVolume === 0 ? "Unmute" : "Mute"}
+        >
+          {lobbyMusicVolume === 0 ? <VolumeX size={16} /> : <Volume1 size={16} />}
+        </button>
+        <input
+          type="range"
+          min="0"
+          max="50"
+          value={Math.round(lobbyMusicVolume * 100)}
+          onChange={(e) => setLobbyMusicVolume(parseInt(e.target.value) / 100)}
+          className="volume-slider lobby-music-slider"
+          title={`Volume: ${Math.round(lobbyMusicVolume * 100)}%`}
+        />
+        <button
+          className="lobby-music-stop-btn"
+          onClick={stopLobbyMusicAction}
+          title="Stop"
+        >
+          <Square size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Export ──
 export function VoiceChannelView() {
   const { channels, activeChannelId, activeServerId, members } = useChatStore();
@@ -177,7 +221,7 @@ export function VoiceChannelView() {
     screenShareQuality,
     setScreenShareQuality,
   } = useVoiceStore();
-  const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
+  const { loadSession, account, playerState, session, queue, volume, setVolume, youtubeTrack } = useSpotifyStore();
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
   const [activeTab, setActiveTab] = useState<"voice" | "music" | "sounds">("voice");
   const [showQualityPicker, setShowQualityPicker] = useState(false);
@@ -370,18 +414,25 @@ export function VoiceChannelView() {
             })}
           </div>
 
-          {/* Mini now-playing bar */}
-          {session && playerState?.track_window?.current_track && (() => {
-            const track = playerState.track_window.current_track!;
+          {/* Lobby music bar (easter egg) */}
+          <LobbyMusicBar />
+
+          {/* Mini now-playing bar (Spotify or YouTube) */}
+          {session && (() => {
+            const spotifyTrack = playerState?.track_window?.current_track;
+            const npName = youtubeTrack ? youtubeTrack.name : spotifyTrack?.name;
+            const npArtist = youtubeTrack ? youtubeTrack.artist : spotifyTrack?.artists.map(a => a.name).join(", ");
+            const npArt = youtubeTrack ? youtubeTrack.imageUrl : spotifyTrack?.album.images[0]?.url;
+            if (!npName) return null;
             const nextTrack = queue[0];
             return (
               <div className="voice-now-playing">
-                {track.album.images[0] && (
-                  <img src={track.album.images[0].url} alt="" className="voice-np-art" />
+                {npArt && (
+                  <img src={npArt} alt="" className="voice-np-art" />
                 )}
                 <div className="voice-np-info">
-                  <span className="voice-np-name">{track.name}</span>
-                  <span className="voice-np-artist">{track.artists.map(a => a.name).join(", ")}</span>
+                  <span className="voice-np-name">{npName}</span>
+                  <span className="voice-np-artist">{npArtist}</span>
                 </div>
                 <div className="voice-np-volume">
                   <button

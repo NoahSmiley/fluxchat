@@ -398,6 +398,7 @@ export async function getListeningSession(voiceChannelId: string) {
 export async function addToQueue(sessionId: string, track: {
   trackUri: string; trackName: string; trackArtist: string;
   trackAlbum?: string; trackImageUrl?: string; trackDurationMs: number;
+  source?: string;
 }) {
   return request<{ id: string }>(`/spotify/sessions/${sessionId}/queue`, {
     method: "POST",
@@ -415,6 +416,17 @@ export async function deleteListeningSession(sessionId: string) {
   return request<{ success: boolean }>(`/spotify/sessions/${sessionId}/end`, {
     method: "DELETE",
   });
+}
+
+// ── YouTube ──
+
+export async function searchYouTubeTracks(q: string) {
+  return request<{ tracks: import("../types/shared.js").YouTubeTrack[] }>(`/youtube/search?q=${encodeURIComponent(q)}`);
+}
+
+export function getYouTubeAudioUrl(videoId: string): string {
+  const token = getStoredToken();
+  return `${BASE_URL}/youtube/audio/${videoId}${token ? `?token=${token}` : ""}`;
 }
 
 // ── Economy ──
