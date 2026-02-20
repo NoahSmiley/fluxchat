@@ -600,24 +600,22 @@ export function SettingsModal() {
               </div>
             </div>
 
-            {localStorage.getItem("flux-lobby-music-unlocked") === "true" && (
-              <div className="settings-card">
-                <h3 className="settings-card-title">Lobby Music</h3>
-                <div className="settings-row">
-                  <div className="settings-row-info">
-                    <span className="settings-row-label">Play ambient music when alone</span>
-                    <span className="settings-row-desc">Lofi tunes fade in after 30s alone in a voice channel</span>
-                  </div>
-                  <ToggleSwitch
-                    checked={lobbyMusicEnabled}
-                    onChange={(v) => {
-                      localStorage.setItem("flux-lobby-music-enabled", v ? "true" : "false");
-                      setLobbyMusicEnabled(v);
-                    }}
-                  />
+            <div className="settings-card">
+              <h3 className="settings-card-title">Lobby Music</h3>
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">Play ambient music when alone</span>
+                  <span className="settings-row-desc">Lofi tunes fade in after 30s alone in a voice channel</span>
                 </div>
+                <ToggleSwitch
+                  checked={lobbyMusicEnabled}
+                  onChange={(v) => {
+                    localStorage.setItem("flux-lobby-music-enabled", v ? "true" : "false");
+                    setLobbyMusicEnabled(v);
+                  }}
+                />
               </div>
-            )}
+            </div>
           </>
         )}
 

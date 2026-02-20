@@ -1198,6 +1198,7 @@ input:focus {
   border-radius: 999px;
   padding: 0 20px;
   height: 38px;
+  line-height: 38px;
   color: var(--text-primary);
   font-size: 14px;
   outline: none;
