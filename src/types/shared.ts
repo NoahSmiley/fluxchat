@@ -167,6 +167,23 @@ export interface SoundboardSound {
   favorited: boolean;
 }
 
+export interface CustomEmoji {
+  id: string;
+  serverId: string;
+  name: string;
+  attachmentId: string;
+  filename: string;
+  uploaderId: string;
+  uploaderUsername: string;
+  uploaderImage: string | null;
+  createdAt: string;
+}
+
+export interface EmojiFavorites {
+  standard: string[];   // Unicode chars
+  customIds: string[];  // custom_emoji ids
+}
+
 export type WSClientEvent =
   | { type: "send_message"; channelId: string; content: string; attachmentIds?: string[] }
   | { type: "typing_start"; channelId: string }

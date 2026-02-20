@@ -3,6 +3,9 @@ import { Trash2, Play, Plus, X, Upload, Pencil } from "lucide-react";
 import * as api from "../lib/api.js";
 import type { SoundboardSound } from "../types/shared.js";
 import { API_BASE } from "../lib/serverUrl.js";
+import { useChatStore } from "../stores/chat.js";
+import { renderEmoji } from "../lib/emoji.js";
+import EmojiPicker from "./EmojiPicker.js";
 
 // ── WAV encoder ───────────────────────────────────────────────────────────
 
@@ -155,6 +158,7 @@ function WaveformCanvas({
 type View = "list" | "add" | "edit";
 
 export function SoundboardTab({ serverId }: { serverId: string }) {
+  const customEmojis = useChatStore((s) => s.customEmojis);
   const [view, setView] = useState<View>("list");
   const [sounds, setSounds] = useState<SoundboardSound[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,9 +170,7 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
   const [startSec, setStartSec] = useState(0);
   const [endSec, setEndSec] = useState(10);
   const [name, setName] = useState("");
-  const [emojiOrImage, setEmojiOrImage] = useState<"emoji" | "image">("emoji");
   const [emoji, setEmoji] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [volume, setVolume] = useState(0.8);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -176,19 +178,37 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
   const previewNodeRef = useRef<AudioBufferSourceNode | null>(null);
   const previewCtxRef = useRef<AudioContext | null>(null);
 
+  // Emoji picker state for add/edit forms
+  const [showAddEmojiPicker, setShowAddEmojiPicker] = useState(false);
+  const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
+
   // Edit state
   const [editingSound, setEditingSound] = useState<SoundboardSound | null>(null);
   const [editName, setEditName] = useState("");
-  const [editEmojiOrImage, setEditEmojiOrImage] = useState<"emoji" | "image">("emoji");
   const [editEmoji, setEditEmoji] = useState("");
-  const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editVolume, setEditVolume] = useState(0.8);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
   useEffect(() => {
     api.getSoundboardSounds(serverId)
-      .then(setSounds)
+      .then(async (loadedSounds) => {
+        setSounds(loadedSounds);
+        // Clear any existing image attachments from sounds (images removed from feature)
+        for (const sound of loadedSounds) {
+          if (sound.imageAttachmentId) {
+            try {
+              const updated = await api.updateSoundboardSound(serverId, sound.id, {
+                name: sound.name,
+                emoji: sound.emoji ?? undefined,
+                imageAttachmentId: null,
+                volume: sound.volume,
+              });
+              setSounds((prev) => prev.map((s) => (s.id === sound.id ? updated : s)));
+            } catch {}
+          }
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [serverId]);
@@ -200,9 +220,7 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
     setStartSec(0);
     setEndSec(10);
     setName("");
-    setEmojiOrImage("emoji");
     setEmoji("");
-    setImageFile(null);
     setVolume(0.8);
     setSaving(false);
     setError("");
@@ -277,23 +295,10 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
       // Upload audio
       const audioAtt = await api.uploadFile(wavFile);
 
-      // Upload image if set
-      let imageAttachmentId: string | undefined;
-      if (emojiOrImage === "image" && imageFile) {
-        if (imageFile.size > 200 * 1024) {
-          setError("Image must be under 200KB");
-          setSaving(false);
-          return;
-        }
-        const imgAtt = await api.uploadFile(imageFile);
-        imageAttachmentId = imgAtt.id;
-      }
-
       const sound = await api.createSoundboardSound(serverId, {
         name: name.trim(),
-        emoji: emojiOrImage === "emoji" && emoji.trim() ? emoji.trim() : undefined,
+        emoji: emoji.trim() || undefined,
         audioAttachmentId: audioAtt.id,
-        imageAttachmentId,
         volume,
       });
 
@@ -320,8 +325,6 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
     setEditingSound(sound);
     setEditName(sound.name);
     setEditEmoji(sound.emoji ?? "");
-    setEditEmojiOrImage(sound.imageAttachmentId ? "image" : "emoji");
-    setEditImageFile(null);
     setEditVolume(sound.volume);
     setEditError("");
     setView("edit");
@@ -329,7 +332,6 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
 
   function handleEditCancel() {
     setEditingSound(null);
-    setEditImageFile(null);
     setView("list");
   }
 
@@ -338,29 +340,14 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
     setEditSaving(true);
     setEditError("");
     try {
-      let imageAttachmentId: string | undefined = undefined;
-      if (editEmojiOrImage === "image") {
-        if (editImageFile) {
-          if (editImageFile.size > 200 * 1024) {
-            setEditError("Image must be under 200KB");
-            setEditSaving(false);
-            return;
-          }
-          const att = await api.uploadFile(editImageFile);
-          imageAttachmentId = att.id;
-        } else {
-          imageAttachmentId = editingSound.imageAttachmentId ?? undefined;
-        }
-      }
       const updated = await api.updateSoundboardSound(serverId, editingSound.id, {
         name: editName.trim(),
-        emoji: editEmojiOrImage === "emoji" && editEmoji.trim() ? editEmoji.trim() : undefined,
-        imageAttachmentId,
+        emoji: editEmoji.trim() || undefined,
+        imageAttachmentId: null,
         volume: editVolume,
       });
       setSounds((prev) => prev.map((s) => (s.id === editingSound.id ? updated : s)));
       setEditingSound(null);
-      setEditImageFile(null);
       setView("list");
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Failed to save");
@@ -405,40 +392,28 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
           />
         </div>
 
-        {/* Emoji or Image */}
+        {/* Emoji */}
         <div className="settings-row settings-row-col">
-          <span className="settings-row-label">Icon</span>
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <button
-              className={`btn-small ${editEmojiOrImage === "emoji" ? "btn-primary" : ""}`}
-              onClick={() => setEditEmojiOrImage("emoji")}
-            >Emoji</button>
-            <button
-              className={`btn-small ${editEmojiOrImage === "image" ? "btn-primary" : ""}`}
-              onClick={() => setEditEmojiOrImage("image")}
-            >Image</button>
-          </div>
-          {editEmojiOrImage === "emoji" ? (
-            <input
-              type="text"
-              placeholder="🎵"
-              value={editEmoji}
-              onChange={(e) => setEditEmoji(e.target.value)}
-              className="settings-input"
-              style={{ width: 80 }}
-            />
-          ) : (
-            <label className="soundboard-file-label">
-              <Upload size={14} />
-              {editImageFile ? editImageFile.name : (editingSound.imageFilename ?? "Choose image (max 200KB)")}
-              <input
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) setEditImageFile(f); }}
+          <span className="settings-row-label">Emoji</span>
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <div
+              className="emoji-picker-trigger"
+              onClick={() => setShowEditEmojiPicker((o) => !o)}
+              title="Choose emoji"
+            >
+              {editEmoji
+                ? <span dangerouslySetInnerHTML={{ __html: renderEmoji(editEmoji, customEmojis, API_BASE) }} />
+                : <span className="emoji-placeholder">🎵</span>}
+            </div>
+            {showEditEmojiPicker && (
+              <EmojiPicker
+                serverId={serverId}
+                placement="right"
+                onSelect={(e) => { setEditEmoji(e); setShowEditEmojiPicker(false); }}
+                onClose={() => setShowEditEmojiPicker(false)}
               />
-            </label>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Volume */}
@@ -538,39 +513,28 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
           />
         </div>
 
-        {/* Emoji or Image */}
+        {/* Emoji */}
         <div className="settings-row settings-row-col">
-          <span className="settings-row-label">Icon</span>
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <button
-              className={`btn-small ${emojiOrImage === "emoji" ? "btn-primary" : ""}`}
-              onClick={() => setEmojiOrImage("emoji")}
-            >Emoji</button>
-            <button
-              className={`btn-small ${emojiOrImage === "image" ? "btn-primary" : ""}`}
-              onClick={() => setEmojiOrImage("image")}
-            >Image</button>
-          </div>
-          {emojiOrImage === "emoji" ? (
-            <input
-              type="text"
-              placeholder="🎵"
-              value={emoji}
-              onChange={(e) => setEmoji(e.target.value)}
-              className="settings-input"
-              style={{ width: 80 }}
-            />
-          ) : (
-            <label className="soundboard-file-label">
-              <Upload size={14} /> {imageFile ? imageFile.name : "Choose image (max 200KB)"}
-              <input
-                type="file"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) setImageFile(f); }}
+          <span className="settings-row-label">Emoji</span>
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <div
+              className="emoji-picker-trigger"
+              onClick={() => setShowAddEmojiPicker((o) => !o)}
+              title="Choose emoji"
+            >
+              {emoji
+                ? <span dangerouslySetInnerHTML={{ __html: renderEmoji(emoji, customEmojis, API_BASE) }} />
+                : <span className="emoji-placeholder">🎵</span>}
+            </div>
+            {showAddEmojiPicker && (
+              <EmojiPicker
+                serverId={serverId}
+                placement="right"
+                onSelect={(e) => { setEmoji(e); setShowAddEmojiPicker(false); }}
+                onClose={() => setShowAddEmojiPicker(false)}
               />
-            </label>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Volume */}
@@ -626,14 +590,8 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
             return (
               <div key={sound.id} className="soundboard-list-item">
                 <div className="soundboard-list-icon">
-                  {sound.imageAttachmentId && sound.imageFilename ? (
-                    <img
-                      src={`${API_BASE}/files/${sound.imageAttachmentId}/${sound.imageFilename}`}
-                      alt=""
-                      className="soundboard-btn-img"
-                    />
-                  ) : sound.emoji ? (
-                    <span className="soundboard-btn-emoji">{sound.emoji}</span>
+                  {sound.emoji ? (
+                    <span className="soundboard-btn-emoji" dangerouslySetInnerHTML={{ __html: renderEmoji(sound.emoji, customEmojis, API_BASE) }} />
                   ) : null}
                 </div>
                 <div className="soundboard-list-info">
