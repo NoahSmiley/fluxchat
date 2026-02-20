@@ -181,6 +181,33 @@ CREATE TABLE IF NOT EXISTS "soundboard_favorites" (
     PRIMARY KEY (user_id, sound_id)
 );
 
+-- Custom emoji
+CREATE TABLE IF NOT EXISTS "custom_emojis" (
+    id TEXT PRIMARY KEY,
+    server_id TEXT NOT NULL REFERENCES "servers"(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    attachment_id TEXT NOT NULL REFERENCES "attachments"(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    uploader_id TEXT NOT NULL REFERENCES "user"(id),
+    created_at TEXT NOT NULL,
+    UNIQUE(server_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_custom_emojis_server ON custom_emojis(server_id);
+
+CREATE TABLE IF NOT EXISTS "standard_emoji_favorites" (
+    user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    emoji TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, emoji)
+);
+
+CREATE TABLE IF NOT EXISTS "custom_emoji_favorites" (
+    user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    emoji_id TEXT NOT NULL REFERENCES custom_emojis(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, emoji_id)
+);
+
 -- Full-text search
 CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
     message_id,

@@ -5,8 +5,11 @@ import { gateway } from "../lib/ws.js";
 import type { SoundboardSound } from "../types/shared.js";
 import { API_BASE } from "../lib/serverUrl.js";
 import { useAuthStore } from "../stores/auth.js";
+import { useChatStore } from "../stores/chat.js";
+import { renderEmoji } from "../lib/emoji.js";
 
 export function SoundboardPanel({ serverId, channelId }: { serverId: string; channelId: string }) {
+  const customEmojis = useChatStore((s) => s.customEmojis);
   const [sounds, setSounds] = useState<SoundboardSound[]>([]);
   const [loading, setLoading] = useState(true);
   const [masterVolume, setMasterVolume] = useState(() => {
@@ -69,14 +72,8 @@ export function SoundboardPanel({ serverId, channelId }: { serverId: string; cha
   }
 
   function renderSound(sound: SoundboardSound, keyPrefix: string) {
-    const icon = sound.imageAttachmentId && sound.imageFilename ? (
-      <img
-        src={`${API_BASE}/files/${sound.imageAttachmentId}/${sound.imageFilename}`}
-        alt=""
-        className="soundboard-btn-img"
-      />
-    ) : sound.emoji ? (
-      <span className="soundboard-btn-emoji">{sound.emoji}</span>
+    const icon = sound.emoji ? (
+      <span className="soundboard-btn-emoji" dangerouslySetInnerHTML={{ __html: renderEmoji(sound.emoji, customEmojis, API_BASE) }} />
     ) : null;
 
     return (

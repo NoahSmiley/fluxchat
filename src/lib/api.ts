@@ -26,6 +26,8 @@ import type {
   MarketplaceListing,
   CraftResult,
   SoundboardSound,
+  CustomEmoji,
+  EmojiFavorites,
 } from "../types/shared.js";
 
 import { API_BASE } from "./serverUrl.js";
@@ -564,7 +566,7 @@ export async function createSoundboardSound(serverId: string, data: {
 export async function updateSoundboardSound(
   serverId: string,
   soundId: string,
-  data: { name: string; emoji?: string; imageAttachmentId?: string; volume: number },
+  data: { name: string; emoji?: string; imageAttachmentId?: string | null; volume: number },
 ) {
   return request<SoundboardSound>(`/servers/${serverId}/soundboard/${soundId}`, {
     method: "PATCH",
@@ -586,6 +588,58 @@ export async function favoriteSoundboardSound(serverId: string, soundId: string)
 
 export async function unfavoriteSoundboardSound(serverId: string, soundId: string) {
   return request<void>(`/servers/${serverId}/soundboard/${soundId}/favorite`, {
+    method: "DELETE",
+  });
+}
+
+// ── Custom Emoji ──
+
+export async function getCustomEmojis(serverId: string) {
+  return request<CustomEmoji[]>(`/servers/${serverId}/emojis`);
+}
+
+export async function createCustomEmoji(
+  serverId: string,
+  data: { name: string; attachmentId: string },
+) {
+  return request<CustomEmoji>(`/servers/${serverId}/emojis`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCustomEmoji(serverId: string, emojiId: string) {
+  return request<void>(`/servers/${serverId}/emojis/${emojiId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getEmojiFavorites() {
+  return request<EmojiFavorites>("/me/emoji-favorites");
+}
+
+export async function addStandardFavorite(emoji: string) {
+  return request<void>("/me/emoji-favorites/standard", {
+    method: "POST",
+    body: JSON.stringify({ emoji }),
+  });
+}
+
+export async function removeStandardFavorite(emoji: string) {
+  return request<void>("/me/emoji-favorites/standard", {
+    method: "DELETE",
+    body: JSON.stringify({ emoji }),
+  });
+}
+
+export async function addCustomFavorite(emojiId: string) {
+  return request<void>(`/me/emoji-favorites/custom/${emojiId}`, {
+    method: "POST",
+  });
+}
+
+export async function removeCustomFavorite(emojiId: string) {
+  return request<void>(`/me/emoji-favorites/custom/${emojiId}`, {
     method: "DELETE",
   });
 }

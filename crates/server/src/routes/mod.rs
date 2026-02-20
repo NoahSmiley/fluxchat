@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod cases;
+pub mod emojis;
 pub mod soundboard;
 pub mod craft;
 pub mod dms;
@@ -116,7 +117,13 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/servers/{serverId}/soundboard", get(soundboard::list_sounds))
         .route("/servers/{serverId}/soundboard", post(soundboard::create_sound))
         .route("/servers/{serverId}/soundboard/{soundId}", patch(soundboard::update_sound).delete(soundboard::delete_sound))
-        .route("/servers/{serverId}/soundboard/{soundId}/favorite", post(soundboard::favorite_sound).delete(soundboard::unfavorite_sound));
+        .route("/servers/{serverId}/soundboard/{soundId}/favorite", post(soundboard::favorite_sound).delete(soundboard::unfavorite_sound))
+        // Custom emoji
+        .route("/servers/{serverId}/emojis", get(emojis::list_emojis).post(emojis::create_emoji))
+        .route("/servers/{serverId}/emojis/{emojiId}", delete(emojis::delete_emoji))
+        .route("/me/emoji-favorites", get(emojis::list_emoji_favorites))
+        .route("/me/emoji-favorites/standard", post(emojis::add_standard_favorite).delete(emojis::remove_standard_favorite))
+        .route("/me/emoji-favorites/custom/{emojiId}", post(emojis::add_custom_favorite).delete(emojis::remove_custom_favorite));
 
     Router::new()
         .nest("/api/auth", auth_routes)

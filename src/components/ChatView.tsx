@@ -1,72 +1,106 @@
-import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type ReactNode, type KeyboardEvent, type DragEvent, type ClipboardEvent } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type DragEvent } from "react";
 import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
-import { ArrowUpRight, Pencil, Trash2, Paperclip, X } from "lucide-react";
+import { ArrowUpRight, Pencil, Trash2, Paperclip, X, Smile } from "lucide-react";
 import { SearchBar } from "./SearchBar.js";
 import { MessageAttachments } from "./MessageAttachments.js";
 import { LinkEmbed } from "./LinkEmbed.js";
 import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
 import { relativeTime } from "../lib/relativeTime.js";
 import { gateway } from "../lib/ws.js";
+import twemoji from "twemoji";
+import { renderMessageContent, renderEmoji, isEmojiOnly, TWEMOJI_OPTIONS } from "../lib/emoji.js";
+import { API_BASE } from "../lib/serverUrl.js";
+import EmojiPicker from "./EmojiPicker.js";
 
-const QUICK_EMOJIS = ["👍", "👎", "❤️", "😂", "😮", "😢", "🔥", "🎉", "👀", "🗿"];
+// ── Contenteditable helpers ───────────────────────────────────────────────
 
-const URL_REGEX = /https?:\/\/[^\s<]+/g;
-const MENTION_REGEX = /@([a-zA-Z0-9_-]+)/g;
-
-function renderMessageContent(text: string, memberUsernames: Set<string>): ReactNode[] {
-  if (!text) return [text ?? ""];
-  const segments: ReactNode[] = [];
-  let lastIndex = 0;
-
-  const matches: { index: number; length: number; type: "url" | "mention"; value: string }[] = [];
-
-  let m: RegExpExecArray | null;
-  URL_REGEX.lastIndex = 0;
-  while ((m = URL_REGEX.exec(text)) !== null) {
-    matches.push({ index: m.index, length: m[0].length, type: "url", value: m[0] });
+/** Count chars to range.startContainer/startOffset, treating each twemoji <img> as 1 char. */
+function getCharOffset(root: HTMLElement, range: Range): number {
+  let count = 0;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL);
+  let node: Node | null = walker.nextNode();
+  while (node) {
+    if (node === range.startContainer) { count += range.startOffset; break; }
+    if (node.nodeType === Node.TEXT_NODE) count += (node as Text).length;
+    else if ((node as Element).tagName === "IMG") count += 1;
+    node = walker.nextNode();
   }
-  MENTION_REGEX.lastIndex = 0;
-  while ((m = MENTION_REGEX.exec(text)) !== null) {
-    if (memberUsernames.has(m[1])) {
-      matches.push({ index: m.index, length: m[0].length, type: "mention", value: m[0] });
-    }
-  }
-
-  matches.sort((a, b) => a.index - b.index);
-
-  for (const match of matches) {
-    if (match.index < lastIndex) continue;
-    if (match.index > lastIndex) {
-      segments.push(text.slice(lastIndex, match.index));
-    }
-    if (match.type === "url") {
-      segments.push(
-        <a key={match.index} href={match.value} target="_blank" rel="noopener noreferrer">
-          {match.value}
-        </a>
-      );
-    } else {
-      segments.push(
-        <span key={match.index} className="mention">{match.value}</span>
-      );
-    }
-    lastIndex = match.index + match.length;
-  }
-
-  if (lastIndex < text.length) {
-    segments.push(text.slice(lastIndex));
-  }
-
-  return segments.length > 0 ? segments : [text];
+  return count;
 }
+
+/** Place cursor at charOffset inside root, treating each twemoji <img> as 1 char. */
+function setCursorAtOffset(root: HTMLElement, charOffset: number): void {
+  let remaining = charOffset;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL);
+  let node: Node | null = walker.nextNode();
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const len = (node as Text).length;
+      if (remaining <= len) {
+        const r = document.createRange();
+        r.setStart(node, remaining); r.collapse(true);
+        const s = window.getSelection(); s?.removeAllRanges(); s?.addRange(r);
+        return;
+      }
+      remaining -= len;
+    } else if ((node as Element).tagName === "IMG") {
+      if (remaining === 0) {
+        const r = document.createRange();
+        r.setStartBefore(node); r.collapse(true);
+        const s = window.getSelection(); s?.removeAllRanges(); s?.addRange(r);
+        return;
+      }
+      remaining -= 1;
+    }
+    node = walker.nextNode();
+  }
+  const r = document.createRange();
+  r.selectNodeContents(root); r.collapse(false);
+  const s = window.getSelection(); s?.removeAllRanges(); s?.addRange(r);
+}
+
+/** Read plain text, treating twemoji <img> alt as the original emoji char. */
+function getDivPlainText(div: HTMLElement): string {
+  let text = "";
+  const walker = document.createTreeWalker(div, NodeFilter.SHOW_ALL);
+  let node: Node | null = walker.nextNode();
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) text += (node as Text).data;
+    else if ((node as Element).tagName === "IMG") text += (node as Element).getAttribute("alt") ?? "";
+    node = walker.nextNode();
+  }
+  return text;
+}
+
+/** Plain text from start-of-div to current cursor (for @mention detection). */
+function getTextBeforeCursor(div: HTMLElement): string {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return "";
+  const range = sel.getRangeAt(0).cloneRange();
+  range.setStart(div, 0);
+  const frag = range.cloneContents();
+  let text = "";
+  const walker = document.createTreeWalker(frag, NodeFilter.SHOW_ALL);
+  let node: Node | null = walker.nextNode();
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) text += (node as Text).data;
+    else if ((node as Element).tagName === "IMG") text += (node as Element).getAttribute("alt") ?? "";
+    node = walker.nextNode();
+  }
+  return text;
+}
+
+// ── URL extraction ────────────────────────────────────────────────────────
+
+const EXTRACT_URL_REGEX = /https?:\/\/[^\s<]+/g;
 
 function extractUrls(text: string): string[] {
   if (!text) return [];
-  URL_REGEX.lastIndex = 0;
+  EXTRACT_URL_REGEX.lastIndex = 0;
   const urls: string[] = [];
   let match: RegExpExecArray | null;
-  while ((match = URL_REGEX.exec(text)) !== null) {
+  while ((match = EXTRACT_URL_REGEX.exec(text)) !== null) {
     urls.push(match[0]);
   }
   return urls;
@@ -78,24 +112,28 @@ export function ChatView() {
     messages, sendMessage, editMessage, deleteMessage, loadMoreMessages, hasMoreMessages, loadingMessages,
     members, onlineUsers, userStatuses, reactions, addReaction, removeReaction,
     searchResults, searchQuery, searchFilters, searchUserActivity,
-    channels, activeChannelId, decryptedCache,
+    channels, activeChannelId, activeServerId, decryptedCache,
     pendingAttachments, uploadProgress, uploadFile, removePendingAttachment,
-    typingUsers,
+    typingUsers, customEmojis,
   } = useChatStore();
   const { user } = useAuthStore();
-  const [input, setInput] = useState("");
+  const inputValueRef = useRef(""); // stores current input text without triggering re-renders
+  const [hasContent, setHasContent] = useState(false); // only flips at empty↔non-empty boundary
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+  const [inputEmojiOpen, setInputEmojiOpen] = useState(false);
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editInput, setEditInput] = useState("");
+  const [emojiTooltip, setEmojiTooltip] = useState<{ x: number; y: number; src: string; label: string; subtitle: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emojiTooltipActiveRef = useRef(false); // guard against redundant setEmojiTooltip(null) calls
 
   // Mention autocomplete
   const [mentionActive, setMentionActive] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -126,25 +164,39 @@ export function ChatView() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Close emoji picker on outside click
   useEffect(() => {
-    if (!emojiPickerMsgId) return;
-    const handler = () => setEmojiPickerMsgId(null);
-    const timer = setTimeout(() => document.addEventListener("click", handler), 0);
-    return () => { clearTimeout(timer); document.removeEventListener("click", handler); };
-  }, [emojiPickerMsgId]);
+    if (inputRef.current) inputRef.current.innerHTML = "";
+    inputValueRef.current = "";
+    setHasContent(false);
+  }, [activeChannelId]);
 
   const displayMessages = searchResults ?? messages;
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!input.trim() && pendingAttachments.length === 0) return;
-    sendMessage(input);
-    setInput("");
+  // Cache expensive per-message work (twemoji.parse, regex) so it doesn't re-run on keystrokes
+  const messageData = useMemo(() => {
+    return new Map(displayMessages.map((msg) => {
+      const decoded = decryptedCache[msg.id] ?? msg.content ?? "";
+      return [msg.id, {
+        decoded,
+        html: renderMessageContent(decoded, customEmojis, API_BASE, memberUsernames),
+        emojiOnly: isEmojiOnly(decoded, customEmojis),
+        urls: extractUrls(decoded),
+      }];
+    }));
+  }, [displayMessages, decryptedCache, customEmojis, memberUsernames]);
+
+  function doSubmit() {
+    if (!inputValueRef.current.trim() && pendingAttachments.length === 0) return;
+    sendMessage(inputValueRef.current);
+    if (inputRef.current) inputRef.current.innerHTML = "";
+    inputValueRef.current = "";
+    setHasContent(false);
     setMentionActive(false);
     if (activeChannelId) gateway.send({ type: "typing_stop", channelId: activeChannelId });
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
   }
+
+  function handleSubmit(e: FormEvent) { e.preventDefault(); doSubmit(); }
 
   function handleFiles(files: FileList | File[]) {
     for (const file of Array.from(files)) {
@@ -170,11 +222,73 @@ export function ChatView() {
     }
   }, []);
 
-  function handlePaste(e: ClipboardEvent<HTMLInputElement>) {
+  function applyTwemoji(div: HTMLDivElement) {
+    const sel = window.getSelection();
+    let offset = 0;
+    if (sel && sel.rangeCount > 0 && div.contains(sel.anchorNode)) {
+      offset = getCharOffset(div, sel.getRangeAt(0));
+    }
+    twemoji.parse(div, TWEMOJI_OPTIONS as any);
+    setCursorAtOffset(div, offset);
+  }
+
+  function handleDivInput() {
+    const div = inputRef.current;
+    if (!div) return;
+    applyTwemoji(div);
+    handleInputChange(getDivPlainText(div));
+  }
+
+  function handleDivPaste(e: React.ClipboardEvent<HTMLDivElement>) {
     const files = e.clipboardData?.files;
-    if (files && files.length > 0) {
-      e.preventDefault();
-      handleFiles(files);
+    if (files && files.length > 0) { e.preventDefault(); handleFiles(files); return; }
+    e.preventDefault();
+    const text = e.clipboardData?.getData("text/plain") ?? "";
+    document.execCommand("insertText", false, text);
+    handleDivInput();
+  }
+
+  function insertTextAtCursor(text: string) {
+    const div = inputRef.current;
+    if (!div) return;
+    div.focus();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0 && div.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const tn = document.createTextNode(text);
+      range.insertNode(tn);
+      range.setStartAfter(tn); range.collapse(true);
+      sel.removeAllRanges(); sel.addRange(range);
+    } else {
+      div.innerText = getDivPlainText(div) + text;
+    }
+    applyTwemoji(div);
+    const newText = getDivPlainText(div);
+    inputValueRef.current = newText;
+    const nonEmpty = newText.trim().length > 0;
+    if (nonEmpty !== hasContent) setHasContent(nonEmpty);
+  }
+
+  function handleMsgMouseOver(e: React.MouseEvent) {
+    const target = e.target as HTMLElement;
+    if (!(target instanceof HTMLImageElement)) {
+      if (emojiTooltipActiveRef.current) { emojiTooltipActiveRef.current = false; setEmojiTooltip(null); }
+      return;
+    }
+    const isStd = target.classList.contains("emoji");
+    const isCustom = target.classList.contains("custom-emoji");
+    if (!isStd && !isCustom) {
+      if (emojiTooltipActiveRef.current) { emojiTooltipActiveRef.current = false; setEmojiTooltip(null); }
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    emojiTooltipActiveRef.current = true;
+    if (isCustom) {
+      const uploader = target.dataset.uploader ?? "Unknown";
+      setEmojiTooltip({ x: rect.left + rect.width / 2, y: rect.top, src: target.src, label: target.alt, subtitle: `${uploader}'s emoji` });
+    } else {
+      setEmojiTooltip({ x: rect.left + rect.width / 2, y: rect.top, src: target.src, label: target.dataset.emojiId ?? target.alt, subtitle: "Standard emoji" });
     }
   }
 
@@ -213,19 +327,14 @@ export function ChatView() {
   }
 
   function handleInputChange(value: string) {
-    setInput(value);
-    const cursorPos = inputRef.current?.selectionStart ?? value.length;
-    const textBeforeCursor = value.slice(0, cursorPos);
+    inputValueRef.current = value;
+    const nonEmpty = value.trim().length > 0;
+    if (nonEmpty !== hasContent) setHasContent(nonEmpty);
+    const div = inputRef.current;
+    const textBeforeCursor = div ? getTextBeforeCursor(div) : value;
     const atMatch = textBeforeCursor.match(/@([a-zA-Z0-9_-]*)$/);
-    if (atMatch) {
-      setMentionActive(true);
-      setMentionQuery(atMatch[1]);
-      setMentionIndex(0);
-    } else {
-      setMentionActive(false);
-    }
-
-    // Send typing indicator
+    if (atMatch) { setMentionActive(true); setMentionQuery(atMatch[1]); setMentionIndex(0); }
+    else { setMentionActive(false); }
     if (activeChannelId && value.trim()) {
       gateway.send({ type: "typing_start", channelId: activeChannelId });
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -236,35 +345,30 @@ export function ChatView() {
   }
 
   function insertMention(username: string) {
-    const cursorPos = inputRef.current?.selectionStart ?? input.length;
-    const textBeforeCursor = input.slice(0, cursorPos);
+    const div = inputRef.current;
+    if (!div) return;
+    const textBeforeCursor = getTextBeforeCursor(div);
     const atIndex = textBeforeCursor.lastIndexOf("@");
     if (atIndex === -1) return;
-    const newInput = input.slice(0, atIndex) + `@${username} ` + input.slice(cursorPos);
-    setInput(newInput);
+    const fullText = getDivPlainText(div);
+    const newText = fullText.slice(0, atIndex) + `@${username} ` + fullText.slice(textBeforeCursor.length);
+    div.innerText = newText;
+    twemoji.parse(div, TWEMOJI_OPTIONS as any);
+    setCursorAtOffset(div, atIndex + username.length + 2);
+    inputValueRef.current = newText;
+    const nonEmpty = newText.trim().length > 0;
+    if (nonEmpty !== hasContent) setHasContent(nonEmpty);
     setMentionActive(false);
-    setTimeout(() => {
-      const newPos = atIndex + username.length + 2;
-      inputRef.current?.setSelectionRange(newPos, newPos);
-      inputRef.current?.focus();
-    }, 0);
   }
 
-  function handleInputKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+  function handleDivKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     if (mentionActive && filteredMentions.length > 0) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setMentionIndex((i) => Math.min(i + 1, filteredMentions.length - 1));
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setMentionIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Tab" || (e.key === "Enter" && mentionActive)) {
-        e.preventDefault();
-        insertMention(filteredMentions[mentionIndex].username);
-      } else if (e.key === "Escape") {
-        setMentionActive(false);
-      }
+      if (e.key === "ArrowDown") { e.preventDefault(); setMentionIndex((i) => Math.min(i + 1, filteredMentions.length - 1)); return; }
+      if (e.key === "ArrowUp")   { e.preventDefault(); setMentionIndex((i) => Math.max(i - 1, 0)); return; }
+      if (e.key === "Tab" || e.key === "Enter") { e.preventDefault(); insertMention(filteredMentions[mentionIndex].username); return; }
+      if (e.key === "Escape")    { setMentionActive(false); return; }
     }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSubmit(); }
   }
 
   return (
@@ -303,6 +407,8 @@ export function ChatView() {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onMouseOver={handleMsgMouseOver}
+        onMouseLeave={() => { if (emojiTooltipActiveRef.current) { emojiTooltipActiveRef.current = false; setEmojiTooltip(null); } }}
       >
         {dragging && <div className="drag-overlay">Drop files to upload</div>}
         {loadingMessages && <div className="loading-messages">Loading...</div>}
@@ -313,7 +419,8 @@ export function ChatView() {
           const senderRole = roleMap[msg.senderId] ?? "member";
           const senderRing = ringMap[msg.senderId];
           const msgReactions = reactions[msg.id] ?? [];
-          const decoded = decodeContent(msg.id, msg.content);
+          const msgData = messageData.get(msg.id);
+          const decoded = msgData?.decoded ?? "";
           const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole, false, senderRing?.ringPatternSeed);
 
           return (
@@ -353,7 +460,7 @@ export function ChatView() {
                   </div>
                 ) : (
                   <>
-                    {renderMessageContent(decoded, memberUsernames)}
+                    <span className={msgData?.emojiOnly ? "big-emoji" : undefined} dangerouslySetInnerHTML={{ __html: msgData?.html ?? "" }} />
                     {msg.editedAt && <span className="message-edited">(edited)</span>}
                   </>
                 )}
@@ -363,16 +470,13 @@ export function ChatView() {
                 <MessageAttachments attachments={msg.attachments} />
               )}
 
-              {(() => {
-                const urls = extractUrls(decoded);
-                return urls.length > 0 ? (
-                  <div className="message-embeds">
-                    {urls.slice(0, 3).map((url) => (
-                      <LinkEmbed key={url} url={url} />
-                    ))}
-                  </div>
-                ) : null;
-              })()}
+              {msgData && msgData.urls.length > 0 && (
+                <div className="message-embeds">
+                  {msgData.urls.slice(0, 3).map((url) => (
+                    <LinkEmbed key={url} url={url} />
+                  ))}
+                </div>
+              )}
 
               {msgReactions.length > 0 && (
                 <div className="message-reactions">
@@ -387,7 +491,7 @@ export function ChatView() {
                       }
                       title={userIds.map((id) => usernameMap[id] ?? id.slice(0, 8)).join(", ")}
                     >
-                      {emoji} {userIds.length}
+                      <span dangerouslySetInnerHTML={{ __html: renderEmoji(emoji, customEmojis, API_BASE) }} /> {userIds.length}
                     </button>
                   ))}
                 </div>
@@ -412,24 +516,21 @@ export function ChatView() {
                     </button>
                   </>
                 )}
-                <button
-                  className="reaction-add-btn"
-                  onClick={(e) => { e.stopPropagation(); setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id); }}
-                >
-                  +
-                </button>
-                {emojiPickerMsgId === msg.id && (
-                  <div className="emoji-picker" onClick={(e) => e.stopPropagation()}>
-                    {QUICK_EMOJIS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        onClick={() => { addReaction(msg.id, emoji); setEmojiPickerMsgId(null); }}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div style={{ position: "relative" }}>
+                  <button
+                    className="reaction-add-btn"
+                    onClick={(e) => { e.stopPropagation(); setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id); }}
+                  >
+                    +
+                  </button>
+                  {emojiPickerMsgId === msg.id && activeServerId && (
+                    <EmojiPicker
+                      serverId={activeServerId}
+                      onSelect={(emoji) => { addReaction(msg.id, emoji); setEmojiPickerMsgId(null); }}
+                      onClose={() => setEmojiPickerMsgId(null)}
+                    />
+                  )}
+                </div>
               </div>
               </div>
             </div>
@@ -450,6 +551,14 @@ export function ChatView() {
                 : `${typingNames[0]} and ${typingNames.length - 1} others are typing`
             }
           </span>
+        </div>
+      )}
+
+      {emojiTooltip && (
+        <div className="emoji-msg-tooltip" style={{ left: emojiTooltip.x, top: emojiTooltip.y - 8 }}>
+          <img src={emojiTooltip.src} alt={emojiTooltip.label} className="emoji-msg-tooltip-img" />
+          <div className="emoji-msg-tooltip-label">{emojiTooltip.label}</div>
+          <div className="emoji-msg-tooltip-sub">{emojiTooltip.subtitle}</div>
         </div>
       )}
 
@@ -517,18 +626,35 @@ export function ChatView() {
               e.target.value = "";
             }}
           />
-          <input
+          <div
             ref={inputRef}
-            type="text"
+            contentEditable
+            suppressContentEditableWarning
             className="message-input"
-            placeholder="Type a message..."
-            value={input}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onKeyDown={handleInputKeyDown}
-            onPaste={handlePaste}
+            data-placeholder="Type a message..."
+            onInput={handleDivInput}
+            onKeyDown={handleDivKeyDown}
+            onPaste={handleDivPaste}
             autoFocus
           />
-          <button type="submit" className="btn-send" disabled={!input.trim() && pendingAttachments.length === 0}>
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              className="btn-attach"
+              onClick={() => setInputEmojiOpen((o) => !o)}
+              title="Emoji"
+            >
+              <Smile size={18} />
+            </button>
+            {inputEmojiOpen && activeServerId && (
+              <EmojiPicker
+                serverId={activeServerId}
+                onSelect={(emoji) => { insertTextAtCursor(emoji); setInputEmojiOpen(false); }}
+                onClose={() => setInputEmojiOpen(false)}
+              />
+            )}
+          </div>
+          <button type="submit" className="btn-send" disabled={!hasContent && pendingAttachments.length === 0}>
             Send
           </button>
         </form>

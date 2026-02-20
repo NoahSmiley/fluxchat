@@ -20,6 +20,8 @@ allow choosing duration time when selecting displayed statuses other than online
 
 ## MAJOR
 
+maybe add another section to music (in voice channel) that can play uploaded mp3s
+
 break up huge files like global.css
 
 mouse over reactions to see who made them
@@ -40,9 +42,6 @@ more customizable profiles
 - date registered
 - connections (socials, platforms)
 - bio
-
-better emojis and emoji system
-- soundboard sound creation menu needs update for emoji input after this
 
 add message replies
 
@@ -124,3 +123,6 @@ add reactions menu for viewing and, if admin, editing reactions
 - paste
 - spellcheck checkbox
 - send button checkbox maybe?
+
+### emoji in emoji picker
+- add to favorites

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment, ActivityInfo, PresenceStatus } from "../types/shared.js";
+import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment, ActivityInfo, PresenceStatus, CustomEmoji } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
@@ -76,6 +76,9 @@ interface ChatState {
   // Typing indicators: channelId -> Set of userIds currently typing
   typingUsers: Record<string, Set<string>>;
 
+  // Custom emoji for the active server
+  customEmojis: CustomEmoji[];
+
   loadServers: () => Promise<void>;
   selectServer: (serverId: string) => Promise<void>;
   selectChannel: (channelId: string) => Promise<void>;
@@ -104,6 +107,7 @@ interface ChatState {
   searchDMMessages: (query: string) => Promise<void>;
   clearDMSearch: () => void;
   setMyStatus: (status: PresenceStatus) => void;
+  fetchCustomEmojis: (serverId: string) => Promise<void>;
 }
 
 // Per-channel message cache for instant channel switching
@@ -191,6 +195,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   dmError: null,
   unreadChannels: new Set(),
   typingUsers: {},
+  customEmojis: [],
 
   loadServers: async () => {
     set({ loadingServers: true });
@@ -242,15 +247,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     // Fetch fresh data in background
-    const [channels, members] = await Promise.all([
+    const [channels, members, customEmojis] = await Promise.all([
       api.getChannels(serverId),
       api.getServerMembers(serverId),
+      api.getCustomEmojis(serverId).catch(() => [] as import("../types/shared.js").CustomEmoji[]),
     ]);
 
     // Only apply if we're still viewing this server
     if (get().activeServerId !== serverId) return;
 
-    set({ channels, members, channelsLoaded: true });
+    set({ channels, members, channelsLoaded: true, customEmojis });
 
     // If no cached channel was restored, auto-select first text channel
     if (!cached?.activeChannelId) {
@@ -761,6 +767,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const authState = authStoreRef?.getState();
     if (authState?.user) {
       authStoreRef!.setState({ user: { ...authState.user, status } });
+    }
+  },
+
+  fetchCustomEmojis: async (serverId) => {
+    const emojis = await api.getCustomEmojis(serverId);
+    if (get().activeServerId === serverId) {
+      set({ customEmojis: emojis });
     }
   },
 }));
