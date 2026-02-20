@@ -7,7 +7,7 @@ import { useUIStore } from "../stores/ui.js";
 import { useAuthStore } from "../stores/auth.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
 import { UserCard } from "./MemberList.js";
-import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical } from "lucide-react";
+import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical, Radio } from "lucide-react";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal } from "./ChannelSettingsModal.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
@@ -138,7 +138,7 @@ function SpeakingMic({ userId, isMuted, isDeafened }: { userId: string; isMuted?
 /** Voice user row with hover-to-inspect UserCard */
 function VoiceUserRow({
   userId, username, image, member, banner, ringStyle, ringClassName,
-  isMuted, isDeafened, allMembers,
+  isMuted, isDeafened, isStreaming, allMembers,
 }: {
   userId: string;
   username: string;
@@ -149,6 +149,7 @@ function VoiceUserRow({
   ringClassName: string;
   isMuted?: boolean;
   isDeafened?: boolean;
+  isStreaming?: boolean;
   allMembers: MemberWithUser[];
 }) {
   const [showCard, setShowCard] = useState(false);
@@ -196,6 +197,7 @@ function VoiceUserRow({
           </span>
         </span>
         <span className="voice-user-name">{username}</span>
+        {isStreaming && <Radio size={12} className="voice-user-streaming-icon" />}
         <SpeakingMic userId={userId} isMuted={isMuted} isDeafened={isDeafened} />
       </div>
       {showCard && member && createPortal(
@@ -241,6 +243,7 @@ function SortableChannelItem({
     participants: { userId: string; username: string }[];
     isConnected: boolean;
     hasScreenShare: boolean;
+    screenSharerIds: Set<string>;
     members: ReturnType<typeof useChatStore.getState>["members"];
     voiceParticipants: ReturnType<typeof useVoiceStore.getState>["participants"];
   };
@@ -314,7 +317,7 @@ function SortableChannelItem({
           <span className="channel-item-name">{channel.name}</span>
           {isUnread && <span className="channel-unread-dot" />}
           {voiceProps?.hasScreenShare && (
-            <span className="channel-live-badge"><Monitor size={10} /> LIVE</span>
+            <span className="channel-live-badge"><Radio size={10} /> LIVE</span>
           )}
         </button>
         {isOwnerOrAdmin && (
@@ -371,6 +374,7 @@ function SortableChannelItem({
                 ringClassName={ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}
                 isMuted={voiceUser?.isMuted}
                 isDeafened={voiceUser?.isDeafened}
+                isStreaming={voiceProps.screenSharerIds.has(p.userId)}
                 allMembers={voiceProps.members}
               />
             );
@@ -643,6 +647,9 @@ export function ChannelSidebar() {
               const participants = channelParticipants[ch.id] ?? [];
               const isConnected = connectedChannelId === ch.id;
               const hasScreenShare = isConnected && screenSharers.length > 0;
+              const screenSharerIds = isConnected
+                ? new Set(screenSharers.map((s) => s.participantId))
+                : new Set<string>();
 
               return (
                 <SortableChannelItem
@@ -661,6 +668,7 @@ export function ChannelSidebar() {
                     participants,
                     isConnected,
                     hasScreenShare,
+                    screenSharerIds,
                     members,
                     voiceParticipants,
                   } : undefined}

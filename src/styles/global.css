@@ -1712,6 +1712,34 @@ input:focus {
   height: 78px;
 }
 
+/* Streaming badge on voice participant avatar */
+.voice-avatar-streaming-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 2px solid var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  z-index: 2;
+}
+
+.voice-avatar-wrapper.large .voice-avatar-streaming-badge {
+  width: 24px;
+  height: 24px;
+  bottom: 0;
+  right: 0;
+  border-width: 3px;
+}
+
+.voice-avatar-streaming-badge svg {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
 
 .voice-avatar-speaking-ring {
   position: absolute;
@@ -2218,6 +2246,12 @@ input:focus {
   color: var(--text-muted);
 }
 
+.voice-user-streaming-icon {
+  flex-shrink: 0;
+  color: #ef4444;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
 .drink-badge {
   font-size: 11px;
   color: #f0b232;
@@ -2233,12 +2267,16 @@ input:focus {
   margin-left: auto;
   font-size: 9px;
   font-weight: 700;
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.15);
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
   padding: 1px 5px;
   border-radius: 3px;
   letter-spacing: 0.5px;
   flex-shrink: 0;
+}
+
+.channel-live-badge svg {
+  animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
 .channel-item.voice-connected {
@@ -2350,27 +2388,10 @@ input:focus {
   gap: 8px;
 }
 
-/* Theatre mode: streams expand to fill most of the view */
+/* Theatre mode: expand stream */
 .voice-channel-view.theatre .streams-area {
   flex: 1;
   min-height: 0;
-}
-
-.voice-channel-view.theatre .stream-tile.pinned {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  max-width: none;
-  align-self: stretch;
-}
-
-.voice-channel-view.theatre .stream-tile-video {
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  object-fit: contain;
-  margin: 0;
 }
 
 .voice-channel-view.theatre .voice-participants-grid {
@@ -2409,51 +2430,22 @@ input:focus {
   position: relative;
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--bg-primary);
+  background: #000;
   display: flex;
   flex-direction: column;
 }
 
 .stream-tile.pinned {
-  flex-shrink: 0;
-  align-self: center;
-  width: fit-content;
-  max-width: 100%;
+  flex: 1;
+  min-height: 0;
+  align-self: stretch;
 }
 
-/* Controls overlay: hover-only */
-.stream-tile-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 6px 10px;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 5;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.stream-tile:hover .stream-tile-header {
-  opacity: 1;
-}
-
-/* Always-visible name pill */
 .stream-tile-label {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  z-index: 5;
   font-size: 12px;
   color: #fff;
   font-weight: 600;
   text-transform: uppercase;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 3px 8px;
-  border-radius: 4px;
-  pointer-events: none;
 }
 
 .stream-tile-actions {
@@ -2473,6 +2465,7 @@ input:focus {
   align-items: center;
   justify-content: center;
   transition: background 0.15s;
+  backdrop-filter: blur(4px);
 }
 
 .stream-tile-btn:hover {
@@ -2481,32 +2474,45 @@ input:focus {
 
 .stream-tile-video {
   display: block;
-  max-width: 100%;
-  max-height: 30vh;
-  margin: 0 auto;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.dummy-stream-video {
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+}
+
+.stream-tile.pinned .dummy-stream-video {
+  min-height: 300px;
 }
 
 /* Secondary streams (unpinned) — smaller row below the pinned stream */
 .streams-secondary {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
-  max-height: 160px;
+  overflow-x: auto;
+  padding-top: 6px;
 }
 
 .streams-secondary .stream-tile {
-  flex: 1;
-  max-width: 280px;
-  height: 160px;
+  flex: 0 0 180px;
+  height: 110px;
 }
 
-.streams-secondary .stream-tile-video {
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  object-fit: contain;
-  margin: 0;
-  border-radius: var(--radius);
+.streams-secondary .stream-tile .stream-tile-label {
+  font-size: 10px;
+}
+
+.streams-secondary .dummy-stream-video {
+  min-height: unset;
 }
 
 /* (compact styles handled by .theatre parent) */
@@ -5713,6 +5719,248 @@ img.custom-emoji {
 .voice-tab.active {
   color: var(--text-primary);
   border-bottom-color: var(--accent);
+}
+
+/* ── Streams Tab Badge ── */
+.voice-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ── Streams Tab View ── */
+.streams-tab-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.streams-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.streams-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.streams-tab-view .streams-area {
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Stream Quality Select ── */
+.stream-quality-select-wrap {
+  position: relative;
+}
+
+.stream-quality-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 5px 28px 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.stream-quality-select:hover {
+  border-color: var(--text-muted);
+}
+
+.stream-quality-select:focus {
+  border-color: var(--text-secondary);
+}
+
+.stream-quality-select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Viewer pill in streamer controls */
+.stream-viewer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Stream Tile Bottom Bar ── */
+.stream-tile-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, transparent 100%);
+}
+
+.stream-tile-bottom-bar .stream-tile-actions {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.stream-tile:hover .stream-tile-bottom-bar .stream-tile-actions {
+  opacity: 1;
+}
+
+/* ── Streamer Controls Bar ── */
+.stream-your-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.stream-your-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.stream-pulse-icon {
+  color: #ef4444;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* removed: .stream-quality-tag (replaced by inline selector) */
+
+.stream-your-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stream-stop-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.stream-stop-btn:hover {
+  background: #dc2626;
+}
+
+/* ── Empty State ── */
+.streams-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  color: var(--text-muted);
+  padding: 48px 32px;
+  text-align: center;
+}
+
+.streams-empty-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.streams-empty h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.streams-empty p {
+  font-size: 13px;
+  margin: 0;
+  max-width: 260px;
+}
+
+.streams-start-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 4px;
+}
+
+.streams-start-btn:hover {
+  background: var(--border);
 }
 
 /* Music Panel */

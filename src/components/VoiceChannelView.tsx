@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useVoiceStore } from "../stores/voice.js";
 import { useChatStore } from "../stores/chat.js";
@@ -8,7 +8,7 @@ import { SoundboardPanel } from "./SoundboardPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
-  Music, Square,
+  Music, Square, Eye, Radio,
 } from "lucide-react";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import { useUIStore } from "../stores/ui.js";
@@ -74,23 +74,18 @@ function StreamTile({ participantId, username, isPinned }: {
 
   return (
     <div className={`stream-tile ${isPinned ? "pinned" : ""}`}>
-      <span className="stream-tile-label">{username}'s screen</span>
-      <div className="stream-tile-header">
+      <video ref={videoRef} autoPlay playsInline className="stream-tile-video" />
+
+      {/* Bottom bar — username + hover actions */}
+      <div className="stream-tile-bottom-bar">
+        <span className="stream-tile-label">{username}'s screen</span>
         <div className="stream-tile-actions">
           {isPinned ? (
             <>
-              <button
-                className="stream-tile-btn"
-                onClick={toggleTheatreMode}
-                title={theatreMode ? "Exit Theatre Mode" : "Theatre Mode"}
-              >
+              <button className="stream-tile-btn" onClick={toggleTheatreMode} title={theatreMode ? "Exit Theatre Mode" : "Theatre Mode"}>
                 {theatreMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
               </button>
-              <button
-                className="stream-tile-btn"
-                onClick={() => import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_popout_window", { windowType: "screenshare" })).catch(() => {})}
-                title="Pop out"
-              >
+              <button className="stream-tile-btn" onClick={() => import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_popout_window", { windowType: "screenshare" })).catch(() => {})} title="Pop out">
                 <ArrowUpRight size={14} />
               </button>
               <button className="stream-tile-btn" onClick={unpinScreenShare} title="Unpin">
@@ -104,17 +99,63 @@ function StreamTile({ participantId, username, isPinned }: {
           )}
         </div>
       </div>
-      <video ref={videoRef} autoPlay playsInline className="stream-tile-video" />
     </div>
   );
 }
 
+// ── Dummy Stream Tile (for preview when showDummyUsers is on) ──
+function DummyStreamTile({ participantId, username, isPinned }: {
+  participantId: string;
+  username: string;
+  isPinned: boolean;
+}) {
+  const color = avatarColor(username);
+  const { pinScreenShare, unpinScreenShare } = useVoiceStore();
+
+  return (
+    <div className={`stream-tile ${isPinned ? "pinned" : ""}`}>
+      <div className="dummy-stream-video" style={{ background: `linear-gradient(135deg, ${color}22, ${color}08)` }}>
+        <Monitor size={isPinned ? 64 : 32} style={{ color: `${color}44` }} />
+      </div>
+
+      <div className="stream-tile-bottom-bar">
+        <span className="stream-tile-label">{username}'s screen</span>
+        <div className="stream-tile-actions">
+          {isPinned ? (
+            <button className="stream-tile-btn" onClick={unpinScreenShare} title="Unpin">
+              <PinOff size={14} />
+            </button>
+          ) : (
+            <button className="stream-tile-btn" onClick={() => pinScreenShare(participantId)} title="Pin as main">
+              <Pin size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const DUMMY_STREAMERS = [
+  { participantId: "__d1", username: "xKira" },
+  { participantId: "__d2", username: "Blaze" },
+  { participantId: "__d3", username: "PhaseShift" },
+  { participantId: "__d4", username: "Cosmo" },
+  { participantId: "__d5", username: "ghost404" },
+  { participantId: "__d6", username: "Prism" },
+  { participantId: "__d7", username: "Nyx" },
+  { participantId: "__d8", username: "ZeroDay" },
+  { participantId: "__d9", username: "Spectre" },
+  { participantId: "__d10", username: "Volt" },
+];
+
 // ── Speaking Avatar ──
 // The glow ring animates via rAF reading audio levels directly from the store (no re-render).
 // Only the binary speaking boolean triggers a React re-render.
-function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle, memberRingSpin, memberRingPatternSeed }: {
+function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle, memberRingSpin, memberRingPatternSeed, isStreaming }: {
   userId: string; username: string; image?: string | null; large?: boolean; role?: string;
   memberRingStyle?: string; memberRingSpin?: boolean; memberRingPatternSeed?: number | null;
+  isStreaming?: boolean;
 }) {
   const speaking = useVoiceStore((s) => s.speakingUserIds.has(userId));
   const rc = ringClass(memberRingStyle, memberRingSpin, role, false, memberRingPatternSeed);
@@ -130,6 +171,11 @@ function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle,
           )}
         </div>
       </div>
+      {isStreaming && (
+        <div className="voice-avatar-streaming-badge" title="Streaming">
+          <Radio size={10} />
+        </div>
+      )}
     </div>
   );
 }
@@ -223,12 +269,14 @@ export function VoiceChannelView() {
   } = useVoiceStore();
   const { loadSession, account, playerState, session, queue, volume, setVolume, youtubeTrack } = useSpotifyStore();
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
-  const [activeTab, setActiveTab] = useState<"voice" | "music" | "sounds">("voice");
-  const [showQualityPicker, setShowQualityPicker] = useState(false);
-
+  const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music" | "sounds">("voice");
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
-  const hasScreenShares = screenSharers.length > 0;
+  const allScreenSharers = showDummyUsers
+    ? [...screenSharers, ...DUMMY_STREAMERS]
+    : screenSharers;
+  const hasScreenShares = allScreenSharers.length > 0;
+  const screenSharerIds = useMemo(() => new Set(allScreenSharers.map(s => s.participantId)), [allScreenSharers]);
 
   // Load session when connecting to voice channel or switching to music tab
   useEffect(() => {
@@ -243,17 +291,20 @@ export function VoiceChannelView() {
     }
   }, [activeTab, activeChannelId]);
 
-  // Close quality picker when clicking outside
+  // Auto-switch to streams tab when a screen share starts
+  const prevShareCount = useRef(0);
   useEffect(() => {
-    if (!showQualityPicker) return;
-    const handler = () => setShowQualityPicker(false);
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
-  }, [showQualityPicker]);
+    if (screenSharers.length > 0 && prevShareCount.current === 0) {
+      setActiveTab("streams");
+    }
+    prevShareCount.current = screenSharers.length;
+  }, [screenSharers.length]);
 
   // Separate pinned vs unpinned streams
-  const pinnedSharer = screenSharers.find((s) => s.participantId === pinnedScreenShare);
-  const otherSharers = screenSharers.filter((s) => s.participantId !== pinnedScreenShare);
+  // Auto-pin the first sharer if nothing is pinned
+  const effectivePinned = pinnedScreenShare ?? (allScreenSharers.length > 0 ? allScreenSharers[0].participantId : null);
+  const pinnedSharer = allScreenSharers.find((s) => s.participantId === effectivePinned);
+  const otherSharers = allScreenSharers.filter((s) => s.participantId !== effectivePinned);
 
   return (
     <div className={`voice-channel-view ${theatreMode ? "theatre" : ""}`}>
@@ -264,6 +315,13 @@ export function VoiceChannelView() {
             onClick={() => setActiveTab("voice")}
           >
             <Volume2 size={14} /> Voice
+          </button>
+          <button
+            className={`voice-tab ${activeTab === "streams" ? "active" : ""}`}
+            onClick={() => setActiveTab("streams")}
+          >
+            <Monitor size={14} /> Streams
+            {hasScreenShares && <span className="voice-tab-badge">{allScreenSharers.length}</span>}
           </button>
           <button
             className={`voice-tab ${activeTab === "music" ? "active" : ""}`}
@@ -313,37 +371,112 @@ export function VoiceChannelView() {
         <SoundboardPanel serverId={activeServerId} channelId={activeChannelId} />
       )}
 
+      {isConnected && activeTab === "streams" && (() => {
+        const localIsSharing = isScreenSharing;
+        const viewerCount = participants.length - screenSharers.length;
+        const isDummy = (id: string) => id.startsWith("__d");
+
+        const renderStreamTile = (sharer: { participantId: string; username: string }, pinned: boolean) => {
+          if (isDummy(sharer.participantId)) {
+            return (
+              <DummyStreamTile
+                key={sharer.participantId}
+                participantId={sharer.participantId}
+                username={sharer.username}
+                isPinned={pinned}
+              />
+            );
+          }
+          return (
+            <StreamTile
+              key={sharer.participantId}
+              participantId={sharer.participantId}
+              username={sharer.username}
+              isPinned={pinned}
+            />
+          );
+        };
+
+        return (
+          <div className="streams-tab-view">
+            {hasScreenShares ? (
+              <div className="streams-layout">
+                {/* Main stream area */}
+                <div className="streams-main">
+                  <div className="streams-area">
+                    {/* Pinned (main) stream */}
+                    {pinnedSharer && renderStreamTile(pinnedSharer, true)}
+
+                    {/* Other streams as smaller tiles */}
+                    {otherSharers.length > 0 && (
+                      <div className="streams-secondary">
+                        {otherSharers.map((sharer) => renderStreamTile(sharer, false))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Streamer controls (shown when you're the one sharing) */}
+                  {localIsSharing && (
+                    <div className="stream-your-controls">
+                      <div className="stream-your-status">
+                        <Radio size={14} className="stream-pulse-icon" />
+                        <span>You are streaming</span>
+                        <div className="stream-viewer-pill">
+                          <Eye size={11} />
+                          <span>{viewerCount}</span>
+                        </div>
+                      </div>
+                      <div className="stream-your-actions">
+                        <div className="stream-quality-select-wrap">
+                          <select
+                            className="stream-quality-select"
+                            value={screenShareQuality}
+                            onChange={(e) => setScreenShareQuality(e.target.value as typeof screenShareQuality)}
+                          >
+                            <option value="480p30">480p 30fps</option>
+                            <option value="720p30">720p 30fps</option>
+                            <option value="720p60">720p 60fps</option>
+                            <option value="1080p30">1080p 30fps</option>
+                            <option value="1080p60">1080p 60fps</option>
+                            <option value="Lossless">Lossless</option>
+                          </select>
+                        </div>
+                        <button
+                          className="stream-stop-btn"
+                          onClick={() => toggleScreenShare()}
+                        >
+                          <MonitorOff size={14} />
+                          Stop Stream
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* removed viewers sidebar */}
+              </div>
+            ) : (
+              <div className="streams-empty">
+                <div className="streams-empty-icon">
+                  <Monitor size={48} />
+                </div>
+                <h3>No Active Streams</h3>
+                <p>When someone shares their screen, it will appear here.</p>
+                <button
+                  className="streams-start-btn"
+                  onClick={() => toggleScreenShare()}
+                >
+                  <Monitor size={16} />
+                  Start Streaming
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {isConnected && activeTab === "voice" && (
         <>
-          {/* Screen shares area */}
-          {hasScreenShares && (
-            <div className="streams-area">
-              {/* Pinned (main) stream */}
-              {pinnedSharer && (
-                <StreamTile
-                  key={pinnedSharer.participantId}
-                  participantId={pinnedSharer.participantId}
-                  username={pinnedSharer.username}
-                  isPinned
-                />
-              )}
-
-              {/* Other streams as smaller tiles */}
-              {otherSharers.length > 0 && (
-                <div className="streams-secondary">
-                  {otherSharers.map((sharer) => (
-                    <StreamTile
-                      key={sharer.participantId}
-                      participantId={sharer.participantId}
-                      username={sharer.username}
-                      isPinned={false}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Participants */}
           <div className="voice-participants-grid">
             {/* DEBUG: dummy voice tiles */}
@@ -385,6 +518,7 @@ export function VoiceChannelView() {
                   memberRingStyle={member?.ringStyle}
                   memberRingSpin={member?.ringSpin}
                   memberRingPatternSeed={member?.ringPatternSeed}
+                  isStreaming={screenSharerIds.has(user.userId)}
                   large
                 />
                 <span className="voice-tile-name">
@@ -479,45 +613,13 @@ export function VoiceChannelView() {
           >
             {isDeafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />}
           </button>
-          <div className="screen-share-group">
-            <button
-              className={`voice-ctrl-btn ${isScreenSharing ? "active" : ""}`}
-              onClick={() => toggleScreenShare()}
-              title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
-            >
-              {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
-            </button>
-            {/* Only show quality picker to the person about to stream, not viewers */}
-            {!isScreenSharing && !hasScreenShares && (
-              <button
-                className="voice-ctrl-btn quality-picker-toggle"
-                onClick={(e) => { e.stopPropagation(); setShowQualityPicker((v) => !v); }}
-                title="Stream Quality"
-              >
-                <span className="quality-label">{screenShareQuality}</span>
-              </button>
-            )}
-            {showQualityPicker && !isScreenSharing && !hasScreenShares && (
-              <div className="quality-picker-dropdown" onClick={(e) => e.stopPropagation()}>
-                {(["1080p60", "1080p30", "720p60", "720p30", "480p30"] as const).map((q) => (
-                  <button
-                    key={q}
-                    className={`quality-option ${screenShareQuality === q ? "active" : ""}`}
-                    onClick={() => { setScreenShareQuality(q); setShowQualityPicker(false); }}
-                  >
-                    {q}
-                  </button>
-                ))}
-                <div className="quality-separator" />
-                <button
-                  className={`quality-option quality-lossless ${screenShareQuality === "Lossless" ? "active" : ""}`}
-                  onClick={() => { setScreenShareQuality("Lossless"); setShowQualityPicker(false); }}
-                >
-                  Lossless
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            className={`voice-ctrl-btn ${isScreenSharing ? "active" : ""}`}
+            onClick={() => toggleScreenShare()}
+            title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
+          >
+            {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+          </button>
           <button
             className="voice-ctrl-btn disconnect"
             onClick={leaveVoiceChannel}
