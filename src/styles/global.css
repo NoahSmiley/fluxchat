@@ -381,6 +381,18 @@ input:focus {
   background: var(--bg-tertiary);
 }
 
+.btn-danger {
+  background: rgba(220, 53, 53, 0.15);
+  border-color: rgba(220, 53, 53, 0.5);
+  color: #f87171;
+}
+
+.btn-danger:hover {
+  background: rgba(220, 53, 53, 0.3);
+  border-color: rgba(220, 53, 53, 0.8);
+  color: #fca5a5;
+}
+
 /* ── App Layout ── */
 .app-layout {
   display: grid;
@@ -1011,7 +1023,11 @@ input:focus {
   gap: 12px;
 }
 
-.message.own {
+.message:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.highlight-own .message.own {
   background: rgba(255, 255, 255, 0.015);
 }
 
@@ -1310,7 +1326,7 @@ input:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 9000;
 }
 
 .modal {
@@ -1336,6 +1352,30 @@ input:focus {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+/* ── Confirm Delete Modal ── */
+.confirm-delete-modal {
+  width: 360px;
+}
+
+.confirm-delete-preview {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.confirm-delete-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
 }
 
 /* ── Profile Modal ── */
@@ -3201,6 +3241,43 @@ img.custom-emoji {
   color: var(--text-muted);
 }
 
+/* ── Reaction hover tooltip ── */
+.reaction-tooltip {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.reaction-tooltip-emoji {
+  display: flex;
+  align-items: center;
+}
+.reaction-tooltip-emoji img,
+.reaction-tooltip-emoji .custom-emoji {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+.reaction-tooltip-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.reaction-tooltip-users {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
 /* ── Full emoji picker panel ── */
 .emoji-picker-panel {
   position: absolute;
@@ -3460,11 +3537,15 @@ img.custom-emoji {
   width: 100%;
   padding: 6px 12px;
   font-size: 14px;
+  line-height: 1.5;
+  box-sizing: border-box;
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
   outline: none;
+  user-select: text;
+  word-break: break-word;
 }
 
 .message-edit-input:focus {

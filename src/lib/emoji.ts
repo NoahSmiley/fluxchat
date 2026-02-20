@@ -27,6 +27,16 @@ export const TWEMOJI_OPTIONS = {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Returns a `:name:` label for an emoji. Custom/standard-by-id pass through;
+ * native unicode chars are looked up in the reverse map.
+ */
+export function getEmojiLabel(emoji: string): string {
+  if (emoji.startsWith(":") && emoji.endsWith(":")) return emoji;
+  const id = _nativeToId.get(emoji);
+  return id ? `:${id}:` : emoji;
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")

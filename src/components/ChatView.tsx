@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type DragEvent } from "react";
+import { createPortal } from "react-dom";
 import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
+import { useUIStore } from "../stores/ui.js";
 import { ArrowUpRight, Pencil, Trash2, Paperclip, X, Smile } from "lucide-react";
 import { SearchBar } from "./SearchBar.js";
 import { MessageAttachments } from "./MessageAttachments.js";
@@ -9,7 +11,7 @@ import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js
 import { relativeTime } from "../lib/relativeTime.js";
 import { gateway } from "../lib/ws.js";
 import twemoji from "twemoji";
-import { renderMessageContent, renderEmoji, isEmojiOnly, TWEMOJI_OPTIONS } from "../lib/emoji.js";
+import { renderMessageContent, renderEmoji, isEmojiOnly, getEmojiLabel, TWEMOJI_OPTIONS } from "../lib/emoji.js";
 import { API_BASE } from "../lib/serverUrl.js";
 import EmojiPicker from "./EmojiPicker.js";
 
@@ -117,13 +119,22 @@ export function ChatView() {
     typingUsers, customEmojis,
   } = useChatStore();
   const { user } = useAuthStore();
+  const { highlightOwnMessages } = useUIStore();
   const inputValueRef = useRef(""); // stores current input text without triggering re-renders
   const [hasContent, setHasContent] = useState(false); // only flips at empty↔non-empty boundary
   const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+  // Stable callbacks so EmojiPicker's dismiss-on-outside-click effect doesn't re-register on every render
+  const handleReactionPickerClose = useCallback(() => setEmojiPickerMsgId(null), []);
+  const handleReactionPickerSelect = useCallback((emoji: string) => {
+    if (emojiPickerMsgId) addReaction(emojiPickerMsgId, emoji);
+    setEmojiPickerMsgId(null);
+  }, [emojiPickerMsgId, addReaction]);
   const [inputEmojiOpen, setInputEmojiOpen] = useState(false);
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [editInput, setEditInput] = useState("");
+  const [deletingMsgId, setDeletingMsgId] = useState<string | null>(null);
   const [emojiTooltip, setEmojiTooltip] = useState<{ x: number; y: number; src: string; label: string; subtitle: string } | null>(null);
+  const [reactionTooltip, setReactionTooltip] = useState<{ x: number; y: number; emojiHtml: string; label: string; users: string[] } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -134,6 +145,8 @@ export function ChatView() {
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
   const inputRef = useRef<HTMLDivElement>(null);
+  const inputCursorRef = useRef(0); // saved cursor offset for emoji-picker insert-at-cursor
+  const editDivRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -170,6 +183,16 @@ export function ChatView() {
     setHasContent(false);
   }, [activeChannelId]);
 
+  // Initialize edit div with twemoji-rendered content when editing starts
+  useEffect(() => {
+    if (!editingMsgId || !editDivRef.current) return;
+    const div = editDivRef.current;
+    div.innerText = editInput;
+    twemoji.parse(div, TWEMOJI_OPTIONS as any);
+    setCursorAtOffset(div, getDivPlainText(div).length);
+    div.focus();
+  }, [editingMsgId, editInput]);
+
   const displayMessages = searchResults ?? messages;
 
   // Cache expensive per-message work (twemoji.parse, regex) so it doesn't re-run on keystrokes
@@ -184,6 +207,14 @@ export function ChatView() {
       }];
     }));
   }, [displayMessages, decryptedCache, customEmojis, memberUsernames]);
+
+  function formatReactors(users: string[]): string {
+    if (users.length === 0) return "";
+    if (users.length === 1) return users[0];
+    if (users.length === 2) return `${users[0]} and ${users[1]}`;
+    const rest = users.length - 2;
+    return `${users[0]}, ${users[1]}, and ${rest} other${rest === 1 ? "" : "s"}`;
+  }
 
   function doSubmit() {
     if (!inputValueRef.current.trim() && pendingAttachments.length === 0) return;
@@ -252,6 +283,8 @@ export function ChatView() {
     const div = inputRef.current;
     if (!div) return;
     div.focus();
+    // Restore the cursor to where it was before focus left the input (e.g., clicking emoji button)
+    setCursorAtOffset(div, inputCursorRef.current);
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0 && div.contains(sel.anchorNode)) {
       const range = sel.getRangeAt(0);
@@ -272,6 +305,8 @@ export function ChatView() {
 
   function handleMsgMouseOver(e: React.MouseEvent) {
     const target = e.target as HTMLElement;
+    // Don't trigger tooltip for emojis inside the emoji picker panel or reaction chips
+    if (target.closest(".emoji-picker-panel") || target.closest(".reaction-chip")) return;
     if (!(target instanceof HTMLImageElement)) {
       if (emojiTooltipActiveRef.current) { emojiTooltipActiveRef.current = false; setEmojiTooltip(null); }
       return;
@@ -288,7 +323,7 @@ export function ChatView() {
       const uploader = target.dataset.uploader ?? "Unknown";
       setEmojiTooltip({ x: rect.left + rect.width / 2, y: rect.top, src: target.src, label: target.alt, subtitle: `${uploader}'s emoji` });
     } else {
-      setEmojiTooltip({ x: rect.left + rect.width / 2, y: rect.top, src: target.src, label: target.dataset.emojiId ?? target.alt, subtitle: "Standard emoji" });
+      setEmojiTooltip({ x: rect.left + rect.width / 2, y: rect.top, src: target.src, label: target.dataset.emojiId ?? target.alt, subtitle: "standard emoji" });
     }
   }
 
@@ -320,8 +355,9 @@ export function ChatView() {
   }
 
   function submitEdit(msgId: string) {
-    if (editInput.trim()) {
-      editMessage(msgId, editInput.trim());
+    const text = editDivRef.current ? getDivPlainText(editDivRef.current).trim() : editInput.trim();
+    if (text) {
+      editMessage(msgId, text);
     }
     cancelEditing();
   }
@@ -401,7 +437,7 @@ export function ChatView() {
       )}
 
       <div
-        className={`messages-container ${dragging ? "drag-active" : ""}`}
+        className={`messages-container ${highlightOwnMessages ? "highlight-own" : ""} ${dragging ? "drag-active" : ""}`}
         ref={containerRef}
         onScroll={handleScroll}
         onDragOver={handleDragOver}
@@ -442,16 +478,22 @@ export function ChatView() {
               <div className="message-body">
                 {editingMsgId === msg.id ? (
                   <div className="message-edit-form">
-                    <input
-                      type="text"
+                    <div
+                      ref={editDivRef}
+                      contentEditable
+                      suppressContentEditableWarning
                       className="message-edit-input"
-                      value={editInput}
-                      onChange={(e) => setEditInput(e.target.value)}
+                      onInput={() => { if (editDivRef.current) applyTwemoji(editDivRef.current); }}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") submitEdit(msg.id);
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitEdit(msg.id); }
                         if (e.key === "Escape") cancelEditing();
                       }}
-                      autoFocus
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const text = e.clipboardData?.getData("text/plain") ?? "";
+                        document.execCommand("insertText", false, text);
+                        if (editDivRef.current) applyTwemoji(editDivRef.current);
+                      }}
                     />
                     <div className="message-edit-actions">
                       <button className="btn-small" onClick={cancelEditing}>Cancel</button>
@@ -489,7 +531,17 @@ export function ChatView() {
                           ? removeReaction(msg.id, emoji)
                           : addReaction(msg.id, emoji)
                       }
-                      title={userIds.map((id) => usernameMap[id] ?? id.slice(0, 8)).join(", ")}
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setReactionTooltip({
+                          x: rect.left + rect.width / 2,
+                          y: rect.top,
+                          emojiHtml: renderEmoji(emoji, customEmojis, API_BASE),
+                          label: getEmojiLabel(emoji),
+                          users: userIds.map((id) => usernameMap[id] ?? id.slice(0, 8)),
+                        });
+                      }}
+                      onMouseLeave={() => setReactionTooltip(null)}
                     >
                       <span dangerouslySetInnerHTML={{ __html: renderEmoji(emoji, customEmojis, API_BASE) }} /> {userIds.length}
                     </button>
@@ -509,7 +561,7 @@ export function ChatView() {
                     </button>
                     <button
                       className="reaction-add-btn delete-btn"
-                      onClick={() => deleteMessage(msg.id)}
+                      onClick={() => setDeletingMsgId(msg.id)}
                       title="Delete message"
                     >
                       <Trash2 size={12} />
@@ -526,8 +578,9 @@ export function ChatView() {
                   {emojiPickerMsgId === msg.id && activeServerId && (
                     <EmojiPicker
                       serverId={activeServerId}
-                      onSelect={(emoji) => { addReaction(msg.id, emoji); setEmojiPickerMsgId(null); }}
-                      onClose={() => setEmojiPickerMsgId(null)}
+                      placement="auto"
+                      onSelect={handleReactionPickerSelect}
+                      onClose={handleReactionPickerClose}
                     />
                   )}
                 </div>
@@ -561,6 +614,40 @@ export function ChatView() {
           <div className="emoji-msg-tooltip-sub">{emojiTooltip.subtitle}</div>
         </div>
       )}
+
+      {reactionTooltip && (
+        <div className="reaction-tooltip" style={{ left: reactionTooltip.x, top: reactionTooltip.y - 8 }}>
+          <span className="reaction-tooltip-emoji" dangerouslySetInnerHTML={{ __html: reactionTooltip.emojiHtml }} />
+          <div>
+            <div className="reaction-tooltip-label">{reactionTooltip.label}</div>
+            <div className="reaction-tooltip-users">reacted by {formatReactors(reactionTooltip.users)}</div>
+          </div>
+        </div>
+      )}
+
+      {deletingMsgId && (() => {
+        const preview = messageData.get(deletingMsgId)?.decoded ?? "";
+        const trimmed = preview.length > 80 ? preview.slice(0, 80) + "…" : preview;
+        return createPortal(
+          <div className="modal-overlay" onClick={() => setDeletingMsgId(null)}>
+            <div className="modal confirm-delete-modal" onClick={(e) => e.stopPropagation()}>
+              <h3>Delete Message</h3>
+              {trimmed && <p className="confirm-delete-preview">"{trimmed}"</p>}
+              <p className="confirm-delete-desc">This cannot be undone.</p>
+              <div className="modal-actions">
+                <button className="btn-small" onClick={() => setDeletingMsgId(null)}>Cancel</button>
+                <button
+                  className="btn-small btn-danger"
+                  onClick={() => { deleteMessage(deletingMsgId); setDeletingMsgId(null); }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
 
       <div className="message-input-wrapper">
         {mentionActive && filteredMentions.length > 0 && (
@@ -635,6 +722,13 @@ export function ChatView() {
             onInput={handleDivInput}
             onKeyDown={handleDivKeyDown}
             onPaste={handleDivPaste}
+            onBlur={() => {
+              const div = inputRef.current;
+              const sel = window.getSelection();
+              if (div && sel && sel.rangeCount > 0 && div.contains(sel.anchorNode)) {
+                inputCursorRef.current = getCharOffset(div, sel.getRangeAt(0));
+              }
+            }}
             autoFocus
           />
           <div style={{ position: "relative" }}>

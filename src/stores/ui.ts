@@ -11,6 +11,7 @@ interface UIState {
   sidebarPosition: SidebarPosition;
   appBorderStyle: AppBorderStyle;
   showDummyUsers: boolean;
+  highlightOwnMessages: boolean;
   openSettings: () => void;
   closeSettings: () => void;
   openServerSettings: () => void;
@@ -21,6 +22,7 @@ interface UIState {
   setSidebarPosition: (pos: SidebarPosition) => void;
   setAppBorderStyle: (style: AppBorderStyle) => void;
   toggleDummyUsers: () => void;
+  setHighlightOwnMessages: (val: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -32,6 +34,7 @@ export const useUIStore = create<UIState>()(
       sidebarPosition: "left",
       appBorderStyle: "none",
       showDummyUsers: true,
+      highlightOwnMessages: true,
       openSettings: () => set({ settingsOpen: true }),
       closeSettings: () => set({ settingsOpen: false }),
       openServerSettings: () => set({ serverSettingsOpen: true }),
@@ -42,6 +45,7 @@ export const useUIStore = create<UIState>()(
       setSidebarPosition: (pos) => set({ sidebarPosition: pos }),
       setAppBorderStyle: (style) => set({ appBorderStyle: style }),
       toggleDummyUsers: () => set((s) => ({ showDummyUsers: !s.showDummyUsers })),
+      setHighlightOwnMessages: (val) => set({ highlightOwnMessages: val }),
     }),
     {
       name: "flux-ui",
@@ -49,6 +53,7 @@ export const useUIStore = create<UIState>()(
         sidebarPosition: state.sidebarPosition,
         appBorderStyle: state.appBorderStyle,
         showDummyUsers: state.showDummyUsers,
+        highlightOwnMessages: state.highlightOwnMessages,
       }),
     }
   )

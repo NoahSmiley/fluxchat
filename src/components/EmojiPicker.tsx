@@ -88,8 +88,8 @@ interface EmojiPickerProps {
   serverId: string;
   onSelect: (emoji: string) => void;
   onClose: () => void;
-  /** "above" (default) = above trigger, right-aligned. "right" = right of trigger, fixed-positioned to escape overflow:hidden ancestors. */
-  placement?: "above" | "right";
+  /** "above" (default) = above trigger, right-aligned. "right" = right of trigger, fixed-positioned to escape overflow:hidden ancestors. "auto" = fixed-positioned, prefers above trigger, falls back to below if not enough room. */
+  placement?: "above" | "right" | "auto";
 }
 
 // ── Lazy section renderer ─────────────────────────────────────────────────
@@ -142,17 +142,22 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
   const searchRef = useRef<HTMLInputElement>(null);
   const catNavRef = useRef<HTMLDivElement>(null);
 
-  // For "right" placement: use position:fixed computed from the trigger wrapper,
-  // bypassing overflow:hidden ancestors. Start invisible so layout effect fires first.
+  // For "right" and "auto" placement: use position:fixed computed from the trigger wrapper,
+  // bypassing overflow:hidden ancestors and scroll containers.
+  // Start off-screen with position:fixed (NOT just opacity:0) so the scroll container never
+  // sees an absolutely-positioned child above the viewport and doesn't scroll to accommodate it.
   const [panelStyle, setPanelStyle] = useState<React.CSSProperties | undefined>(
-    () => placement === "right" ? { opacity: 0 } : undefined,
+    () => (placement === "right" || placement === "auto")
+      ? { position: "fixed", top: -9999, left: -9999, opacity: 0 }
+      : undefined,
   );
 
   useLayoutEffect(() => {
-    if (placement !== "right") return;
+    if (placement !== "right" && placement !== "auto") return;
     const el = panelRef.current;
     if (!el) return;
-    const parent = el.offsetParent as HTMLElement | null;
+    // Use parentElement instead of offsetParent — offsetParent is null for fixed elements.
+    const parent = el.parentElement as HTMLElement | null;
     if (!parent) return;
 
     const parentRect = parent.getBoundingClientRect();
@@ -162,19 +167,36 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
     const vh = window.innerHeight;
     const gap = 6;
 
-    let left = parentRect.right + gap;
-    let top = parentRect.top;
+    let left: number;
+    let top: number;
 
-    // Flip to left if no room on right
-    if (left + panelW > vw - 8) {
-      left = parentRect.left - panelW - gap;
+    if (placement === "right") {
+      left = parentRect.right + gap;
+      top = parentRect.top;
+      // Flip to left if no room on right
+      if (left + panelW > vw - 8) left = parentRect.left - panelW - gap;
+      if (left < 8) left = 8;
+      if (top + panelH > vh - 8) top = Math.max(8, vh - panelH - 8);
+      if (top < 8) top = 8;
+    } else {
+      // "auto": prefer above the trigger, fall back to below if not enough room.
+      // Use actual rendered height (element is in DOM at opacity:0) instead of a fixed estimate.
+      const actualH = el.getBoundingClientRect().height || panelH;
+      const spaceAbove = parentRect.top - gap;
+      const spaceBelow = vh - parentRect.bottom - gap;
+      if (spaceAbove >= actualH || spaceAbove >= spaceBelow) {
+        top = parentRect.top - actualH - gap;
+      } else {
+        top = parentRect.bottom + gap;
+      }
+      // Clamp both edges to viewport
+      if (top + actualH > vh - 8) top = vh - actualH - 8;
+      if (top < 8) top = 8;
+      // Right-align to trigger, clamped to viewport
+      left = parentRect.right - panelW;
+      if (left < 8) left = 8;
+      if (left + panelW > vw - 8) left = vw - panelW - 8;
     }
-    // Clamp horizontal
-    if (left < 8) left = 8;
-
-    // Clamp vertical
-    if (top + panelH > vh - 8) top = Math.max(8, vh - panelH - 8);
-    if (top < 8) top = 8;
 
     setPanelStyle({ position: "fixed", left, top, bottom: "auto", right: "auto", opacity: 1 });
   }, [placement]);
