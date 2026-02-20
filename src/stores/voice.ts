@@ -234,7 +234,6 @@ let lobbyMusicGain: GainNode | null = null;
 let lobbyMusicCtx: AudioContext | null = null;
 
 function checkLobbyMusic() {
-  if (localStorage.getItem("flux-lobby-music-unlocked") !== "true") return;
   if (localStorage.getItem("flux-lobby-music-enabled") === "false") return;
 
   const { room } = useVoiceStore.getState();
