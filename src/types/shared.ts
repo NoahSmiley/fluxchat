@@ -24,6 +24,7 @@ export interface Channel {
   isRoom: boolean;
   isPersistent: boolean;
   creatorId: string | null;
+  isLocked: boolean;
   createdAt: string;
 }
 
@@ -207,7 +208,8 @@ export type WSClientEvent =
   | { type: "spotify_playback_control"; sessionId: string; action: string; trackUri?: string; positionMs?: number; source?: string }
   | { type: "voice_drink_update"; channelId: string; drinkCount: number }
   | { type: "update_status"; status: string }
-  | { type: "play_sound"; channelId: string; soundId: string };
+  | { type: "play_sound"; channelId: string; soundId: string }
+  | { type: "room_knock"; channelId: string };
 
 export type WSServerEvent =
   | { type: "message"; message: Message; attachments?: Attachment[] }
@@ -240,6 +242,11 @@ export type WSServerEvent =
   | { type: "soundboard_play"; channelId: string; soundId: string; audioAttachmentId: string; audioFilename: string; imageAttachmentId?: string; imageFilename?: string; volume: number; username: string }
   | { type: "room_created"; channel: Channel }
   | { type: "room_deleted"; channelId: string; serverId: string }
+  | { type: "room_lock_toggled"; channelId: string; serverId: string; isLocked: boolean }
+  | { type: "room_knock"; channelId: string; userId: string; username: string }
+  | { type: "room_knock_accepted"; channelId: string }
+  | { type: "room_invite"; channelId: string; channelName: string; inviterUsername: string; serverId: string }
+  | { type: "room_force_move"; targetChannelId: string; targetChannelName: string }
   | { type: "error"; message: string };
 
 export type PresenceStatus = "online" | "idle" | "dnd" | "invisible" | "offline";
@@ -272,6 +279,7 @@ export interface UpdateServerRequest {
 export interface UpdateChannelRequest {
   name?: string;
   bitrate?: number | null;
+  isLocked?: boolean;
 }
 
 export interface PaginatedResponse<T> {

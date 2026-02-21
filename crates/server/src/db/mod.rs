@@ -388,25 +388,17 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         .await
         .ok();
 
-    // Auto-create a persistent lobby room for any server that doesn't have one
-    let servers_without_lobby = sqlx::query_scalar::<_, String>(
-        "SELECT s.id FROM servers s WHERE NOT EXISTS (SELECT 1 FROM channels c WHERE c.server_id = s.id AND c.is_persistent = 1)",
-    )
-    .fetch_all(&pool)
-    .await
-    .unwrap_or_default();
+    // Migration: add is_locked to channels (for locked rooms)
+    sqlx::query(r#"ALTER TABLE "channels" ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await
+        .ok();
 
-    for server_id in servers_without_lobby {
-        let id = uuid::Uuid::new_v4().to_string();
-        let now = chrono::Utc::now().to_rfc3339();
-        sqlx::query("INSERT INTO channels (id, server_id, name, type, is_room, is_persistent, position, created_at) VALUES (?, ?, 'Lobby', 'voice', 1, 1, 0, ?)")
-            .bind(&id)
-            .bind(&server_id)
-            .bind(&now)
-            .execute(&pool)
-            .await
-            .ok();
-    }
+    // Migration: remove legacy persistent lobby rooms (rooms are now all equal)
+    sqlx::query("DELETE FROM channels WHERE is_room = 1 AND (is_persistent = 1 OR name = 'Lobby')")
+        .execute(&pool)
+        .await
+        .ok();
 
     // Migration: ensure doppler banner catalog items + case loot entries exist
     {

@@ -125,6 +125,10 @@ pub enum ClientEvent {
         #[serde(rename = "soundId")]
         sound_id: String,
     },
+    RoomKnock {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+    },
     Ping,
 }
 
@@ -327,6 +331,43 @@ pub enum ServerEvent {
         channel_id: String,
         #[serde(rename = "serverId")]
         server_id: String,
+    },
+    RoomLockToggled {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "serverId")]
+        server_id: String,
+        #[serde(rename = "isLocked")]
+        is_locked: bool,
+    },
+    RoomKnock {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "userId")]
+        user_id: String,
+        username: String,
+    },
+    RoomKnockAccepted {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+    },
+    RoomInvite {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "channelName")]
+        channel_name: String,
+        #[serde(rename = "inviterId")]
+        inviter_id: String,
+        #[serde(rename = "inviterUsername")]
+        inviter_username: String,
+        #[serde(rename = "serverId")]
+        server_id: String,
+    },
+    RoomForceMove {
+        #[serde(rename = "targetChannelId")]
+        target_channel_id: String,
+        #[serde(rename = "targetChannelName")]
+        target_channel_name: String,
     },
     // Economy events
     CaseOpened {

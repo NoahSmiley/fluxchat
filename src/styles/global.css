@@ -527,7 +527,7 @@ input:focus {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
@@ -797,55 +797,131 @@ input:focus {
 .join-voice-section {
   padding: 8px;
   border-top: 1px solid var(--border);
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.join-voice-btn {
+.create-room-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 10px 14px;
+  margin-top: 6px;
+  padding: 6px 10px;
   border: none;
-  border-radius: 8px;
-  background: #22c55e;
-  color: #fff;
-  font-size: 13px;
+  border-radius: 6px;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  transition: background 0.15s, color 0.15s;
 }
 
-.join-voice-btn:hover {
+.create-room-btn:hover {
+  background: #22c55e;
+  color: #fff;
+}
+
+.create-room-btn:active {
   background: #16a34a;
-}
-
-.join-voice-btn:active {
-  transform: scale(0.98);
-}
-
-.join-voice-count {
-  margin-left: auto;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 1px 7px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 700;
 }
 
 /* ── Voice Room Users in Sidebar (compact avatars) ── */
 
 .voice-room-users-list {
-  margin-bottom: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+}
+
+/* Wrapper for each room group — uses CSS grid for smooth height collapse.
+   margin-top replaces parent gap so it can transition to 0 during exit. */
+.voice-room-group-wrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-top: 4px;
+  opacity: 1;
+  transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              margin-top 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* First item has no top margin */
+.voice-room-group-wrapper:first-child {
+  margin-top: 0;
+}
+
+/* Enter: start collapsed + invisible */
+.voice-room-group-wrapper.voice-room-enter {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+}
+
+/* Exit: collapse + fade + close margin */
+.voice-room-group-wrapper.voice-room-exit {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Grid child: overflow hidden so content is clipped during collapse */
+.voice-room-group-wrapper > .voice-room-group {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .voice-room-group {
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Inner element holds the padding — inside overflow:hidden so it collapses cleanly */
+.voice-room-group-inner {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  padding: 4px 6px 10px;
+}
+
+.voice-room-group:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.voice-room-current {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.voice-room-group-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.voice-room-collapse-toggle {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.voice-room-collapse-toggle:hover {
+  opacity: 1;
+}
+
+.voice-room-chevron {
+  transition: transform 0.15s;
+}
+
+.voice-room-chevron-open {
+  transform: rotate(90deg);
 }
 
 .voice-room-group-label {
@@ -857,6 +933,35 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 5px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 4px;
+  transition: color 0.15s;
+}
+
+.voice-room-group-label-joinable:hover,
+.voice-room-group:hover .voice-room-group-label-joinable {
+  color: #4ade80;
+}
+
+.voice-room-join-btn {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.voice-room-join-btn:hover {
+  background: #22c55e;
+  color: #fff;
 }
 
 .voice-room-group-count {
@@ -869,17 +974,41 @@ input:focus {
   color: var(--text-muted);
 }
 
+@keyframes voice-participant-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .voice-room-detailed {
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
 
+.voice-room-detailed > *:nth-child(1) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.02s both; }
+.voice-room-detailed > *:nth-child(2) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.05s both; }
+.voice-room-detailed > *:nth-child(3) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.08s both; }
+.voice-room-detailed > *:nth-child(4) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.11s both; }
+.voice-room-detailed > *:nth-child(5) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.14s both; }
+.voice-room-detailed > *:nth-child(n+6) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.17s both; }
+
 .voice-room-avatars {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
+
+.voice-room-avatars > *:nth-child(1) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.02s both; }
+.voice-room-avatars > *:nth-child(2) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.04s both; }
+.voice-room-avatars > *:nth-child(3) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.06s both; }
+.voice-room-avatars > *:nth-child(4) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.08s both; }
+.voice-room-avatars > *:nth-child(n+5) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.1s both; }
 
 .voice-room-avatar {
   width: 28px;
@@ -2525,6 +2654,11 @@ input:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.02em;
+  transition: color 0.2s;
+}
+
+.voice-status-connecting {
+  color: #f0b232;
 }
 
 .voice-status-label.lobby-music-unlocked {
@@ -6333,8 +6467,8 @@ img.custom-emoji {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 6px;
+  padding: 12px 16px 8px;
   border-radius: var(--radius);
 }
 
@@ -6346,8 +6480,8 @@ img.custom-emoji {
 
 .music-vinyl {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: 260px;
+  height: 260px;
   border-radius: 50%;
   background: #111;
   flex-shrink: 0;
@@ -6661,32 +6795,46 @@ img.custom-emoji {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
   width: 100%;
+  position: relative;
 }
 
 .music-control-buttons {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 10px;
 }
 
 .music-control-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(8px);
-  color: #fff;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: color 0.15s, background 0.15s, transform 0.1s;
 }
 
 .music-control-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.music-control-btn-play {
+  width: 42px;
+  height: 42px;
+  background: #fff;
+  color: #000;
+}
+
+.music-control-btn-play:hover {
+  background: #fff;
+  color: #000;
+  transform: scale(1.08);
 }
 
 /* Progress bar */
@@ -6708,16 +6856,17 @@ img.custom-emoji {
 
 .music-progress-bar {
   flex: 1;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 2px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  transition: height 0.1s;
 }
 
 .music-progress-bar:hover {
-  height: 6px;
+  height: 7px;
 }
 
 .music-progress-fill {
@@ -6726,8 +6875,12 @@ img.custom-emoji {
   left: 0;
   height: 100%;
   background: #fff;
-  border-radius: 2px;
+  border-radius: 3px;
   transition: width 0.3s linear;
+}
+
+.music-progress-bar:hover .music-progress-fill {
+  background: #1db954;
 }
 
 /* Volume with mute button */
@@ -6735,15 +6888,16 @@ img.custom-emoji {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
+  transition: color 0.15s;
 }
 
 .music-volume-btn:hover {
@@ -6776,9 +6930,15 @@ img.custom-emoji {
 .music-volume {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  max-width: 120px;
+  gap: 6px;
+  position: absolute;
+  right: 0;
+  max-width: 130px;
+}
+
+.music-volume .volume-slider {
+  width: 80px;
+  accent-color: #fff;
 }
 
 /* Search */
@@ -6829,13 +6989,17 @@ img.custom-emoji {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
-  border-radius: 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
   transition: background 0.1s;
 }
 
 .music-search-item:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.music-search-item:hover .music-search-item-name {
+  color: #fff;
 }
 
 .music-search-item-art {
@@ -6914,8 +7078,9 @@ img.custom-emoji {
 }
 
 .music-queue-empty {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 2px 0;
 }
 
 .music-queue-list {
@@ -7011,38 +7176,40 @@ img.custom-emoji {
   gap: 4px;
   padding: 0 12px;
   margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 3px;
 }
 
 .music-source-tab {
   flex: 1;
-  padding: 6px 0;
+  padding: 7px 0;
   border: none;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.5);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .music-source-tab:hover {
-  background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.7);
 }
 
 .music-source-tab svg {
   flex-shrink: 0;
 }
+
 .music-source-tab.active {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
-}
-.music-source-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Queue source badges */
@@ -10227,4 +10394,196 @@ img.custom-emoji {
 .trim-duration-label.over {
   color: #f04747;
   font-weight: 600;
+}
+
+/* ── Room Features: Lock, Knock, Invite, Quick-Move ── */
+
+.voice-room-locked {
+  border: 1px solid rgba(250, 204, 21, 0.25);
+  background: rgba(250, 204, 21, 0.04);
+}
+
+.voice-room-locked .voice-room-group-label {
+  color: var(--text-secondary);
+}
+
+.room-lock-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
+  margin-right: 4px;
+  color: #facc15;
+}
+
+.room-lock-toggle {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.room-lock-toggle.visible {
+  opacity: 1;
+}
+
+.voice-room-group-header:hover .room-lock-toggle {
+  opacity: 1;
+}
+
+.room-lock-toggle:hover {
+  color: var(--text-primary);
+}
+
+/* Drop target highlight for drag-to-invite */
+.voice-room-drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background: rgba(88, 101, 242, 0.1) !important;
+}
+
+/* Room toasts */
+.room-toasts {
+  position: fixed;
+  bottom: 60px;
+  right: 20px;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 340px;
+}
+
+.room-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-secondary, #2b2d31);
+  border: 1px solid var(--border, #3f4147);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: toast-slide-in 0.25s ease;
+}
+
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.room-toast-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.room-toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.room-toast-title {
+  font-size: 13px;
+  color: var(--text-primary, #dbdee1);
+  line-height: 1.3;
+}
+
+.room-toast-title strong {
+  color: #fff;
+}
+
+.room-toast-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.room-toast-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.room-toast-btn.accept {
+  background: var(--accent, #5865f2);
+  color: #fff;
+}
+
+.room-toast-btn.accept:hover {
+  background: #4752c4;
+}
+
+.room-toast-btn.dismiss {
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 4px;
+}
+
+.room-toast-btn.dismiss:hover {
+  color: var(--text-primary);
+}
+
+/* Voice user context menu (quick-move) */
+.voice-user-context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9100;
+}
+
+.voice-user-context-menu {
+  position: fixed;
+  background: var(--bg-tertiary, #1e1f22);
+  border: 1px solid var(--border, #3f4147);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  min-width: 160px;
+  padding: 4px;
+  z-index: 9101;
+}
+
+.voice-user-context-menu-header {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.voice-user-context-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-primary, #dbdee1);
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.voice-user-context-menu-item:hover {
+  background: var(--accent, #5865f2);
+  color: #fff;
+}
+
+.voice-user-context-menu-empty {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Member draggable cursor */
+.member-item[draggable="true"] {
+  cursor: grab;
+}
+
+.member-item[draggable="true"]:active {
+  cursor: grabbing;
 }

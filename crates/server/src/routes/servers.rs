@@ -10,6 +10,7 @@ use crate::models::{
     AuthUser, Channel, CreateChannelRequest,
     MemberWithUser, Server, ServerWithRole, UpdateChannelRequest, UpdateServerRequest,
     UpdateMemberRoleRequest, ReorderChannelsRequest,
+    AcceptKnockRequest, InviteToRoomRequest, MoveUserRequest,
 };
 use crate::AppState;
 
@@ -263,7 +264,7 @@ pub async fn create_channel(
     let position = max_pos.unwrap_or(-1) + 1;
 
     let _ = sqlx::query(
-        "INSERT INTO channels (id, server_id, name, type, bitrate, parent_id, position, is_room, is_persistent, creator_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
+        "INSERT INTO channels (id, server_id, name, type, bitrate, parent_id, position, is_room, is_persistent, creator_id, is_locked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?)",
     )
     .bind(&channel_id)
     .bind(&server_id)
@@ -289,6 +290,7 @@ pub async fn create_channel(
         is_room,
         is_persistent: 0,
         creator_id,
+        is_locked: 0,
         created_at: now,
     };
 
@@ -348,16 +350,9 @@ pub async fn update_channel(
         }
     };
 
-    // Permission check: rooms allow creator to rename (unless persistent lobby — admin/owner only)
+    // Permission check: rooms allow creator or admin/owner to rename
     let is_admin_or_owner = matches!(role.as_deref(), Some("owner") | Some("admin"));
     if channel.is_room == 1 {
-        if channel.is_persistent == 1 && !is_admin_or_owner {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(serde_json::json!({"error": "Only admins can rename the lobby"})),
-            )
-                .into_response();
-        }
         let is_creator = channel.creator_id.as_deref() == Some(&user.id);
         if !is_admin_or_owner && !is_creator {
             return (
@@ -395,17 +390,23 @@ pub async fn update_channel(
     } else {
         channel.bitrate
     };
+    let new_is_locked = if let Some(locked) = body.is_locked {
+        if locked { 1i64 } else { 0i64 }
+    } else {
+        channel.is_locked
+    };
 
-    let _ = sqlx::query("UPDATE channels SET name = ?, bitrate = ? WHERE id = ?")
+    let _ = sqlx::query("UPDATE channels SET name = ?, bitrate = ?, is_locked = ? WHERE id = ?")
         .bind(new_name)
         .bind(new_bitrate)
+        .bind(new_is_locked)
         .bind(&channel_id)
         .execute(&state.db)
         .await;
 
     let updated = Channel {
         id: channel.id.clone(),
-        server_id: channel.server_id,
+        server_id: channel.server_id.clone(),
         name: new_name.to_string(),
         channel_type: channel.channel_type,
         bitrate: new_bitrate,
@@ -414,6 +415,7 @@ pub async fn update_channel(
         is_room: channel.is_room,
         is_persistent: channel.is_persistent,
         creator_id: channel.creator_id,
+        is_locked: new_is_locked,
         created_at: channel.created_at,
     };
 
@@ -430,6 +432,21 @@ pub async fn update_channel(
             None,
         )
         .await;
+
+    // If lock state changed, broadcast to all
+    if body.is_locked.is_some() && new_is_locked != channel.is_locked {
+        state
+            .gateway
+            .broadcast_all(
+                &crate::ws::events::ServerEvent::RoomLockToggled {
+                    channel_id: channel.id.clone(),
+                    server_id: channel.server_id.clone(),
+                    is_locked: new_is_locked == 1,
+                },
+                None,
+            )
+            .await;
+    }
 
     Json(updated).into_response()
 }
@@ -467,16 +484,19 @@ pub async fn delete_channel(
         None => return StatusCode::NOT_FOUND.into_response(),
     };
 
-    // Can't delete persistent lobby
-    if channel.is_persistent == 1 {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({"error": "Cannot delete persistent lobby"})),
-        )
-            .into_response();
-    }
-
     let is_admin_or_owner = matches!(role.as_deref(), Some("owner") | Some("admin"));
+
+    // Rooms can only be deleted when empty (no voice participants)
+    if channel.is_room == 1 {
+        let participants = state.gateway.voice_channel_participants(&channel_id).await;
+        if !participants.is_empty() {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(serde_json::json!({"error": "Cannot delete a room with active participants"})),
+            )
+                .into_response();
+        }
+    }
 
     if channel.is_room == 1 {
         // Room creator OR admin/owner can delete
@@ -906,6 +926,202 @@ pub async fn reorder_channels(
             .execute(&state.db)
             .await;
     }
+
+    StatusCode::NO_CONTENT.into_response()
+}
+
+/// POST /api/servers/:serverId/rooms/:channelId/accept-knock
+pub async fn accept_knock(
+    State(state): State<Arc<AppState>>,
+    user: AuthUser,
+    Path((server_id, channel_id)): Path<(String, String)>,
+    Json(body): Json<AcceptKnockRequest>,
+) -> impl IntoResponse {
+    // Verify caller is creator or admin/owner
+    let role = sqlx::query_scalar::<_, String>(
+        "SELECT role FROM memberships WHERE user_id = ? AND server_id = ?",
+    )
+    .bind(&user.id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let channel = sqlx::query_as::<_, Channel>(
+        "SELECT * FROM channels WHERE id = ? AND server_id = ?",
+    )
+    .bind(&channel_id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let channel = match channel {
+        Some(c) => c,
+        None => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    let is_admin_or_owner = matches!(role.as_deref(), Some("owner") | Some("admin"));
+    let is_creator = channel.creator_id.as_deref() == Some(&user.id);
+    if !is_admin_or_owner && !is_creator {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+
+    // Send acceptance to the knocking user
+    state
+        .gateway
+        .send_to_user(
+            &body.user_id,
+            &crate::ws::events::ServerEvent::RoomKnockAccepted {
+                channel_id: channel_id.clone(),
+            },
+        )
+        .await;
+
+    StatusCode::NO_CONTENT.into_response()
+}
+
+/// POST /api/servers/:serverId/rooms/:channelId/invite
+pub async fn invite_to_room(
+    State(state): State<Arc<AppState>>,
+    user: AuthUser,
+    Path((server_id, channel_id)): Path<(String, String)>,
+    Json(body): Json<InviteToRoomRequest>,
+) -> impl IntoResponse {
+    // Verify inviter is a server member
+    let inviter_member = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM memberships WHERE user_id = ? AND server_id = ?",
+    )
+    .bind(&user.id)
+    .bind(&server_id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(0);
+
+    if inviter_member == 0 {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error": "Not a member"}))).into_response();
+    }
+
+    // Verify channel is a room in this server
+    let channel = sqlx::query_as::<_, Channel>(
+        "SELECT * FROM channels WHERE id = ? AND server_id = ? AND is_room = 1",
+    )
+    .bind(&channel_id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let channel = match channel {
+        Some(c) => c,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Room not found"}))).into_response(),
+    };
+
+    // Verify target user is a server member
+    let target_member = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM memberships WHERE user_id = ? AND server_id = ?",
+    )
+    .bind(&body.user_id)
+    .bind(&server_id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(0);
+
+    if target_member == 0 {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Target user is not a server member"}))).into_response();
+    }
+
+    // Send invite to target user
+    state
+        .gateway
+        .send_to_user(
+            &body.user_id,
+            &crate::ws::events::ServerEvent::RoomInvite {
+                channel_id: channel_id.clone(),
+                channel_name: channel.name.clone(),
+                inviter_id: user.id.clone(),
+                inviter_username: user.username.clone(),
+                server_id: server_id.clone(),
+            },
+        )
+        .await;
+
+    StatusCode::NO_CONTENT.into_response()
+}
+
+/// POST /api/servers/:serverId/rooms/:channelId/move
+pub async fn move_user(
+    State(state): State<Arc<AppState>>,
+    user: AuthUser,
+    Path((server_id, channel_id)): Path<(String, String)>,
+    Json(body): Json<MoveUserRequest>,
+) -> impl IntoResponse {
+    // Verify caller is admin/owner
+    let role = sqlx::query_scalar::<_, String>(
+        "SELECT role FROM memberships WHERE user_id = ? AND server_id = ?",
+    )
+    .bind(&user.id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    if !matches!(role.as_deref(), Some("owner") | Some("admin")) {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({"error": "Insufficient permissions"}))).into_response();
+    }
+
+    // Verify both channels are voice channels in this server
+    let source = sqlx::query_as::<_, Channel>(
+        "SELECT * FROM channels WHERE id = ? AND server_id = ?",
+    )
+    .bind(&channel_id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    if source.is_none() {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Source channel not found"}))).into_response();
+    }
+
+    let target = sqlx::query_as::<_, Channel>(
+        "SELECT * FROM channels WHERE id = ? AND server_id = ?",
+    )
+    .bind(&body.target_channel_id)
+    .bind(&server_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let target = match target {
+        Some(t) => t,
+        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "Target channel not found"}))).into_response(),
+    };
+
+    // Verify target user is in the source channel
+    let participants = state.gateway.voice_channel_participants(&channel_id).await;
+    let user_in_channel = participants.iter().any(|p| p.user_id == body.user_id);
+    if !user_in_channel {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "User is not in the source channel"}))).into_response();
+    }
+
+    // Send force move to target user
+    state
+        .gateway
+        .send_to_user(
+            &body.user_id,
+            &crate::ws::events::ServerEvent::RoomForceMove {
+                target_channel_id: body.target_channel_id.clone(),
+                target_channel_name: target.name.clone(),
+            },
+        )
+        .await;
 
     StatusCode::NO_CONTENT.into_response()
 }

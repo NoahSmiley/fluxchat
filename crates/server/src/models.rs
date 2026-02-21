@@ -51,6 +51,7 @@ pub struct Channel {
     pub is_room: i64,
     pub is_persistent: i64,
     pub creator_id: Option<String>,
+    pub is_locked: i64,
     pub created_at: String,
 }
 
@@ -148,9 +149,30 @@ pub struct CreateChannelRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateChannelRequest {
     pub name: Option<String>,
     pub bitrate: Option<i64>,
+    pub is_locked: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AcceptKnockRequest {
+    pub user_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InviteToRoomRequest {
+    pub user_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveUserRequest {
+    pub user_id: String,
+    pub target_channel_id: String,
 }
 
 #[derive(Debug, Deserialize)]
