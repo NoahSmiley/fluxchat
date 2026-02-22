@@ -402,6 +402,12 @@ impl GatewayState {
             if !participants.is_empty() {
                 return;
             }
+            // Second check after a short delay to handle reconnect races
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            let participants = gw.voice_channel_participants(&cid).await;
+            if !participants.is_empty() {
+                return;
+            }
             // Check room still exists and is a non-persistent room
             let room_info = sqlx::query_as::<_, (i64, i64, String)>(
                 "SELECT is_room, is_persistent, server_id FROM channels WHERE id = ?",
@@ -413,6 +419,7 @@ impl GatewayState {
             .flatten();
 
             if let Some((1, 0, ref server_id)) = room_info {
+                tracing::info!("Cleaning up empty temporary room {}", cid);
                 sqlx::query("DELETE FROM channels WHERE id = ?")
                     .bind(&cid)
                     .execute(&db)

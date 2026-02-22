@@ -975,8 +975,16 @@ export function ChannelSidebar() {
                               e.stopPropagation();
                               e.preventDefault();
                               if (!activeServerId) return;
-                              const newLocked = !vc.isLocked;
-                              console.log(`[lock] toggling room ${vc.id} lock: ${vc.isLocked} → ${newLocked}`);
+                              // Read current state from store to avoid stale closure
+                              const current = useChatStore.getState().channels.find((c) => c.id === vc.id);
+                              if (!current) return;
+                              // Debounce: skip if toggled within last 1s
+                              const now = Date.now();
+                              const key = `_lockTs_${vc.id}`;
+                              if ((window as any)[key] && now - (window as any)[key] < 1000) return;
+                              (window as any)[key] = now;
+                              const newLocked = !current.isLocked;
+                              console.log(`[lock] toggling room ${vc.id} lock: ${current.isLocked} → ${newLocked}`);
                               useChatStore.setState((s) => ({
                                 channels: s.channels.map((c) =>
                                   c.id === vc.id ? { ...c, isLocked: newLocked } : c,
@@ -1159,7 +1167,7 @@ export function ChannelSidebar() {
                 className="voice-user-context-menu-item"
                 onClick={() => {
                   if (activeServerId) {
-                    api.moveUserToRoom(activeServerId, contextMenu.channelId, contextMenu.userId, r.id).catch(() => {});
+                    api.moveUserToRoom(activeServerId, contextMenu.channelId, contextMenu.userId, r.id).catch((err) => console.error("[move-user] failed:", err));
                   }
                   setContextMenu(null);
                 }}

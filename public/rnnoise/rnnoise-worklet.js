@@ -3,6 +3,10 @@
  *
  * Loads the RNNoise WASM binary and processes 480-sample frames (10ms at 48kHz).
  * RNNoise expects 16-bit PCM values (range -32768 to 32767) as Float32.
+ *
+ * Uses a ring buffer for output to handle the frame/chunk size mismatch
+ * (480-sample frames vs 128-sample WebAudio render quanta). One frame of
+ * silence is pre-filled to prevent underruns, adding 10ms of latency.
  */
 class RnnoiseProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -15,12 +19,15 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
     this._heapF32 = null;
     this._module = null;
     this._frameSize = 480;
-    // Buffer for accumulating samples (WebAudio gives 128-sample chunks)
+    // Buffer for accumulating input samples (WebAudio gives 128-sample chunks)
     this._buffer = new Float32Array(480);
     this._bufferOffset = 0;
-    this._outputBuffer = new Float32Array(480);
-    this._outputOffset = 0;
-    this._outputReady = false;
+    // Ring buffer for output (2 frames capacity to prevent underruns)
+    this._ringSize = 960;
+    this._ringBuffer = new Float32Array(960);
+    this._ringRead = 0;
+    this._ringWrite = 0;
+    this._ringCount = 0;
     // VAD threshold: 0-1 (0 = no gating, 1 = maximum gating)
     this._vadThreshold = 0;
     this._lastVadProb = 0;
@@ -74,7 +81,13 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
 
       this._heapF32 = new Float32Array(this._module.memory.buffer);
       this._buffer = new Float32Array(this._frameSize);
-      this._outputBuffer = new Float32Array(this._frameSize);
+
+      // Set up ring buffer: 2 frames capacity
+      this._ringSize = this._frameSize * 2;
+      this._ringBuffer = new Float32Array(this._ringSize);
+      this._ringRead = 0;
+      this._ringWrite = this._frameSize; // pre-fill one frame of silence
+      this._ringCount = this._frameSize;
 
       this._ready = true;
       this.port.postMessage("ready");
@@ -99,28 +112,26 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
 
     const chunkSize = input.length; // typically 128
 
-    // Copy input samples into accumulation buffer
+    // Accumulate input samples into frame buffer
     for (let i = 0; i < chunkSize; i++) {
       this._buffer[this._bufferOffset++] = input[i];
 
       if (this._bufferOffset >= this._frameSize) {
-        // Process a full frame
+        // Process a full frame and push to ring buffer
         this._processFrame();
         this._bufferOffset = 0;
       }
     }
 
-    // Output from the processed buffer
-    if (this._outputReady) {
-      for (let i = 0; i < chunkSize; i++) {
-        output[i] = this._outputBuffer[this._outputOffset++];
-        if (this._outputOffset >= this._frameSize) {
-          this._outputOffset = 0;
-        }
+    // Read output from ring buffer
+    for (let i = 0; i < chunkSize; i++) {
+      if (this._ringCount > 0) {
+        output[i] = this._ringBuffer[this._ringRead];
+        this._ringRead = (this._ringRead + 1) % this._ringSize;
+        this._ringCount--;
+      } else {
+        output[i] = 0; // underrun — output silence
       }
-    } else {
-      // No output ready yet, pass silence
-      output.fill(0);
     }
 
     return true;
@@ -147,21 +158,17 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
     );
     this._lastVadProb = vadProb;
 
-    // Convert back from 16-bit PCM range to float (-1 to 1)
+    // Convert back from 16-bit PCM range to float (-1 to 1) and push to ring buffer
     const outputOffset = this._outputPtr / 4;
+    const applyVadGate = this._vadThreshold > 0 && vadProb < this._vadThreshold;
 
-    // If VAD probability is below threshold, output silence instead of denoised audio
-    if (this._vadThreshold > 0 && vadProb < this._vadThreshold) {
-      for (let i = 0; i < this._frameSize; i++) {
-        this._outputBuffer[i] = 0;
-      }
-    } else {
-      for (let i = 0; i < this._frameSize; i++) {
-        this._outputBuffer[i] = this._heapF32[outputOffset + i] / 32768.0;
-      }
+    for (let i = 0; i < this._frameSize; i++) {
+      this._ringBuffer[this._ringWrite] = applyVadGate
+        ? 0
+        : this._heapF32[outputOffset + i] / 32768.0;
+      this._ringWrite = (this._ringWrite + 1) % this._ringSize;
     }
-    this._outputOffset = 0;
-    this._outputReady = true;
+    this._ringCount += this._frameSize;
   }
 }
 
