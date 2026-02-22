@@ -798,16 +798,20 @@ input:focus {
   padding: 8px;
   border-top: 1px solid var(--border);
   flex-shrink: 1;
-  min-height: 0;
+  min-height: 56px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .create-room-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   width: 100%;
-  margin-top: 6px;
+  margin-top: 0;
   padding: 6px 10px;
   border: none;
   border-radius: 6px;
