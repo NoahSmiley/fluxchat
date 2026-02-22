@@ -8,7 +8,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useNotifStore, type ChannelNotifSetting, type CategoryNotifSetting } from "../stores/notifications.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
 import { UserCard } from "./MemberList.js";
-import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, Radio, Lock } from "lucide-react";
+import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, Radio, Lock, LockOpen } from "lucide-react";
 import { gateway } from "../lib/ws.js";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal, DeleteConfirmDialog } from "./ChannelSettingsModal.js";
@@ -474,6 +474,12 @@ function AnimatedList<T extends { key: string }>({
       }, duration);
       timersRef.current.set(key, timer);
     }
+  } else {
+    // Keys unchanged — update item data in-place (e.g. isLocked, participant count)
+    const currentMap = new Map(items.map((i) => [i.key, i]));
+    renderedRef.current = renderedRef.current.map((prev) =>
+      currentMap.has(prev.key) ? { ...currentMap.get(prev.key)!, _exiting: prev._exiting } : prev,
+    );
   }
 
   return <>{renderedRef.current.map((item) => {
@@ -502,6 +508,8 @@ export function ChannelSidebar() {
   const [dropTargetCategoryId, setDropTargetCategoryId] = useState<string | null>(null);
   const [dragHighlightRoom, setDragHighlightRoom] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; userId: string; username: string; channelId: string } | null>(null);
+  const [roomCtxMenu, setRoomCtxMenu] = useState<{ x: number; y: number; room: Channel } | null>(null);
+  const [renamingRoomId, setRenamingRoomId] = useState<string | null>(null);
   const { user } = useAuthStore();
   const dwellRef = useRef<{ catId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   const dropIntoCategoryRef = useRef<string | null>(null);
@@ -860,7 +868,7 @@ export function ChannelSidebar() {
             const allParticipants = (showDummyUsers && isFirstRoom) ? [...DUMMY_VOICE_USERS, ...real] : real;
             return { channel: c, participants: allParticipants };
           })
-          .filter((r) => r.participants.length > 0 || r.channel.isRoom);
+          .filter((r) => r.participants.length > 0 || connectedChannelId === r.channel.id);
         const totalVoiceUsers = voiceWithUsers.reduce((sum, r) => sum + r.participants.length, 0);
 
         const screenSharerIds = new Set(screenSharers.map((s) => s.participantId));
@@ -874,11 +882,12 @@ export function ChannelSidebar() {
                   renderItem={({ channel: vc, participants }, state) => {
                   const isRoomCollapsed = collapsedRooms.has(vc.id);
                   const isCurrent = connectedChannelId === vc.id;
+                  const isLocked = !!vc.isLocked;
                   const wrapperClass = state === "exiting" ? "voice-room-exit" : state === "entering" ? "voice-room-enter" : "";
                   return (
                   <div key={vc.id} className={`voice-room-group-wrapper ${wrapperClass}`}>
                   <div
-                    className={`voice-room-group ${isCurrent ? "voice-room-current" : ""}${dragHighlightRoom === vc.id ? " voice-room-drop-target" : ""}${vc.isLocked ? " voice-room-locked" : ""}`}
+                    className={`voice-room-group ${isCurrent ? "voice-room-current" : ""}${dragHighlightRoom === vc.id ? " voice-room-drop-target" : ""}${isLocked ? " voice-room-locked" : ""}`}
                     onClick={() => {
                       // If locked and not creator/admin, knock instead of joining
                       if (vc.isLocked && vc.creatorId !== user?.id && !isOwnerOrAdmin) {
@@ -887,6 +896,11 @@ export function ChannelSidebar() {
                       }
                       selectChannel(vc.id);
                       useVoiceStore.getState().joinVoiceChannel(vc.id);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setRoomCtxMenu({ x: e.clientX, y: e.clientY, room: vc });
                     }}
                     onDragOver={(e) => {
                       if (e.dataTransfer.types.includes("application/flux-member")) {
@@ -918,8 +932,40 @@ export function ChannelSidebar() {
                         <ChevronRight size={10} className={`voice-room-chevron ${isRoomCollapsed ? "" : "voice-room-chevron-open"}`} />
                       </button>
                       <div className={`voice-room-group-label ${!isCurrent ? "voice-room-group-label-joinable" : ""}`}>
-                        {!!vc.isLocked && <Lock size={12} className="room-lock-icon" />}
-                        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{vc.name}</span>
+                        {renamingRoomId === vc.id ? (
+                          <input
+                            className="room-rename-input"
+                            autoFocus
+                            defaultValue={vc.name}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                const val = (e.target as HTMLInputElement).value.trim();
+                                if (val && val !== vc.name && activeServerId) {
+                                  api.updateChannel(activeServerId, vc.id, { name: val });
+                                  useChatStore.setState((s) => ({
+                                    channels: s.channels.map((c) => c.id === vc.id ? { ...c, name: val } : c),
+                                  }));
+                                }
+                                setRenamingRoomId(null);
+                              } else if (e.key === "Escape") {
+                                setRenamingRoomId(null);
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const val = e.target.value.trim();
+                              if (val && val !== vc.name && activeServerId) {
+                                api.updateChannel(activeServerId, vc.id, { name: val });
+                                useChatStore.setState((s) => ({
+                                  channels: s.channels.map((c) => c.id === vc.id ? { ...c, name: val } : c),
+                                }));
+                              }
+                              setRenamingRoomId(null);
+                            }}
+                          />
+                        ) : (
+                          <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{vc.name}</span>
+                        )}
                         <span className="voice-room-group-count">{participants.length}</span>
                         {(vc.creatorId === user?.id || isOwnerOrAdmin) && (
                           <button
@@ -930,21 +976,25 @@ export function ChannelSidebar() {
                               e.preventDefault();
                               if (!activeServerId) return;
                               const newLocked = !vc.isLocked;
+                              console.log(`[lock] toggling room ${vc.id} lock: ${vc.isLocked} → ${newLocked}`);
                               useChatStore.setState((s) => ({
                                 channels: s.channels.map((c) =>
                                   c.id === vc.id ? { ...c, isLocked: newLocked } : c,
                                 ),
                               }));
-                              api.updateChannel(activeServerId, vc.id, { isLocked: newLocked }).catch(() => {
-                                useChatStore.setState((s) => ({
-                                  channels: s.channels.map((c) =>
-                                    c.id === vc.id ? { ...c, isLocked: !newLocked } : c,
-                                  ),
-                                }));
-                              });
+                              api.updateChannel(activeServerId, vc.id, { isLocked: newLocked })
+                                .then((res) => console.log("[lock] API success:", res))
+                                .catch((err) => {
+                                  console.error("[lock] API failed:", err);
+                                  useChatStore.setState((s) => ({
+                                    channels: s.channels.map((c) =>
+                                      c.id === vc.id ? { ...c, isLocked: !newLocked } : c,
+                                    ),
+                                  }));
+                                });
                             }}
                           >
-                            <Lock size={10} style={vc.isLocked ? undefined : { opacity: 0.3 }} />
+                            {vc.isLocked ? <Lock size={10} /> : <LockOpen size={10} />}
                           </button>
                         )}
                       </div>
@@ -1048,11 +1098,16 @@ export function ChannelSidebar() {
                 />
             </div>
 
-            <button
+            {!(connectedChannelId && (channelParticipants[connectedChannelId]?.length ?? 0) <= 1) && <button
               className="create-room-btn"
               onClick={async () => {
                 if (!activeServerId) return;
-                const name = `Room ${rooms.length + 1}`;
+                // Only count rooms with active participants (empty rooms from previous sessions don't matter)
+                const cp = useVoiceStore.getState().channelParticipants;
+                const activeRoomNames = new Set(rooms.filter((r) => (cp[r.id]?.length ?? 0) > 0 || connectedChannelId === r.id).map((r) => r.name));
+                let n = 1;
+                while (activeRoomNames.has(`Room ${n}`)) n++;
+                const name = `Room ${n}`;
                 try {
                   const newRoom = await api.createRoom(activeServerId, name);
                   selectChannel(newRoom.id);
@@ -1064,7 +1119,7 @@ export function ChannelSidebar() {
             >
               <Plus size={14} />
               <span>Create Room</span>
-            </button>
+            </button>}
           </div>
         );
       })()}
@@ -1217,6 +1272,54 @@ export function ChannelSidebar() {
           ]}
         />
       )}
+
+      {roomCtxMenu && (() => {
+        const room = roomCtxMenu.room;
+        const canManage = room.creatorId === user?.id || isOwnerOrAdmin;
+        const items: import("./ContextMenu.js").ContextMenuEntry[] = [
+          ...(canManage ? [
+            { label: "Rename room", onClick: () => { setRenamingRoomId(room.id); setRoomCtxMenu(null); } },
+            { label: room.isLocked ? "Unlock room" : "Lock room", onClick: () => {
+              if (!activeServerId) return;
+              const newLocked = !room.isLocked;
+              useChatStore.setState((s) => ({ channels: s.channels.map((c) => c.id === room.id ? { ...c, isLocked: newLocked } : c) }));
+              api.updateChannel(activeServerId, room.id, { isLocked: newLocked }).catch(() => {
+                useChatStore.setState((s) => ({ channels: s.channels.map((c) => c.id === room.id ? { ...c, isLocked: !newLocked } : c) }));
+              });
+              setRoomCtxMenu(null);
+            }},
+            { type: "separator" as const },
+            { label: "Delete room", danger: true, onClick: async () => {
+              setRoomCtxMenu(null);
+              if (!activeServerId) return;
+              try {
+                // Leave the room first if we're in it (server blocks deleting rooms with participants)
+                if (connectedChannelId === room.id) {
+                  useVoiceStore.getState().leaveVoiceChannel();
+                  // Small delay for the leave to propagate to server
+                  await new Promise((r) => setTimeout(r, 300));
+                }
+                await api.deleteChannel(activeServerId, room.id);
+                const { channels, activeChannelId, selectChannel } = useChatStore.getState();
+                const remaining = channels.filter((c) => c.id !== room.id);
+                useChatStore.setState({ channels: remaining });
+                if (activeChannelId === room.id && remaining.length > 0) selectChannel(remaining[0].id);
+              } catch (err) {
+                console.error("Failed to delete room:", err);
+              }
+            }},
+          ] : []),
+        ];
+        if (items.length === 0) return null;
+        return (
+          <ContextMenu
+            x={roomCtxMenu.x}
+            y={roomCtxMenu.y}
+            onClose={() => setRoomCtxMenu(null)}
+            items={items}
+          />
+        );
+      })()}
 
       {deletingChannel && activeServerId && createPortal(
         <DeleteConfirmDialog

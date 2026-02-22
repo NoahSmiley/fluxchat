@@ -1296,11 +1296,12 @@ gateway.on((event) => {
     }
 
     case "room_created": {
-      // Add room to channels if it belongs to the active server
+      // Add room to channels if it belongs to the active server (deduplicate)
       if (event.channel.serverId === state.activeServerId) {
-        useChatStore.setState((s) => ({
-          channels: [...s.channels, event.channel],
-        }));
+        useChatStore.setState((s) => {
+          if (s.channels.some((c) => c.id === event.channel.id)) return s;
+          return { channels: [...s.channels, event.channel] };
+        });
       }
       break;
     }

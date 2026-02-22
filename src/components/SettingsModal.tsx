@@ -191,7 +191,7 @@ const APP_BORDER_STYLES: { value: AppBorderStyle; label: string }[] = [
 
 export function SettingsModal() {
   const { settingsOpen, closeSettings, sidebarPosition, setSidebarPosition, appBorderStyle, setAppBorderStyle, showDummyUsers, toggleDummyUsers, highlightOwnMessages, setHighlightOwnMessages } = useUIStore();
-  const { audioSettings, updateAudioSetting } = useVoiceStore();
+  const { audioSettings, updateAudioSetting, lobbyMusicVolume, setLobbyMusicVolume } = useVoiceStore();
   const { servers, activeServerId, updateServer } = useChatStore();
   const { user, updateProfile, logout } = useAuthStore();
   const { keybinds } = useKeybindsStore();
@@ -559,22 +559,100 @@ export function SettingsModal() {
 
         {activeTab === "voice" && (
           <>
+            {/* Card 1: AI Noise Suppression */}
+            <div className="settings-card">
+              <h3 className="settings-card-title">AI Noise Suppression</h3>
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">Model</span>
+                  <span className="settings-row-desc">Select an AI model for noise cancellation</span>
+                </div>
+                <select
+                  className="settings-select"
+                  value={audioSettings.noiseSuppressionModel}
+                  onChange={(e) => updateAudioSetting("noiseSuppressionModel", e.target.value)}
+                >
+                  <option value="off">Off</option>
+                  <option value="speex">Speex (DSP)</option>
+                  <option value="rnnoise">RNNoise (lightweight)</option>
+                  <option value="dtln">DTLN (balanced)</option>
+                  <option value="deepfilter">DeepFilterNet3 (high quality)</option>
+                  <option value="nsnet2">FluxAI (advanced)</option>
+                </select>
+              </div>
+              {audioSettings.noiseSuppressionModel !== "off" && (
+                <div className="settings-model-info">
+                  {audioSettings.noiseSuppressionModel === "speex" && "DSP-based, ultra-lightweight (~50KB). Minimal CPU usage and near-zero latency. Basic noise reduction."}
+                  {audioSettings.noiseSuppressionModel === "rnnoise" && "Recurrent neural network. Low CPU, <10ms latency. Good general-purpose suppression at 48kHz."}
+                  {audioSettings.noiseSuppressionModel === "dtln" && "Dual-signal transformer. Moderate CPU, balanced quality. Processes at 16kHz with auto-resampling."}
+                  {audioSettings.noiseSuppressionModel === "deepfilter" && "DeepFilterNet3 — deep neural network. Higher CPU, best quality. Full-band 48kHz processing. WASM+model fetched on first use (~1MB)."}
+                  {audioSettings.noiseSuppressionModel === "nsnet2" && "FluxAI — custom GRU neural network with ONNX Runtime. 16kHz processing, ~20ms latency. Advanced noise suppression."}
+                </div>
+              )}
+              {audioSettings.noiseSuppressionModel !== "off" && (
+                <div className="settings-slider-row">
+                  <div className="settings-slider-header">
+                    <span>Suppression Strength</span>
+                    <span className="settings-slider-value">{audioSettings.suppressionStrength}%</span>
+                  </div>
+                  <input type="range" min="0" max="100" step="1" value={audioSettings.suppressionStrength} onChange={(e) => updateAudioSetting("suppressionStrength", parseInt(e.target.value))} className="settings-slider" />
+                </div>
+              )}
+              {audioSettings.noiseSuppressionModel === "rnnoise" && (
+                <div className="settings-slider-row">
+                  <div className="settings-slider-header">
+                    <span>VAD Threshold</span>
+                    <span className="settings-slider-value">{audioSettings.vadThreshold}%</span>
+                  </div>
+                  <input type="range" min="0" max="100" step="1" value={audioSettings.vadThreshold} onChange={(e) => updateAudioSetting("vadThreshold", parseInt(e.target.value))} className="settings-slider" />
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: Microphone */}
+            <div className="settings-card">
+              <h3 className="settings-card-title">Microphone</h3>
+              <div className="settings-slider-row">
+                <div className="settings-slider-header">
+                  <span>Mic Input Gain</span>
+                  <span className="settings-slider-value">{audioSettings.micInputGain}%</span>
+                </div>
+                <input type="range" min="0" max="200" step="1" value={audioSettings.micInputGain} onChange={(e) => updateAudioSetting("micInputGain", parseInt(e.target.value))} className="settings-slider" />
+              </div>
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">Noise Gate</span>
+                  <span className="settings-row-desc">Gate your mic based on input volume</span>
+                </div>
+                <ToggleSwitch checked={audioSettings.inputSensitivityEnabled} onChange={(v) => updateAudioSetting("inputSensitivityEnabled", v)} />
+              </div>
+              {audioSettings.inputSensitivityEnabled && (
+                <>
+                  <div className="settings-slider-row">
+                    <div className="settings-slider-header">
+                      <span>Threshold</span>
+                      <span className="settings-slider-value">{audioSettings.inputSensitivity}%</span>
+                    </div>
+                    <div className="sensitivity-meter-bar">
+                      <div className="sensitivity-meter-fill" style={{ width: `${Math.min(micLevel * 700, 100)}%` }} />
+                      <div className="sensitivity-meter-threshold" style={{ left: `${audioSettings.inputSensitivity}%` }} />
+                    </div>
+                    <input type="range" min="0" max="100" step="1" value={audioSettings.inputSensitivity} onChange={(e) => updateAudioSetting("inputSensitivity", parseInt(e.target.value))} className="settings-slider" />
+                  </div>
+                  <div className="settings-slider-row">
+                    <div className="settings-slider-header">
+                      <span>Hold Time</span>
+                      <span className="settings-slider-value">{audioSettings.noiseGateHoldTime}ms</span>
+                    </div>
+                    <input type="range" min="50" max="1000" step="10" value={audioSettings.noiseGateHoldTime} onChange={(e) => updateAudioSetting("noiseGateHoldTime", parseInt(e.target.value))} className="settings-slider" />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Card 3: Processing */}
             <div className="settings-card">
               <h3 className="settings-card-title">Processing</h3>
-              <div className="settings-row">
-                <div className="settings-row-info">
-                  <span className="settings-row-label">Noise Cancellation</span>
-                  <span className="settings-row-desc">AI-powered noise cancellation</span>
-                </div>
-                <ToggleSwitch checked={audioSettings.krispEnabled} onChange={(v) => updateAudioSetting("krispEnabled", v)} />
-              </div>
-              <div className="settings-row">
-                <div className="settings-row-info">
-                  <span className="settings-row-label">Noise Suppression</span>
-                  <span className="settings-row-desc">Browser-native noise reduction</span>
-                </div>
-                <ToggleSwitch checked={audioSettings.noiseSuppression} onChange={(v) => updateAudioSetting("noiseSuppression", v)} />
-              </div>
               <div className="settings-row">
                 <div className="settings-row-info">
                   <span className="settings-row-label">Echo Cancellation</span>
@@ -591,37 +669,60 @@ export function SettingsModal() {
               </div>
               <div className="settings-row">
                 <div className="settings-row-info">
-                  <span className="settings-row-label">Silence Detection</span>
-                  <span className="settings-row-desc">Reduces bandwidth when not speaking (DTX)</span>
+                  <span className="settings-row-label">Browser Noise Suppression</span>
+                  <span className="settings-row-desc">Browser-native noise reduction</span>
+                </div>
+                <ToggleSwitch checked={audioSettings.noiseSuppression} onChange={(v) => updateAudioSetting("noiseSuppression", v)} />
+              </div>
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">Silence Detection (DTX)</span>
+                  <span className="settings-row-desc">Reduces bandwidth when not speaking</span>
                 </div>
                 <ToggleSwitch checked={audioSettings.dtx} onChange={(v) => updateAudioSetting("dtx", v)} />
               </div>
-            </div>
-
-            <div className="settings-card">
-              <h3 className="settings-card-title">Input Sensitivity</h3>
               <div className="settings-row">
                 <div className="settings-row-info">
-                  <span className="settings-row-label">Manual Threshold</span>
-                  <span className="settings-row-desc">Gate your mic based on input volume</span>
+                  <span className="settings-row-label">Compressor</span>
+                  <span className="settings-row-desc">Dynamics compression on playback audio</span>
                 </div>
-                <ToggleSwitch checked={audioSettings.inputSensitivityEnabled} onChange={(v) => updateAudioSetting("inputSensitivityEnabled", v)} />
+                <ToggleSwitch checked={audioSettings.compressorEnabled} onChange={(v) => updateAudioSetting("compressorEnabled", v)} />
               </div>
-              {audioSettings.inputSensitivityEnabled && (
-                <div className="settings-slider-row">
-                  <div className="settings-slider-header">
-                    <span>Threshold</span>
-                    <span className="settings-slider-value">{audioSettings.inputSensitivity}%</span>
+              {audioSettings.compressorEnabled && (
+                <>
+                  <div className="settings-slider-row">
+                    <div className="settings-slider-header">
+                      <span>Threshold</span>
+                      <span className="settings-slider-value">{audioSettings.compressorThreshold} dB</span>
+                    </div>
+                    <input type="range" min="-50" max="0" step="1" value={audioSettings.compressorThreshold} onChange={(e) => updateAudioSetting("compressorThreshold", parseInt(e.target.value))} className="settings-slider" />
                   </div>
-                  <div className="sensitivity-meter-bar">
-                    <div className="sensitivity-meter-fill" style={{ width: `${Math.min(micLevel * 700, 100)}%` }} />
-                    <div className="sensitivity-meter-threshold" style={{ left: `${audioSettings.inputSensitivity}%` }} />
+                  <div className="settings-slider-row">
+                    <div className="settings-slider-header">
+                      <span>Ratio</span>
+                      <span className="settings-slider-value">{audioSettings.compressorRatio}:1</span>
+                    </div>
+                    <input type="range" min="1" max="20" step="1" value={audioSettings.compressorRatio} onChange={(e) => updateAudioSetting("compressorRatio", parseInt(e.target.value))} className="settings-slider" />
                   </div>
-                  <input type="range" min="0" max="100" step="1" value={audioSettings.inputSensitivity} onChange={(e) => updateAudioSetting("inputSensitivity", parseInt(e.target.value))} className="settings-slider" />
-                </div>
+                  <div className="settings-slider-row">
+                    <div className="settings-slider-header">
+                      <span>Attack</span>
+                      <span className="settings-slider-value">{audioSettings.compressorAttack}s</span>
+                    </div>
+                    <input type="range" min="0" max="1" step="0.001" value={audioSettings.compressorAttack} onChange={(e) => updateAudioSetting("compressorAttack", parseFloat(e.target.value))} className="settings-slider" />
+                  </div>
+                  <div className="settings-slider-row">
+                    <div className="settings-slider-header">
+                      <span>Release</span>
+                      <span className="settings-slider-value">{audioSettings.compressorRelease}s</span>
+                    </div>
+                    <input type="range" min="0" max="1" step="0.01" value={audioSettings.compressorRelease} onChange={(e) => updateAudioSetting("compressorRelease", parseFloat(e.target.value))} className="settings-slider" />
+                  </div>
+                </>
               )}
             </div>
 
+            {/* Card 4: Audio Filters */}
             <div className="settings-card">
               <h3 className="settings-card-title">Audio Filters</h3>
               <div className="settings-slider-row">
@@ -638,8 +739,25 @@ export function SettingsModal() {
                 </div>
                 <input type="range" min="0" max="20000" step="100" value={audioSettings.lowPassFrequency} onChange={(e) => updateAudioSetting("lowPassFrequency", parseInt(e.target.value))} className="settings-slider" />
               </div>
+              <div className="settings-row">
+                <div className="settings-row-info">
+                  <span className="settings-row-label">De-esser</span>
+                  <span className="settings-row-desc">Reduce sibilance (harsh S/T sounds) on playback</span>
+                </div>
+                <ToggleSwitch checked={audioSettings.deEsserEnabled} onChange={(v) => updateAudioSetting("deEsserEnabled", v)} />
+              </div>
+              {audioSettings.deEsserEnabled && (
+                <div className="settings-slider-row">
+                  <div className="settings-slider-header">
+                    <span>De-esser Strength</span>
+                    <span className="settings-slider-value">{audioSettings.deEsserStrength}%</span>
+                  </div>
+                  <input type="range" min="0" max="100" step="1" value={audioSettings.deEsserStrength} onChange={(e) => updateAudioSetting("deEsserStrength", parseInt(e.target.value))} className="settings-slider" />
+                </div>
+              )}
             </div>
 
+            {/* Card 5: Lobby Music */}
             <div className="settings-card">
               <h3 className="settings-card-title">Lobby Music</h3>
               <div className="settings-row">
@@ -654,6 +772,13 @@ export function SettingsModal() {
                     setLobbyMusicEnabled(v);
                   }}
                 />
+              </div>
+              <div className="settings-slider-row">
+                <div className="settings-slider-header">
+                  <span>Volume</span>
+                  <span className="settings-slider-value">{Math.round(lobbyMusicVolume * 100)}%</span>
+                </div>
+                <input type="range" min="0" max="100" step="1" value={Math.round(lobbyMusicVolume * 100)} onChange={(e) => setLobbyMusicVolume(parseInt(e.target.value) / 100)} className="settings-slider" />
               </div>
             </div>
           </>

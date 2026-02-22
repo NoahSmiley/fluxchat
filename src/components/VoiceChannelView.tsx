@@ -10,8 +10,9 @@ import { SoundboardPanel } from "./SoundboardPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
-  Music, Square, Eye, Radio, Plus,
+  Music, Square, Eye, Radio, Plus, Activity,
 } from "lucide-react";
+import { StatsOverlay } from "./StatsOverlay.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import { useUIStore } from "../stores/ui.js";
 
@@ -253,21 +254,17 @@ function RoomSwitcherBar() {
   const [creating, setCreating] = useState(false);
 
   const rooms = useMemo(() => channels.filter((c) => c.isRoom), [channels]);
-  const persistentRoom = useMemo(() => rooms.find((r) => r.isPersistent), [rooms]);
-  const temporaryRooms = useMemo(() => rooms.filter((r) => !r.isPersistent), [rooms]);
-
-  const allRooms = useMemo(() => {
-    const result = [];
-    if (persistentRoom) result.push(persistentRoom);
-    result.push(...temporaryRooms);
-    return result;
-  }, [persistentRoom, temporaryRooms]);
 
   async function handleCreateRoom() {
     if (!activeServerId || creating) return;
     setCreating(true);
     try {
-      const name = `Room ${temporaryRooms.length + 1}`;
+      // Only count rooms with active participants (empty stale rooms don't matter)
+      const cp = useVoiceStore.getState().channelParticipants;
+      const activeRoomNames = new Set(rooms.filter((r) => (cp[r.id]?.length ?? 0) > 0 || connectedChannelId === r.id).map((r) => r.name));
+      let n = 1;
+      while (activeRoomNames.has(`Room ${n}`)) n++;
+      const name = `Room ${n}`;
       const newRoom = await api.createRoom(activeServerId, name);
       useChatStore.getState().selectChannel(newRoom.id);
       joinVoiceChannel(newRoom.id);
@@ -282,29 +279,28 @@ function RoomSwitcherBar() {
     if (!activeServerId) return;
     try {
       await api.deleteChannel(activeServerId, roomId);
+      // Optimistically remove from store (don't wait for WebSocket room_deleted event)
+      const { channels, activeChannelId, selectChannel } = useChatStore.getState();
+      const remaining = channels.filter((c) => c.id !== roomId);
+      useChatStore.setState({ channels: remaining });
+      if (activeChannelId === roomId && remaining.length > 0) selectChannel(remaining[0].id);
     } catch (err) {
       console.error("Failed to close room:", err);
     }
   }
 
-  // Only show if there are breakout rooms (no bar needed when it's just the lobby)
-  if (temporaryRooms.length === 0) {
-    return (
-      <div className="room-switcher">
-        <button className="room-switcher-create" onClick={handleCreateRoom} disabled={creating}>
-          <Plus size={12} />
-          {creating ? "Creating..." : "Break out"}
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="room-switcher">
-      {allRooms.map((room) => {
+      {rooms.map((room) => {
         const count = (channelParticipants[room.id] ?? []).length;
         const isCurrent = connectedChannelId === room.id;
-        const isCreator = !room.isPersistent && room.creatorId === user?.id;
+        const isCreator = room.creatorId === user?.id;
+        const isAdminOrOwner = (() => {
+          const { servers, activeServerId } = useChatStore.getState();
+          const server = servers.find((s) => s.id === activeServerId);
+          return server && (server.role === "owner" || server.role === "admin");
+        })();
+        const canDelete = (isCreator || isAdminOrOwner) && count === 0;
         return (
           <button
             key={room.id}
@@ -316,9 +312,9 @@ function RoomSwitcherBar() {
               }
             }}
           >
-            {room.isPersistent ? "Lobby" : room.name}
+            {room.name}
             {count > 0 && <span className="room-switcher-count">{count}</span>}
-            {isCreator && (
+            {canDelete && (
               <span
                 className="room-switcher-close"
                 onClick={(e) => {
@@ -333,9 +329,11 @@ function RoomSwitcherBar() {
           </button>
         );
       })}
-      <button className="room-switcher-create" onClick={handleCreateRoom} disabled={creating}>
-        <Plus size={12} />
-      </button>
+      {!(connectedChannelId && (channelParticipants[connectedChannelId]?.length ?? 0) <= 1) && (
+        <button className="room-switcher-create" onClick={handleCreateRoom} disabled={creating}>
+          <Plus size={12} />
+        </button>
+      )}
     </div>
   );
 }
@@ -364,6 +362,8 @@ export function VoiceChannelView() {
     setParticipantVolume,
     screenShareQuality,
     setScreenShareQuality,
+    showStatsOverlay,
+    toggleStatsOverlay,
   } = useVoiceStore();
   const { loadSession, account, playerState, session, queue, volume, setVolume, youtubeTrack } = useSpotifyStore();
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
@@ -378,7 +378,8 @@ export function VoiceChannelView() {
   }, [isConnected, connecting]);
   // Show voice UI during room switches (keep UI stable instead of flashing "Connecting...")
   const showVoiceUI = isConnected || (connecting && wasInVoice.current);
-  const allScreenSharers = (showDummyUsers && channel?.isPersistent)
+  const rooms = useMemo(() => channels.filter((c) => c.isRoom), [channels]);
+  const allScreenSharers = (showDummyUsers && rooms[0]?.id === channel?.id)
     ? [...screenSharers, ...DUMMY_STREAMERS]
     : screenSharers;
   const hasScreenShares = allScreenSharers.length > 0;
@@ -452,20 +453,28 @@ export function VoiceChannelView() {
         <div className="voice-join-prompt">
           <span className="voice-join-icon"><Volume2 size={48} /></span>
           <h2>{channel?.name ?? "Voice"}</h2>
-          <p>Join voice to talk with others and access breakout rooms.</p>
+          <p>Create or join a room to talk with others.</p>
           <button
             className="btn-primary voice-join-btn"
-            onClick={() => {
-              // Always join the persistent lobby by default
-              const lobby = channels.find((c) => c.isRoom && c.isPersistent && c.serverId === activeServerId);
-              const targetId = lobby?.id ?? activeChannelId;
-              if (targetId) {
-                useChatStore.getState().selectChannel(targetId);
-                joinVoiceChannel(targetId);
+            onClick={async () => {
+              // Create a new room and join it
+              if (!activeServerId) return;
+              // Only count rooms with active participants
+              const cp = useVoiceStore.getState().channelParticipants;
+              const activeRoomNames = new Set(rooms.filter((r) => (cp[r.id]?.length ?? 0) > 0 || connectedChannelId === r.id).map((r) => r.name));
+              let n = 1;
+              while (activeRoomNames.has(`Room ${n}`)) n++;
+              const name = `Room ${n}`;
+              try {
+                const newRoom = await api.createRoom(activeServerId, name);
+                useChatStore.getState().selectChannel(newRoom.id);
+                joinVoiceChannel(newRoom.id);
+              } catch (err) {
+                console.error("Failed to create room:", err);
               }
             }}
           >
-            Join Voice
+            Create Room
           </button>
         </div>
       )}
@@ -591,13 +600,10 @@ export function VoiceChannelView() {
 
       {showVoiceUI && activeTab === "voice" && (
         <>
-          {/* Room switcher */}
-          <RoomSwitcherBar />
-
           {/* Participants */}
           <div className="voice-participants-grid">
             {/* DEBUG: dummy voice tiles (only in persistent lobby) */}
-            {showDummyUsers && channel?.isPersistent && [
+            {showDummyUsers && rooms[0]?.id === channel?.id && [
               { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=1" },
               { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=8" },
               { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/128?img=12" },
@@ -714,6 +720,9 @@ export function VoiceChannelView() {
         </>
       )}
 
+      {/* Stats overlay — floating on top when visible */}
+      {isConnected && <StatsOverlay />}
+
       {/* Controls bar — always visible when connected */}
       {isConnected && (
         <div className="voice-controls-bar">
@@ -737,6 +746,13 @@ export function VoiceChannelView() {
             title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
           >
             {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+          </button>
+          <button
+            className={`voice-ctrl-btn ${showStatsOverlay ? "active" : ""}`}
+            onClick={toggleStatsOverlay}
+            title={showStatsOverlay ? "Hide Stats" : "Connection Stats"}
+          >
+            <Activity size={20} />
           </button>
           <button
             className="voice-ctrl-btn disconnect"

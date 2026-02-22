@@ -23,39 +23,46 @@ test.describe("Audio Settings", () => {
     await navigateToSettingsTab(page, "Voice");
   });
 
-  test("processing card shows all five toggle labels", async ({ page }) => {
-    await expect(page.locator('.settings-row-label:has-text("Noise Cancellation")').first()).toBeVisible({ timeout: 3000 });
+  test("processing card shows noise suppression dropdown and four toggle labels", async ({ page }) => {
+    await expect(page.locator('.settings-row-label:has-text("AI Noise Suppression")').first()).toBeVisible({ timeout: 3000 });
     await expect(page.locator('.settings-row-label:has-text("Noise Suppression")').first()).toBeVisible({ timeout: 3000 });
     await expect(page.locator('.settings-row-label:has-text("Echo Cancellation")').first()).toBeVisible({ timeout: 3000 });
     await expect(page.locator('.settings-row-label:has-text("Auto Gain Control")').first()).toBeVisible({ timeout: 3000 });
     await expect(page.locator('.settings-row-label:has-text("Silence Detection")').first()).toBeVisible({ timeout: 3000 });
   });
 
-  test("all processing toggles are interactive", async ({ page }) => {
+  test("processing card has dropdown and four toggles", async ({ page }) => {
     const processingCard = page.locator('.settings-card:has(.settings-card-title:has-text("Processing"))');
     const toggles = processingCard.locator('[role="switch"]');
     const count = await toggles.count();
-    expect(count).toBe(5);
+    expect(count).toBe(4); // Noise Suppression, Echo Cancellation, AGC, DTX
 
-    // Click first toggle and verify state changes
-    const firstToggle = toggles.first();
-    const initialState = await firstToggle.getAttribute("aria-checked");
-    await firstToggle.click();
-    await page.waitForTimeout(200);
-    const newState = await firstToggle.getAttribute("aria-checked");
-    expect(newState).not.toBe(initialState);
+    const dropdown = processingCard.locator('select.settings-select');
+    await expect(dropdown).toBeVisible({ timeout: 3000 });
   });
 
-  test("noise cancellation toggle can be toggled off and on", async ({ page }) => {
-    const toggle = page.locator('.settings-row:has-text("Noise Cancellation") [role="switch"]').first();
-    const initial = await toggle.getAttribute("aria-checked");
-    await toggle.click();
+  test("noise suppression model can be changed via dropdown", async ({ page }) => {
+    const dropdown = page.locator('.settings-row:has-text("AI Noise Suppression") select.settings-select').first();
+    await expect(dropdown).toBeVisible({ timeout: 3000 });
+
+    // Default should be dtln
+    const initial = await dropdown.inputValue();
+    expect(initial).toBe("dtln");
+
+    // Change to rnnoise
+    await dropdown.selectOption("rnnoise");
     await page.waitForTimeout(200);
-    expect(await toggle.getAttribute("aria-checked")).not.toBe(initial);
-    // Toggle back
-    await toggle.click();
+    expect(await dropdown.inputValue()).toBe("rnnoise");
+
+    // Change to off
+    await dropdown.selectOption("off");
     await page.waitForTimeout(200);
-    expect(await toggle.getAttribute("aria-checked")).toBe(initial);
+    expect(await dropdown.inputValue()).toBe("off");
+
+    // Change back to dtln
+    await dropdown.selectOption("dtln");
+    await page.waitForTimeout(200);
+    expect(await dropdown.inputValue()).toBe("dtln");
   });
 
   test("noise suppression toggle can be toggled", async ({ page }) => {

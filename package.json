@@ -1,7 +1,7 @@
 {
   "name": "flux-tauri",
   "private": true,
-  "version": "0.2.8",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,6 +23,8 @@
     "@radix-ui/react-dialog": "^1.1.4",
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.1.6",
+    "@sapphi-red/web-noise-suppressor": "^0.3.5",
+    "@shiguredo/rnnoise-wasm": "^2025.1.5",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-notification": "^2.3.3",
     "@tauri-apps/plugin-process": "^2.3.1",
@@ -31,8 +33,10 @@
     "@types/three": "^0.182.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "deepfilternet3-noise-filter": "^1.2.1",
     "livekit-client": "^2.7.2",
     "lucide-react": "^0.469.0",
+    "onnxruntime-web": "^1.24.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
