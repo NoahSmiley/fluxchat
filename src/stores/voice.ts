@@ -1238,7 +1238,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           }
         } catch (e) {
           dbg("voice", "joinVoiceChannel noise filter setup failed", e);
-          console.warn("Failed to enable noise filter:", e);
+          console.error(`Failed to enable ${audioSettings.noiseSuppressionModel} noise filter:`, e);
           await destroyNoiseProcessor();
           dryWetProcessor = null;
           set({ audioSettings: { ...get().audioSettings, noiseSuppressionModel: "off" } });
@@ -1274,6 +1274,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         ...(optimisticParticipants[channelId] || []).filter((p) => p.userId !== localIdentity),
         { userId: localIdentity, username: localName, drinkCount: 0 },
       ];
+      dbg("voice", `optimistic update: ch=${channelId} participants=${optimisticParticipants[channelId].length}`, optimisticParticipants[channelId]);
 
       set({
         room,
@@ -1596,9 +1597,15 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     // AI noise suppression model switch
     if (key === "noiseSuppressionModel") {
-      if (!room) return;
+      if (!room) {
+        dbg("voice", "noiseSuppressionModel: no room, skipping");
+        return;
+      }
       const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-      if (!micPub?.track) return;
+      if (!micPub?.track) {
+        dbg("voice", "noiseSuppressionModel: no mic track published, skipping");
+        return;
+      }
       const model = value as NoiseSuppressionModel;
 
       if (model === "off") {
@@ -1656,7 +1663,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             }
           } catch (e) {
             if (myNonce !== noiseSwitchNonce) return;
-            console.warn("Failed to switch noise model:", e);
+            console.error(`Failed to switch noise model to ${model}:`, e);
+            dbg("voice", `Noise model ${model} failed — reverting to off`, e instanceof Error ? e.message : e);
             await destroyNoiseProcessor();
             dryWetProcessor = null;
             set({ audioSettings: { ...get().audioSettings, noiseSuppressionModel: "off" } });
@@ -1940,11 +1948,25 @@ import("./auth.js").then((m) => { _authStore = m.useAuthStore; });
 // Listen for voice_state events from WebSocket (for sidebar display)
 gateway.on((event) => {
   if (event.type === "voice_state") {
-    const { connectedChannelId } = useVoiceStore.getState();
+    const { connectedChannelId, room } = useVoiceStore.getState();
     let { participants } = event;
-    // If we're not connected to this channel, filter out our own userId
-    // so stale backend broadcasts don't re-add our avatar after leaving
-    if (connectedChannelId !== event.channelId) {
+    dbg("voice", `voice_state received ch=${event.channelId} participants=${participants.length} connectedCh=${connectedChannelId}`, participants);
+
+    if (connectedChannelId === event.channelId) {
+      // We're connected to this channel — if the server sent an empty list
+      // (e.g. after backend restart), ensure our own entry is preserved
+      // and re-announce so the server catches up.
+      const localId = room?.localParticipant?.identity;
+      if (localId && !participants.some((p: VoiceParticipant) => p.userId === localId)) {
+        const localName = room?.localParticipant?.name ?? localId.slice(0, 8);
+        participants = [...participants, { userId: localId, username: localName, drinkCount: 0 }];
+        // Re-announce our presence so the server adds us
+        gateway.send({ type: "voice_state_update", channelId: event.channelId, action: "join" });
+        dbg("voice", "voice_state: self missing from connected channel — re-announcing join");
+      }
+    } else {
+      // Not connected to this channel — filter out our own userId
+      // so stale backend broadcasts don't re-add our avatar after leaving
       const userId = _authStore?.getState()?.user?.id;
       if (userId) {
         participants = participants.filter((p: VoiceParticipant) => p.userId !== userId);

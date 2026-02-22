@@ -25,6 +25,11 @@ export class RnnoiseTrackProcessor
   async init(opts: AudioProcessorOptions): Promise<void> {
     const { track } = opts;
 
+    // Pre-fetch the WASM binary in the main thread (AudioWorklet scope
+    // in Tauri's WebView doesn't have fetch available)
+    const wasmResponse = await fetch("/rnnoise/rnnoise.wasm");
+    const wasmBytes = await wasmResponse.arrayBuffer();
+
     // Create a 48kHz AudioContext (RNNoise native rate)
     this.rnnoiseContext = new AudioContext({ sampleRate: RNNOISE_SAMPLE_RATE });
 
@@ -36,6 +41,9 @@ export class RnnoiseTrackProcessor
       this.rnnoiseContext,
       "rnnoise-processor",
     );
+
+    // Send the pre-fetched WASM binary to the worklet
+    this.rnnoiseNode.port.postMessage({ type: "wasm-binary", wasmBytes }, [wasmBytes]);
 
     // Wait for the WASM module to initialize
     await new Promise<void>((resolve, reject) => {

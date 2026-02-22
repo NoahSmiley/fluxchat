@@ -58,6 +58,9 @@ export async function collectWebRTCStats(room: Room): Promise<WebRTCQualityStats
   const elapsed = prevTimestamp > 0 ? (now - prevTimestamp) / 1000 : 0;
   prevTimestamp = now;
 
+  // RTCP-based RTT (from remote-inbound-rtp) — used as fallback only
+  let rtcpRtt = 0;
+
   // Collect audio sender stats (our mic — only one publication expected)
   const audioPubs = [...room.localParticipant.audioTrackPublications.values()];
   const firstAudioPub = audioPubs.find((p) => p.track?.sender);
@@ -82,7 +85,8 @@ export async function collectWebRTCStats(room: Room): Promise<WebRTCQualityStats
 
       if (s.type === "remote-inbound-rtp" && s.kind === "audio") {
         stats.audioJitter = s.jitter ?? 0;
-        stats.rtt = Math.round((s.roundTripTime ?? 0) * 1000);
+        // Store RTCP-based RTT as fallback only — prefer ICE candidate-pair below
+        rtcpRtt = Math.round((s.roundTripTime ?? 0) * 1000);
       }
 
       if (s.type === "codec") {
@@ -214,7 +218,10 @@ export async function collectWebRTCStats(room: Room): Promise<WebRTCQualityStats
       const pcReport = await pc.getStats();
       for (const s of pcReport.values()) {
         if (s.type === "candidate-pair" && s.state === "succeeded") {
-          stats.rtt = stats.rtt || Math.round((s.currentRoundTripTime ?? 0) * 1000);
+          const iceRtt = Math.round((s.currentRoundTripTime ?? 0) * 1000);
+          if (iceRtt > 0) {
+            stats.rtt = iceRtt;
+          }
 
           // Find the local candidate to get connection type
           for (const c of pcReport.values()) {
@@ -228,6 +235,11 @@ export async function collectWebRTCStats(room: Room): Promise<WebRTCQualityStats
       }
     }
   } catch {}
+
+  // Fall back to RTCP-based RTT if ICE candidate-pair RTT unavailable
+  if (stats.rtt === 0 && rtcpRtt > 0) {
+    stats.rtt = rtcpRtt;
+  }
 
   return stats;
 }

@@ -239,6 +239,11 @@ pub fn run() {
             {
                 global_keys::init(_app.handle());
             }
+            // Open devtools automatically in debug builds
+            #[cfg(debug_assertions)]
+            if let Some(window) = _app.get_webview_window("main") {
+                window.open_devtools();
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -576,7 +576,7 @@ export function SettingsModal() {
                   <option value="speex">Speex (DSP)</option>
                   <option value="rnnoise">RNNoise (lightweight)</option>
                   <option value="dtln">DTLN (balanced)</option>
-                  <option value="deepfilter">DeepFilterNet3 (best quality)</option>
+                  <option value="deepfilter">DeepFilterNet3 (high quality)</option>
                   <option value="nsnet2">FluxAI (advanced)</option>
                 </select>
               </div>
@@ -585,7 +585,7 @@ export function SettingsModal() {
                   {audioSettings.noiseSuppressionModel === "speex" && "DSP-based, ultra-lightweight (~50KB). Minimal CPU usage and near-zero latency. Basic noise reduction."}
                   {audioSettings.noiseSuppressionModel === "rnnoise" && "Recurrent neural network. Low CPU, <10ms latency. Good general-purpose suppression at 48kHz."}
                   {audioSettings.noiseSuppressionModel === "dtln" && "Dual-signal transformer. Moderate CPU, balanced quality. Processes at 16kHz with auto-resampling."}
-                  {audioSettings.noiseSuppressionModel === "deepfilter" && "Deep neural network. Higher CPU, best quality. Full-band 48kHz processing with ~30s init time."}
+                  {audioSettings.noiseSuppressionModel === "deepfilter" && "DeepFilterNet3 — deep neural network. Higher CPU, best quality. Full-band 48kHz processing. WASM+model fetched on first use (~1MB)."}
                   {audioSettings.noiseSuppressionModel === "nsnet2" && "FluxAI — custom GRU neural network with ONNX Runtime. 16kHz processing, ~20ms latency. Advanced noise suppression."}
                 </div>
               )}

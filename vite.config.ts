@@ -22,6 +22,12 @@ export default defineConfig({
         target: "http://localhost:3001",
         ws: true,
       },
+      "/deepfilter-cdn": {
+        target: "https://cdn.mezon.ai/AI/models/datas/noise_suppression/deepfilternet3",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/deepfilter-cdn/, ""),
+        secure: true,
+      },
     },
   },
   define: {

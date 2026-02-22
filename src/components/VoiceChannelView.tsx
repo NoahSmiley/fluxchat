@@ -259,7 +259,12 @@ function RoomSwitcherBar() {
     if (!activeServerId || creating) return;
     setCreating(true);
     try {
-      const name = `Room ${rooms.length + 1}`;
+      // Only count rooms with active participants (empty stale rooms don't matter)
+      const cp = useVoiceStore.getState().channelParticipants;
+      const activeRoomNames = new Set(rooms.filter((r) => (cp[r.id]?.length ?? 0) > 0 || connectedChannelId === r.id).map((r) => r.name));
+      let n = 1;
+      while (activeRoomNames.has(`Room ${n}`)) n++;
+      const name = `Room ${n}`;
       const newRoom = await api.createRoom(activeServerId, name);
       useChatStore.getState().selectChannel(newRoom.id);
       joinVoiceChannel(newRoom.id);
@@ -274,6 +279,11 @@ function RoomSwitcherBar() {
     if (!activeServerId) return;
     try {
       await api.deleteChannel(activeServerId, roomId);
+      // Optimistically remove from store (don't wait for WebSocket room_deleted event)
+      const { channels, activeChannelId, selectChannel } = useChatStore.getState();
+      const remaining = channels.filter((c) => c.id !== roomId);
+      useChatStore.setState({ channels: remaining });
+      if (activeChannelId === roomId && remaining.length > 0) selectChannel(remaining[0].id);
     } catch (err) {
       console.error("Failed to close room:", err);
     }
@@ -319,9 +329,11 @@ function RoomSwitcherBar() {
           </button>
         );
       })}
-      <button className="room-switcher-create" onClick={handleCreateRoom} disabled={creating}>
-        <Plus size={12} />
-      </button>
+      {!(connectedChannelId && (channelParticipants[connectedChannelId]?.length ?? 0) <= 1) && (
+        <button className="room-switcher-create" onClick={handleCreateRoom} disabled={creating}>
+          <Plus size={12} />
+        </button>
+      )}
     </div>
   );
 }
@@ -447,7 +459,12 @@ export function VoiceChannelView() {
             onClick={async () => {
               // Create a new room and join it
               if (!activeServerId) return;
-              const name = `Room ${rooms.length + 1}`;
+              // Only count rooms with active participants
+              const cp = useVoiceStore.getState().channelParticipants;
+              const activeRoomNames = new Set(rooms.filter((r) => (cp[r.id]?.length ?? 0) > 0 || connectedChannelId === r.id).map((r) => r.name));
+              let n = 1;
+              while (activeRoomNames.has(`Room ${n}`)) n++;
+              const name = `Room ${n}`;
               try {
                 const newRoom = await api.createRoom(activeServerId, name);
                 useChatStore.getState().selectChannel(newRoom.id);

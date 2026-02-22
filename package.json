@@ -33,6 +33,7 @@
     "@types/three": "^0.182.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "deepfilternet3-noise-filter": "^1.2.1",
     "livekit-client": "^2.7.2",
     "lucide-react": "^0.469.0",
     "onnxruntime-web": "^1.24.2",

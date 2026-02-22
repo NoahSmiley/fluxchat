@@ -149,6 +149,7 @@ async function processHop(samples) {
 async function init() {
   try {
     ort.env.wasm.numThreads = 1;
+    ort.env.wasm.wasmPaths = "/nsnet2/";
     session = await ort.InferenceSession.create("/nsnet2/nsnet2-20ms-baseline.onnx", {
       executionProviders: ["wasm"],
       graphOptimizationLevel: "all",

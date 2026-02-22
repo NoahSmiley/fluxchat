@@ -795,176 +795,31 @@ describe("DeepFilterTrackProcessor", () => {
     expect(processor.processedTrack).toBeUndefined();
   });
 
+  it("extends DeepFilterNoiseFilterProcessor from npm package", () => {
+    // The processor wraps the deepfilternet3-noise-filter npm package
+    expect(processor).toHaveProperty("init");
+    expect(processor).toHaveProperty("destroy");
+    expect(processor).toHaveProperty("restart");
+    expect(typeof processor.init).toBe("function");
+    expect(typeof processor.destroy).toBe("function");
+  });
+
   describe("destroy", () => {
-    it("terminates the Worker", async () => {
-      const mockWorkerInst = { postMessage: vi.fn(), terminate: vi.fn(), onmessage: null };
-      (processor as any).worker = mockWorkerInst;
-      (processor as any).audioContext = makeMockContext();
-
-      await processor.destroy();
-
-      expect(mockWorkerInst.terminate).toHaveBeenCalled();
-      expect((processor as any).worker).toBeNull();
-    });
-
-    it("nullifies all internal nodes", async () => {
-      (processor as any).audioContext = makeMockContext();
-      (processor as any).workletNode = { disconnect: vi.fn() };
-      (processor as any).sourceNode = { disconnect: vi.fn() };
-      (processor as any).destinationNode = {};
-      (processor as any).worker = { terminate: vi.fn() };
-
-      await processor.destroy();
-
-      expect((processor as any).audioContext).toBeNull();
-      expect((processor as any).workletNode).toBeNull();
-      expect((processor as any).sourceNode).toBeNull();
-      expect((processor as any).destinationNode).toBeNull();
-    });
-
-    it("clears processedTrack", async () => {
-      (processor as any).processedTrack = {} as MediaStreamTrack;
-      await processor.destroy();
-      expect(processor.processedTrack).toBeUndefined();
-    });
-
     it("does not throw when called with no state", async () => {
       await expect(processor.destroy()).resolves.not.toThrow();
     });
 
-    it("closes AudioContext when running", async () => {
-      const ctx = makeMockContext();
-      (processor as any).audioContext = ctx;
-      (processor as any).worker = { terminate: vi.fn() };
-
-      await processor.destroy();
-
-      expect(ctx.close).toHaveBeenCalled();
-    });
-
-    it("skips closing AudioContext when already closed", async () => {
-      const ctx = makeMockContext();
-      ctx.state = "closed";
-      (processor as any).audioContext = ctx;
-      (processor as any).worker = { terminate: vi.fn() };
-
-      await processor.destroy();
-
-      expect(ctx.close).not.toHaveBeenCalled();
-    });
-
-    it("disconnects workletNode and sourceNode", async () => {
-      const mockSource = { disconnect: vi.fn() };
-      const mockWorklet = { disconnect: vi.fn() };
-      (processor as any).sourceNode = mockSource;
-      (processor as any).workletNode = mockWorklet;
+    it("nullifies audio nodes on destroy", async () => {
       (processor as any).audioContext = makeMockContext();
-      (processor as any).worker = { terminate: vi.fn() };
+      (processor as any).workletNode = { disconnect: vi.fn() };
+      (processor as any).sourceNode = { disconnect: vi.fn() };
+      (processor as any).destination = { disconnect: vi.fn() };
 
       await processor.destroy();
 
-      expect(mockSource.disconnect).toHaveBeenCalled();
-      expect(mockWorklet.disconnect).toHaveBeenCalled();
-    });
-  });
-
-  describe("restart", () => {
-    it("calls destroy then init", async () => {
-      const opts = makeOpts();
-      const destroySpy = vi.spyOn(processor, "destroy");
-      const initSpy = vi.spyOn(processor, "init").mockResolvedValue();
-
-      await processor.restart(opts);
-
-      expect(destroySpy).toHaveBeenCalledOnce();
-      expect(initSpy).toHaveBeenCalledWith(opts);
-    });
-  });
-
-  describe("init creates a Worker", () => {
-    it("instantiates a Worker pointing to deepfilter-worker.js", async () => {
-      // Make MockWorker auto-respond with "ready" so the Worker promise resolves
-      MockWorker.mockImplementationOnce(function (this: any, url: string) {
-        this.url = url;
-        this.postMessage = vi.fn();
-        this.terminate = vi.fn();
-        // Trigger onmessage asynchronously after assignment
-        Object.defineProperty(this, "onmessage", {
-          set(fn: (e: { data: string }) => void) {
-            setTimeout(() => fn({ data: "ready" }), 0);
-          },
-          configurable: true,
-        });
-      });
-
-      // Make audioWorklet.addModule hang so we don't have to mock full pipeline
-      MockAudioContext.mockImplementationOnce(function (this: any) {
-        this.sampleRate = 48000;
-        this.state = "running";
-        this.currentTime = 0;
-        this.close = vi.fn(() => Promise.resolve());
-        this.createGain = vi.fn();
-        this.createMediaStreamSource = vi.fn();
-        this.createMediaStreamDestination = vi.fn();
-        this.audioWorklet = {
-          addModule: vi.fn(() => new Promise(() => { /* hang */ })),
-        };
-      });
-
-      const p = new DeepFilterTrackProcessor();
-      const initPromise = p.init(makeOpts());
-
-      await new Promise<void>((r) => setTimeout(r, 10));
-
-      const workerCalls = MockWorker.mock.calls;
-      const deepfilterCall = workerCalls.find((call: unknown[]) =>
-        String(call[0]).includes("deepfilter"),
-      );
-      expect(deepfilterCall).toBeDefined();
-
-      await p.destroy().catch(() => {});
-      void initPromise.catch(() => {});
-    });
-
-    it("uses MessageChannel for Worker-Worklet communication", async () => {
-      MockWorker.mockImplementationOnce(function (this: any) {
-        this.postMessage = vi.fn();
-        this.terminate = vi.fn();
-        Object.defineProperty(this, "onmessage", {
-          set(fn: (e: { data: string }) => void) {
-            setTimeout(() => fn({ data: "ready" }), 0);
-          },
-          configurable: true,
-        });
-      });
-
-      const mockPort = { postMessage: vi.fn(), onmessage: null as any };
-      MockAudioWorkletNode.mockImplementationOnce(function (this: any) {
-        this.connect = vi.fn();
-        this.disconnect = vi.fn();
-        this.port = mockPort;
-      });
-
-      MockAudioContext.mockImplementationOnce(function (this: any) {
-        this.sampleRate = 48000;
-        this.state = "running";
-        this.currentTime = 0;
-        this.close = vi.fn(() => Promise.resolve());
-        this.createGain = vi.fn();
-        this.createMediaStreamSource = vi.fn();
-        this.createMediaStreamDestination = vi.fn();
-        this.audioWorklet = { addModule: vi.fn(() => Promise.resolve()) };
-      });
-
-      const p = new DeepFilterTrackProcessor();
-      const initPromise = p.init(makeOpts());
-
-      await new Promise<void>((r) => setTimeout(r, 10));
-
-      expect(MockMessageChannel).toHaveBeenCalled();
-
-      await p.destroy().catch(() => {});
-      void initPromise.catch(() => {});
+      expect((processor as any).workletNode).toBeNull();
+      expect((processor as any).sourceNode).toBeNull();
+      expect((processor as any).destination).toBeNull();
     });
   });
 });

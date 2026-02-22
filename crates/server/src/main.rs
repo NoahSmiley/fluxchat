@@ -37,6 +37,17 @@ async fn main() {
         youtube_url_cache: tokio::sync::RwLock::new(std::collections::HashMap::new()),
     });
 
+    // Clean up stale non-persistent rooms from previous server sessions
+    // (in-memory cleanup timers are lost on restart, so empty temp rooms linger in the DB)
+    let cleaned = sqlx::query("DELETE FROM channels WHERE is_room = 1 AND is_persistent = 0")
+        .execute(&state.db)
+        .await
+        .map(|r| r.rows_affected())
+        .unwrap_or(0);
+    if cleaned > 0 {
+        tracing::info!("Cleaned up {} stale temporary room(s)", cleaned);
+    }
+
     // Check for yt-dlp
     match tokio::process::Command::new("yt-dlp").arg("--version").output().await {
         Ok(output) if output.status.success() => {

@@ -25,20 +25,19 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
     this._vadThreshold = 0;
     this._lastVadProb = 0;
 
-    // Listen for VAD threshold updates from the main thread
+    // Listen for messages from the main thread
     this.port.onmessage = (event) => {
       if (event.data?.type === "set-vad-threshold") {
         this._vadThreshold = event.data.threshold;
+      } else if (event.data?.type === "wasm-binary") {
+        // Receive pre-fetched WASM binary from main thread
+        this._initWithWasm(event.data.wasmBytes);
       }
     };
-
-    this._init();
   }
 
-  async _init() {
+  async _initWithWasm(wasmBytes) {
     try {
-      const response = await fetch("/rnnoise/rnnoise.wasm");
-      const wasmBytes = await response.arrayBuffer();
 
       // Minimal Emscripten-compatible imports for rnnoise.wasm
       const memory = new WebAssembly.Memory({ initial: 256, maximum: 256 });
