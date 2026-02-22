@@ -5788,6 +5788,16 @@ img.custom-emoji {
   font-variant-numeric: tabular-nums;
 }
 
+.settings-model-info {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 8px 12px;
+  margin: -4px 0 4px;
+  background: var(--bg-input);
+  border-radius: 6px;
+}
+
 /* ── Toggle Switch ── */
 .toggle-switch {
   position: relative;

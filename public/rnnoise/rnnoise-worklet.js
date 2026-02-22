@@ -21,6 +21,16 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
     this._outputBuffer = new Float32Array(480);
     this._outputOffset = 0;
     this._outputReady = false;
+    // VAD threshold: 0-1 (0 = no gating, 1 = maximum gating)
+    this._vadThreshold = 0;
+    this._lastVadProb = 0;
+
+    // Listen for VAD threshold updates from the main thread
+    this.port.onmessage = (event) => {
+      if (event.data?.type === "set-vad-threshold") {
+        this._vadThreshold = event.data.threshold;
+      }
+    };
 
     this._init();
   }
@@ -130,16 +140,26 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
       this._heapF32[inputOffset + i] = this._buffer[i] * 32768.0;
     }
 
-    this._module.rnnoise_process_frame(
+    // rnnoise_process_frame returns voice probability (0.0 - 1.0)
+    const vadProb = this._module.rnnoise_process_frame(
       this._state,
       this._outputPtr,
       this._inputPtr
     );
+    this._lastVadProb = vadProb;
 
     // Convert back from 16-bit PCM range to float (-1 to 1)
     const outputOffset = this._outputPtr / 4;
-    for (let i = 0; i < this._frameSize; i++) {
-      this._outputBuffer[i] = this._heapF32[outputOffset + i] / 32768.0;
+
+    // If VAD probability is below threshold, output silence instead of denoised audio
+    if (this._vadThreshold > 0 && vadProb < this._vadThreshold) {
+      for (let i = 0; i < this._frameSize; i++) {
+        this._outputBuffer[i] = 0;
+      }
+    } else {
+      for (let i = 0; i < this._frameSize; i++) {
+        this._outputBuffer[i] = this._heapF32[outputOffset + i] / 32768.0;
+      }
     }
     this._outputOffset = 0;
     this._outputReady = true;

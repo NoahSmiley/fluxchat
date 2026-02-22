@@ -65,6 +65,13 @@ export class RnnoiseTrackProcessor
     this.processedTrack = this.destinationNode.stream.getAudioTracks()[0];
   }
 
+  /** Set VAD threshold (0-1). Below this probability, output silence. */
+  setVadThreshold(threshold: number): void {
+    if (this.rnnoiseNode) {
+      this.rnnoiseNode.port.postMessage({ type: "set-vad-threshold", threshold });
+    }
+  }
+
   async restart(opts: AudioProcessorOptions): Promise<void> {
     await this.destroy();
     await this.init(opts);
