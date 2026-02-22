@@ -320,7 +320,7 @@ export function SettingsModal() {
             <div className="settings-card">
               <h3 className="settings-card-title">Avatar</h3>
               <div className="profile-avatar-section">
-                <div className="profile-avatar-large">
+                <div className="profile-avatar-large" style={!user?.image ? { background: avatarColor(user?.username), borderColor: avatarColor(user?.username) } : undefined}>
                   {user?.image ? (
                     <img src={user.image} alt={user.username} className="profile-avatar-img" />
                   ) : (
