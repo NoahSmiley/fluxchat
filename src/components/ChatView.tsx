@@ -482,11 +482,18 @@ export function ChatView() {
           const msgData = messageData.get(msg.id);
           const decoded = msgData?.decoded ?? "";
           const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole, false, senderRing?.ringPatternSeed);
+          const isMentioned = !!user && (() => {
+            const c = msg.content;
+            if (/(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i.test(c)) return true;
+            if (/(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i.test(c)) return true;
+            try { return new RegExp(`(?<![a-zA-Z0-9_])@${user.username}(?![a-zA-Z0-9_])`, "i").test(c); }
+            catch { return c.toLowerCase().includes(`@${user.username.toLowerCase()}`); }
+          })();
 
           return (
             <div
               key={msg.id}
-              className={`message ${msg.senderId === user?.id ? "own" : ""}`}
+              className={`message ${msg.senderId === user?.id ? "own" : ""} ${isMentioned ? "mentioned" : ""}`}
               onContextMenu={(e) => {
                 e.preventDefault();
                 const target = e.target as HTMLElement;
@@ -787,23 +794,22 @@ export function ChatView() {
             }}
             autoFocus
           />
-          <div style={{ position: "relative" }}>
-            <button
-              type="button"
-              className="btn-attach"
-              onClick={() => setInputEmojiOpen((o) => !o)}
-              title="Emoji"
-            >
-              <Smile size={18} />
-            </button>
-            {inputEmojiOpen && activeServerId && (
-              <EmojiPicker
-                serverId={activeServerId}
-                onSelect={(emoji) => { insertTextAtCursor(emoji); setInputEmojiOpen(false); }}
-                onClose={() => setInputEmojiOpen(false)}
-              />
-            )}
-          </div>
+          <button
+            type="button"
+            className="btn-attach"
+            onClick={() => setInputEmojiOpen((o) => !o)}
+            title="Emoji"
+          >
+            <Smile size={18} />
+          </button>
+          {inputEmojiOpen && activeServerId && (
+            <EmojiPicker
+              serverId={activeServerId}
+              onSelect={(emoji) => { insertTextAtCursor(emoji); setInputEmojiOpen(false); }}
+              onClose={() => setInputEmojiOpen(false)}
+              placement="auto"
+            />
+          )}
           {showSendButton && (
             <button type="submit" className="btn-send" disabled={!hasContent && pendingAttachments.length === 0}>
               Send

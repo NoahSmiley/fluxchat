@@ -807,25 +807,20 @@ input:focus {
   align-items: center;
   gap: 6px;
   width: 100%;
-  margin-top: 6px;
   padding: 6px 10px;
   border: none;
   border-radius: 6px;
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
+  background: none;
+  color: var(--text-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .create-room-btn:hover {
-  background: #22c55e;
-  color: #fff;
-}
-
-.create-room-btn:active {
-  background: #16a34a;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
 }
 
 /* ── Voice Room Users in Sidebar (compact avatars) ── */
@@ -1287,16 +1282,16 @@ input:focus {
 /* Mention count badge — red pill on right side */
 .channel-mention-badge {
   flex-shrink: 0;
-  margin-left: auto;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
+  margin-right: 8px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
   background: #ed4245;
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 18px;
+  line-height: 15px;
   text-align: center;
   box-sizing: border-box;
 }
@@ -1379,7 +1374,9 @@ input:focus {
 }
 
 .message {
-  padding: 6px 48px 6px 0;
+  margin-left: -16px;
+  padding: 6px 48px 6px 16px;
+  border-radius: 0 6px 6px 0;
   position: relative;
   display: flex;
   gap: 12px;
@@ -1387,6 +1384,16 @@ input:focus {
 
 .message:hover {
   background: rgba(255, 255, 255, 0.015);
+}
+
+.message.mentioned {
+  padding-left: 14px;
+  border-left: 2px solid rgba(245, 159, 0, 0.75);
+  background: rgba(250, 176, 5, 0.06);
+}
+
+.message.mentioned:hover {
+  background: rgba(250, 176, 5, 0.09);
 }
 
 .highlight-own .message.own {
@@ -1544,9 +1551,9 @@ input:focus {
 
 .message-input-form {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px;
   border-top: 1px solid var(--border);
   min-height: 56px;
   box-sizing: border-box;
@@ -5620,6 +5627,9 @@ img.custom-emoji {
   margin: 0 0 12px;
   line-height: 1.4;
 }
+.settings-card-desc:last-child {
+  margin-bottom: 0;
+}
 
 /* ── Settings Rows ── */
 .settings-row {
@@ -5662,6 +5672,28 @@ img.custom-emoji {
   font-size: 12px;
   color: #f87171;
   margin-top: 4px;
+}
+
+.settings-radio-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.settings-radio-row:last-child {
+  border-bottom: none;
+}
+
+.settings-radio {
+  margin-top: 2px;
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent, #5865f2);
+  cursor: pointer;
 }
 
 .settings-input {

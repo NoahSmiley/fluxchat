@@ -325,7 +325,6 @@ function SortableChannelItem({
         >
           {getChannelIcon(channel.type)}
           <span className="channel-item-name">{channel.name}</span>
-          {mentionCount > 0 && <span className="channel-mention-badge">{mentionCount}</span>}
           {voiceProps?.hasScreenShare && (
             <span className="channel-live-badge"><Radio size={10} /> LIVE</span>
           )}
@@ -339,6 +338,7 @@ function SortableChannelItem({
             <Settings size={13} />
           </button>
         )}
+        {mentionCount > 0 && <span className="channel-mention-badge">{mentionCount}</span>}
       </div>
       {channel.type === "voice" && voiceProps && voiceProps.participants.length > 0 && (
         <div className="voice-channel-users">

@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 
 export type ChannelNotifSetting = "all" | "only_mentions" | "none" | "default";
 export type CategoryNotifSetting = "all" | "only_mentions" | "none";
+export type GlobalNotifSetting = "all" | "only_mentions" | "none";
 
 interface NotifState {
   channelSettings:        Record<string, ChannelNotifSetting>;
@@ -12,9 +13,11 @@ interface NotifState {
   mutedUsers:             string[];                 // user IDs
   mutedMentionChannels:   Record<string, boolean>;  // channels where @mention badge is also suppressed
   mutedMentionCategories: Record<string, boolean>;  // categories where @mention badge is also suppressed
+  defaultChannelSetting:  GlobalNotifSetting;       // global default for server text channel notifications
 
-  setChannelSetting:  (channelId: string, setting: ChannelNotifSetting)  => void;
-  setCategorySetting: (categoryId: string, setting: CategoryNotifSetting) => void;
+  setChannelSetting:        (channelId: string, setting: ChannelNotifSetting)  => void;
+  setCategorySetting:       (categoryId: string, setting: CategoryNotifSetting) => void;
+  setDefaultChannelSetting: (setting: GlobalNotifSetting) => void;
   muteChannel:    (channelId: string, untilMs: number)  => void;
   unmuteChannel:  (channelId: string)  => void;
   muteCategory:   (categoryId: string, untilMs: number) => void;
@@ -44,12 +47,15 @@ export const useNotifStore = create<NotifState>()(
       mutedUsers:             [],
       mutedMentionChannels:   {},
       mutedMentionCategories: {},
+      defaultChannelSetting:  "only_mentions",
 
       setChannelSetting: (channelId, setting) =>
         set((s) => ({ channelSettings: { ...s.channelSettings, [channelId]: setting } })),
 
       setCategorySetting: (categoryId, setting) =>
         set((s) => ({ categorySettings: { ...s.categorySettings, [categoryId]: setting } })),
+
+      setDefaultChannelSetting: (setting) => set({ defaultChannelSetting: setting }),
 
       muteChannel: (channelId, untilMs) =>
         set((s) => ({ mutedChannels: { ...s.mutedChannels, [channelId]: untilMs } })),
@@ -109,8 +115,7 @@ export const useNotifStore = create<NotifState>()(
           const catPref = get().categorySettings[categoryId];
           if (catPref) return catPref;
         }
-        // Global default for text channels: only @mentions
-        return "only_mentions";
+        return get().defaultChannelSetting;
       },
     }),
     {
@@ -123,6 +128,7 @@ export const useNotifStore = create<NotifState>()(
         mutedUsers:             state.mutedUsers,
         mutedMentionChannels:   state.mutedMentionChannels,
         mutedMentionCategories: state.mutedMentionCategories,
+        defaultChannelSetting:  state.defaultChannelSetting,
       }),
     }
   )
