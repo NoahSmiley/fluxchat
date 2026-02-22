@@ -5,9 +5,11 @@ import data from "@emoji-mart/data";
 import type { CustomEmoji } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
-import { getEmojiFavorites } from "../lib/api.js";
+import { getEmojiFavorites, addStandardFavorite, removeStandardFavorite, addCustomFavorite, removeCustomFavorite } from "../lib/api.js";
+import ContextMenu from "./ContextMenu.js";
 import { API_BASE } from "../lib/serverUrl.js";
 import { TWEMOJI_OPTIONS } from "../lib/emoji.js";
+import { favCache } from "../lib/emojiCache.js";
 
 // ── emoji-mart data types ──────────────────────────────────────────────────
 
@@ -55,18 +57,6 @@ const catNavHtml: string[] = emojiData.categories.map((cat) => {
 const _nativeToId = new Map<string, string>();
 for (const [id, entry] of Object.entries(emojiData.emojis)) {
   _nativeToId.set(entry.skins[0].native, id);
-}
-
-/** Favorites cache — persists between picker opens so re-open is instant. */
-let _favCache: { standard: Set<string>; customIds: Set<string> } | null = null;
-
-/** Call this once after the user logs in to prefetch favorites into cache. */
-export function prefetchEmojiFavorites(): void {
-  getEmojiFavorites()
-    .then((favs) => {
-      _favCache = { standard: new Set(favs.standard), customIds: new Set(favs.customIds) };
-    })
-    .catch(() => {});
 }
 
 // ── Category display names ─────────────────────────────────────────────────
@@ -133,8 +123,15 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
   const deferredSearch = useDeferredValue(search);
   const isSearchPending = search !== deferredSearch;
 
-  const [stdFavs, setStdFavs] = useState<Set<string>>(() => _favCache?.standard ?? new Set());
-  const [customFavIds, setCustomFavIds] = useState<Set<string>>(() => _favCache?.customIds ?? new Set());
+  const [stdFavs, setStdFavs] = useState<Set<string>>(() => favCache.data?.standard ?? new Set());
+  const [customFavIds, setCustomFavIds] = useState<Set<string>>(() => favCache.data?.customIds ?? new Set());
+  const [emojiCtxMenu, setEmojiCtxMenu] = useState<{
+    x: number; y: number;
+    isFav: boolean;
+    type: "standard" | "custom";
+    native?: string;
+    emoji?: CustomEmoji;
+  } | null>(null);
   const [activeCatIdx, setActiveCatIdx] = useState(0);
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -229,7 +226,7 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
       .then((favs) => {
         const std = new Set(favs.standard);
         const cust = new Set(favs.customIds);
-        _favCache = { standard: std, customIds: cust };
+        favCache.data = { standard: std, customIds: cust };
         setStdFavs(std);
         setCustomFavIds(cust);
       })
@@ -320,7 +317,12 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
   function StandardCell({ native }: { native: string }) {
     const id = _nativeToId.get(native);
     return (
-      <button className="emoji-cell" onClick={() => onSelect(native)} title={id ? `:${id}:` : native}>
+      <button
+        className="emoji-cell"
+        onClick={() => onSelect(native)}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setEmojiCtxMenu({ x: e.clientX, y: e.clientY, isFav: stdFavs.has(native), type: "standard", native }); }}
+        title={id ? `:${id}:` : native}
+      >
         <span dangerouslySetInnerHTML={{ __html: parseTwemoji(native) }} />
       </button>
     );
@@ -329,7 +331,12 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
   function CustomCell({ emoji }: { emoji: CustomEmoji }) {
     const url = `${API_BASE}/files/${emoji.attachmentId}/${emoji.filename}`;
     return (
-      <button className="emoji-cell" onClick={() => onSelect(`:${emoji.name}:`)} title={`:${emoji.name}:`}>
+      <button
+        className="emoji-cell"
+        onClick={() => onSelect(`:${emoji.name}:`)}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setEmojiCtxMenu({ x: e.clientX, y: e.clientY, isFav: customFavIds.has(emoji.id), type: "custom", emoji }); }}
+        title={`:${emoji.name}:`}
+      >
         <img src={url} alt={`:${emoji.name}:`} className="custom-emoji" />
       </button>
     );
@@ -344,6 +351,7 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
+    <>
     <div
       className="emoji-picker-panel"
       ref={panelRef}
@@ -527,5 +535,36 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
         )}
       </div>
     </div>
+
+    {emojiCtxMenu && (
+      <ContextMenu
+        x={emojiCtxMenu.x}
+        y={emojiCtxMenu.y}
+        onClose={() => setEmojiCtxMenu(null)}
+        items={[{
+          label: emojiCtxMenu.isFav ? "Remove from favorites" : "Add to favorites",
+          onClick: async () => {
+            const isFav = emojiCtxMenu.isFav;
+            if (emojiCtxMenu.type === "standard") {
+              const native = emojiCtxMenu.native!;
+              if (isFav) { await removeStandardFavorite(native); stdFavs.delete(native); }
+              else { await addStandardFavorite(native); stdFavs.add(native); }
+              const next = new Set(stdFavs);
+              setStdFavs(next);
+              favCache.data = { standard: next, customIds: new Set(customFavIds) };
+            } else {
+              const emojiId = emojiCtxMenu.emoji!.id;
+              if (isFav) { await removeCustomFavorite(emojiId); customFavIds.delete(emojiId); }
+              else { await addCustomFavorite(emojiId); customFavIds.add(emojiId); }
+              const next = new Set(customFavIds);
+              setCustomFavIds(next);
+              favCache.data = { standard: new Set(stdFavs), customIds: next };
+            }
+            setEmojiCtxMenu(null);
+          },
+        }]}
+      />
+    )}
+    </>
   );
 }

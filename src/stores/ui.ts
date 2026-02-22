@@ -12,6 +12,8 @@ interface UIState {
   appBorderStyle: AppBorderStyle;
   showDummyUsers: boolean;
   highlightOwnMessages: boolean;
+  spellcheck: boolean;
+  showSendButton: boolean;
   openSettings: () => void;
   closeSettings: () => void;
   openServerSettings: () => void;
@@ -23,6 +25,8 @@ interface UIState {
   setAppBorderStyle: (style: AppBorderStyle) => void;
   toggleDummyUsers: () => void;
   setHighlightOwnMessages: (val: boolean) => void;
+  setSpellcheck: (val: boolean) => void;
+  setShowSendButton: (val: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -35,6 +39,8 @@ export const useUIStore = create<UIState>()(
       appBorderStyle: "none",
       showDummyUsers: true,
       highlightOwnMessages: true,
+      spellcheck: true,
+      showSendButton: true,
       openSettings: () => set({ settingsOpen: true }),
       closeSettings: () => set({ settingsOpen: false }),
       openServerSettings: () => set({ serverSettingsOpen: true }),
@@ -46,6 +52,8 @@ export const useUIStore = create<UIState>()(
       setAppBorderStyle: (style) => set({ appBorderStyle: style }),
       toggleDummyUsers: () => set((s) => ({ showDummyUsers: !s.showDummyUsers })),
       setHighlightOwnMessages: (val) => set({ highlightOwnMessages: val }),
+      setSpellcheck: (val) => set({ spellcheck: val }),
+      setShowSendButton: (val) => set({ showSendButton: val }),
     }),
     {
       name: "flux-ui",
@@ -54,6 +62,8 @@ export const useUIStore = create<UIState>()(
         appBorderStyle: state.appBorderStyle,
         showDummyUsers: state.showDummyUsers,
         highlightOwnMessages: state.highlightOwnMessages,
+        spellcheck: state.spellcheck,
+        showSendButton: state.showSendButton,
       }),
     }
   )
