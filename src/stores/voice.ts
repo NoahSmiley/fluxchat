@@ -1131,6 +1131,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         }
         if (track.kind === Track.Kind.Video) {
           dbg("voice", `TrackSubscribed video from ${participant.identity}, updating screen sharers`);
+          // Request max quality immediately to speed up stream loading
+          // (don't wait for component mount + requestAnimationFrame)
+          if (_publication.source === Track.Source.ScreenShare) {
+            _publication.setVideoDimensions({ width: 1920, height: 1080 });
+            _publication.setVideoQuality(VideoQuality.HIGH);
+          }
           get()._updateScreenSharers();
         }
       });
@@ -1751,7 +1757,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           {
             audio: true,
             contentHint: preset.contentHint,
-            resolution: { width: preset.width, height: preset.height, frameRate: preset.frameRate },
+            // Capture at native resolution — quality is controlled via encoder params
+            // so quality can be changed live without re-capturing the screen
+            resolution: { width: 3840, height: 2160, frameRate: 60 },
             preferCurrentTab: false,
             selfBrowserSurface: "exclude",
             surfaceSwitching: "include",
@@ -1798,7 +1806,69 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   setScreenShareQuality: (quality) => {
+    const prevQuality = get().screenShareQuality;
     set({ screenShareQuality: quality });
+
+    const { room, isScreenSharing } = get();
+    if (!isScreenSharing || !room) return;
+
+    const preset = SCREEN_SHARE_PRESETS[quality];
+    const prevPreset = SCREEN_SHARE_PRESETS[prevQuality];
+
+    // Codec change (h264 ↔ vp9) requires republishing the track
+    if (preset.codec !== prevPreset.codec) {
+      dbg("voice", `setScreenShareQuality codec change ${prevPreset.codec} → ${preset.codec}, republishing`);
+      (async () => {
+        try {
+          for (const pub of room.localParticipant.videoTrackPublications.values()) {
+            if (pub.source === Track.Source.ScreenShare && pub.track) {
+              const mediaStreamTrack = pub.track.mediaStreamTrack;
+              await room.localParticipant.unpublishTrack(pub.track, false);
+              await room.localParticipant.publishTrack(mediaStreamTrack, {
+                source: Track.Source.ScreenShare,
+                videoCodec: preset.codec,
+                screenShareEncoding: {
+                  maxBitrate: preset.maxBitrate,
+                  maxFramerate: preset.frameRate,
+                  priority: "high",
+                },
+                scalabilityMode: preset.scalabilityMode,
+                degradationPreference: preset.degradationPreference,
+              });
+              get()._updateScreenSharers();
+              break;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to republish screen share for codec change:", e);
+        }
+      })();
+      return;
+    }
+
+    // Same codec — apply encoding params live via RTCRtpSender
+    dbg("voice", `setScreenShareQuality live update: ${prevQuality} → ${quality}`, preset);
+
+    for (const pub of room.localParticipant.videoTrackPublications.values()) {
+      if (pub.source === Track.Source.ScreenShare && pub.track) {
+        const sender = pub.track.sender;
+        if (sender) {
+          const params = sender.getParameters();
+          if (params.encodings && params.encodings.length > 0) {
+            params.encodings[0].maxBitrate = preset.maxBitrate;
+            params.encodings[0].maxFramerate = preset.frameRate;
+            sender.setParameters(params).catch((e: unknown) =>
+              console.warn("Failed to update screen share encoding:", e),
+            );
+          }
+        }
+        // Update content hint on the media track
+        const mediaTrack = pub.track.mediaStreamTrack;
+        if (mediaTrack?.readyState === "live") {
+          mediaTrack.contentHint = preset.contentHint;
+        }
+      }
+    }
   },
 
   incrementDrinkCount: () => {

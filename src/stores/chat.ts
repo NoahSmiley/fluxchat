@@ -980,11 +980,8 @@ gateway.on((event) => {
             ? (EVERYONE_MENTION_RE.test(msg.content) ||
                HERE_MENTION_RE.test(msg.content) ||
                (() => {
-                 try {
-                   return new RegExp(`(?<![a-zA-Z0-9_])@${authUser.username}(?![a-zA-Z0-9_])`, "i").test(msg.content);
-                 } catch {
-                   return msg.content.toLowerCase().includes(`@${authUser.username.toLowerCase()}`);
-                 }
+                 const escaped = authUser.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                 return new RegExp(`(?<![a-zA-Z0-9_])@${escaped}(?![a-zA-Z0-9_])`, "i").test(msg.content);
                })())
             : false;
 

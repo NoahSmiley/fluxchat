@@ -171,7 +171,7 @@ export function ChannelSettingsModal({ channel, serverId, onClose }: Props) {
                   <input
                     type="range"
                     min="8000"
-                    max="384000"
+                    max="512000"
                     step="8000"
                     value={bitrate}
                     onChange={(e) => setBitrate(parseInt(e.target.value))}
