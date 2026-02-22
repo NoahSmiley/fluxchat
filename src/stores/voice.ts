@@ -5,10 +5,15 @@ import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
 import { DtlnTrackProcessor } from "../lib/dtln/DtlnTrackProcessor.js";
+import type { TrackProcessor, AudioProcessorOptions } from "livekit-client";
+
+// ── Noise Suppression Model Selection ──
+export type NoiseSuppressionModel = "off" | "rnnoise" | "dtln" | "deepfilter";
 import { useKeybindsStore } from "./keybinds.js";
 import { useCryptoStore } from "./crypto.js";
 import { exportKeyAsBase64 } from "../lib/crypto.js";
 import { dbg } from "../lib/debug.js";
+import { collectWebRTCStats, resetStatsDelta, type WebRTCQualityStats } from "../lib/webrtcStats.js";
 
 // ── Sound Effects ──
 
@@ -33,11 +38,11 @@ function playTone(frequencies: number[], duration = 0.08) {
 }
 
 function playJoinSound() {
-  playTone([440, 580]);
+  playTone([480]);
 }
 
 function playLeaveSound() {
-  playTone([520, 380]);
+  playTone([380]);
 }
 
 function playScreenShareStartSound() {
@@ -142,7 +147,9 @@ function createAudioPipeline(
   lowPass.frequency.value = settings.lowPassFrequency > 0 ? settings.lowPassFrequency : 24000;
 
   const gain = context.createGain();
-  gain.gain.setValueAtTime(volume, context.currentTime);
+  // Fade in over 50ms to prevent click/pop when pipeline starts
+  gain.gain.setValueAtTime(0, context.currentTime);
+  gain.gain.linearRampToValueAtTime(volume, context.currentTime + 0.05);
 
   const analyser = context.createAnalyser();
   analyser.fftSize = 256;
@@ -194,6 +201,11 @@ function destroyAudioPipeline(trackSid: string) {
   const pipeline = audioPipelines.get(trackSid);
   if (pipeline) {
     dbg("voice", `destroyAudioPipeline sid=${trackSid}`, { remaining: audioPipelines.size - 1 });
+    // Mute gain instantly to prevent static/click on teardown
+    try { pipeline.gain.gain.setValueAtTime(0, pipeline.context.currentTime); } catch {}
+    // Disconnect all nodes from destination
+    try { pipeline.gain.disconnect(); } catch {}
+    try { pipeline.source.disconnect(); } catch {}
     pipeline.element.pause();
     pipeline.element.srcObject = null;
     pipeline.context.close();
@@ -208,22 +220,78 @@ function destroyAllPipelines() {
   }
 }
 
-// ── DTLN Noise Filter (dtln-rs WASM) ──
+// ── AI Noise Suppression (multiple models) ──
 
-let dtlnProcessor: DtlnTrackProcessor | null = null;
+let noiseProcessor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null = null;
+let activeNoiseModel: NoiseSuppressionModel = "off";
+let noiseSwitchNonce = 0; // concurrency guard for model switching
 
-function getOrCreateDtln() {
-  if (!dtlnProcessor) {
-    dtlnProcessor = new DtlnTrackProcessor();
+async function createNoiseProcessor(model: NoiseSuppressionModel): Promise<TrackProcessor<Track.Kind.Audio, AudioProcessorOptions>> {
+  switch (model) {
+    case "dtln":
+      return new DtlnTrackProcessor();
+    case "rnnoise": {
+      const { RnnoiseTrackProcessor } = await import("../lib/rnnoise/RnnoiseTrackProcessor.js");
+      return new RnnoiseTrackProcessor();
+    }
+    case "deepfilter": {
+      const { DeepFilterTrackProcessor } = await import("../lib/deepfilter/DeepFilterTrackProcessor.js");
+      return new DeepFilterTrackProcessor();
+    }
+    default:
+      throw new Error(`Unknown noise suppression model: ${model}`);
   }
-  return dtlnProcessor;
 }
 
-function destroyDtln() {
-  if (dtlnProcessor) {
-    dtlnProcessor.destroy();
-    dtlnProcessor = null;
+async function getOrCreateNoiseProcessor(model: NoiseSuppressionModel) {
+  if (model === "off") {
+    await destroyNoiseProcessor();
+    return null;
   }
+  // If switching models, destroy old first
+  if (noiseProcessor && activeNoiseModel !== model) {
+    await destroyNoiseProcessor();
+  }
+  if (!noiseProcessor) {
+    noiseProcessor = await createNoiseProcessor(model);
+    activeNoiseModel = model;
+  }
+  return noiseProcessor;
+}
+
+async function destroyNoiseProcessor() {
+  if (noiseProcessor) {
+    await (noiseProcessor as any).destroy?.();
+    noiseProcessor = null;
+    activeNoiseModel = "off";
+  }
+}
+
+// ── WebRTC Stats Polling ──
+
+let statsInterval: ReturnType<typeof setInterval> | null = null;
+
+function startStatsPolling() {
+  stopStatsPolling();
+  resetStatsDelta();
+  statsInterval = setInterval(async () => {
+    const { room, showStatsOverlay } = useVoiceStore.getState();
+    if (!room || !showStatsOverlay) return;
+    try {
+      const stats = await collectWebRTCStats(room);
+      useVoiceStore.setState({ webrtcStats: stats });
+    } catch (e) {
+      dbg("voice", "stats polling error", e);
+    }
+  }, 2000);
+}
+
+function stopStatsPolling() {
+  if (statsInterval) {
+    clearInterval(statsInterval);
+    statsInterval = null;
+  }
+  resetStatsDelta();
 }
 
 // ── Lobby Music (Easter Egg) ──
@@ -393,11 +461,13 @@ function setupLocalAnalyser(room: any) {
 }
 
 function teardownLocalAnalyser() {
-  localAnalyserSource?.disconnect();
+  try { localAnalyserSource?.disconnect(); } catch {}
   localAnalyserSource = null;
   localAnalyser = null;
   localAnalyserData = null;
   if (localAnalyserCtx) {
+    // Suspend first to stop audio processing immediately, then close
+    localAnalyserCtx.suspend().catch(() => {});
     localAnalyserCtx.close().catch(() => {});
     localAnalyserCtx = null;
   }
@@ -545,7 +615,7 @@ interface AudioSettings {
   lowPassFrequency: number;
   inputSensitivity: number; // 0-100, where 0 = always transmit, 100 = most aggressive gate
   inputSensitivityEnabled: boolean; // false = always transmit (no gate)
-  krispEnabled: boolean; // AI noise suppression via Krisp
+  noiseSuppressionModel: NoiseSuppressionModel; // AI noise suppression model
 }
 
 interface ScreenShareInfo {
@@ -617,6 +687,10 @@ interface VoiceState {
   // Timestamp of last non-silence mic transmission (ms, 0 if never) — used by idle detection
   lastSpokeAt: number;
 
+  // WebRTC stats overlay
+  webrtcStats: WebRTCQualityStats | null;
+  showStatsOverlay: boolean;
+
   // Lobby music (easter egg)
   lobbyMusicPlaying: boolean;
   lobbyMusicVolume: number;
@@ -627,7 +701,7 @@ interface VoiceState {
   toggleMute: () => void;
   toggleDeafen: () => void;
   setMuted: (muted: boolean) => void;
-  updateAudioSetting: (key: keyof AudioSettings, value: boolean | number) => void;
+  updateAudioSetting: (key: keyof AudioSettings, value: boolean | number | string) => void;
   applyBitrate: (bitrate: number) => void;
   toggleScreenShare: (displaySurface?: "monitor" | "window") => Promise<void>;
   setParticipantVolume: (participantId: string, volume: number) => void;
@@ -638,6 +712,7 @@ interface VoiceState {
   incrementDrinkCount: () => void;
   setLobbyMusicVolume: (volume: number) => void;
   stopLobbyMusicAction: () => void;
+  toggleStatsOverlay: () => void;
 
   // Internal
   _updateParticipants: () => void;
@@ -654,7 +729,7 @@ const DEFAULT_SETTINGS: AudioSettings = {
   lowPassFrequency: 0,
   inputSensitivity: 40,
   inputSensitivityEnabled: false,
-  krispEnabled: true,
+  noiseSuppressionModel: "dtln",
 };
 
 const DEFAULT_BITRATE = 256_000;
@@ -680,6 +755,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   channelParticipants: {},
   lastSpokeAt: 0,
   lobbyMusicPlaying: false,
+  webrtcStats: null,
+  showStatsOverlay: false,
   lobbyMusicVolume: parseFloat(localStorage.getItem("flux-lobby-music-volume") ?? "0.15"),
 
   joinVoiceChannel: async (channelId: string) => {
@@ -695,16 +772,57 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       return;
     }
 
+    // Room switch: silently disconnect without sounds or full state reset
+    const isSwitching = !!existingRoom && !!connectedChannelId;
     if (existingRoom) {
-      dbg("voice", "joinVoiceChannel disconnecting from previous room");
-      get().leaveVoiceChannel();
+      dbg("voice", `joinVoiceChannel ${isSwitching ? "switching" : "disconnecting"} from previous room`);
+
+      // Remove all event listeners FIRST so the Disconnected handler
+      // doesn't fire and interfere with the new room setup
+      existingRoom.removeAllListeners();
+
+      // Stop local mic track completely (not just mute — fully stop to prevent static)
+      try {
+        for (const pub of existingRoom.localParticipant.audioTrackPublications.values()) {
+          if (pub.track) {
+            pub.track.stop();
+          }
+        }
+      } catch {}
+
+      stopAudioLevelPolling();
+      stopLobbyMusic();
+      await destroyNoiseProcessor();
+      destroyAllPipelines();
+
+      // Detach all remote tracks
+      for (const participant of existingRoom.remoteParticipants.values()) {
+        for (const pub of participant.audioTrackPublications.values()) {
+          if (pub.track) pub.track.detach().forEach((el) => el.remove());
+        }
+        for (const pub of participant.videoTrackPublications.values()) {
+          if (pub.track) pub.track.detach().forEach((el) => el.remove());
+        }
+      }
+
+      // Await disconnect so old room is fully torn down before new one starts
+      await existingRoom.disconnect();
+      // Defer the leave message — send it right before joining the new room
+      // so the user stays in the old room's participant list until they appear in the new one
+      // (prevents the old room from flashing away in the sidebar)
+      // Set connecting: true in the same update to avoid a flash where both
+      // connectedChannelId and connecting are falsy
+      set({ room: null, connectedChannelId: null, connecting: true, connectionError: null });
     }
+
+    // Store the previous channel ID so we can send the deferred leave later
+    const previousChannelId = isSwitching ? connectedChannelId : null;
 
     // Bump nonce so any previous in-flight join becomes stale
     const myNonce = ++joinNonce;
     const isStale = () => myNonce !== joinNonce;
 
-    set({ connecting: true, connectionError: null });
+    if (!isSwitching) set({ connecting: true, connectionError: null });
 
     try {
       dbg("voice", "joinVoiceChannel fetching voice token...");
@@ -755,7 +873,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           noiseSuppression: audioSettings.noiseSuppression,
           autoGainControl: audioSettings.autoGainControl,
           dtx: audioSettings.dtx,
-          krispEnabled: audioSettings.krispEnabled,
+          noiseSuppressionModel: audioSettings.noiseSuppressionModel,
         },
       });
 
@@ -904,6 +1022,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         dbg("voice", `Room Disconnected reason=${reason}`);
         destroyAllPipelines();
         stopAudioLevelPolling();
+        stopStatsPolling();
         set({
           room: null,
           connectedChannelId: null,
@@ -940,25 +1059,41 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       await room.localParticipant.setMicrophoneEnabled(true);
       dbg("voice", "joinVoiceChannel microphone enabled");
 
-      // Set up DTLN noise filter on the microphone track
-      if (audioSettings.krispEnabled) {
+      // Set up AI noise suppression on the microphone track
+      if (audioSettings.noiseSuppressionModel !== "off") {
         try {
-          dbg("voice", "joinVoiceChannel setting up DTLN noise filter");
-          const dtln = getOrCreateDtln();
+          dbg("voice", `joinVoiceChannel setting up ${audioSettings.noiseSuppressionModel} noise filter`);
+          const processor = await getOrCreateNoiseProcessor(audioSettings.noiseSuppressionModel);
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-          if (micPub?.track) {
-            await micPub.track.setProcessor(dtln);
-            dbg("voice", "joinVoiceChannel DTLN noise filter active");
+          if (micPub?.track && processor) {
+            await micPub.track.setProcessor(processor as any);
+            dbg("voice", `joinVoiceChannel ${audioSettings.noiseSuppressionModel} noise filter active`);
           } else {
-            dbg("voice", "joinVoiceChannel DTLN skipped — no mic track publication");
+            dbg("voice", "joinVoiceChannel noise filter skipped — no mic track publication");
           }
         } catch (e) {
-          dbg("voice", "joinVoiceChannel DTLN setup failed", e);
+          dbg("voice", "joinVoiceChannel noise filter setup failed", e);
           console.warn("Failed to enable noise filter:", e);
-          destroyDtln();
-          set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
+          await destroyNoiseProcessor();
+          set({ audioSettings: { ...get().audioSettings, noiseSuppressionModel: "off" } });
         }
       }
+
+      // Optimistically add self to channelParticipants so the avatar shows immediately
+      // (the backend voice_state broadcast will replace this with authoritative data)
+      const localIdentity = room.localParticipant.identity;
+      const localName = room.localParticipant.name ?? localIdentity.slice(0, 8);
+      const optimisticParticipants = { ...get().channelParticipants };
+      // Remove self from previous channel if switching
+      if (previousChannelId && optimisticParticipants[previousChannelId]) {
+        optimisticParticipants[previousChannelId] = optimisticParticipants[previousChannelId].filter(
+          (p) => p.userId !== localIdentity,
+        );
+      }
+      optimisticParticipants[channelId] = [
+        ...(optimisticParticipants[channelId] || []).filter((p) => p.userId !== localIdentity),
+        { userId: localIdentity, username: localName, drinkCount: 0 },
+      ];
 
       set({
         room,
@@ -970,11 +1105,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         screenSharers: [],
         participantTrackMap: {},
         pinnedScreenShare: null,
+        channelParticipants: optimisticParticipants,
       });
 
       get()._updateParticipants();
       get()._updateScreenSharers();
       startAudioLevelPolling();
+      if (get().showStatsOverlay) startStatsPolling();
       checkLobbyMusic();
 
       // If push-to-talk is configured, start muted
@@ -987,6 +1124,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       }
 
       playJoinSound();
+      // Send deferred leave for the old room right before announcing the new join,
+      // so the sidebar transitions atomically (old room loses user, new room gains user)
+      if (previousChannelId) {
+        gateway.send({ type: "voice_state_update", channelId: previousChannelId, action: "leave" });
+      }
       gateway.send({ type: "voice_state_update", channelId, action: "join" });
       dbg("voice", `joinVoiceChannel COMPLETE channel=${channelId}`);
     } catch (err) {
@@ -1018,6 +1160,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     playLeaveSound();
     stopAudioLevelPolling();
+    stopStatsPolling();
     stopLobbyMusic();
 
     // Stop Spotify playback when leaving voice
@@ -1027,8 +1170,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       });
     } catch {}
 
-    // Clean up Krisp processor
-    destroyDtln();
+    // Clean up noise suppression processor
+    destroyNoiseProcessor();
 
     // Destroy all audio pipelines
     destroyAllPipelines();
@@ -1073,6 +1216,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       audioLevels: {},
       speakingUserIds: new Set<string>(),
       pinnedScreenShare: null,
+      webrtcStats: null,
     });
   },
 
@@ -1154,7 +1298,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     }
   },
 
-  updateAudioSetting: (key: keyof AudioSettings, value: boolean | number) => {
+  updateAudioSetting: (key: keyof AudioSettings, value: boolean | number | string) => {
     dbg("voice", `updateAudioSetting ${key}=${value}`);
     const { room, audioSettings } = get();
     const newSettings = { ...audioSettings, [key]: value } as AudioSettings;
@@ -1171,26 +1315,44 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       return;
     }
 
-    // DTLN noise filter toggle
-    if (key === "krispEnabled") {
+    // AI noise suppression model switch
+    if (key === "noiseSuppressionModel") {
       if (!room) return;
       const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
       if (!micPub?.track) return;
+      const model = value as NoiseSuppressionModel;
 
-      if (value) {
-        const dtln = getOrCreateDtln();
-        micPub.track.setProcessor(dtln).catch((e: unknown) => {
-          console.warn("Failed to enable noise filter:", e);
-          destroyDtln();
-          set({ audioSettings: { ...get().audioSettings, krispEnabled: false } });
-        });
-      } else {
+      if (model === "off") {
         micPub.track.stopProcessor()
-          .then(() => destroyDtln())
+          .then(() => destroyNoiseProcessor())
           .catch((e) => {
             console.warn("Failed to disable noise filter:", e);
-            destroyDtln();
+            destroyNoiseProcessor();
           });
+      } else {
+        // Stop existing processor first, then attach new one
+        const myNonce = ++noiseSwitchNonce;
+        const switchModel = async () => {
+          try {
+            if (noiseProcessor) {
+              await micPub.track!.stopProcessor();
+              await destroyNoiseProcessor();
+            }
+            if (myNonce !== noiseSwitchNonce) return; // superseded by newer switch
+            const processor = await getOrCreateNoiseProcessor(model);
+            if (myNonce !== noiseSwitchNonce) return; // superseded by newer switch
+            if (processor) {
+              await micPub.track!.setProcessor(processor as any);
+              dbg("voice", `Noise suppression model switched to ${model}`);
+            }
+          } catch (e) {
+            if (myNonce !== noiseSwitchNonce) return;
+            console.warn("Failed to switch noise model:", e);
+            await destroyNoiseProcessor();
+            set({ audioSettings: { ...get().audioSettings, noiseSuppressionModel: "off" } });
+          }
+        };
+        switchModel();
       }
       return;
     }
@@ -1333,6 +1495,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     stopLobbyMusic();
   },
 
+  toggleStatsOverlay: () => {
+    const { showStatsOverlay, room } = get();
+    const newVal = !showStatsOverlay;
+    set({ showStatsOverlay: newVal, webrtcStats: newVal ? get().webrtcStats : null });
+    if (newVal && room) {
+      startStatsPolling();
+    } else {
+      stopStatsPolling();
+    }
+  },
+
   _updateParticipants: () => {
     const { room } = get();
     if (!room) return;
@@ -1448,10 +1621,24 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 }));
 
+// Lazy ref to auth store (avoids circular import)
+let _authStore: { getState: () => { user?: { id: string } | null } } | null = null;
+import("./auth.js").then((m) => { _authStore = m.useAuthStore; });
+
 // Listen for voice_state events from WebSocket (for sidebar display)
 gateway.on((event) => {
   if (event.type === "voice_state") {
-    useVoiceStore.getState()._setChannelParticipants(event.channelId, event.participants);
+    const { connectedChannelId } = useVoiceStore.getState();
+    let { participants } = event;
+    // If we're not connected to this channel, filter out our own userId
+    // so stale backend broadcasts don't re-add our avatar after leaving
+    if (connectedChannelId !== event.channelId) {
+      const userId = _authStore?.getState()?.user?.id;
+      if (userId) {
+        participants = participants.filter((p: VoiceParticipant) => p.userId !== userId);
+      }
+    }
+    useVoiceStore.getState()._setChannelParticipants(event.channelId, participants);
   }
 });
 

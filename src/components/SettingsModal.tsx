@@ -523,10 +523,19 @@ export function SettingsModal() {
               <h3 className="settings-card-title">Processing</h3>
               <div className="settings-row">
                 <div className="settings-row-info">
-                  <span className="settings-row-label">Noise Cancellation</span>
-                  <span className="settings-row-desc">AI-powered noise cancellation</span>
+                  <span className="settings-row-label">AI Noise Suppression</span>
+                  <span className="settings-row-desc">Select an AI model for noise cancellation</span>
                 </div>
-                <ToggleSwitch checked={audioSettings.krispEnabled} onChange={(v) => updateAudioSetting("krispEnabled", v)} />
+                <select
+                  className="settings-select"
+                  value={audioSettings.noiseSuppressionModel}
+                  onChange={(e) => updateAudioSetting("noiseSuppressionModel", e.target.value)}
+                >
+                  <option value="off">Off</option>
+                  <option value="rnnoise">RNNoise (lightweight)</option>
+                  <option value="dtln">DTLN (balanced)</option>
+                  <option value="deepfilter">DeepFilterNet3 (best quality)</option>
+                </select>
               </div>
               <div className="settings-row">
                 <div className="settings-row-info">
