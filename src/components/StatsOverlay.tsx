@@ -42,6 +42,22 @@ export function StatsOverlay() {
             <span>{stats.audioCodec.toUpperCase()}</span>
           </div>
         )}
+        {stats.audioSampleRate > 0 && (
+          <div className="stats-overlay-row">
+            <span>Sample Rate</span>
+            <span>{stats.audioSampleRate / 1000} kHz</span>
+          </div>
+        )}
+        {stats.audioChannels > 0 && (
+          <div className="stats-overlay-row">
+            <span>Channels</span>
+            <span>{stats.audioChannels >= 2 ? "Stereo" : "Mono"}</span>
+          </div>
+        )}
+        <div className="stats-overlay-row">
+          <span>FEC</span>
+          <span>{stats.opusFec ? "Yes" : "No"}</span>
+        </div>
         <div className="stats-overlay-row">
           <span>Packet Loss</span>
           <span style={{ color: lossColor(stats.audioPacketLoss) }}>

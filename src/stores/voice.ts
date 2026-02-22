@@ -8,7 +8,7 @@ import { DtlnTrackProcessor } from "../lib/dtln/DtlnTrackProcessor.js";
 import type { TrackProcessor, AudioProcessorOptions } from "livekit-client";
 
 // ── Noise Suppression Model Selection ──
-export type NoiseSuppressionModel = "off" | "rnnoise" | "dtln" | "deepfilter";
+export type NoiseSuppressionModel = "off" | "speex" | "rnnoise" | "dtln" | "deepfilter" | "nsnet2";
 import { useKeybindsStore } from "./keybinds.js";
 import { useCryptoStore } from "./crypto.js";
 import { exportKeyAsBase64 } from "../lib/crypto.js";
@@ -77,6 +77,8 @@ interface AudioPipeline {
   element: HTMLAudioElement;
   highPass: BiquadFilterNode;
   lowPass: BiquadFilterNode;
+  deEsser: BiquadFilterNode | null;
+  compressor: DynamicsCompressorNode | null;
   gain: GainNode;
   analyser: AnalyserNode;
   analyserData: Float32Array;
@@ -155,13 +157,41 @@ function createAudioPipeline(
   analyser.fftSize = 256;
   const analyserData = new Float32Array(analyser.fftSize);
 
+  // Build chain: merger -> highPass -> lowPass -> [deEsser] -> [compressor] -> analyser -> gain -> destination
   merger.connect(highPass);
   highPass.connect(lowPass);
-  lowPass.connect(analyser);
+
+  let lastNode: AudioNode = lowPass;
+
+  // De-esser: highshelf filter that attenuates sibilance (4-8kHz range)
+  let deEsser: BiquadFilterNode | null = null;
+  if (settings.deEsserEnabled) {
+    deEsser = context.createBiquadFilter();
+    deEsser.type = "highshelf";
+    deEsser.frequency.value = 5500;
+    deEsser.gain.value = -(settings.deEsserStrength / 100) * 12; // 0 to -12dB
+    lastNode.connect(deEsser);
+    lastNode = deEsser;
+  }
+
+  // Compressor: dynamics compression
+  let compressor: DynamicsCompressorNode | null = null;
+  if (settings.compressorEnabled) {
+    compressor = context.createDynamicsCompressor();
+    compressor.threshold.value = settings.compressorThreshold;
+    compressor.ratio.value = settings.compressorRatio;
+    compressor.attack.value = settings.compressorAttack;
+    compressor.release.value = settings.compressorRelease;
+    compressor.knee.value = 10;
+    lastNode.connect(compressor);
+    lastNode = compressor;
+  }
+
+  lastNode.connect(analyser);
   analyser.connect(gain);
   gain.connect(context.destination);
 
-  const pipeline: AudioPipeline = { context, source, element: audioElement, highPass, lowPass, gain, analyser, analyserData };
+  const pipeline: AudioPipeline = { context, source, element: audioElement, highPass, lowPass, deEsser, compressor, gain, analyser, analyserData };
   audioPipelines.set(trackSid, pipeline);
 
   // Diagnostic: check if audio data is flowing after 1 second
@@ -213,6 +243,27 @@ function destroyAudioPipeline(trackSid: string) {
   }
 }
 
+/** Rebuild all active audio pipelines (e.g. when compressor/de-esser is toggled) */
+function rebuildAllPipelines(settings: AudioSettings, get: () => VoiceState) {
+  const { participantVolumes, participantTrackMap, isDeafened } = get();
+  for (const [trackSid, pipeline] of audioPipelines.entries()) {
+    const element = pipeline.element;
+    // Find participant identity for this trackSid to get their volume
+    let volume = 1.0;
+    for (const [identity, sid] of Object.entries(participantTrackMap)) {
+      if (sid === trackSid) {
+        volume = isDeafened ? 0 : (participantVolumes[identity] ?? 1.0);
+        break;
+      }
+    }
+    destroyAudioPipeline(trackSid);
+    // Only rebuild if the element still has a source
+    if (element.srcObject) {
+      createAudioPipeline(element, trackSid, settings, volume);
+    }
+  }
+}
+
 function destroyAllPipelines() {
   dbg("voice", `destroyAllPipelines count=${audioPipelines.size}`);
   for (const trackSid of [...audioPipelines.keys()]) {
@@ -225,9 +276,15 @@ function destroyAllPipelines() {
 let noiseProcessor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null = null;
 let activeNoiseModel: NoiseSuppressionModel = "off";
 let noiseSwitchNonce = 0; // concurrency guard for model switching
+let dryWetProcessor: import("../lib/DryWetTrackProcessor.js").DryWetTrackProcessor | null = null;
+let gainTrackProcessor: import("../lib/GainTrackProcessor.js").GainTrackProcessor | null = null;
 
 async function createNoiseProcessor(model: NoiseSuppressionModel): Promise<TrackProcessor<Track.Kind.Audio, AudioProcessorOptions>> {
   switch (model) {
+    case "speex": {
+      const { SpeexTrackProcessor } = await import("../lib/speex/SpeexTrackProcessor.js");
+      return new SpeexTrackProcessor();
+    }
     case "dtln":
       return new DtlnTrackProcessor();
     case "rnnoise": {
@@ -237,6 +294,10 @@ async function createNoiseProcessor(model: NoiseSuppressionModel): Promise<Track
     case "deepfilter": {
       const { DeepFilterTrackProcessor } = await import("../lib/deepfilter/DeepFilterTrackProcessor.js");
       return new DeepFilterTrackProcessor();
+    }
+    case "nsnet2": {
+      const { NSNet2TrackProcessor } = await import("../lib/nsnet2/NSNet2TrackProcessor.js");
+      return new NSNet2TrackProcessor();
     }
     default:
       throw new Error(`Unknown noise suppression model: ${model}`);
@@ -267,6 +328,24 @@ async function destroyNoiseProcessor() {
   }
 }
 
+// ── Bitrate Constants ──
+
+const DEFAULT_BITRATE = 256_000;
+
+// ── Adaptive Bitrate ──
+
+let adaptiveTargetBitrate = DEFAULT_BITRATE;
+let adaptiveCurrentBitrate = DEFAULT_BITRATE;
+let highLossCount = 0;
+let lowLossCount = 0;
+
+function resetAdaptiveBitrate() {
+  adaptiveTargetBitrate = DEFAULT_BITRATE;
+  adaptiveCurrentBitrate = DEFAULT_BITRATE;
+  highLossCount = 0;
+  lowLossCount = 0;
+}
+
 // ── WebRTC Stats Polling ──
 
 let statsInterval: ReturnType<typeof setInterval> | null = null;
@@ -275,11 +354,40 @@ function startStatsPolling() {
   stopStatsPolling();
   resetStatsDelta();
   statsInterval = setInterval(async () => {
-    const { room, showStatsOverlay } = useVoiceStore.getState();
-    if (!room || !showStatsOverlay) return;
+    const { room } = useVoiceStore.getState();
+    if (!room) return;
     try {
       const stats = await collectWebRTCStats(room);
-      useVoiceStore.setState({ webrtcStats: stats });
+
+      // Adaptive bitrate based on packet loss
+      if (stats.audioPacketLoss > 5) {
+        highLossCount++;
+        lowLossCount = 0;
+        if (highLossCount >= 2) {
+          const reduced = Math.round(adaptiveCurrentBitrate * 0.75);
+          adaptiveCurrentBitrate = Math.max(32_000, reduced);
+          useVoiceStore.getState().applyBitrate(adaptiveCurrentBitrate);
+        }
+      } else if (stats.audioPacketLoss < 1) {
+        lowLossCount++;
+        highLossCount = 0;
+        if (lowLossCount >= 5) {
+          const increased = Math.round(adaptiveCurrentBitrate * 1.1);
+          const newBitrate = Math.min(adaptiveTargetBitrate, increased);
+          if (newBitrate !== adaptiveCurrentBitrate) {
+            adaptiveCurrentBitrate = newBitrate;
+            useVoiceStore.getState().applyBitrate(adaptiveCurrentBitrate);
+          }
+        }
+      } else {
+        highLossCount = 0;
+        lowLossCount = 0;
+      }
+
+      // Only update store stats if overlay is visible
+      if (useVoiceStore.getState().showStatsOverlay) {
+        useVoiceStore.setState({ webrtcStats: stats });
+      }
     } catch (e) {
       dbg("voice", "stats polling error", e);
     }
@@ -292,6 +400,7 @@ function stopStatsPolling() {
     statsInterval = null;
   }
   resetStatsDelta();
+  resetAdaptiveBitrate();
 }
 
 // ── Lobby Music (Easter Egg) ──
@@ -569,8 +678,8 @@ function startAudioLevelPolling() {
       // Audio below threshold
       if (!gatedSilentSince) {
         gatedSilentSince = Date.now();
-      } else if (!isGated && Date.now() - gatedSilentSince > 200) {
-        // Silent for 200ms — gate the mic
+      } else if (!isGated && Date.now() - gatedSilentSince > audioSettings.noiseGateHoldTime) {
+        // Silent for holdTime — gate the mic
         isGated = true;
         room.localParticipant.setMicrophoneEnabled(false);
       }
@@ -616,6 +725,17 @@ interface AudioSettings {
   inputSensitivity: number; // 0-100, where 0 = always transmit, 100 = most aggressive gate
   inputSensitivityEnabled: boolean; // false = always transmit (no gate)
   noiseSuppressionModel: NoiseSuppressionModel; // AI noise suppression model
+  suppressionStrength: number; // 0-100, dry/wet mix for AI noise suppression
+  vadThreshold: number; // 0-100, voice activity detection threshold (RNNoise only)
+  micInputGain: number; // 0-200, mic pre-gain percentage
+  noiseGateHoldTime: number; // 50-1000ms, hold time before gate closes
+  compressorEnabled: boolean;
+  compressorThreshold: number; // -50 to 0 dB
+  compressorRatio: number; // 1-20
+  compressorAttack: number; // seconds
+  compressorRelease: number; // seconds
+  deEsserEnabled: boolean;
+  deEsserStrength: number; // 0-100
 }
 
 interface ScreenShareInfo {
@@ -730,9 +850,37 @@ const DEFAULT_SETTINGS: AudioSettings = {
   inputSensitivity: 40,
   inputSensitivityEnabled: false,
   noiseSuppressionModel: "dtln",
+  suppressionStrength: 100,
+  vadThreshold: 85,
+  micInputGain: 100,
+  noiseGateHoldTime: 200,
+  compressorEnabled: false,
+  compressorThreshold: -24,
+  compressorRatio: 12,
+  compressorAttack: 0.003,
+  compressorRelease: 0.25,
+  deEsserEnabled: false,
+  deEsserStrength: 50,
 };
 
-const DEFAULT_BITRATE = 256_000;
+// ── Audio Settings Persistence ──
+const SETTINGS_STORAGE_KEY = "flux-audio-settings";
+
+function loadAudioSettings(): AudioSettings {
+  try {
+    const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (saved) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+    }
+  } catch {}
+  return { ...DEFAULT_SETTINGS };
+}
+
+function saveAudioSettings(settings: AudioSettings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {}
+}
 
 export const useVoiceStore = create<VoiceState>((set, get) => ({
   room: null,
@@ -741,7 +889,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   connectionError: null,
   isMuted: false,
   isDeafened: false,
-  audioSettings: { ...DEFAULT_SETTINGS },
+  audioSettings: loadAudioSettings(),
   participantVolumes: {},
   participantTrackMap: {},
   audioLevels: {},
@@ -793,6 +941,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       stopAudioLevelPolling();
       stopLobbyMusic();
       await destroyNoiseProcessor();
+      dryWetProcessor = null;
+      gainTrackProcessor = null;
       destroyAllPipelines();
 
       // Detach all remote tracks
@@ -841,6 +991,10 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       const chatState = useChatStore.getState();
       const channel = chatState.channels.find((c) => c.id === channelId);
       const channelBitrate = channel?.bitrate ?? DEFAULT_BITRATE;
+
+      // Initialize adaptive bitrate ceiling to channel bitrate
+      adaptiveTargetBitrate = channelBitrate;
+      adaptiveCurrentBitrate = channelBitrate;
 
       // E2EE: get server encryption key for voice
       const cryptoState = useCryptoStore.getState();
@@ -895,6 +1049,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           },
           dtx: audioSettings.dtx,
           red: true,
+          forceStereo: true,
           stopMicTrackOnMute: false,
           // H.264 by default — hardware-accelerated on most GPUs, much lower CPU than VP9
           videoCodec: "h264",
@@ -1066,7 +1221,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           const processor = await getOrCreateNoiseProcessor(audioSettings.noiseSuppressionModel);
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
           if (micPub?.track && processor) {
-            await micPub.track.setProcessor(processor as any);
+            // Apply VAD threshold if using RNNoise
+            if (audioSettings.noiseSuppressionModel === "rnnoise" && "setVadThreshold" in processor) {
+              (processor as any).setVadThreshold(audioSettings.vadThreshold / 100);
+            }
+
+            // Always wrap with DryWetTrackProcessor so micInputGain works at any suppression strength
+            const strength = audioSettings.suppressionStrength / 100;
+            const { DryWetTrackProcessor } = await import("../lib/DryWetTrackProcessor.js");
+            dryWetProcessor = new DryWetTrackProcessor(processor, strength);
+            dryWetProcessor.setPreGain(audioSettings.micInputGain / 100);
+            await micPub.track.setProcessor(dryWetProcessor as any);
             dbg("voice", `joinVoiceChannel ${audioSettings.noiseSuppressionModel} noise filter active`);
           } else {
             dbg("voice", "joinVoiceChannel noise filter skipped — no mic track publication");
@@ -1075,7 +1240,22 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           dbg("voice", "joinVoiceChannel noise filter setup failed", e);
           console.warn("Failed to enable noise filter:", e);
           await destroyNoiseProcessor();
+          dryWetProcessor = null;
           set({ audioSettings: { ...get().audioSettings, noiseSuppressionModel: "off" } });
+        }
+      } else if (audioSettings.micInputGain !== 100) {
+        // No noise suppression but mic gain is non-unity — use GainTrackProcessor
+        try {
+          const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          if (micPub?.track) {
+            const { GainTrackProcessor } = await import("../lib/GainTrackProcessor.js");
+            gainTrackProcessor = new GainTrackProcessor(audioSettings.micInputGain / 100);
+            await micPub.track.setProcessor(gainTrackProcessor as any);
+            dbg("voice", "joinVoiceChannel GainTrackProcessor active (no noise model)");
+          }
+        } catch (e) {
+          dbg("voice", "joinVoiceChannel GainTrackProcessor setup failed", e);
+          gainTrackProcessor = null;
         }
       }
 
@@ -1111,7 +1291,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       get()._updateParticipants();
       get()._updateScreenSharers();
       startAudioLevelPolling();
-      if (get().showStatsOverlay) startStatsPolling();
+      startStatsPolling(); // Always run stats for adaptive bitrate
       checkLobbyMusic();
 
       // If push-to-talk is configured, start muted
@@ -1172,6 +1352,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     // Clean up noise suppression processor
     destroyNoiseProcessor();
+    dryWetProcessor = null;
+    gainTrackProcessor = null;
 
     // Destroy all audio pipelines
     destroyAllPipelines();
@@ -1303,6 +1485,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     const { room, audioSettings } = get();
     const newSettings = { ...audioSettings, [key]: value } as AudioSettings;
     set({ audioSettings: newSettings });
+    saveAudioSettings(newSettings);
 
     // Input sensitivity settings are handled by the polling loop, no action needed
     if (key === "inputSensitivity" || key === "inputSensitivityEnabled") {
@@ -1315,6 +1498,102 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       return;
     }
 
+    // Noise gate hold time is used by the polling loop directly
+    if (key === "noiseGateHoldTime") return;
+
+    // Suppression strength — update DryWetTrackProcessor live
+    if (key === "suppressionStrength") {
+      if (dryWetProcessor) {
+        dryWetProcessor.strength = (value as number) / 100;
+      }
+      return;
+    }
+
+    // VAD threshold — post message to RNNoise worklet
+    if (key === "vadThreshold") {
+      if (activeNoiseModel === "rnnoise" && noiseProcessor) {
+        const innerProc = dryWetProcessor
+          ? dryWetProcessor.getInnerProcessor()
+          : noiseProcessor;
+        if (innerProc && "setVadThreshold" in innerProc) {
+          (innerProc as any).setVadThreshold((value as number) / 100);
+        }
+      }
+      return;
+    }
+
+    // Mic input gain — update DryWetTrackProcessor pre-gain or GainTrackProcessor
+    if (key === "micInputGain") {
+      if (dryWetProcessor) {
+        dryWetProcessor.setPreGain((value as number) / 100);
+      } else if (newSettings.noiseSuppressionModel === "off" && room) {
+        const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+        if (micPub?.track) {
+          if ((value as number) !== 100) {
+            // Need gain processing — create or update GainTrackProcessor
+            if (gainTrackProcessor) {
+              gainTrackProcessor.setGain((value as number) / 100);
+            } else {
+              const setupGain = async () => {
+                try {
+                  const { GainTrackProcessor } = await import("../lib/GainTrackProcessor.js");
+                  gainTrackProcessor = new GainTrackProcessor((value as number) / 100);
+                  await micPub.track!.setProcessor(gainTrackProcessor as any);
+                } catch (e) {
+                  console.warn("Failed to setup GainTrackProcessor:", e);
+                  gainTrackProcessor = null;
+                }
+              };
+              setupGain();
+            }
+          } else if (gainTrackProcessor) {
+            // Gain is 100% (unity) — remove processor
+            micPub.track.stopProcessor().then(() => {
+              gainTrackProcessor = null;
+            }).catch(() => {
+              gainTrackProcessor = null;
+            });
+          }
+        }
+      }
+      return;
+    }
+
+    // Compressor settings — update DynamicsCompressorNode params on all active pipelines
+    if (key === "compressorThreshold" || key === "compressorRatio" || key === "compressorAttack" || key === "compressorRelease") {
+      for (const pipeline of audioPipelines.values()) {
+        if (pipeline.compressor) {
+          if (key === "compressorThreshold") pipeline.compressor.threshold.value = value as number;
+          if (key === "compressorRatio") pipeline.compressor.ratio.value = value as number;
+          if (key === "compressorAttack") pipeline.compressor.attack.value = value as number;
+          if (key === "compressorRelease") pipeline.compressor.release.value = value as number;
+        }
+      }
+      return;
+    }
+
+    // Compressor toggle — rebuild pipelines
+    if (key === "compressorEnabled") {
+      rebuildAllPipelines(newSettings, get);
+      return;
+    }
+
+    // De-esser strength — update BiquadFilterNode gain on all active pipelines
+    if (key === "deEsserStrength") {
+      for (const pipeline of audioPipelines.values()) {
+        if (pipeline.deEsser) {
+          pipeline.deEsser.gain.value = -((value as number) / 100) * 12;
+        }
+      }
+      return;
+    }
+
+    // De-esser toggle — rebuild pipelines
+    if (key === "deEsserEnabled") {
+      rebuildAllPipelines(newSettings, get);
+      return;
+    }
+
     // AI noise suppression model switch
     if (key === "noiseSuppressionModel") {
       if (!room) return;
@@ -1323,33 +1602,65 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       const model = value as NoiseSuppressionModel;
 
       if (model === "off") {
+        const currentGain = get().audioSettings.micInputGain;
         micPub.track.stopProcessor()
-          .then(() => destroyNoiseProcessor())
+          .then(async () => {
+            destroyNoiseProcessor();
+            dryWetProcessor = null;
+            // If mic gain is non-unity, set up GainTrackProcessor
+            if (currentGain !== 100 && micPub.track) {
+              try {
+                const { GainTrackProcessor } = await import("../lib/GainTrackProcessor.js");
+                gainTrackProcessor = new GainTrackProcessor(currentGain / 100);
+                await micPub.track.setProcessor(gainTrackProcessor as any);
+              } catch (e2) {
+                console.warn("Failed to setup GainTrackProcessor:", e2);
+                gainTrackProcessor = null;
+              }
+            }
+          })
           .catch((e) => {
             console.warn("Failed to disable noise filter:", e);
             destroyNoiseProcessor();
+            dryWetProcessor = null;
           });
       } else {
         // Stop existing processor first, then attach new one
         const myNonce = ++noiseSwitchNonce;
         const switchModel = async () => {
           try {
-            if (noiseProcessor) {
+            if (noiseProcessor || dryWetProcessor || gainTrackProcessor) {
               await micPub.track!.stopProcessor();
               await destroyNoiseProcessor();
+              dryWetProcessor = null;
+              gainTrackProcessor = null;
             }
-            if (myNonce !== noiseSwitchNonce) return; // superseded by newer switch
+            if (myNonce !== noiseSwitchNonce) return;
             const processor = await getOrCreateNoiseProcessor(model);
-            if (myNonce !== noiseSwitchNonce) return; // superseded by newer switch
+            if (myNonce !== noiseSwitchNonce) return;
             if (processor) {
-              await micPub.track!.setProcessor(processor as any);
+              const currentSettings = get().audioSettings;
+              const strength = currentSettings.suppressionStrength / 100;
+
+              // Apply VAD threshold if switching to RNNoise
+              if (model === "rnnoise" && "setVadThreshold" in processor) {
+                (processor as any).setVadThreshold(currentSettings.vadThreshold / 100);
+              }
+
+              // Always wrap with DryWetTrackProcessor so micInputGain works at any suppression strength
+              const { DryWetTrackProcessor } = await import("../lib/DryWetTrackProcessor.js");
+              dryWetProcessor = new DryWetTrackProcessor(processor, strength);
+              dryWetProcessor.setPreGain(currentSettings.micInputGain / 100);
+              await micPub.track!.setProcessor(dryWetProcessor as any);
               dbg("voice", `Noise suppression model switched to ${model}`);
             }
           } catch (e) {
             if (myNonce !== noiseSwitchNonce) return;
             console.warn("Failed to switch noise model:", e);
             await destroyNoiseProcessor();
+            dryWetProcessor = null;
             set({ audioSettings: { ...get().audioSettings, noiseSuppressionModel: "off" } });
+            saveAudioSettings(get().audioSettings);
           }
         };
         switchModel();
@@ -1391,6 +1702,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   applyBitrate: (bitrate: number) => {
     const { room } = get();
     if (!room) return;
+
+    // Reset adaptive state when bitrate is manually set (e.g. channel bitrate change)
+    adaptiveTargetBitrate = bitrate;
+    adaptiveCurrentBitrate = bitrate;
+    highLossCount = 0;
+    lowLossCount = 0;
 
     // Apply bitrate directly via RTCRtpSender for live change
     for (const pub of room.localParticipant.audioTrackPublications.values()) {
@@ -1496,14 +1813,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   toggleStatsOverlay: () => {
-    const { showStatsOverlay, room } = get();
+    const { showStatsOverlay } = get();
     const newVal = !showStatsOverlay;
     set({ showStatsOverlay: newVal, webrtcStats: newVal ? get().webrtcStats : null });
-    if (newVal && room) {
-      startStatsPolling();
-    } else {
-      stopStatsPolling();
-    }
   },
 
   _updateParticipants: () => {

@@ -8,6 +8,9 @@ export interface WebRTCQualityStats {
   audioPacketLoss: number; // percentage 0-100
   audioJitter: number; // seconds
   rtt: number; // milliseconds
+  audioSampleRate: number; // Hz (e.g. 48000)
+  audioChannels: number; // 1=mono, 2=stereo
+  opusFec: boolean; // whether FEC is negotiated
 
   // Video (when screen sharing)
   videoBitrate: number; // kbps
@@ -40,6 +43,9 @@ export async function collectWebRTCStats(room: Room): Promise<WebRTCQualityStats
     audioPacketLoss: 0,
     audioJitter: 0,
     rtt: 0,
+    audioSampleRate: 0,
+    audioChannels: 0,
+    opusFec: false,
     videoBitrate: 0,
     videoCodec: "",
     videoWidth: 0,
@@ -83,8 +89,23 @@ export async function collectWebRTCStats(room: Room): Promise<WebRTCQualityStats
         // Extract codec name from mimeType like "audio/opus"
         if (s.mimeType?.startsWith("audio/")) {
           stats.audioCodec = s.mimeType.split("/")[1] ?? "";
+          // Extract sample rate and channels from codec stats
+          stats.audioSampleRate = s.clockRate ?? 0;
+          stats.audioChannels = s.channels ?? 0;
+          // Check for FEC in SDP format line
+          if (s.sdpFmtpLine) {
+            stats.opusFec = (s.sdpFmtpLine as string).includes("useinbandfec=1");
+          }
         }
       }
+    }
+  }
+
+  // Fallback: get channels from track settings if not available from codec stats
+  if (stats.audioChannels === 0 && firstAudioPub?.track) {
+    const trackSettings = (firstAudioPub.track as any).mediaStreamTrack?.getSettings?.();
+    if (trackSettings?.channelCount) {
+      stats.audioChannels = trackSettings.channelCount;
     }
   }
 
