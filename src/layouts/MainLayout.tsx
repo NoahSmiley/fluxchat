@@ -13,6 +13,7 @@ import { SettingsModal } from "../components/SettingsModal.js";
 import { ServerSettingsPage } from "../components/ServerSettingsPage.js";
 import { EconomyView } from "../components/CaseOpeningModal.js";
 import { EconomyToasts } from "../components/EconomyToasts.js";
+import { RoomToasts } from "../components/RoomToasts.js";
 import { useKeybindListener } from "../hooks/useKeybindListener.js";
 import { useIdleDetection } from "../hooks/useIdleDetection.js";
 import { useUIStore } from "../stores/ui.js";
@@ -186,6 +187,7 @@ export function MainLayout() {
       <SettingsModal />
       {serverSettingsOpen && <ServerSettingsPage />}
       <EconomyToasts />
+      <RoomToasts />
     </div>
   );
 }

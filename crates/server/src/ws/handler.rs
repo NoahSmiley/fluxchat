@@ -244,6 +244,27 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
     // Broadcast voice state update if was in voice
     if let Some(channel_id) = old_voice {
         let participants = state.gateway.voice_channel_participants(&channel_id).await;
+
+        // Schedule delayed cleanup for empty temporary rooms on disconnect (30s grace period)
+        if participants.is_empty() {
+            let room_info = sqlx::query_as::<_, (i64, i64)>(
+                "SELECT is_room, is_persistent FROM channels WHERE id = ?",
+            )
+            .bind(&channel_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
+
+            if let Some((1, 0)) = room_info {
+                state.gateway.schedule_room_cleanup(
+                    channel_id.clone(),
+                    std::time::Duration::from_secs(30),
+                    state.db.clone(),
+                ).await;
+            }
+        }
+
         state
             .gateway
             .broadcast_all(
@@ -549,6 +570,8 @@ async fn handle_client_event(
         ClientEvent::VoiceStateUpdate { channel_id, action } => {
             match action.as_str() {
                 "join" => {
+                    // Cancel any pending cleanup timer for this room
+                    state.gateway.cancel_room_cleanup(&channel_id).await;
                     state.gateway.voice_join(client_id, &channel_id).await;
                     let participants = state.gateway.voice_channel_participants(&channel_id).await;
                     state
@@ -575,6 +598,24 @@ async fn handle_client_event(
                             .bind(&left_channel)
                             .execute(&state.db)
                             .await;
+
+                            // Schedule delayed cleanup for empty temporary rooms (30s grace period)
+                            let room_info = sqlx::query_as::<_, (i64, i64)>(
+                                "SELECT is_room, is_persistent FROM channels WHERE id = ?",
+                            )
+                            .bind(&left_channel)
+                            .fetch_optional(&state.db)
+                            .await
+                            .ok()
+                            .flatten();
+
+                            if let Some((1, 0)) = room_info {
+                                state.gateway.schedule_room_cleanup(
+                                    left_channel.clone(),
+                                    std::time::Duration::from_secs(30),
+                                    state.db.clone(),
+                                ).await;
+                            }
                         }
 
                         state
@@ -1020,6 +1061,54 @@ async fn handle_client_event(
                     None,
                 )
                 .await;
+        }
+        ClientEvent::RoomKnock { channel_id } => {
+            // Look up channel to verify it's locked
+            let channel = sqlx::query_as::<_, (Option<String>, i64, String)>(
+                "SELECT creator_id, is_locked, server_id FROM channels WHERE id = ?",
+            )
+            .bind(&channel_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
+
+            let (creator_id, is_locked, server_id) = match channel {
+                Some(c) => c,
+                None => return,
+            };
+
+            if is_locked == 0 {
+                return;
+            }
+
+            let knock_event = ServerEvent::RoomKnock {
+                channel_id: channel_id.clone(),
+                user_id: user.id.clone(),
+                username: user.username.clone(),
+            };
+
+            // Send to creator
+            if let Some(ref cid) = creator_id {
+                state.gateway.send_to_user(cid, &knock_event).await;
+            }
+
+            // Also send to all admin/owner members of this server
+            let admins = sqlx::query_as::<_, (String,)>(
+                "SELECT user_id FROM memberships WHERE server_id = ? AND role IN ('admin', 'owner')",
+            )
+            .bind(&server_id)
+            .fetch_all(&state.db)
+            .await
+            .unwrap_or_default();
+
+            for (admin_id,) in admins {
+                // Skip creator (already sent) and the knocker themselves
+                if Some(admin_id.as_str()) == creator_id.as_deref() || admin_id == user.id {
+                    continue;
+                }
+                state.gateway.send_to_user(&admin_id, &knock_event).await;
+            }
         }
         ClientEvent::Ping => {
             // No-op — just keeps connection alive

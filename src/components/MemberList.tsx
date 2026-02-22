@@ -214,6 +214,11 @@ export function MemberList() {
                 key={m.userId}
                 className={`member-item ${selectedUserId === m.userId ? "selected" : ""}`}
                 onClick={(e) => handleMemberClick(e, m.userId)}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("application/flux-member", JSON.stringify({ userId: m.userId, username: m.username }));
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
                 onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); if (m.userId !== user?.id) setUserCtxMenu({ x: e.clientX, y: e.clientY, userId: m.userId }); }}
               >
                 <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, !!activity, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle), position: "relative" } as React.CSSProperties}>
@@ -249,6 +254,11 @@ export function MemberList() {
               key={m.userId}
               className={`member-item offline ${selectedUserId === m.userId ? "selected" : ""}`}
               onClick={(e) => handleMemberClick(e, m.userId)}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("application/flux-member", JSON.stringify({ userId: m.userId, username: m.username }));
+                e.dataTransfer.effectAllowed = "copy";
+              }}
               onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); if (m.userId !== user?.id) setUserCtxMenu({ x: e.clientX, y: e.clientY, userId: m.userId }); }}
             >
               <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, false, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>

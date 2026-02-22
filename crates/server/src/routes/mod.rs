@@ -41,6 +41,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/servers/{serverId}/channels/{channelId}", patch(servers::update_channel))
         .route("/servers/{serverId}/channels/{channelId}", delete(servers::delete_channel))
         .route("/servers/{serverId}/channels/reorder", put(servers::reorder_channels))
+        .route("/servers/{serverId}/rooms/{channelId}/accept-knock", post(servers::accept_knock))
+        .route("/servers/{serverId}/rooms/{channelId}/invite", post(servers::invite_to_room))
+        .route("/servers/{serverId}/rooms/{channelId}/move", post(servers::move_user))
         .route("/servers/{serverId}/members", get(servers::list_members))
         // Role management
         .route("/members/{userId}/role", patch(servers::update_member_role))

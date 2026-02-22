@@ -195,6 +195,31 @@ export async function deleteChannel(serverId: string, channelId: string) {
   });
 }
 
+export async function createRoom(serverId: string, name: string) {
+  return createChannel(serverId, { name, type: "voice", isRoom: true });
+}
+
+export async function acceptKnock(serverId: string, channelId: string, userId: string) {
+  return request<void>(`/servers/${serverId}/rooms/${channelId}/accept-knock`, {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function inviteToRoom(serverId: string, channelId: string, userId: string) {
+  return request<void>(`/servers/${serverId}/rooms/${channelId}/invite`, {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function moveUserToRoom(serverId: string, channelId: string, userId: string, targetChannelId: string) {
+  return request<void>(`/servers/${serverId}/rooms/${channelId}/move`, {
+    method: "POST",
+    body: JSON.stringify({ userId, targetChannelId }),
+  });
+}
+
 export async function reorderChannels(serverId: string, items: ReorderItem[]) {
   return request<void>(`/servers/${serverId}/channels/reorder`, {
     method: "PUT",
