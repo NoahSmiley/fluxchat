@@ -848,7 +848,7 @@ const DEFAULT_SETTINGS: AudioSettings = {
   highPassFrequency: 0,
   lowPassFrequency: 0,
   inputSensitivity: 40,
-  inputSensitivityEnabled: false,
+  inputSensitivityEnabled: true,
   noiseSuppressionModel: "dtln",
   suppressionStrength: 100,
   vadThreshold: 85,
