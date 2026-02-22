@@ -149,6 +149,7 @@ export default function ContextMenu({ x, y, items, onClose }: ContextMenuProps) 
           className="context-menu"
           style={submenuStyle}
           onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
           onMouseEnter={cancelClose}
           onMouseLeave={scheduleClose}
         >

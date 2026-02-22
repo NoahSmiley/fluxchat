@@ -5272,6 +5272,12 @@ img.custom-emoji {
   font-weight: 600;
 }
 
+.mention-special-icon {
+  background: #5865f2 !important;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .mention-avatar-wrapper {
   position: relative;
   flex-shrink: 0;

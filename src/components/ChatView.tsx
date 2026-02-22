@@ -16,6 +16,13 @@ import { API_BASE } from "../lib/serverUrl.js";
 import EmojiPicker from "./EmojiPicker.js";
 import ContextMenu from "./ContextMenu.js";
 
+// ── Mention autocomplete entry type ──────────────────────────────────────
+
+import type { MemberWithUser } from "../types/shared.js";
+type MentionEntry =
+  | { kind: "special"; name: string; desc: string }
+  | { kind: "user"; member: MemberWithUser };
+
 // ── Contenteditable helpers ───────────────────────────────────────────────
 
 /** Count chars to range.startContainer/startOffset, treating each twemoji <img> as 1 char. */
@@ -177,10 +184,17 @@ export function ChatView() {
       .map((id) => usernameMap[id] ?? id.slice(0, 8));
   }, [typingUsers, activeChannelId, user?.id, usernameMap]);
 
-  const filteredMentions = useMemo(() => {
+  const filteredMentions = useMemo((): MentionEntry[] => {
     if (!mentionActive) return [];
     const q = mentionQuery.toLowerCase();
-    return members.filter((m) => m.username.toLowerCase().includes(q) && m.userId !== user?.id).slice(0, 8);
+    const specials: MentionEntry[] = [];
+    if ("everyone".startsWith(q)) specials.push({ kind: "special", name: "everyone", desc: "Notify all members" });
+    if ("here".startsWith(q)) specials.push({ kind: "special", name: "here", desc: "Notify online members" });
+    const users: MentionEntry[] = members
+      .filter((m) => m.username.toLowerCase().includes(q) && m.userId !== user?.id)
+      .slice(0, 8)
+      .map((m) => ({ kind: "user", member: m }));
+    return [...specials, ...users];
   }, [mentionActive, mentionQuery, members, user?.id]);
 
   useEffect(() => {
@@ -411,7 +425,7 @@ export function ChatView() {
     if (mentionActive && filteredMentions.length > 0) {
       if (e.key === "ArrowDown") { e.preventDefault(); setMentionIndex((i) => Math.min(i + 1, filteredMentions.length - 1)); return; }
       if (e.key === "ArrowUp")   { e.preventDefault(); setMentionIndex((i) => Math.max(i - 1, 0)); return; }
-      if (e.key === "Tab" || e.key === "Enter") { e.preventDefault(); insertMention(filteredMentions[mentionIndex].username); return; }
+      if (e.key === "Tab" || e.key === "Enter") { e.preventDefault(); const entry = filteredMentions[mentionIndex]; insertMention(entry.kind === "special" ? entry.name : entry.member.username); return; }
       if (e.key === "Escape")    { setMentionActive(false); return; }
     }
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSubmit(); }
@@ -673,24 +687,42 @@ export function ChatView() {
       <div className="message-input-wrapper">
         {mentionActive && filteredMentions.length > 0 && (
           <div className="mention-autocomplete">
-            {filteredMentions.map((m, i) => (
-              <button
-                key={m.userId}
-                className={`mention-option ${i === mentionIndex ? "selected" : ""}`}
-                onMouseDown={(e) => { e.preventDefault(); insertMention(m.username); }}
-              >
-                <div className="mention-avatar-wrapper">
-                  {m.image ? (
-                    <img src={m.image} alt={m.username} className="mention-avatar" />
-                  ) : (
-                    <span className="mention-avatar mention-avatar-fallback" style={{ background: avatarColor(m.username) }}>{m.username.charAt(0).toUpperCase()}</span>
-                  )}
-                  <span className={`mention-status-dot ${userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline")}`} />
-                </div>
-                <span className="mention-username">{m.username}</span>
-                {(() => { const s = userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline"); return s === "offline" ? <span className="mention-offline-label">Offline</span> : s === "idle" ? <span className="mention-offline-label">Idle</span> : s === "dnd" ? <span className="mention-offline-label">DND</span> : null; })()}
-              </button>
-            ))}
+            {filteredMentions.map((entry, i) => {
+              if (entry.kind === "special") {
+                return (
+                  <button
+                    key={entry.name}
+                    className={`mention-option ${i === mentionIndex ? "selected" : ""}`}
+                    onMouseDown={(e) => { e.preventDefault(); insertMention(entry.name); }}
+                  >
+                    <div className="mention-avatar-wrapper">
+                      <span className="mention-avatar mention-avatar-fallback mention-special-icon">@</span>
+                    </div>
+                    <span className="mention-username">@{entry.name}</span>
+                    <span className="mention-offline-label">{entry.desc}</span>
+                  </button>
+                );
+              }
+              const m = entry.member;
+              return (
+                <button
+                  key={m.userId}
+                  className={`mention-option ${i === mentionIndex ? "selected" : ""}`}
+                  onMouseDown={(e) => { e.preventDefault(); insertMention(m.username); }}
+                >
+                  <div className="mention-avatar-wrapper">
+                    {m.image ? (
+                      <img src={m.image} alt={m.username} className="mention-avatar" />
+                    ) : (
+                      <span className="mention-avatar mention-avatar-fallback" style={{ background: avatarColor(m.username) }}>{m.username.charAt(0).toUpperCase()}</span>
+                    )}
+                    <span className={`mention-status-dot ${userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline")}`} />
+                  </div>
+                  <span className="mention-username">{m.username}</span>
+                  {(() => { const s = userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline"); return s === "offline" ? <span className="mention-offline-label">Offline</span> : s === "idle" ? <span className="mention-offline-label">Idle</span> : s === "dnd" ? <span className="mention-offline-label">DND</span> : null; })()}
+                </button>
+              );
+            })}
           </div>
         )}
         {(pendingAttachments.length > 0 || Object.keys(uploadProgress).length > 0) && (

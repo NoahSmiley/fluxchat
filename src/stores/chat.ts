@@ -8,6 +8,9 @@ import { useCryptoStore } from "./crypto.js";
 import { useUIStore } from "./ui.js";
 import { API_BASE } from "../lib/serverUrl.js";
 
+const EVERYONE_MENTION_RE = /(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i;
+const HERE_MENTION_RE    = /(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i;
+
 // UTF-8-safe base64 encoding/decoding (btoa/atob only handle Latin-1)
 export function utf8ToBase64(str: string): string {
   return btoa(String.fromCodePoint(...new TextEncoder().encode(str)));
@@ -972,15 +975,17 @@ gateway.on((event) => {
           const isCategoryMuted = channel?.parentId ? (notif?.isCategoryMuted(channel.parentId) ?? false) : false;
           const isAnyMuted = isChannelMuted || isCategoryMuted;
 
-          // @mention detection with word boundary
+          // @mention detection: @everyone, @here, or personal @username
           const isMention = authUser
-            ? (() => {
-                try {
-                  return new RegExp(`(?<![a-zA-Z0-9_])@${authUser.username}(?![a-zA-Z0-9_])`, "i").test(msg.content);
-                } catch {
-                  return msg.content.toLowerCase().includes(`@${authUser.username.toLowerCase()}`);
-                }
-              })()
+            ? (EVERYONE_MENTION_RE.test(msg.content) ||
+               HERE_MENTION_RE.test(msg.content) ||
+               (() => {
+                 try {
+                   return new RegExp(`(?<![a-zA-Z0-9_])@${authUser.username}(?![a-zA-Z0-9_])`, "i").test(msg.content);
+                 } catch {
+                   return msg.content.toLowerCase().includes(`@${authUser.username.toLowerCase()}`);
+                 }
+               })())
             : false;
 
           // Always cache messages for instant loading when channel is opened

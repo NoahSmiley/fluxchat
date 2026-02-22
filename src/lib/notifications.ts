@@ -2,6 +2,9 @@ import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import type { useNotifStore as NotifStoreType } from "../stores/notifications.js";
 
+// True when running inside the Tauri desktop app
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
 // Notification preferences from localStorage
 function isSoundEnabled(): boolean {
   return localStorage.getItem("flux-sound-enabled") !== "false";
@@ -53,16 +56,38 @@ export function playMessageSound() {
 
 export function showDesktopNotification(senderName: string, text: string) {
   if (!isNotificationsEnabled() || isDND()) return;
+  const body = text.length > 100 ? text.slice(0, 100) + "..." : text;
+
+  if (isTauri) {
+    void (async () => {
+      try {
+        const { isPermissionGranted, sendNotification } = await import("@tauri-apps/plugin-notification");
+        if (await isPermissionGranted()) {
+          sendNotification({ title: senderName, body });
+        }
+      } catch { /* ignore */ }
+    })();
+    return;
+  }
+
   if (typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
-
-  new Notification(`${senderName}`, {
-    body: text.length > 100 ? text.slice(0, 100) + "..." : text,
-    silent: true,
-  });
+  new Notification(senderName, { body, silent: true });
 }
 
 export function requestNotificationPermission() {
+  if (isTauri) {
+    void (async () => {
+      try {
+        const { isPermissionGranted, requestPermission } = await import("@tauri-apps/plugin-notification");
+        if (!(await isPermissionGranted())) {
+          await requestPermission();
+        }
+      } catch { /* ignore */ }
+    })();
+    return;
+  }
+
   if (typeof Notification === "undefined") return;
   if (Notification.permission === "default") {
     Notification.requestPermission();
@@ -92,7 +117,9 @@ export function shouldNotifyChannel(
   if (setting === "none") return false;
   if (setting === "all") return true;
 
-  // "only_mentions": word-boundary @mention check
+  // "only_mentions": @everyone, @here, or personal @username
+  if (/(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i.test(content)) return true;
+  if (/(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i.test(content)) return true;
   if (!authUsername) return false;
   try {
     return new RegExp(`(?<![a-zA-Z0-9_])@${authUsername}(?![a-zA-Z0-9_])`, "i").test(content);
