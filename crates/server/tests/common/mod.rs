@@ -37,6 +37,10 @@ pub async fn setup_test_db() -> SqlitePool {
         r#"ALTER TABLE "user" ADD COLUMN steam_id TEXT"#,
         r#"ALTER TABLE "user" ADD COLUMN status TEXT NOT NULL DEFAULT 'online'"#,
         r#"ALTER TABLE "inventory" ADD COLUMN pattern_seed INTEGER"#,
+        r#"ALTER TABLE "channels" ADD COLUMN is_room INTEGER NOT NULL DEFAULT 0"#,
+        r#"ALTER TABLE "channels" ADD COLUMN is_persistent INTEGER NOT NULL DEFAULT 0"#,
+        r#"ALTER TABLE "channels" ADD COLUMN creator_id TEXT"#,
+        r#"ALTER TABLE "channels" ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0"#,
     ];
 
     for migration in &migrations {

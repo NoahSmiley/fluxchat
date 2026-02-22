@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { Channel, ChannelType, ReorderItem, MemberWithUser } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
@@ -7,7 +7,8 @@ import { useUIStore } from "../stores/ui.js";
 import { useAuthStore } from "../stores/auth.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
 import { UserCard } from "./MemberList.js";
-import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical } from "lucide-react";
+import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical, Radio, Lock } from "lucide-react";
+import { gateway } from "../lib/ws.js";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal, DeleteConfirmDialog } from "./ChannelSettingsModal.js";
 import ContextMenu from "./ContextMenu.js";
@@ -139,7 +140,7 @@ function SpeakingMic({ userId, isMuted, isDeafened }: { userId: string; isMuted?
 /** Voice user row with hover-to-inspect UserCard */
 function VoiceUserRow({
   userId, username, image, member, banner, ringStyle, ringClassName,
-  isMuted, isDeafened, allMembers,
+  isMuted, isDeafened, isStreaming, allMembers, onContextMenu,
 }: {
   userId: string;
   username: string;
@@ -150,7 +151,9 @@ function VoiceUserRow({
   ringClassName: string;
   isMuted?: boolean;
   isDeafened?: boolean;
+  isStreaming?: boolean;
   allMembers: MemberWithUser[];
+  onContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const [showCard, setShowCard] = useState(false);
   const [cardPos, setCardPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -183,6 +186,7 @@ function VoiceUserRow({
         className="voice-channel-user"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onContextMenu={onContextMenu}
       >
         <span
           className={`voice-avatar-ring ${ringClassName}`}
@@ -197,6 +201,7 @@ function VoiceUserRow({
           </span>
         </span>
         <span className="voice-user-name">{username}</span>
+        {isStreaming && <Radio size={12} className="voice-user-streaming-icon" />}
         <SpeakingMic userId={userId} isMuted={isMuted} isDeafened={isDeafened} />
       </div>
       {showCard && member && createPortal(
@@ -244,6 +249,7 @@ function SortableChannelItem({
     participants: { userId: string; username: string }[];
     isConnected: boolean;
     hasScreenShare: boolean;
+    screenSharerIds: Set<string>;
     members: ReturnType<typeof useChatStore.getState>["members"];
     voiceParticipants: ReturnType<typeof useVoiceStore.getState>["participants"];
   };
@@ -319,7 +325,7 @@ function SortableChannelItem({
           <span className="channel-item-name">{channel.name}</span>
           {isUnread && <span className="channel-unread-dot" />}
           {voiceProps?.hasScreenShare && (
-            <span className="channel-live-badge"><Monitor size={10} /> LIVE</span>
+            <span className="channel-live-badge"><Radio size={10} /> LIVE</span>
           )}
         </button>
         {isOwnerOrAdmin && (
@@ -376,6 +382,7 @@ function SortableChannelItem({
                 ringClassName={ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}
                 isMuted={voiceUser?.isMuted}
                 isDeafened={voiceUser?.isDeafened}
+                isStreaming={voiceProps.screenSharerIds.has(p.userId)}
                 allMembers={voiceProps.members}
               />
             );
@@ -386,14 +393,102 @@ function SortableChannelItem({
   );
 }
 
+/** Lightweight AnimatePresence: keeps exiting items in DOM for animation */
+function AnimatedList<T extends { key: string }>({
+  items,
+  renderItem,
+  duration = 500,
+}: {
+  items: T[];
+  renderItem: (item: T, state: "entering" | "exiting" | "idle") => React.ReactNode;
+  duration?: number;
+}) {
+  const renderedRef = useRef<(T & { _exiting?: boolean })[]>(items);
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const enteringRef = useRef<Set<string>>(new Set());
+  const prevKeysRef = useRef<string>(items.map((i) => i.key).join(","));
+  const [, forceRender] = useState(0);
+
+  const currentKeyStr = items.map((i) => i.key).join(",");
+  if (currentKeyStr !== prevKeysRef.current) {
+    const oldPrevKeys = new Set(prevKeysRef.current.split(",").filter(Boolean));
+    prevKeysRef.current = currentKeyStr;
+    const currentKeys = new Set(items.map((i) => i.key));
+
+    // Cancel timers for items that came back
+    for (const item of items) {
+      if (timersRef.current.has(item.key)) {
+        clearTimeout(timersRef.current.get(item.key)!);
+        timersRef.current.delete(item.key);
+      }
+    }
+
+    // Build map of current items by key
+    const currentMap = new Map(items.map((i) => [i.key, i]));
+    const prevKeys = new Set(renderedRef.current.map((r) => r.key));
+
+    // Keep items in their previous positions — exiting items stay in place
+    const result: (T & { _exiting?: boolean })[] = [];
+    const newlyExitingKeys: string[] = [];
+    const newlyEnteringKeys: string[] = [];
+    for (const prev of renderedRef.current) {
+      if (currentMap.has(prev.key)) {
+        result.push({ ...currentMap.get(prev.key)!, _exiting: false });
+      } else {
+        // Item removed — keep in original position, mark as exiting
+        if (!prev._exiting) newlyExitingKeys.push(prev.key);
+        result.push({ ...prev, _exiting: true });
+      }
+    }
+    // Append any brand-new items at the end
+    for (const item of items) {
+      if (!prevKeys.has(item.key)) {
+        // Only animate if it wasn't in the very first render
+        if (oldPrevKeys.size > 0) newlyEnteringKeys.push(item.key);
+        result.push({ ...item, _exiting: false });
+      }
+    }
+    renderedRef.current = result;
+
+    // Mark entering items — they render collapsed first, then expand next frame
+    for (const key of newlyEnteringKeys) {
+      enteringRef.current.add(key);
+    }
+    if (newlyEnteringKeys.length > 0) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          enteringRef.current.clear();
+          forceRender((n) => n + 1);
+        });
+      });
+    }
+
+    // Schedule DOM removal for newly exiting items
+    for (const key of newlyExitingKeys) {
+      const timer = setTimeout(() => {
+        timersRef.current.delete(key);
+        renderedRef.current = renderedRef.current.filter((r) => r.key !== key);
+        forceRender((n) => n + 1);
+      }, duration);
+      timersRef.current.set(key, timer);
+    }
+  }
+
+  return <>{renderedRef.current.map((item) => {
+    const state = item._exiting ? "exiting" : enteringRef.current.has(item.key) ? "entering" : "idle";
+    return renderItem(item, state);
+  })}</>;
+}
+
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels } = useChatStore();
-  const { channelParticipants, connectedChannelId, screenSharers, participants: voiceParticipants } = useVoiceStore();
-  const { showingEconomy, openServerSettings } = useUIStore();
+  const { channelParticipants, connectedChannelId, connecting, screenSharers, participants: voiceParticipants } = useVoiceStore();
+  const { showingEconomy, openServerSettings, showDummyUsers } = useUIStore();
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
 
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const [collapsedRooms, setCollapsedRooms] = useState<Set<string>>(new Set());
   const [createModal, setCreateModal] = useState<{ type: ChannelType; parentId?: string } | null>(null);
   const [settingsChannel, setSettingsChannel] = useState<Channel | null>(null);
   const [channelCtxMenu, setChannelCtxMenu] = useState<{ x: number; y: number; channel: Channel } | null>(null);
@@ -401,10 +496,17 @@ export function ChannelSidebar() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dropTargetCategoryId, setDropTargetCategoryId] = useState<string | null>(null);
+  const [dragHighlightRoom, setDragHighlightRoom] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; userId: string; username: string; channelId: string } | null>(null);
+  const { user } = useAuthStore();
   const dwellRef = useRef<{ catId: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   const dropIntoCategoryRef = useRef<string | null>(null);
 
-  const allChannels = channels;
+  // Split channels: hide non-room voice channels (they're replaced by the rooms system)
+  const regularChannels = useMemo(() => channels.filter((c) => !c.isRoom && c.type !== "voice"), [channels]);
+  const rooms = useMemo(() => channels.filter((c) => c.isRoom), [channels]);
+
+  const allChannels = regularChannels;
 
   const tree = useMemo(() => buildTree(allChannels), [allChannels]);
   const flatList = useMemo(() => flattenTree(tree, collapsed, activeChannelId), [tree, collapsed, activeChannelId]);
@@ -651,6 +753,9 @@ export function ChannelSidebar() {
               const participants = channelParticipants[ch.id] ?? [];
               const isConnected = connectedChannelId === ch.id;
               const hasScreenShare = isConnected && screenSharers.length > 0;
+              const screenSharerIds = isConnected
+                ? new Set(screenSharers.map((s) => s.participantId))
+                : new Set<string>();
 
               return (
                 <SortableChannelItem
@@ -670,6 +775,7 @@ export function ChannelSidebar() {
                     participants,
                     isConnected,
                     hasScreenShare,
+                    screenSharerIds,
                     members,
                     voiceParticipants,
                   } : undefined}
@@ -698,6 +804,260 @@ export function ChannelSidebar() {
         </button>
       </div>
 
+      {/* ── Join Voice Button + Room Participants (pinned to bottom) ── */}
+      {(() => {
+        const isInVoice = !!connectedChannelId || connecting;
+        // Gather all voice channels (rooms + legacy voice) that have participants
+        const voiceChannels = channels.filter((c) => c.type === "voice");
+
+        // Merge real participants with dummy users for the lobby
+        const DUMMY_VOICE_USERS = [
+          { userId: "__d1", username: "xKira", drinkCount: 0 },
+          { userId: "__d2", username: "Blaze", drinkCount: 0 },
+          { userId: "__d3", username: "PhaseShift", drinkCount: 0 },
+          { userId: "__d4", username: "Cosmo", drinkCount: 0 },
+          { userId: "__d5", username: "ghost404", drinkCount: 0 },
+          { userId: "__d6", username: "Prism", drinkCount: 0 },
+          { userId: "__d7", username: "Nyx", drinkCount: 0 },
+          { userId: "__d8", username: "ZeroDay", drinkCount: 0 },
+        ];
+
+        const DUMMY_IMAGES: Record<string, string> = showDummyUsers ? {
+          __d1: "https://i.pravatar.cc/64?img=1", __d2: "https://i.pravatar.cc/64?img=8",
+          __d3: "https://i.pravatar.cc/64?img=12", __d4: "https://i.pravatar.cc/64?img=15",
+          __d5: "https://i.pravatar.cc/64?img=22", __d6: "https://i.pravatar.cc/64?img=33",
+          __d7: "https://i.pravatar.cc/64?img=47", __d8: "https://i.pravatar.cc/64?img=51",
+        } : {};
+
+        const DUMMY_MEMBERS: { userId: string; username: string; image: string; ringStyle: string; ringSpin: boolean; ringPatternSeed: number | null; bannerCss: string | null; bannerPatternSeed: number | null; role: string }[] = showDummyUsers ? [
+          { userId: "__d1", username: "xKira", image: "https://i.pravatar.cc/64?img=1", ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, bannerCss: "aurora", bannerPatternSeed: null, role: "member" },
+          { userId: "__d2", username: "Blaze", image: "https://i.pravatar.cc/64?img=8", ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, bannerCss: "sunset", bannerPatternSeed: null, role: "member" },
+          { userId: "__d3", username: "PhaseShift", image: "https://i.pravatar.cc/64?img=12", ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, bannerCss: "doppler", bannerPatternSeed: 42, role: "owner" },
+          { userId: "__d4", username: "Cosmo", image: "https://i.pravatar.cc/64?img=15", ringStyle: "emerald", ringSpin: false, ringPatternSeed: null, bannerCss: "space", bannerPatternSeed: null, role: "admin" },
+          { userId: "__d5", username: "ghost404", image: "https://i.pravatar.cc/64?img=22", ringStyle: "default", ringSpin: false, ringPatternSeed: null, bannerCss: null, bannerPatternSeed: null, role: "member" },
+          { userId: "__d6", username: "Prism", image: "https://i.pravatar.cc/64?img=33", ringStyle: "doppler", ringSpin: false, ringPatternSeed: 77, bannerCss: "gamma_doppler", bannerPatternSeed: 77, role: "member" },
+          { userId: "__d7", username: "Nyx", image: "https://i.pravatar.cc/64?img=47", ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 150, bannerCss: "cityscape", bannerPatternSeed: null, role: "member" },
+          { userId: "__d8", username: "ZeroDay", image: "https://i.pravatar.cc/64?img=51", ringStyle: "ruby", ringSpin: true, ringPatternSeed: null, bannerCss: "doppler", bannerPatternSeed: 200, role: "admin" },
+        ] : [];
+
+        const firstRoomId = voiceChannels.find((c) => c.isRoom)?.id;
+        const voiceWithUsers = voiceChannels
+          .map((c) => {
+            const real = channelParticipants[c.id] ?? [];
+            // Add dummy users to the first actual room (not legacy voice channels)
+            const isFirstRoom = c.isRoom && c.id === firstRoomId;
+            const allParticipants = (showDummyUsers && isFirstRoom) ? [...DUMMY_VOICE_USERS, ...real] : real;
+            return { channel: c, participants: allParticipants };
+          })
+          .filter((r) => r.participants.length > 0 || r.channel.isRoom);
+        const totalVoiceUsers = voiceWithUsers.reduce((sum, r) => sum + r.participants.length, 0);
+
+        const screenSharerIds = new Set(screenSharers.map((s) => s.participantId));
+
+        return (
+          <div className="join-voice-section">
+            <div className="voice-room-users-list">
+                <AnimatedList
+                  items={voiceWithUsers.map(({ channel: vc, participants }) => ({ key: vc.id, channel: vc, participants }))}
+                  duration={500}
+                  renderItem={({ channel: vc, participants }, state) => {
+                  const isRoomCollapsed = collapsedRooms.has(vc.id);
+                  const isCurrent = connectedChannelId === vc.id;
+                  const wrapperClass = state === "exiting" ? "voice-room-exit" : state === "entering" ? "voice-room-enter" : "";
+                  return (
+                  <div key={vc.id} className={`voice-room-group-wrapper ${wrapperClass}`}>
+                  <div
+                    className={`voice-room-group ${isCurrent ? "voice-room-current" : ""}${dragHighlightRoom === vc.id ? " voice-room-drop-target" : ""}${vc.isLocked ? " voice-room-locked" : ""}`}
+                    onClick={() => {
+                      // If locked and not creator/admin, knock instead of joining
+                      if (vc.isLocked && vc.creatorId !== user?.id && !isOwnerOrAdmin) {
+                        gateway.send({ type: "room_knock", channelId: vc.id });
+                        return;
+                      }
+                      selectChannel(vc.id);
+                      useVoiceStore.getState().joinVoiceChannel(vc.id);
+                    }}
+                    onDragOver={(e) => {
+                      if (e.dataTransfer.types.includes("application/flux-member")) {
+                        e.preventDefault();
+                        setDragHighlightRoom(vc.id);
+                      }
+                    }}
+                    onDragLeave={() => setDragHighlightRoom(null)}
+                    onDrop={(e) => {
+                      setDragHighlightRoom(null);
+                      try {
+                        const data = JSON.parse(e.dataTransfer.getData("application/flux-member"));
+                        if (data.userId && activeServerId) {
+                          api.inviteToRoom(activeServerId, vc.id, data.userId).catch(() => {});
+                        }
+                      } catch {}
+                    }}
+                  >
+                    <div className="voice-room-group-inner">
+                    <div className="voice-room-group-header">
+                      <button
+                        className="voice-room-collapse-toggle"
+                        onClick={(e) => { e.stopPropagation(); setCollapsedRooms((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(vc.id)) next.delete(vc.id); else next.add(vc.id);
+                          return next;
+                        }); }}
+                      >
+                        <ChevronRight size={10} className={`voice-room-chevron ${isRoomCollapsed ? "" : "voice-room-chevron-open"}`} />
+                      </button>
+                      <div className={`voice-room-group-label ${!isCurrent ? "voice-room-group-label-joinable" : ""}`}>
+                        {!!vc.isLocked && <Lock size={12} className="room-lock-icon" />}
+                        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{vc.name}</span>
+                        <span className="voice-room-group-count">{participants.length}</span>
+                        {(vc.creatorId === user?.id || isOwnerOrAdmin) && (
+                          <button
+                            className="room-lock-toggle visible"
+                            title={vc.isLocked ? "Unlock room" : "Lock room"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              if (!activeServerId) return;
+                              const newLocked = !vc.isLocked;
+                              useChatStore.setState((s) => ({
+                                channels: s.channels.map((c) =>
+                                  c.id === vc.id ? { ...c, isLocked: newLocked } : c,
+                                ),
+                              }));
+                              api.updateChannel(activeServerId, vc.id, { isLocked: newLocked }).catch(() => {
+                                useChatStore.setState((s) => ({
+                                  channels: s.channels.map((c) =>
+                                    c.id === vc.id ? { ...c, isLocked: !newLocked } : c,
+                                  ),
+                                }));
+                              });
+                            }}
+                          >
+                            <Lock size={10} style={vc.isLocked ? undefined : { opacity: 0.3 }} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {isRoomCollapsed ? (
+                      /* ── Collapsed: compact inline avatars ── */
+                      <div className="voice-room-avatars">
+                        {participants.map((p) => {
+                          const member = members.find((m) => m.userId === p.userId);
+                          const image = DUMMY_IMAGES[p.userId] ?? member?.image;
+                          return (
+                            <span
+                              key={p.userId}
+                              className="voice-room-avatar"
+                              style={{ background: image ? "transparent" : avatarColor(p.username) }}
+                              title={p.username}
+                            >
+                              {image ? (
+                                <img src={image} alt={p.username} />
+                              ) : (
+                                p.username.charAt(0).toUpperCase()
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : isInVoice ? (
+                      /* ── Expanded + connected: detailed rows with speaking indicators ── */
+                      <div className="voice-room-detailed">
+                        {/* Dummy users */}
+                        {showDummyUsers && voiceChannels.indexOf(vc) === 0 && DUMMY_MEMBERS.map((d) => (
+                          <VoiceUserRow
+                            key={d.userId}
+                            userId={d.userId}
+                            username={d.username}
+                            image={d.image}
+                            member={undefined}
+                            banner={bannerBackground(d.bannerCss, d.bannerPatternSeed)}
+                            ringStyle={{ ...ringGradientStyle(d.ringPatternSeed, d.ringStyle) } as React.CSSProperties}
+                            ringClassName={ringClass(d.ringStyle, d.ringSpin, d.role, false, d.ringPatternSeed)}
+                            isMuted={d.userId === "__d2"}
+                            isDeafened={d.userId === "__d4"}
+                            allMembers={members}
+                          />
+                        ))}
+                        {/* Real participants (skip dummies) */}
+                        {participants.filter((p) => !p.userId.startsWith("__d")).map((p) => {
+                          const member = members.find((m) => m.userId === p.userId);
+                          const voiceUser = connectedChannelId === vc.id ? voiceParticipants.find((v) => v.userId === p.userId) : null;
+                          return (
+                            <VoiceUserRow
+                              key={p.userId}
+                              userId={p.userId}
+                              username={p.username}
+                              image={member?.image}
+                              member={member}
+                              banner={bannerBackground(member?.bannerCss, member?.bannerPatternSeed)}
+                              ringStyle={{ ...ringGradientStyle(member?.ringPatternSeed, member?.ringStyle) } as React.CSSProperties}
+                              ringClassName={ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}
+                              isMuted={voiceUser?.isMuted}
+                              isDeafened={voiceUser?.isDeafened}
+                              isStreaming={screenSharerIds.has(p.userId)}
+                              allMembers={members}
+                              onContextMenu={isOwnerOrAdmin ? (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setContextMenu({ x: e.clientX, y: e.clientY, userId: p.userId, username: p.username, channelId: vc.id });
+                              } : undefined}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* ── Expanded + not connected: compact avatar circles ── */
+                      <div className="voice-room-avatars">
+                        {participants.map((p) => {
+                          const member = members.find((m) => m.userId === p.userId);
+                          const image = DUMMY_IMAGES[p.userId] ?? member?.image;
+                          return (
+                            <span
+                              key={p.userId}
+                              className="voice-room-avatar"
+                              style={{ background: image ? "transparent" : avatarColor(p.username) }}
+                              title={p.username}
+                            >
+                              {image ? (
+                                <img src={image} alt={p.username} />
+                              ) : (
+                                p.username.charAt(0).toUpperCase()
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    </div>
+                  </div>
+                  </div>
+                  );
+                }}
+                />
+            </div>
+
+            <button
+              className="create-room-btn"
+              onClick={async () => {
+                if (!activeServerId) return;
+                const name = `Room ${rooms.length + 1}`;
+                try {
+                  const newRoom = await api.createRoom(activeServerId, name);
+                  selectChannel(newRoom.id);
+                  useVoiceStore.getState().joinVoiceChannel(newRoom.id);
+                } catch (err) {
+                  console.error("Failed to create room:", err);
+                }
+              }}
+            >
+              <Plus size={14} />
+              <span>Create Room</span>
+            </button>
+          </div>
+        );
+      })()}
+
       <VoiceStatusBar />
 
       {createModal && activeServerId && createPortal(
@@ -716,6 +1076,36 @@ export function ChannelSidebar() {
           serverId={activeServerId}
           onClose={() => setSettingsChannel(null)}
         />,
+        document.body
+      )}
+
+      {contextMenu && createPortal(
+        <div className="voice-user-context-menu-backdrop" onClick={() => setContextMenu(null)}>
+          <div
+            className="voice-user-context-menu"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="voice-user-context-menu-header">Move {contextMenu.username} to:</div>
+            {rooms.filter((r) => r.id !== contextMenu.channelId).map((r) => (
+              <button
+                key={r.id}
+                className="voice-user-context-menu-item"
+                onClick={() => {
+                  if (activeServerId) {
+                    api.moveUserToRoom(activeServerId, contextMenu.channelId, contextMenu.userId, r.id).catch(() => {});
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                {r.name}
+              </button>
+            ))}
+            {rooms.filter((r) => r.id !== contextMenu.channelId).length === 0 && (
+              <div className="voice-user-context-menu-empty">No other rooms</div>
+            )}
+          </div>
+        </div>,
         document.body
       )}
 

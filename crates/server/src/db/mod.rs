@@ -374,6 +374,32 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         .await
         .ok();
 
+    // Migration: rooms — add is_room, is_persistent, creator_id to channels
+    sqlx::query(r#"ALTER TABLE "channels" ADD COLUMN is_room INTEGER NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query(r#"ALTER TABLE "channels" ADD COLUMN is_persistent INTEGER NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query(r#"ALTER TABLE "channels" ADD COLUMN creator_id TEXT"#)
+        .execute(&pool)
+        .await
+        .ok();
+
+    // Migration: add is_locked to channels (for locked rooms)
+    sqlx::query(r#"ALTER TABLE "channels" ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await
+        .ok();
+
+    // Migration: remove legacy persistent lobby rooms (rooms are now all equal)
+    sqlx::query("DELETE FROM channels WHERE is_room = 1 AND (is_persistent = 1 OR name = 'Lobby')")
+        .execute(&pool)
+        .await
+        .ok();
+
     // Migration: ensure doppler banner catalog items + case loot entries exist
     {
         let now = chrono::Utc::now().to_rfc3339();

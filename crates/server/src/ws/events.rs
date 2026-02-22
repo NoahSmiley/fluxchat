@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::{Attachment, DmMessage, Message, QueueItem, VoiceParticipant};
+use crate::models::{Attachment, Channel, DmMessage, Message, QueueItem, VoiceParticipant};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityInfo {
@@ -124,6 +124,10 @@ pub enum ClientEvent {
         channel_id: String,
         #[serde(rename = "soundId")]
         sound_id: String,
+    },
+    RoomKnock {
+        #[serde(rename = "channelId")]
+        channel_id: String,
     },
     Ping,
 }
@@ -317,6 +321,53 @@ pub enum ServerEvent {
         image_filename: Option<String>,
         volume: f64,
         username: String,
+    },
+    // Room events
+    RoomCreated {
+        channel: Channel,
+    },
+    RoomDeleted {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "serverId")]
+        server_id: String,
+    },
+    RoomLockToggled {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "serverId")]
+        server_id: String,
+        #[serde(rename = "isLocked")]
+        is_locked: bool,
+    },
+    RoomKnock {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "userId")]
+        user_id: String,
+        username: String,
+    },
+    RoomKnockAccepted {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+    },
+    RoomInvite {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "channelName")]
+        channel_name: String,
+        #[serde(rename = "inviterId")]
+        inviter_id: String,
+        #[serde(rename = "inviterUsername")]
+        inviter_username: String,
+        #[serde(rename = "serverId")]
+        server_id: String,
+    },
+    RoomForceMove {
+        #[serde(rename = "targetChannelId")]
+        target_channel_id: String,
+        #[serde(rename = "targetChannelName")]
+        target_channel_name: String,
     },
     // Economy events
     CaseOpened {

@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 
 use crate::models::VoiceParticipant;
@@ -24,6 +25,8 @@ pub struct GatewayState {
     pub dm_subs: RwLock<HashMap<String, HashSet<ClientId>>>,
     // channel_id → user_id → (username, drink_count)
     pub voice_participants: RwLock<HashMap<String, HashMap<String, (String, i32)>>>,
+    // Room cleanup timers: channel_id → JoinHandle for delayed deletion
+    pub cleanup_timers: RwLock<HashMap<String, tokio::task::JoinHandle<()>>>,
 }
 
 impl GatewayState {
@@ -34,6 +37,7 @@ impl GatewayState {
             channel_subs: RwLock::new(HashMap::new()),
             dm_subs: RwLock::new(HashMap::new()),
             voice_participants: RwLock::new(HashMap::new()),
+            cleanup_timers: RwLock::new(HashMap::new()),
         }
     }
 
@@ -374,6 +378,66 @@ impl GatewayState {
     pub async fn set_activity(&self, client_id: ClientId, activity: Option<ActivityInfo>) {
         if let Some(client) = self.clients.write().await.get_mut(&client_id) {
             client.activity = activity;
+        }
+    }
+
+    /// Schedule delayed cleanup of an empty room
+    pub async fn schedule_room_cleanup(
+        self: &Arc<Self>,
+        channel_id: String,
+        delay: std::time::Duration,
+        db: sqlx::SqlitePool,
+    ) {
+        let mut timers = self.cleanup_timers.write().await;
+        // Cancel any existing timer for this channel
+        if let Some(handle) = timers.remove(&channel_id) {
+            handle.abort();
+        }
+        let gw = Arc::clone(self);
+        let cid = channel_id.clone();
+        let handle = tokio::spawn(async move {
+            tokio::time::sleep(delay).await;
+            // Re-check room is still empty
+            let participants = gw.voice_channel_participants(&cid).await;
+            if !participants.is_empty() {
+                return;
+            }
+            // Check room still exists and is a non-persistent room
+            let room_info = sqlx::query_as::<_, (i64, i64, String)>(
+                "SELECT is_room, is_persistent, server_id FROM channels WHERE id = ?",
+            )
+            .bind(&cid)
+            .fetch_optional(&db)
+            .await
+            .ok()
+            .flatten();
+
+            if let Some((1, 0, ref server_id)) = room_info {
+                sqlx::query("DELETE FROM channels WHERE id = ?")
+                    .bind(&cid)
+                    .execute(&db)
+                    .await
+                    .ok();
+                gw.broadcast_all(
+                    &ServerEvent::RoomDeleted {
+                        channel_id: cid.clone(),
+                        server_id: server_id.clone(),
+                    },
+                    None,
+                )
+                .await;
+            }
+            // Clean up timer entry
+            gw.cleanup_timers.write().await.remove(&cid);
+        });
+        timers.insert(channel_id, handle);
+    }
+
+    /// Cancel a pending room cleanup timer (e.g. when someone joins)
+    pub async fn cancel_room_cleanup(&self, channel_id: &str) {
+        let mut timers = self.cleanup_timers.write().await;
+        if let Some(handle) = timers.remove(channel_id) {
+            handle.abort();
         }
     }
 

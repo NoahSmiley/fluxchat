@@ -79,6 +79,12 @@ interface ChatState {
   // Custom emoji for the active server
   customEmojis: CustomEmoji[];
 
+  // Room knocks and invites
+  roomKnocks: { channelId: string; userId: string; username: string; timestamp: number }[];
+  roomInvites: { channelId: string; channelName: string; inviterUsername: string; serverId: string; timestamp: number }[];
+  dismissKnock: (timestamp: number) => void;
+  dismissRoomInvite: (timestamp: number) => void;
+
   loadServers: () => Promise<void>;
   selectServer: (serverId: string) => Promise<void>;
   selectChannel: (channelId: string) => Promise<void>;
@@ -196,6 +202,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   unreadChannels: new Set(),
   typingUsers: {},
   customEmojis: [],
+  roomKnocks: [],
+  roomInvites: [],
+
+  dismissKnock: (timestamp) => {
+    useChatStore.setState((s) => ({
+      roomKnocks: s.roomKnocks.filter((k) => k.timestamp !== timestamp),
+    }));
+  },
+
+  dismissRoomInvite: (timestamp) => {
+    useChatStore.setState((s) => ({
+      roomInvites: s.roomInvites.filter((i) => i.timestamp !== timestamp),
+    }));
+  },
 
   loadServers: async () => {
     set({ loadingServers: true });
@@ -1200,6 +1220,81 @@ gateway.on((event) => {
           }
         })();
       }
+      break;
+    }
+
+    case "room_created": {
+      // Add room to channels if it belongs to the active server
+      if (event.channel.serverId === state.activeServerId) {
+        useChatStore.setState((s) => ({
+          channels: [...s.channels, event.channel],
+        }));
+      }
+      break;
+    }
+
+    case "room_deleted": {
+      if (event.serverId === state.activeServerId) {
+        // Find a text channel to fall back to
+        const fallbackChannel = state.channels.find(
+          (c) => c.type === "text" && c.serverId === event.serverId,
+        );
+
+        useChatStore.setState((s) => ({
+          channels: s.channels.filter((c) => c.id !== event.channelId),
+          ...(s.activeChannelId === event.channelId
+            ? { activeChannelId: fallbackChannel?.id ?? null, messages: [], reactions: {} }
+            : {}),
+        }));
+      }
+      break;
+    }
+
+    case "room_lock_toggled": {
+      useChatStore.setState((s) => ({
+        channels: s.channels.map((c) =>
+          c.id === event.channelId ? { ...c, isLocked: event.isLocked } : c,
+        ),
+      }));
+      break;
+    }
+
+    case "room_knock": {
+      const timestamp = Date.now();
+      useChatStore.setState((s) => ({
+        roomKnocks: [...s.roomKnocks, { channelId: event.channelId, userId: event.userId, username: event.username, timestamp }],
+      }));
+      // Auto-dismiss after 15s
+      setTimeout(() => {
+        useChatStore.getState().dismissKnock(timestamp);
+      }, 15000);
+      break;
+    }
+
+    case "room_knock_accepted": {
+      // Auto-join the room
+      import("./voice.js").then((mod) => {
+        mod.useVoiceStore.getState().joinVoiceChannel(event.channelId);
+      });
+      break;
+    }
+
+    case "room_invite": {
+      const timestamp = Date.now();
+      useChatStore.setState((s) => ({
+        roomInvites: [...s.roomInvites, { channelId: event.channelId, channelName: event.channelName, inviterUsername: event.inviterUsername, serverId: event.serverId, timestamp }],
+      }));
+      // Auto-dismiss after 15s
+      setTimeout(() => {
+        useChatStore.getState().dismissRoomInvite(timestamp);
+      }, 15000);
+      break;
+    }
+
+    case "room_force_move": {
+      import("./voice.js").then((mod) => {
+        mod.useVoiceStore.getState().joinVoiceChannel(event.targetChannelId);
+      });
       break;
     }
 
