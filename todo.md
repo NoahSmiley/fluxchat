@@ -97,7 +97,6 @@ add reactions menu for viewing and, if admin, editing reactions
 
 ### messages
 - view reactions
-- edit message (if yours)
 - reply
 - copy link to message
 - copy link in message (if right click directly on link in message)
@@ -108,7 +107,6 @@ add reactions menu for viewing and, if admin, editing reactions
 
 ### user (avatar or username)
 - profile
-- DM
 - call
 - change nickname
 - mute (prevents notifications and unread indicators from messages from this user)

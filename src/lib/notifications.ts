@@ -1,5 +1,6 @@
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
+import type { useNotifStore as NotifStoreType } from "../stores/notifications.js";
 
 // Notification preferences from localStorage
 function isSoundEnabled(): boolean {
@@ -15,6 +16,10 @@ function isDND(): boolean {
   if (!userId) return false;
   return useChatStore.getState().userStatuses[userId] === "dnd";
 }
+
+// Lazy reference to notif store to avoid circular imports
+let notifStoreRef: typeof NotifStoreType | null = null;
+import("../stores/notifications.js").then((m) => { notifStoreRef = m.useNotifStore; });
 
 export function playMessageSound() {
   if (!isSoundEnabled() || isDND()) return;
@@ -61,5 +66,37 @@ export function requestNotificationPermission() {
   if (typeof Notification === "undefined") return;
   if (Notification.permission === "default") {
     Notification.requestPermission();
+  }
+}
+
+/**
+ * Determines whether a desktop notification should fire for a text channel message.
+ * DM notifications bypass this — they always notify unless the sender is muted.
+ */
+export function shouldNotifyChannel(
+  channelId: string,
+  senderId: string,
+  content: string,
+  categoryId?: string | null,
+  authUsername?: string
+): boolean {
+  if (isDND()) return false;
+
+  const notif = notifStoreRef?.getState();
+  if (notif?.isUserMuted(senderId)) return false;
+  if (notif?.isChannelMuted(channelId)) return false;
+  if (categoryId && notif?.isCategoryMuted(categoryId)) return false;
+
+  const setting = notif?.getEffectiveChannelSetting(channelId, categoryId) ?? "only_mentions";
+
+  if (setting === "none") return false;
+  if (setting === "all") return true;
+
+  // "only_mentions": word-boundary @mention check
+  if (!authUsername) return false;
+  try {
+    return new RegExp(`(?<![a-zA-Z0-9_])@${authUsername}(?![a-zA-Z0-9_])`, "i").test(content);
+  } catch {
+    return content.toLowerCase().includes(`@${authUsername.toLowerCase()}`);
   }
 }

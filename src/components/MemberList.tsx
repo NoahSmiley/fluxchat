@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import ContextMenu from "./ContextMenu.js";
+import { useNotifStore } from "../stores/notifications.js";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
@@ -158,6 +159,7 @@ export function MemberList() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [cardPos, setCardPos] = useState({ top: 0, right: 0 });
   const [userCtxMenu, setUserCtxMenu] = useState<{ x: number; y: number; userId: string } | null>(null);
+  const notifStore = useNotifStore();
   const listRef = useRef<HTMLDivElement>(null);
 
   const { online, offline } = useMemo(() => {
@@ -281,16 +283,28 @@ export function MemberList() {
         />
       )}
 
-      {userCtxMenu && (
-        <ContextMenu
-          x={userCtxMenu.x}
-          y={userCtxMenu.y}
-          onClose={() => setUserCtxMenu(null)}
-          items={[
-            { label: "Message", onClick: () => { handleDM(userCtxMenu.userId); setUserCtxMenu(null); } },
-          ]}
-        />
-      )}
+      {userCtxMenu && (() => {
+        const isMuted = notifStore.isUserMuted(userCtxMenu.userId);
+        return (
+          <ContextMenu
+            x={userCtxMenu.x}
+            y={userCtxMenu.y}
+            onClose={() => setUserCtxMenu(null)}
+            items={[
+              { label: "Message", onClick: () => { handleDM(userCtxMenu.userId); setUserCtxMenu(null); } },
+              { type: "separator" },
+              {
+                label: isMuted ? "Unmute user" : "Mute user",
+                onClick: () => {
+                  if (isMuted) notifStore.unmuteUser(userCtxMenu.userId);
+                  else notifStore.muteUser(userCtxMenu.userId);
+                  setUserCtxMenu(null);
+                },
+              },
+            ]}
+          />
+        );
+      })()}
     </div>
   );
 }
