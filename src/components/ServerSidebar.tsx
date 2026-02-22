@@ -7,6 +7,7 @@ import { useUIStore } from "../stores/ui.js";
 import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
 import { UserCard } from "./MemberList.js";
 import ContextMenu from "./ContextMenu.js";
+import { useNotifStore } from "../stores/notifications.js";
 
 export function ServerSidebar() {
   const { servers, showDMs, selectServer, members, onlineUsers, userStatuses, userActivities, openDM } = useChatStore();
@@ -14,6 +15,7 @@ export function ServerSidebar() {
   const showingEconomy = useUIStore((s) => s.showingEconomy);
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
   const sidebarPosition = useUIStore((s) => s.sidebarPosition);
+  const notifStore = useNotifStore();
 
   const [activeCardUserId, setActiveCardUserId] = useState<string | null>(null);
   const [cardPos, setCardPos] = useState<{ top?: number; right?: number; left?: number; bottom?: number }>({ top: 0 });
@@ -207,16 +209,28 @@ export function ServerSidebar() {
         </div>
       )}
 
-      {avatarCtxMenu && (
-        <ContextMenu
-          x={avatarCtxMenu.x}
-          y={avatarCtxMenu.y}
-          onClose={() => setAvatarCtxMenu(null)}
-          items={[
-            { label: "Message", onClick: () => { handleDMFromCard(avatarCtxMenu.userId); setAvatarCtxMenu(null); } },
-          ]}
-        />
-      )}
+      {avatarCtxMenu && (() => {
+        const isMuted = notifStore.isUserMuted(avatarCtxMenu.userId);
+        return (
+          <ContextMenu
+            x={avatarCtxMenu.x}
+            y={avatarCtxMenu.y}
+            onClose={() => setAvatarCtxMenu(null)}
+            items={[
+              { label: "Message", onClick: () => { handleDMFromCard(avatarCtxMenu.userId); setAvatarCtxMenu(null); } },
+              { type: "separator" },
+              {
+                label: isMuted ? "Unmute user" : "Mute user",
+                onClick: () => {
+                  if (isMuted) notifStore.unmuteUser(avatarCtxMenu.userId);
+                  else notifStore.muteUser(avatarCtxMenu.userId);
+                  setAvatarCtxMenu(null);
+                },
+              },
+            ]}
+          />
+        );
+      })()}
 
       <div className="server-sidebar-spacer" />
 

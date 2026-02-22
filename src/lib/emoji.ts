@@ -110,7 +110,7 @@ export function renderMessageContent(
   if (memberUsernames) {
     MENTION_REGEX.lastIndex = 0;
     while ((m = MENTION_REGEX.exec(text)) !== null) {
-      if (memberUsernames.has(m[1])) {
+      if (m[1] === "everyone" || m[1] === "here" || memberUsernames.has(m[1])) {
         segments.push({ start: m.index, end: m.index + m[0].length, type: "mention", raw: m[0] });
       }
     }

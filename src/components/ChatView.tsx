@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useUIStore } from "../stores/ui.js";
-import { ArrowUpRight, Pencil, Trash2, Paperclip, X, Smile } from "lucide-react";
+import { Pencil, Trash2, Paperclip, X, Smile } from "lucide-react";
 import { SearchBar } from "./SearchBar.js";
 import { MessageAttachments } from "./MessageAttachments.js";
 import { LinkEmbed } from "./LinkEmbed.js";
@@ -15,6 +15,13 @@ import { renderMessageContent, renderEmoji, isEmojiOnly, getEmojiLabel, TWEMOJI_
 import { API_BASE } from "../lib/serverUrl.js";
 import EmojiPicker from "./EmojiPicker.js";
 import ContextMenu from "./ContextMenu.js";
+
+// ── Mention autocomplete entry type ──────────────────────────────────────
+
+import type { MemberWithUser } from "../types/shared.js";
+type MentionEntry =
+  | { kind: "special"; name: string; desc: string }
+  | { kind: "user"; member: MemberWithUser };
 
 // ── Contenteditable helpers ───────────────────────────────────────────────
 
@@ -177,10 +184,17 @@ export function ChatView() {
       .map((id) => usernameMap[id] ?? id.slice(0, 8));
   }, [typingUsers, activeChannelId, user?.id, usernameMap]);
 
-  const filteredMentions = useMemo(() => {
+  const filteredMentions = useMemo((): MentionEntry[] => {
     if (!mentionActive) return [];
     const q = mentionQuery.toLowerCase();
-    return members.filter((m) => m.username.toLowerCase().includes(q) && m.userId !== user?.id).slice(0, 8);
+    const specials: MentionEntry[] = [];
+    if ("everyone".startsWith(q)) specials.push({ kind: "special", name: "everyone", desc: "Notify all members" });
+    if ("here".startsWith(q)) specials.push({ kind: "special", name: "here", desc: "Notify online members" });
+    const users: MentionEntry[] = members
+      .filter((m) => m.username.toLowerCase().includes(q) && m.userId !== user?.id)
+      .slice(0, 8)
+      .map((m) => ({ kind: "user", member: m }));
+    return [...specials, ...users];
   }, [mentionActive, mentionQuery, members, user?.id]);
 
   useEffect(() => {
@@ -349,11 +363,6 @@ export function ChatView() {
     return content ?? "";
   }
 
-  function handlePopOut() {
-    import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_popout_window", { windowType: "chat" })).catch(() => {});
-  }
-
-
   function startEditing(msgId: string, currentText: string) {
     setEditingMsgId(msgId);
     setEditInput(currentText);
@@ -411,7 +420,7 @@ export function ChatView() {
     if (mentionActive && filteredMentions.length > 0) {
       if (e.key === "ArrowDown") { e.preventDefault(); setMentionIndex((i) => Math.min(i + 1, filteredMentions.length - 1)); return; }
       if (e.key === "ArrowUp")   { e.preventDefault(); setMentionIndex((i) => Math.max(i - 1, 0)); return; }
-      if (e.key === "Tab" || e.key === "Enter") { e.preventDefault(); insertMention(filteredMentions[mentionIndex].username); return; }
+      if (e.key === "Tab" || e.key === "Enter") { e.preventDefault(); const entry = filteredMentions[mentionIndex]; insertMention(entry.kind === "special" ? entry.name : entry.member.username); return; }
       if (e.key === "Escape")    { setMentionActive(false); return; }
     }
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSubmit(); }
@@ -423,9 +432,6 @@ export function ChatView() {
         <span className="chat-header-channel">{channels.find((c) => c.id === activeChannelId)?.name}</span>
         <div className="chat-header-actions">
           <SearchBar />
-          <button className="btn-small popout-btn" onClick={handlePopOut} title="Pop out chat">
-            <ArrowUpRight size={14} />
-          </button>
         </div>
       </div>
 
@@ -468,11 +474,18 @@ export function ChatView() {
           const msgData = messageData.get(msg.id);
           const decoded = msgData?.decoded ?? "";
           const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole, false, senderRing?.ringPatternSeed);
+          const isMentioned = !!user && (() => {
+            const c = msg.content;
+            if (/(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i.test(c)) return true;
+            if (/(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i.test(c)) return true;
+            try { return new RegExp(`(?<![a-zA-Z0-9_])@${user.username}(?![a-zA-Z0-9_])`, "i").test(c); }
+            catch { return c.toLowerCase().includes(`@${user.username.toLowerCase()}`); }
+          })();
 
           return (
             <div
               key={msg.id}
-              className={`message ${msg.senderId === user?.id ? "own" : ""}`}
+              className={`message ${msg.senderId === user?.id ? "own" : ""} ${isMentioned ? "mentioned" : ""}`}
               onContextMenu={(e) => {
                 e.preventDefault();
                 const target = e.target as HTMLElement;
@@ -673,24 +686,42 @@ export function ChatView() {
       <div className="message-input-wrapper">
         {mentionActive && filteredMentions.length > 0 && (
           <div className="mention-autocomplete">
-            {filteredMentions.map((m, i) => (
-              <button
-                key={m.userId}
-                className={`mention-option ${i === mentionIndex ? "selected" : ""}`}
-                onMouseDown={(e) => { e.preventDefault(); insertMention(m.username); }}
-              >
-                <div className="mention-avatar-wrapper">
-                  {m.image ? (
-                    <img src={m.image} alt={m.username} className="mention-avatar" />
-                  ) : (
-                    <span className="mention-avatar mention-avatar-fallback" style={{ background: avatarColor(m.username) }}>{m.username.charAt(0).toUpperCase()}</span>
-                  )}
-                  <span className={`mention-status-dot ${userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline")}`} />
-                </div>
-                <span className="mention-username">{m.username}</span>
-                {(() => { const s = userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline"); return s === "offline" ? <span className="mention-offline-label">Offline</span> : s === "idle" ? <span className="mention-offline-label">Idle</span> : s === "dnd" ? <span className="mention-offline-label">DND</span> : null; })()}
-              </button>
-            ))}
+            {filteredMentions.map((entry, i) => {
+              if (entry.kind === "special") {
+                return (
+                  <button
+                    key={entry.name}
+                    className={`mention-option ${i === mentionIndex ? "selected" : ""}`}
+                    onMouseDown={(e) => { e.preventDefault(); insertMention(entry.name); }}
+                  >
+                    <div className="mention-avatar-wrapper">
+                      <span className="mention-avatar mention-avatar-fallback mention-special-icon">@</span>
+                    </div>
+                    <span className="mention-username">@{entry.name}</span>
+                    <span className="mention-offline-label">{entry.desc}</span>
+                  </button>
+                );
+              }
+              const m = entry.member;
+              return (
+                <button
+                  key={m.userId}
+                  className={`mention-option ${i === mentionIndex ? "selected" : ""}`}
+                  onMouseDown={(e) => { e.preventDefault(); insertMention(m.username); }}
+                >
+                  <div className="mention-avatar-wrapper">
+                    {m.image ? (
+                      <img src={m.image} alt={m.username} className="mention-avatar" />
+                    ) : (
+                      <span className="mention-avatar mention-avatar-fallback" style={{ background: avatarColor(m.username) }}>{m.username.charAt(0).toUpperCase()}</span>
+                    )}
+                    <span className={`mention-status-dot ${userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline")}`} />
+                  </div>
+                  <span className="mention-username">{m.username}</span>
+                  {(() => { const s = userStatuses[m.userId] ?? (onlineUsers.has(m.userId) ? "online" : "offline"); return s === "offline" ? <span className="mention-offline-label">Offline</span> : s === "idle" ? <span className="mention-offline-label">Idle</span> : s === "dnd" ? <span className="mention-offline-label">DND</span> : null; })()}
+                </button>
+              );
+            })}
           </div>
         )}
         {(pendingAttachments.length > 0 || Object.keys(uploadProgress).length > 0) && (
@@ -755,23 +786,22 @@ export function ChatView() {
             }}
             autoFocus
           />
-          <div style={{ position: "relative" }}>
-            <button
-              type="button"
-              className="btn-attach"
-              onClick={() => setInputEmojiOpen((o) => !o)}
-              title="Emoji"
-            >
-              <Smile size={18} />
-            </button>
-            {inputEmojiOpen && activeServerId && (
-              <EmojiPicker
-                serverId={activeServerId}
-                onSelect={(emoji) => { insertTextAtCursor(emoji); setInputEmojiOpen(false); }}
-                onClose={() => setInputEmojiOpen(false)}
-              />
-            )}
-          </div>
+          <button
+            type="button"
+            className="btn-attach"
+            onClick={() => setInputEmojiOpen((o) => !o)}
+            title="Emoji"
+          >
+            <Smile size={18} />
+          </button>
+          {inputEmojiOpen && activeServerId && (
+            <EmojiPicker
+              serverId={activeServerId}
+              onSelect={(emoji) => { insertTextAtCursor(emoji); setInputEmojiOpen(false); }}
+              onClose={() => setInputEmojiOpen(false)}
+              placement="auto"
+            />
+          )}
           {showSendButton && (
             <button type="submit" className="btn-send" disabled={!hasContent && pendingAttachments.length === 0}>
               Send

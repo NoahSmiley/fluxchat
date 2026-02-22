@@ -3,10 +3,13 @@ import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment, A
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
-import { playMessageSound, showDesktopNotification } from "../lib/notifications.js";
+import { playMessageSound, showDesktopNotification, shouldNotifyChannel } from "../lib/notifications.js";
 import { useCryptoStore } from "./crypto.js";
 import { useUIStore } from "./ui.js";
 import { API_BASE } from "../lib/serverUrl.js";
+
+const EVERYONE_MENTION_RE = /(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i;
+const HERE_MENTION_RE    = /(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i;
 
 // UTF-8-safe base64 encoding/decoding (btoa/atob only handle Latin-1)
 export function utf8ToBase64(str: string): string {
@@ -72,6 +75,8 @@ interface ChatState {
 
   // Unread tracking
   unreadChannels: Set<string>;
+  mentionCounts: Record<string, number>;  // channelId → unread @mention count
+  markChannelRead: (channelId: string) => void;
 
   // Typing indicators: channelId -> Set of userIds currently typing
   typingUsers: Record<string, Set<string>>;
@@ -200,6 +205,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   decryptedCache: {},
   dmError: null,
   unreadChannels: new Set(),
+  mentionCounts: {},
   typingUsers: {},
   customEmojis: [],
   roomKnocks: [],
@@ -278,6 +284,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set({ channels, members, channelsLoaded: true, customEmojis });
 
+    // Subscribe to all text channels so we receive events for unread tracking
+    for (const ch of channels) {
+      if (ch.type === "text") gateway.send({ type: "join_channel", channelId: ch.id });
+    }
+
     // If no cached channel was restored, auto-select first text channel
     if (!cached?.activeChannelId) {
       const textChannel = channels.find((c) => c.type === "text");
@@ -298,7 +309,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (prevChannel && prevChannel !== channelId) {
       // Save current channel's messages to cache before switching
       if (!prevChannel.startsWith("__game_")) saveChannelCache(prevChannel, get());
-      if (!prevChannel.startsWith("__game_")) gateway.send({ type: "leave_channel", channelId: prevChannel });
+      // Do not leave_channel — stay subscribed to all text channels for unread tracking
     }
 
     // Hardcoded game channels: just set active, no WS/API
@@ -323,6 +334,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const newUnread = new Set(get().unreadChannels);
     newUnread.delete(channelId);
+    const newMentions = { ...get().mentionCounts };
+    delete newMentions[channelId];
 
     // Restore from cache for instant display, or start empty
     const cached = channelMessageCache.get(channelId);
@@ -340,6 +353,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       searchResults: null,
       dmMessages: [],
       unreadChannels: newUnread,
+      mentionCounts: newMentions,
     });
 
     gateway.send({ type: "join_channel", channelId });
@@ -796,6 +810,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       set({ customEmojis: emojis });
     }
   },
+
+  markChannelRead: (channelId) => {
+    set((s) => {
+      const newUnread = new Set(s.unreadChannels);
+      newUnread.delete(channelId);
+      const newMentions = { ...s.mentionCounts };
+      delete newMentions[channelId];
+      return { unreadChannels: newUnread, mentionCounts: newMentions };
+    });
+  },
 }));
 
 // Helper to get username map
@@ -863,6 +887,10 @@ async function decryptDMMessages(messages: DMMessage[], key: CryptoKey | null) {
 let authStoreRef: typeof import("../stores/auth.js").useAuthStore | null = null;
 import("../stores/auth.js").then((m) => { authStoreRef = m.useAuthStore; });
 
+// Lazy ref to notif store to avoid circular imports
+let notifStoreRef: typeof import("../stores/notifications.js").useNotifStore | null = null;
+import("../stores/notifications.js").then((m) => { notifStoreRef = m.useNotifStore; });
+
 // On WS connect/reconnect: clear stale presence, mark self online
 let activityPollInterval: ReturnType<typeof setInterval> | null = null;
 let lastActivityName: string | null = null;
@@ -875,9 +903,15 @@ gateway.onConnect(() => {
     userActivities: {},
   });
 
-  // Re-subscribe to active channel/DM so the server knows we're watching
-  const { activeChannelId, activeDMChannelId } = useChatStore.getState();
-  if (activeChannelId) gateway.send({ type: "join_channel", channelId: activeChannelId });
+  // Re-subscribe to all text channels for unread tracking, plus the active DM
+  const { channels, activeChannelId, activeDMChannelId } = useChatStore.getState();
+  const textChannels = channels.filter((c) => c.type === "text");
+  if (textChannels.length > 0) {
+    for (const ch of textChannels) gateway.send({ type: "join_channel", channelId: ch.id });
+  } else if (activeChannelId) {
+    // Fallback: no channels loaded yet, just rejoin the active one
+    gateway.send({ type: "join_channel", channelId: activeChannelId });
+  }
   if (activeDMChannelId) gateway.send({ type: "join_dm", dmChannelId: activeDMChannelId });
 
   // Initialize E2EE crypto
@@ -923,37 +957,72 @@ gateway.on((event) => {
       const msg = event.attachments?.length
         ? { ...event.message, attachments: event.attachments }
         : event.message;
+      // Always cache plaintext content for display
+      useChatStore.setState((s) => ({
+        decryptedCache: { ...s.decryptedCache, [msg.id]: msg.content },
+      }));
+      const authUser = authStoreRef?.getState()?.user;
+      const isFromSelf = authUser && msg.senderId === authUser.id;
       if (msg.channelId === state.activeChannelId) {
         useChatStore.setState((s) => ({
           messages: [...s.messages, msg],
         }));
-      } else {
-        // Mark channel as unread and update cache
-        useChatStore.setState((s) => {
-          const newUnread = new Set(s.unreadChannels);
-          newUnread.add(msg.channelId);
-          return { unreadChannels: newUnread };
-        });
-        // Append to cached messages for that channel
-        const cached = channelMessageCache.get(msg.channelId);
-        if (cached) {
-          cached.messages = [...cached.messages, msg];
+      } else if (!isFromSelf) {
+        const notif = notifStoreRef?.getState();
+        if (!notif?.isUserMuted(msg.senderId)) {
+          const channel = state.channels.find((c) => c.id === msg.channelId);
+          const isChannelMuted = notif?.isChannelMuted(msg.channelId) ?? false;
+          const isCategoryMuted = channel?.parentId ? (notif?.isCategoryMuted(channel.parentId) ?? false) : false;
+          const isAnyMuted = isChannelMuted || isCategoryMuted;
+
+          // @mention detection: @everyone, @here, or personal @username
+          const isMention = authUser
+            ? (EVERYONE_MENTION_RE.test(msg.content) ||
+               HERE_MENTION_RE.test(msg.content) ||
+               (() => {
+                 try {
+                   return new RegExp(`(?<![a-zA-Z0-9_])@${authUser.username}(?![a-zA-Z0-9_])`, "i").test(msg.content);
+                 } catch {
+                   return msg.content.toLowerCase().includes(`@${authUser.username.toLowerCase()}`);
+                 }
+               })())
+            : false;
+
+          // Always cache messages for instant loading when channel is opened
+          const cached = channelMessageCache.get(msg.channelId);
+          if (cached) cached.messages = [...cached.messages, msg];
+
+          // White circle: suppressed by channel/category mute
+          if (!isAnyMuted) {
+            useChatStore.setState((s) => {
+              const newUnread = new Set(s.unreadChannels);
+              newUnread.add(msg.channelId);
+              return { unreadChannels: newUnread };
+            });
+          }
+
+          // Red badge: @mentions only, suppressed by mention-mute (independent of channel mute)
+          if (isMention) {
+            const isMentionMuted =
+              (notif?.isChannelMentionMuted(msg.channelId) ?? false) ||
+              (channel?.parentId ? (notif?.isCategoryMentionMuted(channel.parentId) ?? false) : false);
+            if (!isMentionMuted) {
+              useChatStore.setState((s) => {
+                const newMentions = { ...s.mentionCounts };
+                newMentions[msg.channelId] = (newMentions[msg.channelId] ?? 0) + 1;
+                return { mentionCounts: newMentions };
+              });
+            }
+          }
         }
       }
-      // Cache plaintext content for display
-      useChatStore.setState((s) => ({
-        decryptedCache: { ...s.decryptedCache, [msg.id]: msg.content },
-      }));
-      // Notification
-      {
-        const authUser = authStoreRef?.getState()?.user;
-        if (authUser && msg.senderId !== authUser.id) {
-          if (msg.channelId !== state.activeChannelId || !document.hasFocus()) {
-            const usernameMap = getUsernameMap(state.members);
-            const senderName = usernameMap[msg.senderId] ?? "Someone";
-            playMessageSound();
-            showDesktopNotification(senderName, msg.content);
-          }
+      // Notification (respects per-channel settings, mute, and @mention-only default)
+      if (!isFromSelf && (msg.channelId !== state.activeChannelId || !document.hasFocus())) {
+        const channel = state.channels.find((c) => c.id === msg.channelId);
+        if (shouldNotifyChannel(msg.channelId, msg.senderId, msg.content, channel?.parentId, authUser?.username)) {
+          const usernameMap = getUsernameMap(state.members);
+          playMessageSound();
+          showDesktopNotification(usernameMap[msg.senderId] ?? "Someone", msg.content);
         }
       }
       break;
@@ -1212,10 +1281,13 @@ gateway.on((event) => {
           // DM notification
           const dmAuthUser = authStoreRef?.getState()?.user;
           if (dmAuthUser && event.message.senderId !== dmAuthUser.id) {
-            if (event.message.dmChannelId !== state.activeDMChannelId || !document.hasFocus()) {
-              const senderName = dm?.otherUser.username ?? "Someone";
-              playMessageSound();
-              showDesktopNotification(senderName, text);
+            const notif = notifStoreRef?.getState();
+            if (!notif?.isUserMuted(event.message.senderId)) {
+              if (event.message.dmChannelId !== state.activeDMChannelId || !document.hasFocus()) {
+                const senderName = dm?.otherUser.username ?? "Someone";
+                playMessageSound();
+                showDesktopNotification(senderName, text);
+              }
             }
           }
         })();

@@ -169,12 +169,58 @@ fn urlencode(s: &str) -> String {
     out
 }
 
+#[cfg(windows)]
+fn register_aumid_in_registry() {
+    use windows::core::w;
+    use windows::Win32::Foundation::ERROR_SUCCESS;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegCreateKeyW, RegSetValueExW,
+        HKEY, HKEY_CURRENT_USER, REG_SZ,
+    };
+
+    unsafe {
+        let mut hkey = HKEY::default();
+        let status = RegCreateKeyW(
+            HKEY_CURRENT_USER,
+            w!("Software\\Classes\\AppUserModelId\\com.flux.app"),
+            &mut hkey,
+        );
+        if status == ERROR_SUCCESS {
+            let name: Vec<u16> = "Flux\0".encode_utf16().collect();
+            let _ = RegSetValueExW(
+                hkey,
+                w!("DisplayName"),
+                0,
+                REG_SZ,
+                Some(std::slice::from_raw_parts(
+                    name.as_ptr() as *const u8,
+                    name.len() * 2,
+                )),
+            );
+            let _ = RegCloseKey(hkey);
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Set the AUMID before any plugins initialize so the notification plugin
+    // picks it up at creation time rather than capturing the parent-process AUMID.
+    #[cfg(windows)]
+    {
+        unsafe {
+            use windows::core::w;
+            use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+            let _ = SetCurrentProcessExplicitAppUserModelID(w!("com.flux.app"));
+        }
+        register_aumid_in_registry();
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             set_titlebar_color,
             open_popout_window,
@@ -190,7 +236,9 @@ pub fn run() {
         ])
         .setup(|_app| {
             #[cfg(windows)]
-            global_keys::init(_app.handle());
+            {
+                global_keys::init(_app.handle());
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -5,9 +5,10 @@ import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
 import { useUIStore } from "../stores/ui.js";
 import { useAuthStore } from "../stores/auth.js";
+import { useNotifStore, type ChannelNotifSetting, type CategoryNotifSetting } from "../stores/notifications.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
 import { UserCard } from "./MemberList.js";
-import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, GripVertical, Radio, Lock } from "lucide-react";
+import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, Radio, Lock } from "lucide-react";
 import { gateway } from "../lib/ws.js";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal, DeleteConfirmDialog } from "./ChannelSettingsModal.js";
@@ -55,6 +56,7 @@ interface TreeNode {
   channel: Channel;
   children: TreeNode[];
   depth: number;
+  pinned?: boolean; // shown as an ancestor of the active channel under a collapsed parent
 }
 
 function buildTree(channels: Channel[]): TreeNode[] {
@@ -95,22 +97,24 @@ function flattenTree(nodes: TreeNode[], collapsed: Set<string>, activeChannelId?
       if (!collapsed.has(node.channel.id)) {
         result.push(...flattenTree(node.children, collapsed, activeChannelId));
       } else if (activeChannelId) {
-        // Category is collapsed, but peek inside for the active channel
-        const activeChild = findActiveChild(node.children, activeChannelId);
-        if (activeChild) result.push(activeChild);
+        // Category is collapsed — show the full path to the active channel so
+        // intermediate categories are visible but locked (pinned)
+        const activePath = findActivePath(node.children, activeChannelId);
+        if (activePath) result.push(...activePath);
       }
     }
   }
   return result;
 }
 
-/** Recursively search children for the active channel, returning it (with correct depth) if found */
-function findActiveChild(nodes: TreeNode[], activeChannelId: string): TreeNode | null {
+/** Recursively find the path from the search root down to the active channel.
+ *  Returns every node along the way, with intermediate categories marked pinned. */
+function findActivePath(nodes: TreeNode[], activeChannelId: string): TreeNode[] | null {
   for (const node of nodes) {
-    if (node.channel.id === activeChannelId) return node;
+    if (node.channel.id === activeChannelId) return [node];
     if (node.channel.type === "category") {
-      const found = findActiveChild(node.children, activeChannelId);
-      if (found) return found;
+      const path = findActivePath(node.children, activeChannelId);
+      if (path) return [{ ...node, pinned: true }, ...path];
     }
   }
   return null;
@@ -226,6 +230,7 @@ function SortableChannelItem({
   node,
   isActive,
   isUnread,
+  mentionCount,
   isCollapsed,
   onToggleCollapse,
   onSelect,
@@ -235,16 +240,19 @@ function SortableChannelItem({
   voiceProps,
   isDragging,
   isDropTarget,
+  isMuted,
 }: {
   node: TreeNode;
   isActive: boolean;
   isUnread: boolean;
+  mentionCount: number;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   onSelect: () => void;
   onSettings: () => void;
   onContextMenu: (e: React.MouseEvent, ch: Channel) => void;
   isOwnerOrAdmin: boolean;
+  isMuted?: boolean;
   voiceProps?: {
     participants: { userId: string; username: string }[];
     isConnected: boolean;
@@ -255,8 +263,10 @@ function SortableChannelItem({
   };
   isDragging?: boolean;
   isDropTarget?: boolean;
+  isPinned?: boolean;
 }) {
-  const { channel, depth } = node;
+  const { channel, depth, pinned } = node;
+  const isPinned = pinned ?? false;
   const {
     attributes,
     listeners,
@@ -267,34 +277,31 @@ function SortableChannelItem({
 
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
 
-  const style: React.CSSProperties = {
+  const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    paddingLeft: depth * 16,
+    paddingLeft: depth * 12,
     opacity: isDragging ? 0.4 : 1,
-  };
+    "--ch-indent": `${depth * 12}px`,
+  } as React.CSSProperties;
 
   if (channel.type === "category") {
     return (
-      <div ref={setNodeRef} style={style} {...attributes}>
-        <div className={`channel-category-header ${depth === 0 ? "channel-category-root" : ""} ${isDropTarget ? "channel-category-drop-target" : ""}`}>
-          {isOwnerOrAdmin && (
-            <span className="channel-drag-handle" {...listeners}>
-              <GripVertical size={12} />
-            </span>
-          )}
+      <div ref={setNodeRef} style={style} {...attributes} {...(isOwnerOrAdmin && !isPinned ? listeners : {})}>
+        <div className={`channel-category-header ${depth === 0 ? "channel-category-root" : ""} ${isDropTarget ? "channel-category-drop-target" : ""}${isMuted ? " channel-muted" : ""}`}>
           <button
             className="channel-category-toggle"
-            onClick={onToggleCollapse}
-            onContextMenu={(e) => { e.preventDefault(); onContextMenu(e, channel); }}
+            onClick={isPinned ? undefined : onToggleCollapse}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, channel); }}
+            style={isPinned ? { cursor: "default" } : undefined}
           >
             <ChevronRight
               size={12}
-              className={`channel-chevron ${isCollapsed ? "" : "channel-chevron-open"}`}
+              className={`channel-chevron ${isPinned ? "channel-chevron-hidden" : isCollapsed ? "" : "channel-chevron-open"}`}
             />
             <span className="channel-category-name">{channel.name}</span>
           </button>
-          {isOwnerOrAdmin && (
+          {isOwnerOrAdmin && !isPinned && (
             <button
               className="channel-settings-btn"
               onClick={onSettings}
@@ -309,21 +316,15 @@ function SortableChannelItem({
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} className={isActive ? "channel-sortable-active" : undefined}>
-      <div className="channel-item-wrapper">
-        {isOwnerOrAdmin && (
-          <span className="channel-drag-handle" {...listeners}>
-            <GripVertical size={12} />
-          </span>
-        )}
+    <div ref={setNodeRef} style={style} {...attributes} {...(isOwnerOrAdmin ? listeners : {})} className={isActive ? "channel-sortable-active" : undefined}>
+      <div className={`channel-item-wrapper${isUnread ? " channel-item-has-unread" : ""}${mentionCount > 0 ? " channel-item-has-mention" : ""}${isMuted ? " channel-muted" : ""}`}>
         <button
           className={`channel-item ${isActive ? "active" : ""} ${isUnread ? "unread" : ""} ${voiceProps?.isConnected ? "voice-connected" : ""}`}
           onClick={onSelect}
-          onContextMenu={isOwnerOrAdmin ? (e) => { e.preventDefault(); onContextMenu(e, channel); } : undefined}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(e, channel); }}
         >
           {getChannelIcon(channel.type)}
           <span className="channel-item-name">{channel.name}</span>
-          {isUnread && <span className="channel-unread-dot" />}
           {voiceProps?.hasScreenShare && (
             <span className="channel-live-badge"><Radio size={10} /> LIVE</span>
           )}
@@ -337,6 +338,7 @@ function SortableChannelItem({
             <Settings size={13} />
           </button>
         )}
+        {mentionCount > 0 && <span className="channel-mention-badge">{mentionCount}</span>}
       </div>
       {channel.type === "voice" && voiceProps && voiceProps.participants.length > 0 && (
         <div className="voice-channel-users">
@@ -481,9 +483,10 @@ function AnimatedList<T extends { key: string }>({
 }
 
 export function ChannelSidebar() {
-  const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels } = useChatStore();
+  const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels, mentionCounts, markChannelRead } = useChatStore();
   const { channelParticipants, connectedChannelId, connecting, screenSharers, participants: voiceParticipants } = useVoiceStore();
   const { showingEconomy, openServerSettings, showDummyUsers } = useUIStore();
+  const notifStore = useNotifStore();
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
 
@@ -492,6 +495,7 @@ export function ChannelSidebar() {
   const [createModal, setCreateModal] = useState<{ type: ChannelType; parentId?: string } | null>(null);
   const [settingsChannel, setSettingsChannel] = useState<Channel | null>(null);
   const [channelCtxMenu, setChannelCtxMenu] = useState<{ x: number; y: number; channel: Channel } | null>(null);
+  const [sidebarCtxMenu, setSidebarCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const [deletingChannel, setDeletingChannel] = useState<Channel | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -523,7 +527,7 @@ export function ChannelSidebar() {
   }, []);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 5 } })
   );
 
   function clearDwell() {
@@ -738,7 +742,7 @@ export function ChannelSidebar() {
           )}
         </div>
       )}
-      <div className="channel-list">
+      <div className="channel-list" onContextMenu={(e) => { e.preventDefault(); if (isOwnerOrAdmin) setSidebarCtxMenu({ x: e.clientX, y: e.clientY }); }}>
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -750,9 +754,13 @@ export function ChannelSidebar() {
             {flatList.map((node) => {
               const ch = node.channel;
               const isUnread = unreadChannels.has(ch.id) && ch.id !== activeChannelId;
+              const mentionCount = mentionCounts[ch.id] ?? 0;
               const participants = channelParticipants[ch.id] ?? [];
               const isConnected = connectedChannelId === ch.id;
               const hasScreenShare = isConnected && screenSharers.length > 0;
+              const isMuted = ch.type === "category"
+                ? notifStore.isCategoryMuted(ch.id)
+                : notifStore.isChannelMuted(ch.id) || (!!ch.parentId && notifStore.isCategoryMuted(ch.parentId));
               const screenSharerIds = isConnected
                 ? new Set(screenSharers.map((s) => s.participantId))
                 : new Set<string>();
@@ -763,12 +771,15 @@ export function ChannelSidebar() {
                   node={node}
                   isActive={ch.id === activeChannelId && !showingEconomy}
                   isUnread={isUnread}
+                  mentionCount={mentionCount}
+                  isMuted={isMuted}
                   isCollapsed={collapsed.has(ch.id)}
                   onToggleCollapse={() => toggleCollapse(ch.id)}
                   onSelect={() => ch.type !== "category" && selectChannel(ch.id)}
                   onSettings={() => setSettingsChannel(ch)}
                   onContextMenu={(e, ch) => setChannelCtxMenu({ x: e.clientX, y: e.clientY, channel: ch })}
                   isOwnerOrAdmin={!!isOwnerOrAdmin}
+                  isPinned={node.pinned ?? false}
                   isDragging={activeId === ch.id}
                   isDropTarget={ch.type === "category" && dropTargetCategoryId === ch.id}
                   voiceProps={ch.type === "voice" ? {
@@ -1112,22 +1123,79 @@ export function ChannelSidebar() {
       {channelCtxMenu && (() => {
         const ch = channelCtxMenu.channel;
         const isCategory = ch.type === "category";
+        const channelMuted = notifStore.isChannelMuted(ch.id);
+        const categoryMuted = notifStore.isCategoryMuted(ch.id);
+        const channelSetting: ChannelNotifSetting = notifStore.channelSettings[ch.id] ?? "default";
+        const categorySetting: CategoryNotifSetting = notifStore.categorySettings[ch.id] ?? "all";
+        const isUnread = unreadChannels.has(ch.id);
+
+        function muteMs(minutes: number) { return minutes === -1 ? -1 : Date.now() + minutes * 60_000; }
+
+        function buildMuteSubmenu(
+          isMuted: boolean,
+          isMentionMuted: boolean,
+          onMute: (ms: number) => void,
+          onUnmute: () => void,
+          onToggleMentionMute: () => void,
+        ): import("./ContextMenu.js").ContextMenuEntry[] {
+          const opts: [number, string][] = [
+            [15, "15 minutes"], [60, "1 hour"], [480, "8 hours"], [1440, "24 hours"], [-1, "Until I turn it back on"],
+          ];
+          const entries: import("./ContextMenu.js").ContextMenuEntry[] = opts.map(([m, label]) => ({
+            label,
+            onClick: () => { onMute(muteMs(m)); setChannelCtxMenu(null); },
+          }));
+          entries.push({ type: "separator" });
+          entries.push({ label: "Mute @mentions", checked: isMentionMuted, onClick: onToggleMentionMute });
+          if (isMuted) {
+            entries.push({ type: "separator" });
+            entries.push({ label: "Unmute", onClick: () => { onUnmute(); setChannelCtxMenu(null); } });
+          }
+          return entries;
+        }
+
+        function buildChannelNotifSubmenu(current: ChannelNotifSetting): import("./ContextMenu.js").ContextMenuEntry[] {
+          const opts: [ChannelNotifSetting, string][] = [
+            ["all", "All messages"], ["only_mentions", "Only @mentions"], ["none", "Nothing"], ["default", "Default (category)"],
+          ];
+          return opts.map(([val, label]) => ({
+            label, checked: current === val,
+            onClick: () => { notifStore.setChannelSetting(ch.id, val); setChannelCtxMenu(null); },
+          }));
+        }
+
+        function buildCategoryNotifSubmenu(current: CategoryNotifSetting): import("./ContextMenu.js").ContextMenuEntry[] {
+          const opts: [CategoryNotifSetting, string][] = [
+            ["all", "All messages"], ["only_mentions", "Only @mentions"], ["none", "Nothing"],
+          ];
+          return opts.map(([val, label]) => ({
+            label, checked: current === val,
+            onClick: () => { notifStore.setCategorySetting(ch.id, val); setChannelCtxMenu(null); },
+          }));
+        }
+
         const items: import("./ContextMenu.js").ContextMenuEntry[] = isCategory
           ? [
-              {
-                label: collapsed.has(ch.id) ? "Expand" : "Collapse",
-                onClick: () => { toggleCollapse(ch.id); setChannelCtxMenu(null); },
-              },
+              { label: collapsed.has(ch.id) ? "Expand" : "Collapse", onClick: () => { toggleCollapse(ch.id); setChannelCtxMenu(null); } },
+              { type: "separator" },
+              { label: "Notification settings", submenu: buildCategoryNotifSubmenu(categorySetting) },
+              { label: categoryMuted ? "Muted" : "Mute category", onClick: categoryMuted ? () => { notifStore.unmuteCategory(ch.id); setChannelCtxMenu(null); } : () => { notifStore.muteCategory(ch.id, -1); setChannelCtxMenu(null); }, submenu: buildMuteSubmenu(categoryMuted, notifStore.isCategoryMentionMuted(ch.id), (ms) => notifStore.muteCategory(ch.id, ms), () => notifStore.unmuteCategory(ch.id), () => notifStore.setMuteCategoryMentions(ch.id, !notifStore.isCategoryMentionMuted(ch.id))) },
               ...(isOwnerOrAdmin ? [
                 { type: "separator" as const },
+                { label: "Create channel", onClick: () => { setCreateModal({ type: "text", parentId: ch.id }); setChannelCtxMenu(null); } },
                 { label: "Edit category", onClick: () => { setSettingsChannel(ch); setChannelCtxMenu(null); } },
                 { label: "Delete category", danger: true, onClick: () => { setDeletingChannel(ch); setChannelCtxMenu(null); } },
               ] : []),
             ]
           : [
-              { label: "Edit channel", onClick: () => { setSettingsChannel(ch); setChannelCtxMenu(null); } },
-              { type: "separator" as const },
-              { label: "Delete channel", danger: true, onClick: () => { setDeletingChannel(ch); setChannelCtxMenu(null); } },
+              ...(isUnread ? [{ label: "Mark as read", onClick: () => { markChannelRead(ch.id); setChannelCtxMenu(null); } } as import("./ContextMenu.js").ContextMenuEntry, { type: "separator" as const }] : []),
+              { label: "Notification settings", submenu: buildChannelNotifSubmenu(channelSetting) },
+              { label: channelMuted ? "Muted" : "Mute channel", onClick: channelMuted ? () => { notifStore.unmuteChannel(ch.id); setChannelCtxMenu(null); } : () => { notifStore.muteChannel(ch.id, -1); setChannelCtxMenu(null); }, submenu: buildMuteSubmenu(channelMuted, notifStore.isChannelMentionMuted(ch.id), (ms) => notifStore.muteChannel(ch.id, ms), () => notifStore.unmuteChannel(ch.id), () => notifStore.setMuteChannelMentions(ch.id, !notifStore.isChannelMentionMuted(ch.id))) },
+              ...(isOwnerOrAdmin ? [
+                { type: "separator" as const },
+                { label: "Edit channel", onClick: () => { setSettingsChannel(ch); setChannelCtxMenu(null); } },
+                { label: "Delete channel", danger: true, onClick: () => { setDeletingChannel(ch); setChannelCtxMenu(null); } },
+              ] : []),
             ];
         return (
           <ContextMenu
@@ -1138,6 +1206,17 @@ export function ChannelSidebar() {
           />
         );
       })()}
+
+      {sidebarCtxMenu && isOwnerOrAdmin && (
+        <ContextMenu
+          x={sidebarCtxMenu.x}
+          y={sidebarCtxMenu.y}
+          onClose={() => setSidebarCtxMenu(null)}
+          items={[
+            { label: "Create channel", onClick: () => { setCreateModal({ type: "text" }); setSidebarCtxMenu(null); } },
+          ]}
+        />
+      )}
 
       {deletingChannel && activeServerId && createPortal(
         <DeleteConfirmDialog

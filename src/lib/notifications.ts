@@ -1,5 +1,9 @@
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
+import type { useNotifStore as NotifStoreType } from "../stores/notifications.js";
+
+// True when running inside the Tauri desktop app
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 // Notification preferences from localStorage
 function isSoundEnabled(): boolean {
@@ -15,6 +19,10 @@ function isDND(): boolean {
   if (!userId) return false;
   return useChatStore.getState().userStatuses[userId] === "dnd";
 }
+
+// Lazy reference to notif store to avoid circular imports
+let notifStoreRef: typeof NotifStoreType | null = null;
+import("../stores/notifications.js").then((m) => { notifStoreRef = m.useNotifStore; });
 
 export function playMessageSound() {
   if (!isSoundEnabled() || isDND()) return;
@@ -48,18 +56,74 @@ export function playMessageSound() {
 
 export function showDesktopNotification(senderName: string, text: string) {
   if (!isNotificationsEnabled() || isDND()) return;
+  const body = text.length > 100 ? text.slice(0, 100) + "..." : text;
+
+  if (isTauri) {
+    void (async () => {
+      try {
+        const { isPermissionGranted, sendNotification } = await import("@tauri-apps/plugin-notification");
+        if (await isPermissionGranted()) {
+          sendNotification({ title: senderName, body });
+        }
+      } catch { /* ignore */ }
+    })();
+    return;
+  }
+
   if (typeof Notification === "undefined") return;
   if (Notification.permission !== "granted") return;
-
-  new Notification(`${senderName}`, {
-    body: text.length > 100 ? text.slice(0, 100) + "..." : text,
-    silent: true,
-  });
+  new Notification(senderName, { body, silent: true });
 }
 
 export function requestNotificationPermission() {
+  if (isTauri) {
+    void (async () => {
+      try {
+        const { isPermissionGranted, requestPermission } = await import("@tauri-apps/plugin-notification");
+        if (!(await isPermissionGranted())) {
+          await requestPermission();
+        }
+      } catch { /* ignore */ }
+    })();
+    return;
+  }
+
   if (typeof Notification === "undefined") return;
   if (Notification.permission === "default") {
     Notification.requestPermission();
+  }
+}
+
+/**
+ * Determines whether a desktop notification should fire for a text channel message.
+ * DM notifications bypass this — they always notify unless the sender is muted.
+ */
+export function shouldNotifyChannel(
+  channelId: string,
+  senderId: string,
+  content: string,
+  categoryId?: string | null,
+  authUsername?: string
+): boolean {
+  if (isDND()) return false;
+
+  const notif = notifStoreRef?.getState();
+  if (notif?.isUserMuted(senderId)) return false;
+  if (notif?.isChannelMuted(channelId)) return false;
+  if (categoryId && notif?.isCategoryMuted(categoryId)) return false;
+
+  const setting = notif?.getEffectiveChannelSetting(channelId, categoryId) ?? "only_mentions";
+
+  if (setting === "none") return false;
+  if (setting === "all") return true;
+
+  // "only_mentions": @everyone, @here, or personal @username
+  if (/(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i.test(content)) return true;
+  if (/(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i.test(content)) return true;
+  if (!authUsername) return false;
+  try {
+    return new RegExp(`(?<![a-zA-Z0-9_])@${authUsername}(?![a-zA-Z0-9_])`, "i").test(content);
+  } catch {
+    return content.toLowerCase().includes(`@${authUsername.toLowerCase()}`);
   }
 }
