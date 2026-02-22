@@ -294,18 +294,16 @@ pub async fn create_channel(
         created_at: now,
     };
 
-    // Broadcast room creation to all connected clients
-    if body.is_room {
-        state
-            .gateway
-            .broadcast_all(
-                &crate::ws::events::ServerEvent::RoomCreated {
-                    channel: channel.clone(),
-                },
-                None,
-            )
-            .await;
-    }
+    // Broadcast channel creation to all connected clients
+    state
+        .gateway
+        .broadcast_all(
+            &crate::ws::events::ServerEvent::RoomCreated {
+                channel: channel.clone(),
+            },
+            None,
+        )
+        .await;
 
     (StatusCode::CREATED, Json(channel)).into_response()
 }
@@ -514,19 +512,17 @@ pub async fn delete_channel(
         .execute(&state.db)
         .await;
 
-    // Broadcast room deletion if it was a room
-    if channel.is_room == 1 {
-        state
-            .gateway
-            .broadcast_all(
-                &crate::ws::events::ServerEvent::RoomDeleted {
-                    channel_id: channel_id.clone(),
-                    server_id: server_id.clone(),
-                },
-                None,
-            )
-            .await;
-    }
+    // Broadcast channel deletion to all connected clients
+    state
+        .gateway
+        .broadcast_all(
+            &crate::ws::events::ServerEvent::RoomDeleted {
+                channel_id: channel_id.clone(),
+                server_id: server_id.clone(),
+            },
+            None,
+        )
+        .await;
 
     StatusCode::NO_CONTENT.into_response()
 }
