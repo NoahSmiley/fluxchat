@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useUIStore } from "../stores/ui.js";
-import { ArrowUpRight, Pencil, Trash2, Paperclip, X, Smile } from "lucide-react";
+import { Pencil, Trash2, Paperclip, X, Smile } from "lucide-react";
 import { SearchBar } from "./SearchBar.js";
 import { MessageAttachments } from "./MessageAttachments.js";
 import { LinkEmbed } from "./LinkEmbed.js";
@@ -363,11 +363,6 @@ export function ChatView() {
     return content ?? "";
   }
 
-  function handlePopOut() {
-    import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_popout_window", { windowType: "chat" })).catch(() => {});
-  }
-
-
   function startEditing(msgId: string, currentText: string) {
     setEditingMsgId(msgId);
     setEditInput(currentText);
@@ -437,9 +432,6 @@ export function ChatView() {
         <span className="chat-header-channel">{channels.find((c) => c.id === activeChannelId)?.name}</span>
         <div className="chat-header-actions">
           <SearchBar />
-          <button className="btn-small popout-btn" onClick={handlePopOut} title="Pop out chat">
-            <ArrowUpRight size={14} />
-          </button>
         </div>
       </div>
 
