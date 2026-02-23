@@ -249,9 +249,11 @@ function destroyAudioPipeline(trackSid: string) {
 /** Rebuild all active audio pipelines (e.g. when compressor/de-esser is toggled) */
 function rebuildAllPipelines(settings: AudioSettings, get: () => VoiceState) {
   const { participantVolumes, participantTrackMap, isDeafened } = get();
+  // Snapshot current pipelines before destroying (destroy nulls srcObject)
+  const snapshot: { trackSid: string; element: HTMLAudioElement; srcObject: MediaStream; volume: number }[] = [];
   for (const [trackSid, pipeline] of audioPipelines.entries()) {
-    const element = pipeline.element;
-    // Find participant identity for this trackSid to get their volume
+    const srcObject = pipeline.element.srcObject;
+    if (!(srcObject instanceof MediaStream)) continue;
     let volume = 1.0;
     for (const [identity, sid] of Object.entries(participantTrackMap)) {
       if (sid === trackSid) {
@@ -259,11 +261,16 @@ function rebuildAllPipelines(settings: AudioSettings, get: () => VoiceState) {
         break;
       }
     }
+    snapshot.push({ trackSid, element: pipeline.element, srcObject, volume });
+  }
+  // Destroy all, then rebuild from snapshot
+  for (const { trackSid } of snapshot) {
     destroyAudioPipeline(trackSid);
-    // Only rebuild if the element still has a source
-    if (element.srcObject) {
-      createAudioPipeline(element, trackSid, settings, volume);
-    }
+  }
+  for (const { trackSid, element, srcObject, volume } of snapshot) {
+    // Restore the srcObject that destroy nulled out
+    element.srcObject = srcObject;
+    createAudioPipeline(element, trackSid, settings, volume);
   }
 }
 
@@ -902,7 +909,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   screenSharers: [],
   pinnedScreenShare: null,
   theatreMode: false,
-  screenShareQuality: "720p30",
+  screenShareQuality: "1080p60",
   participants: [],
   channelParticipants: {},
   lastSpokeAt: 0,
@@ -1168,6 +1175,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
       room.on(RoomEvent.LocalTrackPublished, (pub) => {
         dbg("voice", `LocalTrackPublished source=${pub.source} sid=${pub.trackSid}`);
+        // Enforce CBR on audio tracks (set min = max bitrate)
+        if (pub.track?.sender && pub.source === Track.Source.Microphone) {
+          const params = pub.track.sender.getParameters();
+          if (params.encodings && params.encodings.length > 0) {
+            const br = adaptiveTargetBitrate;
+            params.encodings[0].maxBitrate = br;
+            (params.encodings[0] as any).minBitrate = br;
+            pub.track.sender.setParameters(params);
+            dbg("voice", `LocalTrackPublished enforced CBR ${br}`);
+          }
+        }
         get()._updateScreenSharers();
       });
       room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
@@ -1477,8 +1495,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   setParticipantVolume: (participantId: string, volume: number) => {
-    dbg("voice", `setParticipantVolume participant=${participantId} volume=${volume}`);
-    const { participantTrackMap, isDeafened } = get();
+    const { participantTrackMap, isDeafened, room } = get();
 
     set((state) => ({
       participantVolumes: {
@@ -1489,17 +1506,40 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     if (isDeafened) return;
 
-    const trackSid = participantTrackMap[participantId];
-    if (trackSid) {
-      const pipeline = audioPipelines.get(trackSid);
-      if (pipeline) {
-        if (pipeline.context.state === "suspended") pipeline.context.resume();
-        // Must cancel scheduled automation before setting value —
-        // the initial fade-in puts the param in automation mode,
-        // after which direct .value writes are silently ignored.
-        pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
-        pipeline.gain.gain.setValueAtTime(volume, pipeline.context.currentTime);
+    // Primary lookup: participantTrackMap → audioPipeline
+    let trackSid = participantTrackMap[participantId];
+    let pipeline = trackSid ? audioPipelines.get(trackSid) : undefined;
+
+    // Fallback: if the track map doesn't have this participant, search
+    // through the room's remote participants directly and repair the map
+    if (!pipeline && room) {
+      const remote = room.remoteParticipants.get(participantId);
+      if (remote) {
+        for (const pub of remote.audioTrackPublications.values()) {
+          if (pub.track?.sid) {
+            const fallbackPipeline = audioPipelines.get(pub.track.sid);
+            if (fallbackPipeline) {
+              pipeline = fallbackPipeline;
+              trackSid = pub.track.sid;
+              // Repair the stale track map
+              set((state) => ({
+                participantTrackMap: { ...state.participantTrackMap, [participantId]: pub.track!.sid! },
+              }));
+              dbg("voice", `setParticipantVolume repaired trackMap for ${participantId} → ${trackSid}`);
+              break;
+            }
+          }
+        }
       }
+    }
+
+    if (pipeline) {
+      if (pipeline.context.state === "suspended") pipeline.context.resume();
+      pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
+      pipeline.gain.gain.setValueAtTime(volume, pipeline.context.currentTime);
+      dbg("voice", `setParticipantVolume applied vol=${volume} ctx=${pipeline.context.state} participant=${participantId}`);
+    } else {
+      dbg("voice", `setParticipantVolume NO PIPELINE for ${participantId} trackSid=${trackSid} mapKeys=[${Object.keys(participantTrackMap)}] pipelineKeys=[${[...audioPipelines.keys()]}]`);
     }
   },
 
@@ -1739,13 +1779,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     highLossCount = 0;
     lowLossCount = 0;
 
-    // Apply bitrate directly via RTCRtpSender for live change
+    // Apply constant bitrate via RTCRtpSender (set min = max to force CBR)
     for (const pub of room.localParticipant.audioTrackPublications.values()) {
       const sender = pub.track?.sender;
       if (sender) {
         const params = sender.getParameters();
         if (params.encodings && params.encodings.length > 0) {
           params.encodings[0].maxBitrate = bitrate;
+          (params.encodings[0] as any).minBitrate = bitrate;
           sender.setParameters(params);
         }
       }
@@ -1797,6 +1838,21 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         );
         set({ isScreenSharing: true });
         dbg("voice", "toggleScreenShare started successfully");
+
+        // Apply resolution + framerate constraints on the captured track
+        // (browser may not honor capture hints, so enforce after start)
+        for (const pub of room.localParticipant.videoTrackPublications.values()) {
+          if (pub.source === Track.Source.ScreenShare && pub.track) {
+            const mst = pub.track.mediaStreamTrack;
+            if (mst?.readyState === "live") {
+              mst.applyConstraints({
+                width: { ideal: preset.width },
+                height: { ideal: preset.height },
+                frameRate: { ideal: preset.frameRate },
+              }).catch(() => {});
+            }
+          }
+        }
       }
       get()._updateScreenSharers();
     } catch (err) {
@@ -1862,11 +1918,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       return;
     }
 
-    // Same codec — apply encoding params live via RTCRtpSender
+    // Same codec — apply encoding params live via RTCRtpSender + track constraints
     dbg("voice", `setScreenShareQuality live update: ${prevQuality} → ${quality}`, preset);
 
     for (const pub of room.localParticipant.videoTrackPublications.values()) {
       if (pub.source === Track.Source.ScreenShare && pub.track) {
+        // Update encoder params (bitrate, framerate cap)
         const sender = pub.track.sender;
         if (sender) {
           const params = sender.getParameters();
@@ -1878,10 +1935,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             );
           }
         }
-        // Update content hint on the media track
+        // Apply resolution + framerate constraints on the actual MediaStreamTrack
         const mediaTrack = pub.track.mediaStreamTrack;
         if (mediaTrack?.readyState === "live") {
           mediaTrack.contentHint = preset.contentHint;
+          mediaTrack.applyConstraints({
+            width: { ideal: preset.width },
+            height: { ideal: preset.height },
+            frameRate: { ideal: preset.frameRate },
+          }).catch((e: unknown) =>
+            console.warn("Failed to apply track constraints:", e),
+          );
         }
       }
     }

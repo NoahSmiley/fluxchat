@@ -59,17 +59,42 @@ function StreamTile({ participantId, username, isPinned }: {
       }
     }
 
-    if (track && videoRef.current) {
-      track.attach(videoRef.current);
+    const videoEl = videoRef.current;
+
+    if (track && videoEl) {
+      track.attach(videoEl);
+      videoEl.play().catch(() => {});
       if (pubRef.current) {
         const pub = pubRef.current;
         requestAnimationFrame(() => applyMaxQuality(pub));
       }
+
+      // If the video is still black after attach (track not yet producing frames),
+      // retry attach when the track's underlying media stream starts
+      const mst = track.mediaStreamTrack;
+      if (mst && mst.readyState === "live" && videoEl.videoWidth === 0) {
+        const retryAttach = () => {
+          if (videoRef.current) {
+            track!.attach(videoRef.current);
+            videoRef.current.play().catch(() => {});
+          }
+        };
+        // Retry on a short interval until we get frames
+        const retryId = setInterval(() => {
+          if (!videoRef.current || videoRef.current.videoWidth > 0) {
+            clearInterval(retryId);
+            return;
+          }
+          retryAttach();
+        }, 200);
+        // Stop retrying after 3s
+        setTimeout(() => clearInterval(retryId), 3000);
+      }
     }
 
     return () => {
-      if (track && videoRef.current) {
-        track.detach(videoRef.current);
+      if (track && videoEl) {
+        track.detach(videoEl);
       }
       pubRef.current = null;
     };
