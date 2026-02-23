@@ -4,7 +4,6 @@ import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
-import type { TrackProcessor, AudioProcessorOptions } from "livekit-client";
 
 // ── Noise Suppression Model Selection ──
 export type NoiseSuppressionModel = "off" | "speex" | "rnnoise" | "dtln" | "deepfilter" | "nsnet2";
@@ -14,334 +13,55 @@ import { exportKeyAsBase64 } from "../lib/crypto.js";
 import { dbg } from "../lib/debug.js";
 import { collectWebRTCStats, resetStatsDelta, type WebRTCQualityStats } from "../lib/webrtcStats.js";
 
-// ── Sound Effects ──
+// ── Extracted modules ──
+import {
+  playJoinSound,
+  playLeaveSound,
+  playScreenShareStartSound,
+  playScreenShareStopSound,
+  playMuteSound,
+  playUnmuteSound,
+  playDeafenSound,
+  playUndeafenSound,
+} from "../lib/voice-effects.js";
 
-function playTone(frequencies: number[], duration = 0.08) {
-  const ctx = new AudioContext();
-  const gain = ctx.createGain();
-  gain.connect(ctx.destination);
-  gain.gain.value = 0.15;
-  let t = ctx.currentTime;
-  for (const freq of frequencies) {
-    const osc = ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    osc.connect(gain);
-    osc.start(t);
-    osc.stop(t + duration);
-    t += duration + 0.02;
-  }
-  gain.gain.setValueAtTime(0.15, t - 0.02);
-  gain.gain.linearRampToValueAtTime(0, t + 0.05);
-  setTimeout(() => ctx.close(), (t - ctx.currentTime + 0.1) * 1000);
-}
+import {
+  audioPipelines,
+  setGainValue,
+  createAudioPipeline,
+  getPipelineLevel,
+  destroyAudioPipeline,
+  rebuildAllPipelines,
+  destroyAllPipelines,
+} from "../lib/voice-pipeline.js";
+export type { AudioSettings } from "../lib/voice-pipeline.js";
+import type { AudioSettings } from "../lib/voice-pipeline.js";
 
-function playJoinSound() {
-  playTone([480]);
-}
+import {
+  getOrCreateNoiseProcessor,
+  destroyNoiseProcessor,
+  getNoiseProcessor,
+  getActiveNoiseModel,
+  getNoiseSwitchNonce,
+  incrementNoiseSwitchNonce,
+  getDryWetProcessor,
+  setDryWetProcessor,
+  getGainTrackProcessor,
+  setGainTrackProcessor,
+} from "../lib/voice-noise.js";
 
-function playLeaveSound() {
-  playTone([380]);
-}
-
-function playScreenShareStartSound() {
-  playTone([660, 880], 0.06);
-}
-
-function playScreenShareStopSound() {
-  playTone([880, 660], 0.06);
-}
-
-function playMuteSound() {
-  playTone([480, 320], 0.05);
-}
-
-function playUnmuteSound() {
-  playTone([320, 480], 0.05);
-}
-
-function playDeafenSound() {
-  playTone([400, 280, 200], 0.04);
-}
-
-function playUndeafenSound() {
-  playTone([200, 280, 400], 0.04);
-}
-
-// ── Audio Pipeline (Web Audio API) ──
-
-interface AudioPipeline {
-  context: AudioContext;
-  source: MediaStreamAudioSourceNode;
-  element: HTMLAudioElement;
-  highPass: BiquadFilterNode;
-  lowPass: BiquadFilterNode;
-  deEsser: BiquadFilterNode | null;
-  compressor: DynamicsCompressorNode | null;
-  gain: GainNode;
-  analyser: AnalyserNode;
-  analyserData: Float32Array;
-}
-
-const audioPipelines = new Map<string, AudioPipeline>();
-
-function calculateRms(data: Float32Array): number {
-  let sum = 0;
-  for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
-  return Math.sqrt(sum / data.length);
-}
-
-function setGainValue(pipeline: AudioPipeline, value: number) {
-  pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
-  pipeline.gain.gain.setValueAtTime(value, pipeline.context.currentTime);
-}
+import {
+  setupLocalAnalyser,
+  teardownLocalAnalyser,
+  getLocalMicLevel,
+  sensitivityToThreshold,
+  startAudioLevelPolling,
+  stopAudioLevelPolling,
+  getLocalMicTrack,
+} from "../lib/voice-analysis.js";
 
 // Monotonically increasing counter to detect stale joinVoiceChannel calls
 let joinNonce = 0;
-
-function createAudioPipeline(
-  audioElement: HTMLAudioElement,
-  trackSid: string,
-  settings: AudioSettings,
-  volume: number,
-): AudioPipeline {
-  const mst = (audioElement.srcObject as MediaStream)?.getAudioTracks()[0];
-  dbg("voice", `createAudioPipeline sid=${trackSid}`, {
-    elementPaused: audioElement.paused,
-    elementReadyState: audioElement.readyState,
-    elementSrcObject: !!audioElement.srcObject,
-    trackKind: mst?.kind,
-    trackEnabled: mst?.enabled,
-    trackReadyState: mst?.readyState,
-    trackMuted: mst?.muted,
-    trackLabel: mst?.label,
-    volume,
-    highPass: settings.highPassFrequency,
-    lowPass: settings.lowPassFrequency,
-    pipelinesActive: audioPipelines.size,
-  });
-
-  // Silence the attached element — all playback goes through the Web Audio pipeline.
-  // Use volume=0 (not mute/pause/remove) so the element keeps "playing" and
-  // the WebRTC track stays active and feeds data to our MediaStreamSource.
-  audioElement.volume = 0;
-  dbg("voice", `createAudioPipeline silenced element volume=${audioElement.volume}`);
-
-  const context = new AudioContext();
-  dbg("voice", `createAudioPipeline audioContext created state=${context.state} sampleRate=${context.sampleRate}`);
-  if (context.state === "suspended") {
-    context.resume().then(() => {
-      dbg("voice", `createAudioPipeline audioContext resumed state=${context.state}`);
-    });
-  }
-
-  // Use createMediaStreamSource with the raw MediaStreamTrack — this works
-  // reliably with WebRTC tracks (unlike createMediaElementSource which
-  // doesn't capture audio from srcObject-based elements).
-  const stream = new MediaStream([mst!]);
-  const source = context.createMediaStreamSource(stream);
-  dbg("voice", `createAudioPipeline mediaStreamSource created channelCount=${source.channelCount}`);
-
-  // Explicit mono→stereo: duplicate channel 0 to both L and R
-  // so audio always plays through both ears regardless of source channel count
-  const splitter = context.createChannelSplitter(1);
-  const merger = context.createChannelMerger(2);
-  source.connect(splitter);
-  splitter.connect(merger, 0, 0); // → left
-  splitter.connect(merger, 0, 1); // → right
-
-  const highPass = context.createBiquadFilter();
-  highPass.type = "highpass";
-  highPass.frequency.value = settings.highPassFrequency > 0 ? settings.highPassFrequency : 0;
-
-  const lowPass = context.createBiquadFilter();
-  lowPass.type = "lowpass";
-  lowPass.frequency.value = settings.lowPassFrequency > 0 ? settings.lowPassFrequency : 24000;
-
-  const gain = context.createGain();
-  // Fade in over 50ms to prevent click/pop when pipeline starts
-  gain.gain.setValueAtTime(0, context.currentTime);
-  gain.gain.linearRampToValueAtTime(volume, context.currentTime + 0.05);
-
-  const analyser = context.createAnalyser();
-  analyser.fftSize = 256;
-  const analyserData = new Float32Array(analyser.fftSize);
-
-  // Build chain: merger -> highPass -> lowPass -> [deEsser] -> [compressor] -> analyser -> gain -> destination
-  merger.connect(highPass);
-  highPass.connect(lowPass);
-
-  let lastNode: AudioNode = lowPass;
-
-  // De-esser: highshelf filter that attenuates sibilance (4-8kHz range)
-  let deEsser: BiquadFilterNode | null = null;
-  if (settings.deEsserEnabled) {
-    deEsser = context.createBiquadFilter();
-    deEsser.type = "highshelf";
-    deEsser.frequency.value = 5500;
-    deEsser.gain.value = -(settings.deEsserStrength / 100) * 12; // 0 to -12dB
-    lastNode.connect(deEsser);
-    lastNode = deEsser;
-  }
-
-  // Compressor: dynamics compression
-  let compressor: DynamicsCompressorNode | null = null;
-  if (settings.compressorEnabled) {
-    compressor = context.createDynamicsCompressor();
-    compressor.threshold.value = settings.compressorThreshold;
-    compressor.ratio.value = settings.compressorRatio;
-    compressor.attack.value = settings.compressorAttack;
-    compressor.release.value = settings.compressorRelease;
-    compressor.knee.value = 10;
-    lastNode.connect(compressor);
-    lastNode = compressor;
-  }
-
-  lastNode.connect(analyser);
-  analyser.connect(gain);
-  gain.connect(context.destination);
-
-  const pipeline: AudioPipeline = { context, source, element: audioElement, highPass, lowPass, deEsser, compressor, gain, analyser, analyserData };
-  audioPipelines.set(trackSid, pipeline);
-
-  // Diagnostic: check if audio data is flowing after 1 second
-  setTimeout(() => {
-    if (!audioPipelines.has(trackSid)) return;
-    analyser.getFloatTimeDomainData(analyserData);
-    const rms = calculateRms(analyserData);
-    dbg("voice", `createAudioPipeline DIAG sid=${trackSid}`, {
-      contextState: context.state,
-      rms: rms.toFixed(6),
-      hasSignal: rms > 0.0001,
-      gainValue: gain.gain.value,
-      elementPaused: audioElement.paused,
-      elementEnded: audioElement.ended,
-      elementCurrentTime: audioElement.currentTime,
-      trackEnabled: mst?.enabled,
-      trackReadyState: mst?.readyState,
-      trackMuted: mst?.muted,
-    });
-  }, 1500);
-
-  return pipeline;
-}
-
-function getPipelineLevel(pipeline: AudioPipeline): number {
-  pipeline.analyser.getFloatTimeDomainData(pipeline.analyserData);
-  return calculateRms(pipeline.analyserData);
-}
-
-function destroyAudioPipeline(trackSid: string) {
-  const pipeline = audioPipelines.get(trackSid);
-  if (pipeline) {
-    dbg("voice", `destroyAudioPipeline sid=${trackSid}`, { remaining: audioPipelines.size - 1 });
-    // Mute gain instantly to prevent static/click on teardown
-    try {
-      setGainValue(pipeline, 0);
-    } catch {}
-    try {
-      pipeline.gain.disconnect();
-      pipeline.source.disconnect();
-    } catch {}
-    pipeline.element.pause();
-    pipeline.element.srcObject = null;
-    pipeline.context.close();
-    audioPipelines.delete(trackSid);
-  }
-}
-
-/** Rebuild all active audio pipelines (e.g. when compressor/de-esser is toggled) */
-function rebuildAllPipelines(settings: AudioSettings, get: () => VoiceState) {
-  const { participantVolumes, participantTrackMap, isDeafened } = get();
-  // Snapshot current pipelines before destroying (destroy nulls srcObject)
-  const snapshot: { trackSid: string; element: HTMLAudioElement; srcObject: MediaStream; volume: number }[] = [];
-  for (const [trackSid, pipeline] of audioPipelines.entries()) {
-    const srcObject = pipeline.element.srcObject;
-    if (!(srcObject instanceof MediaStream)) continue;
-    let volume = 1.0;
-    for (const [identity, sid] of Object.entries(participantTrackMap)) {
-      if (sid === trackSid) {
-        volume = isDeafened ? 0 : (participantVolumes[identity] ?? 1.0);
-        break;
-      }
-    }
-    snapshot.push({ trackSid, element: pipeline.element, srcObject, volume });
-  }
-  // Destroy all, then rebuild from snapshot
-  for (const { trackSid } of snapshot) {
-    destroyAudioPipeline(trackSid);
-  }
-  for (const { trackSid, element, srcObject, volume } of snapshot) {
-    element.srcObject = srcObject;
-    createAudioPipeline(element, trackSid, settings, volume);
-  }
-}
-
-function destroyAllPipelines() {
-  dbg("voice", `destroyAllPipelines count=${audioPipelines.size}`);
-  for (const trackSid of [...audioPipelines.keys()]) {
-    destroyAudioPipeline(trackSid);
-  }
-}
-
-// ── AI Noise Suppression (multiple models) ──
-
-let noiseProcessor: TrackProcessor<Track.Kind.Audio, AudioProcessorOptions> | null = null;
-let activeNoiseModel: NoiseSuppressionModel = "off";
-let noiseSwitchNonce = 0; // concurrency guard for model switching
-let dryWetProcessor: import("../lib/DryWetTrackProcessor.js").DryWetTrackProcessor | null = null;
-let gainTrackProcessor: import("../lib/GainTrackProcessor.js").GainTrackProcessor | null = null;
-
-async function createNoiseProcessor(model: NoiseSuppressionModel): Promise<TrackProcessor<Track.Kind.Audio, AudioProcessorOptions>> {
-  switch (model) {
-    case "speex": {
-      const { SpeexTrackProcessor } = await import("../lib/speex/SpeexTrackProcessor.js");
-      return new SpeexTrackProcessor();
-    }
-    case "dtln": {
-      const { DtlnTrackProcessor } = await import("../lib/dtln/DtlnTrackProcessor.js");
-      return new DtlnTrackProcessor();
-    }
-    case "rnnoise": {
-      const { RnnoiseTrackProcessor } = await import("../lib/rnnoise/RnnoiseTrackProcessor.js");
-      return new RnnoiseTrackProcessor();
-    }
-    case "deepfilter": {
-      const { DeepFilterTrackProcessor } = await import("../lib/deepfilter/DeepFilterTrackProcessor.js");
-      return new DeepFilterTrackProcessor();
-    }
-    case "nsnet2": {
-      const { NSNet2TrackProcessor } = await import("../lib/nsnet2/NSNet2TrackProcessor.js");
-      return new NSNet2TrackProcessor();
-    }
-    default:
-      throw new Error(`Unknown noise suppression model: ${model}`);
-  }
-}
-
-async function getOrCreateNoiseProcessor(model: NoiseSuppressionModel) {
-  if (model === "off") {
-    await destroyNoiseProcessor();
-    return null;
-  }
-  // If switching models, destroy old first
-  if (noiseProcessor && activeNoiseModel !== model) {
-    await destroyNoiseProcessor();
-  }
-  if (!noiseProcessor) {
-    noiseProcessor = await createNoiseProcessor(model);
-    activeNoiseModel = model;
-  }
-  return noiseProcessor;
-}
-
-async function destroyNoiseProcessor() {
-  if (noiseProcessor) {
-    await (noiseProcessor as any).destroy?.();
-    noiseProcessor = null;
-    activeNoiseModel = "off";
-  }
-}
 
 // ── Bitrate Constants ──
 
@@ -494,218 +214,6 @@ function setLobbyMusicGain(volume: number) {
   }
 }
 
-// ── Audio Level Polling + Noise Gate ──
-
-let audioLevelInterval: ReturnType<typeof setInterval> | null = null;
-let gatedSilentSince: number | null = null; // timestamp when audio dropped below threshold
-let isGated = false; // whether the noise gate is currently muting the mic
-
-// Per-user speaking hysteresis — instant on, 200ms hold before off
-const SPEAKING_THRESHOLD = 0.005;
-const SPEAKING_HOLD_MS = 200;
-const userLastSpokeMap = new Map<string, number>(); // userId → timestamp of last above-threshold
-
-// Local mic analyser for real-time level metering
-let localAnalyserCtx: AudioContext | null = null;
-let localAnalyser: AnalyserNode | null = null;
-let localAnalyserSource: MediaStreamAudioSourceNode | null = null;
-let localAnalyserData: Float32Array | null = null;
-// Reference to the LiveKit mic MediaStreamTrack for noise gate control.
-// We gate by setting track.enabled = false (sends silence) instead of
-// setMicrophoneEnabled() which changes the publication state visible to others.
-let localMicTrack: MediaStreamTrack | null = null;
-let localAnalyserClone: MediaStreamTrack | null = null;
-
-function setupLocalAnalyser(room: any) {
-  teardownLocalAnalyser();
-  try {
-    let mediaStreamTrack: MediaStreamTrack | undefined;
-    for (const pub of room.localParticipant.audioTrackPublications.values()) {
-      dbg("voice", `[analyser] found audio pub: ${pub.source} has track: ${!!pub.track}`);
-      if (pub.source === Track.Source.Microphone && pub.track) {
-        mediaStreamTrack = pub.track.mediaStreamTrack;
-        dbg("voice", `[analyser] mic mediaStreamTrack: ${mediaStreamTrack?.kind} readyState: ${mediaStreamTrack?.readyState}`);
-        break;
-      }
-    }
-    if (!mediaStreamTrack) {
-      dbg("voice", "[analyser] no mic track found, pubs count:", room.localParticipant.audioTrackPublications.size);
-      return;
-    }
-
-    // Store the original track for noise gate control
-    localMicTrack = mediaStreamTrack;
-
-    // Clone the track for the analyser so it always reads real audio levels
-    // even when the gate disables the original track
-    localAnalyserClone = mediaStreamTrack.clone();
-
-    // Match the track's sample rate (DTLN outputs 16kHz, normal mic is 48kHz)
-    const trackSettings = mediaStreamTrack.getSettings();
-    const sampleRate = trackSettings.sampleRate || 48000;
-    localAnalyserCtx = new AudioContext({ sampleRate });
-    // Resume in case it's suspended (browser autoplay policy)
-    if (localAnalyserCtx.state === "suspended") {
-      localAnalyserCtx.resume();
-    }
-    localAnalyser = localAnalyserCtx.createAnalyser();
-    localAnalyser.fftSize = 256;
-    localAnalyserData = new Float32Array(localAnalyser.fftSize);
-
-    const stream = new MediaStream([localAnalyserClone]);
-    localAnalyserSource = localAnalyserCtx.createMediaStreamSource(stream);
-    localAnalyserSource.connect(localAnalyser);
-    dbg("voice", "[analyser] setup complete, ctx state:", localAnalyserCtx.state);
-  } catch (e) {
-    dbg("voice", "[analyser] Failed to setup:", e);
-    teardownLocalAnalyser();
-  }
-}
-
-function teardownLocalAnalyser() {
-  try { localAnalyserSource?.disconnect(); } catch {}
-  localAnalyserSource = null;
-  localAnalyser = null;
-  localAnalyserData = null;
-  localMicTrack = null;
-  if (localAnalyserClone) {
-    localAnalyserClone.stop();
-    localAnalyserClone = null;
-  }
-  if (localAnalyserCtx) {
-    // Suspend first to stop audio processing immediately, then close
-    localAnalyserCtx.suspend().catch(() => {});
-    localAnalyserCtx.close().catch(() => {});
-    localAnalyserCtx = null;
-  }
-}
-
-function getLocalMicLevel(): number {
-  if (!localAnalyser || !localAnalyserData) return 0;
-  localAnalyser.getFloatTimeDomainData(localAnalyserData);
-  return calculateRms(localAnalyserData);
-}
-
-// Convert sensitivity (0-100) to an audio level threshold (0.0-1.0)
-// Uses a quadratic curve so low values are fine-grained (speech range)
-// and high values gate more aggressively. RMS of normal speech ≈ 0.01-0.05.
-function sensitivityToThreshold(sensitivity: number): number {
-  const t = sensitivity / 100;
-  return t * t * 0.1; // 10% → 0.001, 50% → 0.025, 100% → 0.1
-}
-
-function startAudioLevelPolling() {
-  stopAudioLevelPolling();
-
-  // Delay analyser setup slightly to ensure mic track is published
-  setTimeout(() => {
-    const { room } = useVoiceStore.getState();
-    if (room) setupLocalAnalyser(room);
-  }, 500);
-
-  audioLevelInterval = setInterval(() => {
-    const state = useVoiceStore.getState();
-    const { room } = state;
-    if (!room) return;
-
-    // Set up analyser if not yet ready (mic track may arrive late)
-    if (!localAnalyser) setupLocalAnalyser(room);
-
-    const levels: Record<string, number> = {};
-    const localLevel = getLocalMicLevel();
-    levels[room.localParticipant.identity] = localLevel;
-
-    // Track last non-silence transmission for idle detection
-    const VOICE_ACTIVE_THRESHOLD = 0.01;
-    if (!state.isMuted && localLevel > VOICE_ACTIVE_THRESHOLD) {
-      useVoiceStore.setState({ lastSpokeAt: Date.now() });
-    }
-
-    // Use pipeline analysers for remote participants (more reliable than p.audioLevel)
-    const { participantTrackMap } = state;
-    for (const p of room.remoteParticipants.values()) {
-      const trackSid = participantTrackMap[p.identity];
-      const pipeline = trackSid ? audioPipelines.get(trackSid) : undefined;
-      levels[p.identity] = pipeline ? getPipelineLevel(pipeline) : (p.audioLevel ?? 0);
-    }
-    useVoiceStore.setState({ audioLevels: levels });
-
-    // ── Speaking hysteresis: instant on, 200ms hold off ──
-    const now = Date.now();
-    const prevSpeaking = state.speakingUserIds;
-    const nextSpeaking = new Set<string>();
-    for (const [uid, level] of Object.entries(levels)) {
-      if (level > SPEAKING_THRESHOLD) {
-        userLastSpokeMap.set(uid, now);
-        nextSpeaking.add(uid);
-      } else {
-        const lastSpoke = userLastSpokeMap.get(uid);
-        if (lastSpoke && now - lastSpoke < SPEAKING_HOLD_MS) {
-          nextSpeaking.add(uid); // hold speaking state
-        }
-      }
-    }
-    // Only update store if the set actually changed (avoids unnecessary re-renders)
-    let changed = nextSpeaking.size !== prevSpeaking.size;
-    if (!changed) {
-      for (const uid of nextSpeaking) {
-        if (!prevSpeaking.has(uid)) { changed = true; break; }
-      }
-    }
-    if (changed) {
-      useVoiceStore.setState({ speakingUserIds: nextSpeaking });
-    }
-
-    // ── Noise gate logic ──
-    // Uses localMicTrack.enabled to gate audio (sends silence) without changing
-    // the LiveKit publication state. This way other participants don't see
-    // mute/unmute flicker from the gate — only manual mute is visible to others.
-    const { audioSettings, isMuted } = state;
-    if (!audioSettings.inputSensitivityEnabled || isMuted) {
-      // Reset gate state; re-enable track if not manually muted
-      if (isGated) {
-        isGated = false;
-        gatedSilentSince = null;
-        if (!isMuted && localMicTrack) {
-          localMicTrack.enabled = true;
-        }
-      }
-      return;
-    }
-
-    const threshold = sensitivityToThreshold(audioSettings.inputSensitivity);
-
-    if (localLevel < threshold) {
-      // Audio below threshold
-      if (!gatedSilentSince) {
-        gatedSilentSince = Date.now();
-      } else if (!isGated && Date.now() - gatedSilentSince > audioSettings.noiseGateHoldTime) {
-        // Silent for holdTime — gate the mic (send silence via track.enabled)
-        isGated = true;
-        if (localMicTrack) localMicTrack.enabled = false;
-      }
-    } else {
-      // Audio above threshold — open gate immediately
-      gatedSilentSince = null;
-      if (isGated) {
-        isGated = false;
-        if (localMicTrack) localMicTrack.enabled = true;
-      }
-    }
-  }, 50); // 20fps for smooth visuals
-}
-
-function stopAudioLevelPolling() {
-  if (audioLevelInterval) {
-    clearInterval(audioLevelInterval);
-    audioLevelInterval = null;
-  }
-  teardownLocalAnalyser();
-  isGated = false;
-  gatedSilentSince = null;
-  userLastSpokeMap.clear();
-}
-
 // ── Types ──
 
 interface VoiceUser {
@@ -714,29 +222,6 @@ interface VoiceUser {
   speaking: boolean;
   isMuted: boolean;
   isDeafened: boolean;
-}
-
-interface AudioSettings {
-  noiseSuppression: boolean;
-  echoCancellation: boolean;
-  autoGainControl: boolean;
-  dtx: boolean;
-  highPassFrequency: number;
-  lowPassFrequency: number;
-  inputSensitivity: number; // 0-100, where 0 = always transmit, 100 = most aggressive gate
-  inputSensitivityEnabled: boolean; // false = always transmit (no gate)
-  noiseSuppressionModel: NoiseSuppressionModel; // AI noise suppression model
-  suppressionStrength: number; // 0-100, dry/wet mix for AI noise suppression
-  vadThreshold: number; // 0-100, voice activity detection threshold (RNNoise only)
-  micInputGain: number; // 0-200, mic pre-gain percentage
-  noiseGateHoldTime: number; // 50-1000ms, hold time before gate closes
-  compressorEnabled: boolean;
-  compressorThreshold: number; // -50 to 0 dB
-  compressorRatio: number; // 1-20
-  compressorAttack: number; // seconds
-  compressorRelease: number; // seconds
-  deEsserEnabled: boolean;
-  deEsserStrength: number; // 0-100
 }
 
 interface ScreenShareInfo {
@@ -942,8 +427,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       stopAudioLevelPolling();
       stopLobbyMusic();
       await destroyNoiseProcessor();
-      dryWetProcessor = null;
-      gainTrackProcessor = null;
+      setDryWetProcessor(null);
+      setGainTrackProcessor(null);
       destroyAllPipelines();
 
       // Detach all remote tracks
@@ -1245,9 +730,10 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             // Always wrap with DryWetTrackProcessor so micInputGain works at any suppression strength
             const strength = audioSettings.suppressionStrength / 100;
             const { DryWetTrackProcessor } = await import("../lib/DryWetTrackProcessor.js");
-            dryWetProcessor = new DryWetTrackProcessor(processor, strength);
-            dryWetProcessor.setPreGain(audioSettings.micInputGain / 100);
-            await micPub.track.setProcessor(dryWetProcessor as any);
+            const dwp = new DryWetTrackProcessor(processor, strength);
+            dwp.setPreGain(audioSettings.micInputGain / 100);
+            setDryWetProcessor(dwp);
+            await micPub.track.setProcessor(dwp as any);
             dbg("voice", `joinVoiceChannel ${audioSettings.noiseSuppressionModel} noise filter active`);
           } else {
             dbg("voice", "joinVoiceChannel noise filter skipped — no mic track publication");
@@ -1255,7 +741,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         } catch (e) {
           dbg("voice", "joinVoiceChannel noise filter setup failed", e);
           await destroyNoiseProcessor();
-          dryWetProcessor = null;
+          setDryWetProcessor(null);
           set({ audioSettings: { ...get().audioSettings, noiseSuppressionModel: "off" } });
         }
       } else if (audioSettings.micInputGain !== 100) {
@@ -1264,13 +750,14 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
           if (micPub?.track) {
             const { GainTrackProcessor } = await import("../lib/GainTrackProcessor.js");
-            gainTrackProcessor = new GainTrackProcessor(audioSettings.micInputGain / 100);
-            await micPub.track.setProcessor(gainTrackProcessor as any);
+            const gtp = new GainTrackProcessor(audioSettings.micInputGain / 100);
+            setGainTrackProcessor(gtp);
+            await micPub.track.setProcessor(gtp as any);
             dbg("voice", "joinVoiceChannel GainTrackProcessor active (no noise model)");
           }
         } catch (e) {
           dbg("voice", "joinVoiceChannel GainTrackProcessor setup failed", e);
-          gainTrackProcessor = null;
+          setGainTrackProcessor(null);
         }
       }
 
@@ -1306,7 +793,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
       get()._updateParticipants();
       get()._updateScreenSharers();
-      startAudioLevelPolling();
+      startAudioLevelPolling(useVoiceStore);
       startStatsPolling(); // Stats for overlay display
       checkLobbyMusic();
 
@@ -1368,8 +855,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     // Clean up noise suppression processor
     destroyNoiseProcessor();
-    dryWetProcessor = null;
-    gainTrackProcessor = null;
+    setDryWetProcessor(null);
+    setGainTrackProcessor(null);
 
     // Destroy all audio pipelines
     destroyAllPipelines();
@@ -1424,7 +911,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     const newMuted = !isMuted;
     dbg("voice", `toggleMute ${newMuted ? "muting" : "unmuting"}`);
     // Ensure noise gate track state is in sync when unmuting
-    if (!newMuted && localMicTrack) localMicTrack.enabled = true;
+    const micTrack = getLocalMicTrack();
+    if (!newMuted && micTrack) micTrack.enabled = true;
     room.localParticipant.setMicrophoneEnabled(!newMuted);
     if (newMuted) playMuteSound(); else playUnmuteSound();
     set({ isMuted: newMuted });
@@ -1435,7 +923,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     const { room, isMuted } = get();
     if (!room || isMuted === muted) return;
     // Ensure noise gate track state is in sync when unmuting
-    if (!muted && localMicTrack) localMicTrack.enabled = true;
+    const micTrack = getLocalMicTrack();
+    if (!muted && micTrack) micTrack.enabled = true;
     room.localParticipant.setMicrophoneEnabled(!muted);
     set({ isMuted: muted });
     get()._updateParticipants();
@@ -1470,7 +959,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       set({ isDeafened: newDeafened, isMuted: true });
     } else if (!newDeafened) {
       // Undeafening also unmutes the mic — ensure gate track state is in sync
-      if (localMicTrack) localMicTrack.enabled = true;
+      const micTrack = getLocalMicTrack();
+      if (micTrack) micTrack.enabled = true;
       room.localParticipant.setMicrophoneEnabled(true);
       set({ isDeafened: false, isMuted: false });
     } else {
@@ -1537,9 +1027,10 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     // Input sensitivity settings are handled by the polling loop, no action needed
     if (key === "inputSensitivity" || key === "inputSensitivityEnabled") {
       // If disabling the gate, release it immediately
-      if (key === "inputSensitivityEnabled" && !value && isGated && room) {
-        isGated = false;
-        gatedSilentSince = null;
+      if (key === "inputSensitivityEnabled" && !value && room) {
+        // Re-enable track when disabling the gate
+        const micTrack = getLocalMicTrack();
+        if (micTrack) micTrack.enabled = true;
         room.localParticipant.setMicrophoneEnabled(true);
       }
       return;
@@ -1550,18 +1041,20 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     // Suppression strength — update DryWetTrackProcessor live
     if (key === "suppressionStrength") {
-      if (dryWetProcessor) {
-        dryWetProcessor.strength = (value as number) / 100;
+      const dwp = getDryWetProcessor();
+      if (dwp) {
+        dwp.strength = (value as number) / 100;
       }
       return;
     }
 
     // VAD threshold — post message to RNNoise worklet
     if (key === "vadThreshold") {
-      if (activeNoiseModel === "rnnoise" && noiseProcessor) {
-        const innerProc = dryWetProcessor
-          ? dryWetProcessor.getInnerProcessor()
-          : noiseProcessor;
+      if (getActiveNoiseModel() === "rnnoise" && getNoiseProcessor()) {
+        const dwp = getDryWetProcessor();
+        const innerProc = dwp
+          ? dwp.getInnerProcessor()
+          : getNoiseProcessor();
         if (innerProc && "setVadThreshold" in innerProc) {
           (innerProc as any).setVadThreshold((value as number) / 100);
         }
@@ -1571,34 +1064,37 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     // Mic input gain — update DryWetTrackProcessor pre-gain or GainTrackProcessor
     if (key === "micInputGain") {
-      if (dryWetProcessor) {
-        dryWetProcessor.setPreGain((value as number) / 100);
+      const dwp = getDryWetProcessor();
+      if (dwp) {
+        dwp.setPreGain((value as number) / 100);
       } else if (newSettings.noiseSuppressionModel === "off" && room) {
         const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
         if (micPub?.track) {
           if ((value as number) !== 100) {
             // Need gain processing — create or update GainTrackProcessor
-            if (gainTrackProcessor) {
-              gainTrackProcessor.setGain((value as number) / 100);
+            const gtp = getGainTrackProcessor();
+            if (gtp) {
+              gtp.setGain((value as number) / 100);
             } else {
               const setupGain = async () => {
                 try {
                   const { GainTrackProcessor } = await import("../lib/GainTrackProcessor.js");
-                  gainTrackProcessor = new GainTrackProcessor((value as number) / 100);
-                  await micPub.track!.setProcessor(gainTrackProcessor as any);
+                  const newGtp = new GainTrackProcessor((value as number) / 100);
+                  setGainTrackProcessor(newGtp);
+                  await micPub.track!.setProcessor(newGtp as any);
                 } catch (e) {
                   dbg("voice", "Failed to setup GainTrackProcessor:", e);
-                  gainTrackProcessor = null;
+                  setGainTrackProcessor(null);
                 }
               };
               setupGain();
             }
-          } else if (gainTrackProcessor) {
+          } else if (getGainTrackProcessor()) {
             // Gain is 100% (unity) — remove processor
             micPub.track.stopProcessor().then(() => {
-              gainTrackProcessor = null;
+              setGainTrackProcessor(null);
             }).catch(() => {
-              gainTrackProcessor = null;
+              setGainTrackProcessor(null);
             });
           }
         }
@@ -1621,7 +1117,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     // Compressor toggle — rebuild pipelines
     if (key === "compressorEnabled") {
-      rebuildAllPipelines(newSettings, get);
+      rebuildAllPipelines(newSettings, get().participantVolumes, get().participantTrackMap, get().isDeafened);
       return;
     }
 
@@ -1637,7 +1133,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     // De-esser toggle — rebuild pipelines
     if (key === "deEsserEnabled") {
-      rebuildAllPipelines(newSettings, get);
+      rebuildAllPipelines(newSettings, get().participantVolumes, get().participantTrackMap, get().isDeafened);
       return;
     }
 
@@ -1659,37 +1155,38 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         micPub.track.stopProcessor()
           .then(async () => {
             destroyNoiseProcessor();
-            dryWetProcessor = null;
+            setDryWetProcessor(null);
             // If mic gain is non-unity, set up GainTrackProcessor
             if (currentGain !== 100 && micPub.track) {
               try {
                 const { GainTrackProcessor } = await import("../lib/GainTrackProcessor.js");
-                gainTrackProcessor = new GainTrackProcessor(currentGain / 100);
-                await micPub.track.setProcessor(gainTrackProcessor as any);
+                const gtp = new GainTrackProcessor(currentGain / 100);
+                setGainTrackProcessor(gtp);
+                await micPub.track.setProcessor(gtp as any);
               } catch (e2) {
                 dbg("voice", "Failed to setup GainTrackProcessor:", e2);
-                gainTrackProcessor = null;
+                setGainTrackProcessor(null);
               }
             }
           })
           .catch(() => {
             destroyNoiseProcessor();
-            dryWetProcessor = null;
+            setDryWetProcessor(null);
           });
       } else {
         // Stop existing processor first, then attach new one
-        const myNonce = ++noiseSwitchNonce;
+        const myNonce = incrementNoiseSwitchNonce();
         const switchModel = async () => {
           try {
-            if (noiseProcessor || dryWetProcessor || gainTrackProcessor) {
+            if (getNoiseProcessor() || getDryWetProcessor() || getGainTrackProcessor()) {
               await micPub.track!.stopProcessor();
               await destroyNoiseProcessor();
-              dryWetProcessor = null;
-              gainTrackProcessor = null;
+              setDryWetProcessor(null);
+              setGainTrackProcessor(null);
             }
-            if (myNonce !== noiseSwitchNonce) return;
+            if (myNonce !== getNoiseSwitchNonce()) return;
             const processor = await getOrCreateNoiseProcessor(model);
-            if (myNonce !== noiseSwitchNonce) return;
+            if (myNonce !== getNoiseSwitchNonce()) return;
             if (processor) {
               const currentSettings = get().audioSettings;
               const strength = currentSettings.suppressionStrength / 100;
@@ -1701,16 +1198,17 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
               // Always wrap with DryWetTrackProcessor so micInputGain works at any suppression strength
               const { DryWetTrackProcessor } = await import("../lib/DryWetTrackProcessor.js");
-              dryWetProcessor = new DryWetTrackProcessor(processor, strength);
-              dryWetProcessor.setPreGain(currentSettings.micInputGain / 100);
-              await micPub.track!.setProcessor(dryWetProcessor as any);
+              const dwp = new DryWetTrackProcessor(processor, strength);
+              dwp.setPreGain(currentSettings.micInputGain / 100);
+              setDryWetProcessor(dwp);
+              await micPub.track!.setProcessor(dwp as any);
               dbg("voice", `Noise suppression model switched to ${model}`);
             }
           } catch (e) {
-            if (myNonce !== noiseSwitchNonce) return;
+            if (myNonce !== getNoiseSwitchNonce()) return;
             dbg("voice", `Noise model ${model} failed — reverting to off`, e instanceof Error ? e.message : e);
             await destroyNoiseProcessor();
-            dryWetProcessor = null;
+            setDryWetProcessor(null);
             set({ audioSettings: { ...get().audioSettings, noiseSuppressionModel: "off" } });
             saveAudioSettings(get().audioSettings);
           }

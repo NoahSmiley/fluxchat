@@ -1,0 +1,1105 @@
+/* ── Server Sidebar Cell (grid wrapper) ── */
+.server-sidebar-cell {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Server Sidebar ── */
+.server-sidebar {
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0 8px;
+  gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none; /* Firefox */
+  border-right: 1px solid var(--border);
+}
+.server-sidebar::-webkit-scrollbar {
+  display: none; /* Chrome/Edge */
+}
+
+.server-sidebar-logo {
+  color: var(--text-primary);
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.server-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-radius 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.server-icon:hover,
+.server-icon.active {
+  border-radius: 16px;
+  background: var(--accent);
+  color: #000;
+}
+
+.server-sidebar-divider {
+  width: 32px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+}
+
+/* ── Sidebar Member Avatars ── */
+.sidebar-members {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding: 2px 0;
+}
+
+.sidebar-members::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar-member-avatar {
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s, opacity 0.15s;
+  border-radius: 50%;
+  position: relative;
+}
+
+.sidebar-member-avatar.sticky-self {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-primary);
+  padding: 2px 0;
+}
+
+/* Rare glow on sidebar avatars — uses pseudo to avoid overflow clipping */
+.sidebar-member-avatar.has-rare-glow {
+  position: relative;
+}
+
+.sidebar-member-avatar.has-rare-glow::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--ring-glow, transparent) 30%, transparent 70%);
+  animation: sidebar-glow-pulse 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar-member-avatar.has-rare-glow .member-avatar-ring {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes sidebar-glow-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.65; }
+}
+
+.sidebar-member-avatar .member-avatar-ring {
+  width: 36px;
+  height: 36px;
+}
+
+.sidebar-member-avatar:hover {
+  transform: scale(1.1);
+}
+
+.sidebar-member-avatar.offline {
+  opacity: 0.35;
+}
+
+.sidebar-member-avatar.offline:hover {
+  opacity: 0.7;
+}
+
+.sidebar-member-avatar.selected {
+  transform: scale(1.1);
+}
+
+/* User card from sidebar — position fixed to viewport */
+.server-sidebar .user-card {
+  position: fixed;
+  left: 72px;
+  right: auto;
+  z-index: 1200;
+}
+
+/* ── Sidebar Position Variants ── */
+
+/* Right: server sidebar on the right edge */
+.app-layout.sidebar-right .server-sidebar {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+.app-layout.sidebar-right .server-sidebar .user-card {
+  left: auto;
+  right: 72px;
+}
+
+/* Top: server sidebar as horizontal bar at top */
+.app-layout.sidebar-top .server-sidebar {
+  flex-direction: row;
+  align-items: center;
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0 140px 0 8px;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  height: 48px;
+}
+.app-layout.sidebar-top .server-sidebar .sidebar-members {
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: auto;
+  min-height: unset;
+  align-items: center;
+}
+.app-layout.sidebar-top .sidebar-member-avatar .member-avatar-ring {
+  width: 36px;
+  height: 36px;
+}
+.app-layout.sidebar-top .server-sidebar-logo {
+  padding: 0;
+}
+.app-layout.sidebar-top .server-sidebar-spacer {
+  flex: 1;
+}
+.app-layout.sidebar-top .server-sidebar .user-card {
+  left: auto;
+  top: 56px;
+}
+
+/* Bottom: server sidebar as horizontal bar at bottom */
+.app-layout.sidebar-bottom .server-sidebar {
+  flex-direction: row;
+  align-items: center;
+  border-right: none;
+  border-top: 1px solid var(--border);
+  padding: 0 8px;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  height: 48px;
+}
+.app-layout.sidebar-bottom .server-sidebar .sidebar-members {
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: auto;
+  min-height: unset;
+  align-items: center;
+}
+.app-layout.sidebar-bottom .sidebar-member-avatar .member-avatar-ring {
+  width: 36px;
+  height: 36px;
+}
+.app-layout.sidebar-bottom .server-sidebar-logo {
+  padding: 0;
+}
+.app-layout.sidebar-bottom .server-sidebar-spacer {
+  flex: 1;
+}
+.app-layout.sidebar-bottom .server-sidebar .user-card {
+  left: auto;
+  bottom: 56px;
+  top: auto;
+}
+
+/* ── Channel Sidebar Header ── */
+.channel-sidebar-header {
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 12px;
+  height: 48px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  gap: 4px;
+}
+
+.channel-sidebar-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.channel-sidebar-header-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-sidebar-header-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.channel-sidebar-header:hover .channel-sidebar-header-btn {
+  opacity: 1;
+}
+
+.channel-sidebar-header-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ── Channel Sidebar ── */
+.channel-sidebar {
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  height: 100%;
+  position: relative;
+  z-index: 1001;
+}
+
+.channel-add-floating-btn {
+  flex-shrink: 0;
+  width: 100%;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.15s, background 0.15s;
+}
+
+.channel-list:hover .channel-add-floating-btn {
+  opacity: 0.4;
+}
+
+.channel-add-floating-btn:hover {
+  opacity: 1;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.channel-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 16px;
+}
+
+/* ── Rooms Section ── */
+
+/* ── Join Voice Button (Sidebar) ── */
+
+.join-voice-section {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 1;
+  min-height: 56px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.create-room-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 0;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #43b581;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.create-room-btn:hover {
+  background: rgba(67, 181, 129, 0.1);
+  color: #4fdc96;
+}
+
+/* ── Voice Room Users in Sidebar (compact avatars) ── */
+
+.voice-room-users-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Wrapper for each room group — uses CSS grid for smooth height collapse.
+   margin-top replaces parent gap so it can transition to 0 during exit. */
+.voice-room-group-wrapper {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-top: 4px;
+  opacity: 1;
+  transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              margin-top 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* First item has no top margin */
+.voice-room-group-wrapper:first-child {
+  margin-top: 0;
+}
+
+/* Enter: start collapsed + invisible */
+.voice-room-group-wrapper.voice-room-enter {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+}
+
+/* Exit: collapse + fade + close margin */
+.voice-room-group-wrapper.voice-room-exit {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Grid child: overflow hidden so content is clipped during collapse */
+.voice-room-group-wrapper > .voice-room-group {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.voice-room-group {
+  border-radius: 10px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+/* Inner element holds the padding — inside overflow:hidden so it collapses cleanly */
+.voice-room-group-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
+
+.voice-room-group:hover {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.voice-room-current {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.voice-room-group-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.voice-room-collapse-toggle {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+
+.voice-room-collapse-toggle:hover {
+  opacity: 1;
+}
+
+.voice-room-chevron {
+  transition: transform 0.15s;
+}
+
+.voice-room-chevron-open {
+  transform: rotate(90deg);
+}
+
+.voice-room-group-label {
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 8px 2px 4px;
+  transition: color 0.2s;
+}
+
+.voice-room-group-label-joinable:hover,
+.voice-room-group:hover .voice-room-group-label-joinable {
+  color: #4ade80;
+}
+
+.voice-room-locked .voice-room-group-label-joinable:hover,
+.voice-room-locked:hover .voice-room-group-label-joinable {
+  color: #fca5a5;
+}
+
+.voice-room-join-btn {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.voice-room-join-btn:hover {
+  background: #22c55e;
+  color: #fff;
+}
+
+.voice-room-group-count {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(74, 222, 128, 0.12);
+  padding: 1px 6px;
+  border-radius: 10px;
+  line-height: 16px;
+  min-width: 18px;
+  text-align: center;
+  color: #4ade80;
+}
+
+@keyframes voice-participant-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.voice-room-detailed {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.voice-room-detailed > *:nth-child(1) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.02s both; }
+.voice-room-detailed > *:nth-child(2) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.05s both; }
+.voice-room-detailed > *:nth-child(3) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.08s both; }
+.voice-room-detailed > *:nth-child(4) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.11s both; }
+.voice-room-detailed > *:nth-child(5) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.14s both; }
+.voice-room-detailed > *:nth-child(n+6) { animation: voice-participant-fade-in 0.3s cubic-bezier(0.16,1,0.3,1) 0.17s both; }
+
+.voice-room-avatars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.voice-room-avatars > *:nth-child(1) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.02s both; }
+.voice-room-avatars > *:nth-child(2) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.04s both; }
+.voice-room-avatars > *:nth-child(3) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.06s both; }
+.voice-room-avatars > *:nth-child(4) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.08s both; }
+.voice-room-avatars > *:nth-child(n+5) { animation: voice-participant-fade-in 0.25s cubic-bezier(0.16,1,0.3,1) 0.1s both; }
+
+.voice-room-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.voice-room-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Room Switcher Bar (inside VoiceChannelView) ── */
+
+.room-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 8px;
+  flex-wrap: wrap;
+}
+
+.room-switcher-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.room-switcher-pill:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.room-switcher-pill.active {
+  border-color: #22c55e;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.room-switcher-count {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--bg-tertiary);
+  padding: 0 5px;
+  border-radius: 8px;
+  line-height: 16px;
+  color: var(--text-muted);
+}
+
+.room-switcher-pill.active .room-switcher-count {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.room-switcher-create {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 20px;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.room-switcher-create:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.room-switcher-create:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.room-switcher-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  margin-left: 2px;
+}
+
+.room-switcher-close:hover {
+  color: #f04747;
+  background: rgba(240, 71, 71, 0.15);
+}
+
+
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.btn-icon:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.channel-list {
+  padding: 8px 0;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.channel-server-name {
+  padding: 4px 16px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.channel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.channel-item:hover {
+  color: var(--text-primary);
+}
+
+.channel-item.active {
+  color: var(--text-primary);
+}
+
+.channel-item.unread {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Left-edge semicircle pill for channels with unread messages */
+.channel-item-has-unread::before {
+  content: "";
+  position: absolute;
+  left: calc(-8px - var(--ch-indent, 0px));
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 8px;
+  border-radius: 0 3px 3px 0;
+  background: var(--text-primary);
+}
+
+/* Mention count badge — red pill on right side */
+.channel-mention-badge {
+  flex-shrink: 0;
+  margin-right: 8px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ed4245;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.channel-type-icon {
+  opacity: 0.5;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.channel-item:hover .channel-type-icon,
+.channel-item.active .channel-type-icon {
+  opacity: 0.8;
+}
+
+.channel-hash {
+  font-weight: 600;
+  opacity: 0.5;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+
+/* ── Server Sidebar User ── */
+.server-sidebar-spacer {
+  flex: 0;
+}
+
+.server-sidebar-user {
+  position: relative;
+  cursor: pointer;
+  margin-bottom: 0;
+}
+
+/* Server sidebar avatar ring */
+.server-user-avatar-ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  padding: 2px;
+  background: transparent;
+  transition: border-radius 0.2s;
+}
+
+.server-user-avatar-ring.chroma {
+  background: transparent;
+}
+.server-user-avatar-ring.chroma::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    #ff0000, #ff8000, #ffff00, #00ff00,
+    #00ffff, #0080ff, #8000ff, #ff00ff, #ff0000
+  );
+  animation: ring-spin 6s linear infinite;
+}
+
+.server-sidebar-user:hover .server-user-avatar-ring {
+  border-radius: 16px;
+}
+
+.server-user-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 16px;
+  transition: border-radius 0.2s, background 0.2s;
+  border: 2px solid var(--bg-primary);
+  overflow: hidden;
+}
+
+.server-user-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.server-sidebar-user:hover .server-user-avatar {
+  background: var(--bg-secondary);
+}
+
+.server-user-logout {
+  position: absolute;
+  left: 56px;
+  bottom: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 10px;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+.server-user-logout:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+
+.channel-add-btn {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.channel-add-btn:hover {
+  color: var(--text-primary);
+}
+
+.channel-add-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  margin-top: 4px;
+  width: 100%;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.channel-add-inline:hover {
+  color: var(--text-primary);
+}
+
+
+/* ── Channel Settings Icon ── */
+.channel-item-wrapper {
+  display: flex;
+  align-items: center;
+  margin: 2px 8px;
+  border-radius: 6px;
+  position: relative;
+}
+
+.channel-item-wrapper:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.channel-item-wrapper:has(.channel-item.active) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.channel-sortable-active {
+  position: relative;
+}
+
+.channel-sortable-active > .channel-item-wrapper {
+  position: relative;
+}
+
+.channel-sortable-active > .channel-item-wrapper::before {
+  content: "";
+  position: absolute;
+  left: calc(-8px - var(--ch-indent, 0px));
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--text-primary);
+}
+
+.channel-item-wrapper .channel-item {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.channel-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.channel-settings-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.channel-item-wrapper:hover .channel-settings-btn {
+  opacity: 1;
+}
+
+.channel-settings-btn:hover {
+  color: var(--text-primary);
+}
+
+
+/* ── Category Headers ── */
+.channel-category-header {
+  display: flex;
+  align-items: center;
+  margin: 2px 8px;
+  border-radius: 6px;
+  position: relative;
+  min-height: 28px;
+}
+
+.channel-category-root {
+  margin-top: 12px;
+}
+
+.channel-category-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.channel-category-header:hover .channel-settings-btn {
+  opacity: 1;
+}
+
+.channel-category-drop-target {
+  background: rgba(88, 166, 255, 0.12);
+  outline: 1px dashed rgba(88, 166, 255, 0.5);
+  outline-offset: -1px;
+}
+
+.channel-category-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  text-align: left;
+}
+
+.channel-category-toggle:hover {
+  color: var(--text-secondary);
+}
+
+.channel-category-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.channel-chevron-open {
+  transform: rotate(90deg);
+}
+
+.channel-chevron-hidden {
+  visibility: hidden;
+}
+
+.channel-muted {
+  opacity: 0.45;
+}
+
+
+
+/* ── Drag Overlay ── */
+.channel-drag-overlay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+
+/* ── Avatar username tooltip (server sidebar) ── */
+.avatar-name-tooltip {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+}
+

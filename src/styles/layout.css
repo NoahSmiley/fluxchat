@@ -1,0 +1,375 @@
+/* ── App Shell ── */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+/* ── App Border Ring ── */
+.app-shell.app-border-chroma::before,
+.app-shell.app-border-pulse::before,
+.app-shell.app-border-wave::before,
+.app-shell.app-border-ember::before,
+.app-shell.app-border-frost::before,
+.app-shell.app-border-neon::before,
+.app-shell.app-border-galaxy::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  pointer-events: none;
+  z-index: 99999;
+  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.app-shell.app-border-chroma::before {
+  background: linear-gradient(90deg, #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0080ff, #8000ff, #ff00ff, #ff0000) border-box;
+  background-size: 400% 100%;
+  animation: app-border-flow 6s linear infinite;
+}
+
+.app-shell.app-border-pulse::before {
+  background: linear-gradient(90deg, #7c5cff, #a78bfa, #7c5cff) border-box;
+  background-size: 200% 100%;
+  animation: app-border-flow 4s linear infinite, app-border-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes app-border-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.app-shell.app-border-wave::before {
+  background: linear-gradient(90deg, #ff00ff, #00ffff, #ff00ff, #ffff00, #ff00ff) border-box;
+  background-size: 400% 100%;
+  animation: app-border-flow 5s linear infinite;
+}
+
+.app-shell.app-border-ember::before {
+  background: linear-gradient(90deg, #ff4500, #ff8c00, #ffd700, #ff6347, #ff4500, #ff8c00, #ffd700, #ff4500) border-box;
+  background-size: 400% 100%;
+  animation: app-border-flow 5s linear infinite;
+}
+
+.app-shell.app-border-frost::before {
+  background: linear-gradient(90deg, #00d4ff, #b8f0ff, #0099cc, #e0f7ff, #00d4ff, #b8f0ff, #0099cc, #00d4ff) border-box;
+  background-size: 400% 100%;
+  animation: app-border-flow 5s linear infinite;
+}
+
+.app-shell.app-border-neon::before {
+  background: linear-gradient(90deg, #39ff14, #00ff88, #39ff14, #88ff00, #39ff14) border-box;
+  background-size: 400% 100%;
+  animation: app-border-flow 3s linear infinite, app-border-neon-glow 2s ease-in-out infinite;
+}
+
+@keyframes app-border-neon-glow {
+  0%, 100% { box-shadow: inset 0 0 4px #39ff14, 0 0 4px #39ff14, 0 0 8px #39ff1466; }
+  50% { box-shadow: inset 0 0 6px #39ff14, 0 0 8px #39ff14, 0 0 18px #39ff14aa; }
+}
+
+.app-shell.app-border-galaxy::before {
+  background: linear-gradient(90deg, #1a0533, #6b21a8, #ec4899, #3b82f6, #1a0533, #6b21a8, #ec4899, #1a0533) border-box;
+  background-size: 400% 100%;
+  animation: app-border-flow 4s linear infinite;
+}
+
+@keyframes app-border-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 400% 50%; }
+}
+
+.app-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* ── Titlebar (drag region) ── */
+.titlebar {
+  height: var(--titlebar-height);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.titlebar-mac {
+  justify-content: flex-start;
+}
+
+/* ── macOS traffic light controls ── */
+.mac-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  -webkit-app-region: no-drag;
+}
+
+.mac-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: filter 0.1s;
+}
+
+.mac-close {
+  background: #ff5f57;
+}
+
+.mac-minimize {
+  background: #febc2e;
+}
+
+.mac-maximize {
+  background: #28c840;
+}
+
+.mac-dot:active {
+  filter: brightness(0.8);
+}
+
+/* Dim the dots when the window is not focused */
+.titlebar:not(:hover) .mac-dot svg {
+  display: none;
+}
+
+/* ── Windows controls ── */
+.window-controls {
+  display: flex;
+  -webkit-app-region: no-drag;
+  height: 100%;
+}
+
+.window-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.window-control-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.window-control-close:hover {
+  background: #e81123;
+  color: white;
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  margin-right: 32px;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-mac .zoom-controls {
+  margin-left: auto;
+  margin-right: 10px;
+}
+
+.zoom-controls:hover {
+  opacity: 1;
+}
+
+.zoom-btn {
+  width: 24px;
+}
+
+/* ── Auth Pages ── */
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.auth-card {
+  background: rgba(14, 14, 14, 0.9);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--border);
+  padding: 40px;
+  border-radius: var(--radius-lg);
+  width: 400px;
+  max-width: 90vw;
+}
+
+.auth-card h1 {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.auth-subtitle {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+
+.auth-error {
+  background: rgba(231, 76, 60, 0.15);
+  color: var(--danger);
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.auth-footer {
+  margin-top: 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.auth-footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ── Form Fields ── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.field span {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 10px 16px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus {
+  border-color: var(--accent);
+}
+
+/* ── Buttons ── */
+.btn-primary {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-small {
+  padding: 6px 14px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.btn-small:hover {
+  background: var(--bg-tertiary);
+}
+
+/* ── App Layout ── */
+.app-layout {
+  display: grid;
+  grid-template-rows: 1fr;
+  height: 100%;
+}
+
+/* ── Resize Handles ── */
+.sidebar-resizable {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  height: 100%;
+}
+
+.sidebar-resizable > :first-child {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.member-list-resizable {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+}
+
+.member-list-resizable > .member-list {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 1100;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.member-list-resizable > .resize-handle {
+  right: auto;
+  left: 0;
+}
+
+.resize-handle:hover {
+  background: var(--accent);
+}
+
