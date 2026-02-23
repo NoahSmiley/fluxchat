@@ -7257,9 +7257,26 @@ img.custom-emoji {
   font-size: 13px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius);
+  border-radius: var(--radius) 0 0 var(--radius);
   color: #fff;
   outline: none;
+}
+
+.music-search-btn {
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: none;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.music-search-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
 }
 
 .music-search-input::placeholder {

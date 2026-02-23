@@ -153,6 +153,22 @@ impl GatewayState {
         }
     }
 
+    /// Check if any of a user's connections are subscribed to a DM channel
+    pub async fn is_user_subscribed_to_dm(&self, user_id: &str, dm_channel_id: &str) -> bool {
+        let subs = self.dm_subs.read().await;
+        let clients = self.clients.read().await;
+        if let Some(subscriber_ids) = subs.get(dm_channel_id) {
+            for &cid in subscriber_ids {
+                if let Some(client) = clients.get(&cid) {
+                    if client.user_id == user_id {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     /// Unsubscribe a client from a DM channel
     pub async fn unsubscribe_dm(&self, client_id: ClientId, dm_channel_id: &str) {
         let mut subs = self.dm_subs.write().await;

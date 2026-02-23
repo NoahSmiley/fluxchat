@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::models::AuthUser;
 use crate::AppState;
@@ -40,20 +40,28 @@ pub async fn search(
     };
 
     let search_query = format!("ytsearch5:{}", q);
-    let output = match tokio::process::Command::new("yt-dlp")
-        .args(["--dump-json", "--flat-playlist", "--no-warnings", &search_query])
-        .output()
-        .await
+    tracing::info!("YouTube search: q=\"{}\"", q);
+    let output = match tokio::time::timeout(
+        Duration::from_secs(15),
+        tokio::process::Command::new("yt-dlp")
+            .args(["--dump-json", "--flat-playlist", "--no-warnings", &search_query])
+            .output(),
+    )
+    .await
     {
-        Ok(o) if o.status.success() => o.stdout,
-        Ok(o) => {
+        Ok(Ok(o)) if o.status.success() => o.stdout,
+        Ok(Ok(o)) => {
             let stderr = String::from_utf8_lossy(&o.stderr);
-            tracing::error!("yt-dlp search failed: {}", stderr);
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "YouTube search failed"}))).into_response();
+            tracing::error!("yt-dlp search failed (exit {}): {}", o.status, stderr);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": format!("YouTube search failed: {}", stderr.chars().take(200).collect::<String>())}))).into_response();
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             tracing::error!("Failed to run yt-dlp: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "yt-dlp not available"}))).into_response();
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": format!("yt-dlp not available: {}", e)}))).into_response();
+        }
+        Err(_) => {
+            tracing::error!("yt-dlp search timed out after 15s for q=\"{}\"", q);
+            return (StatusCode::GATEWAY_TIMEOUT, Json(serde_json::json!({"error": "YouTube search timed out"}))).into_response();
         }
     };
 
@@ -78,6 +86,7 @@ pub async fn search(
         })
         .collect();
 
+    tracing::info!("YouTube search: q=\"{}\" results={}", q, tracks.len());
     Json(serde_json::json!({"tracks": tracks})).into_response()
 }
 
@@ -94,11 +103,15 @@ async fn resolve_audio_url(state: &AppState, video_id: &str) -> Result<String, S
     }
 
     let yt_url = format!("https://www.youtube.com/watch?v={}", video_id);
-    let output = tokio::process::Command::new("yt-dlp")
-        .args(["-f", "bestaudio", "--get-url", "--no-warnings", &yt_url])
-        .output()
-        .await
-        .map_err(|e| format!("Failed to run yt-dlp: {}", e))?;
+    let output = tokio::time::timeout(
+        Duration::from_secs(15),
+        tokio::process::Command::new("yt-dlp")
+            .args(["-f", "bestaudio", "--get-url", "--no-warnings", &yt_url])
+            .output(),
+    )
+    .await
+    .map_err(|_| "yt-dlp timed out after 15s".to_string())?
+    .map_err(|e| format!("Failed to run yt-dlp: {}", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

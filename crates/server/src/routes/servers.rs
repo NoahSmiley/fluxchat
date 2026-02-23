@@ -417,14 +417,15 @@ pub async fn update_channel(
         created_at: channel.created_at,
     };
 
-    // Broadcast channel update to all subscribers so bitrate changes apply to everyone
+    // Broadcast channel update to all connected clients so name/bitrate changes apply
     let ch_id = channel.id.clone();
+    let name_changed = new_name != channel.name;
     state
         .gateway
-        .broadcast_channel(
-            &ch_id,
+        .broadcast_all(
             &crate::ws::events::ServerEvent::ChannelUpdate {
                 channel_id: ch_id.clone(),
+                name: if name_changed { Some(new_name.to_string()) } else { None },
                 bitrate: new_bitrate,
             },
             None,

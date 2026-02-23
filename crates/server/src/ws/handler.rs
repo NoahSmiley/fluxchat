@@ -787,13 +787,18 @@ async fn handle_client_event(
 
             let event = ServerEvent::DmMessage { message };
 
-            // Broadcast to DM subscribers
+            // Broadcast to DM subscribers (reaches users who have this DM open)
             state.gateway.broadcast_dm(&dm_channel_id, &event).await;
 
-            // Also send to the other user if they're connected but not subscribed
-            // Skip for self-DMs (user1 == user2) to avoid duplicate delivery
+            // Also send to the other user ONLY if they're not already subscribed
+            // (avoids duplicate delivery when they have this DM open)
             let other_user_id = if user.id == user1 { &user2 } else { &user1 };
-            if other_user_id != &user.id {
+            if other_user_id != &user.id
+                && !state
+                    .gateway
+                    .is_user_subscribed_to_dm(other_user_id, &dm_channel_id)
+                    .await
+            {
                 state.gateway.send_to_user(other_user_id, &event).await;
             }
         }

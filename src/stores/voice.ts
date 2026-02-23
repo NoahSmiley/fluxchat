@@ -529,6 +529,11 @@ let localAnalyserCtx: AudioContext | null = null;
 let localAnalyser: AnalyserNode | null = null;
 let localAnalyserSource: MediaStreamAudioSourceNode | null = null;
 let localAnalyserData: Float32Array | null = null;
+// Reference to the LiveKit mic MediaStreamTrack for noise gate control.
+// We gate by setting track.enabled = false (sends silence) instead of
+// setMicrophoneEnabled() which changes the publication state visible to others.
+let localMicTrack: MediaStreamTrack | null = null;
+let localAnalyserClone: MediaStreamTrack | null = null;
 
 function setupLocalAnalyser(room: any) {
   teardownLocalAnalyser();
@@ -547,6 +552,13 @@ function setupLocalAnalyser(room: any) {
       return;
     }
 
+    // Store the original track for noise gate control
+    localMicTrack = mediaStreamTrack;
+
+    // Clone the track for the analyser so it always reads real audio levels
+    // even when the gate disables the original track
+    localAnalyserClone = mediaStreamTrack.clone();
+
     // Match the track's sample rate (DTLN outputs 16kHz, normal mic is 48kHz)
     const trackSettings = mediaStreamTrack.getSettings();
     const sampleRate = trackSettings.sampleRate || 48000;
@@ -559,7 +571,7 @@ function setupLocalAnalyser(room: any) {
     localAnalyser.fftSize = 256;
     localAnalyserData = new Float32Array(localAnalyser.fftSize);
 
-    const stream = new MediaStream([mediaStreamTrack]);
+    const stream = new MediaStream([localAnalyserClone]);
     localAnalyserSource = localAnalyserCtx.createMediaStreamSource(stream);
     localAnalyserSource.connect(localAnalyser);
     console.log("[analyser] setup complete, ctx state:", localAnalyserCtx.state);
@@ -574,6 +586,11 @@ function teardownLocalAnalyser() {
   localAnalyserSource = null;
   localAnalyser = null;
   localAnalyserData = null;
+  localMicTrack = null;
+  if (localAnalyserClone) {
+    localAnalyserClone.stop();
+    localAnalyserClone = null;
+  }
   if (localAnalyserCtx) {
     // Suspend first to stop audio processing immediately, then close
     localAnalyserCtx.suspend().catch(() => {});
@@ -593,9 +610,11 @@ function getLocalMicLevel(): number {
 }
 
 // Convert sensitivity (0-100) to an audio level threshold (0.0-1.0)
-// Sensitivity 0 = threshold 0 (everything passes), 100 = threshold ~0.15 (aggressive gate)
+// Uses a quadratic curve so low values are fine-grained (speech range)
+// and high values gate more aggressively. RMS of normal speech ≈ 0.01-0.05.
 function sensitivityToThreshold(sensitivity: number): number {
-  return (sensitivity / 100) * 0.15;
+  const t = sensitivity / 100;
+  return t * t * 0.1; // 10% → 0.001, 50% → 0.025, 100% → 0.1
 }
 
 function startAudioLevelPolling() {
@@ -661,13 +680,18 @@ function startAudioLevelPolling() {
     }
 
     // ── Noise gate logic ──
+    // Uses localMicTrack.enabled to gate audio (sends silence) without changing
+    // the LiveKit publication state. This way other participants don't see
+    // mute/unmute flicker from the gate — only manual mute is visible to others.
     const { audioSettings, isMuted } = state;
     if (!audioSettings.inputSensitivityEnabled || isMuted) {
-      // If gate was active, release it
+      // Reset gate state; re-enable track if not manually muted
       if (isGated) {
         isGated = false;
         gatedSilentSince = null;
-        room.localParticipant.setMicrophoneEnabled(true);
+        if (!isMuted && localMicTrack) {
+          localMicTrack.enabled = true;
+        }
       }
       return;
     }
@@ -679,16 +703,16 @@ function startAudioLevelPolling() {
       if (!gatedSilentSince) {
         gatedSilentSince = Date.now();
       } else if (!isGated && Date.now() - gatedSilentSince > audioSettings.noiseGateHoldTime) {
-        // Silent for holdTime — gate the mic
+        // Silent for holdTime — gate the mic (send silence via track.enabled)
         isGated = true;
-        room.localParticipant.setMicrophoneEnabled(false);
+        if (localMicTrack) localMicTrack.enabled = false;
       }
     } else {
       // Audio above threshold — open gate immediately
       gatedSilentSince = null;
       if (isGated) {
         isGated = false;
-        room.localParticipant.setMicrophoneEnabled(true);
+        if (localMicTrack) localMicTrack.enabled = true;
       }
     }
   }, 50); // 20fps for smooth visuals
@@ -1412,16 +1436,21 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   toggleMute: () => {
     const { room, isMuted } = get();
     if (!room) return;
-    dbg("voice", `toggleMute ${isMuted ? "unmuting" : "muting"}`);
-    room.localParticipant.setMicrophoneEnabled(isMuted);
-    if (isMuted) playUnmuteSound(); else playMuteSound();
-    set({ isMuted: !isMuted });
+    const newMuted = !isMuted;
+    dbg("voice", `toggleMute ${newMuted ? "muting" : "unmuting"}`);
+    // Ensure noise gate track state is in sync when unmuting
+    if (!newMuted && localMicTrack) localMicTrack.enabled = true;
+    room.localParticipant.setMicrophoneEnabled(!newMuted);
+    if (newMuted) playMuteSound(); else playUnmuteSound();
+    set({ isMuted: newMuted });
     get()._updateParticipants();
   },
 
   setMuted: (muted: boolean) => {
     const { room, isMuted } = get();
     if (!room || isMuted === muted) return;
+    // Ensure noise gate track state is in sync when unmuting
+    if (!muted && localMicTrack) localMicTrack.enabled = true;
     room.localParticipant.setMicrophoneEnabled(!muted);
     set({ isMuted: muted });
     get()._updateParticipants();
@@ -1455,7 +1484,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       room.localParticipant.setMicrophoneEnabled(false);
       set({ isDeafened: newDeafened, isMuted: true });
     } else if (!newDeafened) {
-      // Undeafening also unmutes the mic
+      // Undeafening also unmutes the mic — ensure gate track state is in sync
+      if (localMicTrack) localMicTrack.enabled = true;
       room.localParticipant.setMicrophoneEnabled(true);
       set({ isDeafened: false, isMuted: false });
     } else {

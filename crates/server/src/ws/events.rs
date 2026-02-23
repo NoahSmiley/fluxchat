@@ -211,6 +211,8 @@ pub enum ServerEvent {
     ChannelUpdate {
         #[serde(rename = "channelId")]
         channel_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
         bitrate: Option<i64>,
     },
     ProfileUpdate {
