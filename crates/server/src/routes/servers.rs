@@ -294,18 +294,16 @@ pub async fn create_channel(
         created_at: now,
     };
 
-    // Broadcast room creation to all connected clients
-    if body.is_room {
-        state
-            .gateway
-            .broadcast_all(
-                &crate::ws::events::ServerEvent::RoomCreated {
-                    channel: channel.clone(),
-                },
-                None,
-            )
-            .await;
-    }
+    // Broadcast channel creation to all connected clients
+    state
+        .gateway
+        .broadcast_all(
+            &crate::ws::events::ServerEvent::RoomCreated {
+                channel: channel.clone(),
+            },
+            None,
+        )
+        .await;
 
     (StatusCode::CREATED, Json(channel)).into_response()
 }
@@ -419,14 +417,15 @@ pub async fn update_channel(
         created_at: channel.created_at,
     };
 
-    // Broadcast channel update to all subscribers so bitrate changes apply to everyone
+    // Broadcast channel update to all connected clients so name/bitrate changes apply
     let ch_id = channel.id.clone();
+    let name_changed = new_name != channel.name;
     state
         .gateway
-        .broadcast_channel(
-            &ch_id,
+        .broadcast_all(
             &crate::ws::events::ServerEvent::ChannelUpdate {
                 channel_id: ch_id.clone(),
+                name: if name_changed { Some(new_name.to_string()) } else { None },
                 bitrate: new_bitrate,
             },
             None,
@@ -514,19 +513,17 @@ pub async fn delete_channel(
         .execute(&state.db)
         .await;
 
-    // Broadcast room deletion if it was a room
-    if channel.is_room == 1 {
-        state
-            .gateway
-            .broadcast_all(
-                &crate::ws::events::ServerEvent::RoomDeleted {
-                    channel_id: channel_id.clone(),
-                    server_id: server_id.clone(),
-                },
-                None,
-            )
-            .await;
-    }
+    // Broadcast channel deletion to all connected clients
+    state
+        .gateway
+        .broadcast_all(
+            &crate::ws::events::ServerEvent::RoomDeleted {
+                channel_id: channel_id.clone(),
+                server_id: server_id.clone(),
+            },
+            None,
+        )
+        .await;
 
     StatusCode::NO_CONTENT.into_response()
 }

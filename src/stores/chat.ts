@@ -980,11 +980,8 @@ gateway.on((event) => {
             ? (EVERYONE_MENTION_RE.test(msg.content) ||
                HERE_MENTION_RE.test(msg.content) ||
                (() => {
-                 try {
-                   return new RegExp(`(?<![a-zA-Z0-9_])@${authUser.username}(?![a-zA-Z0-9_])`, "i").test(msg.content);
-                 } catch {
-                   return msg.content.toLowerCase().includes(`@${authUser.username.toLowerCase()}`);
-                 }
+                 const escaped = authUser.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                 return new RegExp(`(?<![a-zA-Z0-9_])@${escaped}(?![a-zA-Z0-9_])`, "i").test(msg.content);
                })())
             : false;
 
@@ -1218,7 +1215,9 @@ gateway.on((event) => {
     case "channel_update": {
       useChatStore.setState((s) => ({
         channels: s.channels.map((c) =>
-          c.id === event.channelId ? { ...c, bitrate: event.bitrate } : c
+          c.id === event.channelId
+            ? { ...c, ...(event.name != null ? { name: event.name } : {}), bitrate: event.bitrate }
+            : c
         ),
       }));
       // Apply bitrate change if connected to this voice channel
@@ -1257,17 +1256,32 @@ gateway.on((event) => {
           dmMessages: [...s.dmMessages, event.message],
         }));
       } else {
-        // Append to DM cache for instant switching later
+        // Append to DM cache for instant switching later (create entry if missing)
         const cached = dmMessageCache.get(event.message.dmChannelId);
         if (cached) {
           cached.messages = [...cached.messages, event.message];
+        } else {
+          dmMessageCache.set(event.message.dmChannelId, {
+            messages: [event.message],
+            hasMore: true,
+            cursor: null,
+          });
         }
       }
       // Decrypt and cache + notification
       {
-        const dm = state.dmChannels.find((d) => d.id === event.message.dmChannelId);
+        let dm = state.dmChannels.find((d) => d.id === event.message.dmChannelId);
         const cryptoState = useCryptoStore.getState();
         (async () => {
+          // If DM channel not known yet (first message from new conversation),
+          // refresh the channels list so we can derive the encryption key
+          if (!dm) {
+            try {
+              const channels = await api.getDMChannels();
+              useChatStore.setState({ dmChannels: channels });
+              dm = channels.find((d: { id: string }) => d.id === event.message.dmChannelId);
+            } catch { /* ignore */ }
+          }
           let key: CryptoKey | null = null;
           try {
             if (dm && cryptoState.keyPair) {
@@ -1283,8 +1297,8 @@ gateway.on((event) => {
           if (dmAuthUser && event.message.senderId !== dmAuthUser.id) {
             const notif = notifStoreRef?.getState();
             if (!notif?.isUserMuted(event.message.senderId)) {
-              if (event.message.dmChannelId !== state.activeDMChannelId || !document.hasFocus()) {
-                const senderName = dm?.otherUser.username ?? "Someone";
+              if (event.message.dmChannelId !== useChatStore.getState().activeDMChannelId || !document.hasFocus()) {
+                const senderName = dm?.otherUser?.username ?? "Someone";
                 playMessageSound();
                 showDesktopNotification(senderName, text);
               }

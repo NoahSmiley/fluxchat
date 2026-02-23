@@ -245,7 +245,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
     if let Some(channel_id) = old_voice {
         let participants = state.gateway.voice_channel_participants(&channel_id).await;
 
-        // Schedule delayed cleanup for empty temporary rooms on disconnect (30s grace period)
+        // Schedule delayed cleanup for empty temporary rooms on disconnect (120s grace period)
         if participants.is_empty() {
             let room_info = sqlx::query_as::<_, (i64, i64)>(
                 "SELECT is_room, is_persistent FROM channels WHERE id = ?",
@@ -259,7 +259,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
             if let Some((1, 0)) = room_info {
                 state.gateway.schedule_room_cleanup(
                     channel_id.clone(),
-                    std::time::Duration::from_secs(30),
+                    std::time::Duration::from_secs(120),
                     state.db.clone(),
                 ).await;
             }
@@ -599,7 +599,7 @@ async fn handle_client_event(
                             .execute(&state.db)
                             .await;
 
-                            // Schedule delayed cleanup for empty temporary rooms (30s grace period)
+                            // Schedule delayed cleanup for empty temporary rooms (120s grace period)
                             let room_info = sqlx::query_as::<_, (i64, i64)>(
                                 "SELECT is_room, is_persistent FROM channels WHERE id = ?",
                             )
@@ -612,7 +612,7 @@ async fn handle_client_event(
                             if let Some((1, 0)) = room_info {
                                 state.gateway.schedule_room_cleanup(
                                     left_channel.clone(),
-                                    std::time::Duration::from_secs(30),
+                                    std::time::Duration::from_secs(120),
                                     state.db.clone(),
                                 ).await;
                             }
@@ -787,13 +787,18 @@ async fn handle_client_event(
 
             let event = ServerEvent::DmMessage { message };
 
-            // Broadcast to DM subscribers
+            // Broadcast to DM subscribers (reaches users who have this DM open)
             state.gateway.broadcast_dm(&dm_channel_id, &event).await;
 
-            // Also send to the other user if they're connected but not subscribed
-            // Skip for self-DMs (user1 == user2) to avoid duplicate delivery
+            // Also send to the other user ONLY if they're not already subscribed
+            // (avoids duplicate delivery when they have this DM open)
             let other_user_id = if user.id == user1 { &user2 } else { &user1 };
-            if other_user_id != &user.id {
+            if other_user_id != &user.id
+                && !state
+                    .gateway
+                    .is_user_subscribed_to_dm(other_user_id, &dm_channel_id)
+                    .await
+            {
                 state.gateway.send_to_user(other_user_id, &event).await;
             }
         }

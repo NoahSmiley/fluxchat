@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use argon2::PasswordHasher;
 use crate::models::{SessionResponse, SessionUser, SignInRequest, SignUpRequest};
+use crate::ws::events::ServerEvent;
 use crate::AppState;
 
 /// POST /api/auth/sign-up/email
@@ -214,6 +215,23 @@ pub async fn sign_up(
     .execute(&state.db)
     .await
     .ok();
+
+    // Broadcast member_joined to all connected clients
+    state.gateway.broadcast_all(
+        &ServerEvent::MemberJoined {
+            server_id: server_id.clone(),
+            user_id: user_id.clone(),
+            username: username.clone(),
+            image: None,
+            role: role.to_string(),
+            ring_style: "default".to_string(),
+            ring_spin: false,
+            ring_pattern_seed: None,
+            banner_css: None,
+            banner_pattern_seed: None,
+        },
+        None,
+    ).await;
 
     // Set cookie header
     let cookie = format!(

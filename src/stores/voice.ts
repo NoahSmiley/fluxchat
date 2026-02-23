@@ -529,6 +529,11 @@ let localAnalyserCtx: AudioContext | null = null;
 let localAnalyser: AnalyserNode | null = null;
 let localAnalyserSource: MediaStreamAudioSourceNode | null = null;
 let localAnalyserData: Float32Array | null = null;
+// Reference to the LiveKit mic MediaStreamTrack for noise gate control.
+// We gate by setting track.enabled = false (sends silence) instead of
+// setMicrophoneEnabled() which changes the publication state visible to others.
+let localMicTrack: MediaStreamTrack | null = null;
+let localAnalyserClone: MediaStreamTrack | null = null;
 
 function setupLocalAnalyser(room: any) {
   teardownLocalAnalyser();
@@ -547,6 +552,13 @@ function setupLocalAnalyser(room: any) {
       return;
     }
 
+    // Store the original track for noise gate control
+    localMicTrack = mediaStreamTrack;
+
+    // Clone the track for the analyser so it always reads real audio levels
+    // even when the gate disables the original track
+    localAnalyserClone = mediaStreamTrack.clone();
+
     // Match the track's sample rate (DTLN outputs 16kHz, normal mic is 48kHz)
     const trackSettings = mediaStreamTrack.getSettings();
     const sampleRate = trackSettings.sampleRate || 48000;
@@ -559,7 +571,7 @@ function setupLocalAnalyser(room: any) {
     localAnalyser.fftSize = 256;
     localAnalyserData = new Float32Array(localAnalyser.fftSize);
 
-    const stream = new MediaStream([mediaStreamTrack]);
+    const stream = new MediaStream([localAnalyserClone]);
     localAnalyserSource = localAnalyserCtx.createMediaStreamSource(stream);
     localAnalyserSource.connect(localAnalyser);
     console.log("[analyser] setup complete, ctx state:", localAnalyserCtx.state);
@@ -574,6 +586,11 @@ function teardownLocalAnalyser() {
   localAnalyserSource = null;
   localAnalyser = null;
   localAnalyserData = null;
+  localMicTrack = null;
+  if (localAnalyserClone) {
+    localAnalyserClone.stop();
+    localAnalyserClone = null;
+  }
   if (localAnalyserCtx) {
     // Suspend first to stop audio processing immediately, then close
     localAnalyserCtx.suspend().catch(() => {});
@@ -593,9 +610,11 @@ function getLocalMicLevel(): number {
 }
 
 // Convert sensitivity (0-100) to an audio level threshold (0.0-1.0)
-// Sensitivity 0 = threshold 0 (everything passes), 100 = threshold ~0.15 (aggressive gate)
+// Uses a quadratic curve so low values are fine-grained (speech range)
+// and high values gate more aggressively. RMS of normal speech ≈ 0.01-0.05.
 function sensitivityToThreshold(sensitivity: number): number {
-  return (sensitivity / 100) * 0.15;
+  const t = sensitivity / 100;
+  return t * t * 0.1; // 10% → 0.001, 50% → 0.025, 100% → 0.1
 }
 
 function startAudioLevelPolling() {
@@ -661,13 +680,18 @@ function startAudioLevelPolling() {
     }
 
     // ── Noise gate logic ──
+    // Uses localMicTrack.enabled to gate audio (sends silence) without changing
+    // the LiveKit publication state. This way other participants don't see
+    // mute/unmute flicker from the gate — only manual mute is visible to others.
     const { audioSettings, isMuted } = state;
     if (!audioSettings.inputSensitivityEnabled || isMuted) {
-      // If gate was active, release it
+      // Reset gate state; re-enable track if not manually muted
       if (isGated) {
         isGated = false;
         gatedSilentSince = null;
-        room.localParticipant.setMicrophoneEnabled(true);
+        if (!isMuted && localMicTrack) {
+          localMicTrack.enabled = true;
+        }
       }
       return;
     }
@@ -679,16 +703,16 @@ function startAudioLevelPolling() {
       if (!gatedSilentSince) {
         gatedSilentSince = Date.now();
       } else if (!isGated && Date.now() - gatedSilentSince > audioSettings.noiseGateHoldTime) {
-        // Silent for holdTime — gate the mic
+        // Silent for holdTime — gate the mic (send silence via track.enabled)
         isGated = true;
-        room.localParticipant.setMicrophoneEnabled(false);
+        if (localMicTrack) localMicTrack.enabled = false;
       }
     } else {
       // Audio above threshold — open gate immediately
       gatedSilentSince = null;
       if (isGated) {
         isGated = false;
-        room.localParticipant.setMicrophoneEnabled(true);
+        if (localMicTrack) localMicTrack.enabled = true;
       }
     }
   }, 50); // 20fps for smooth visuals
@@ -848,7 +872,7 @@ const DEFAULT_SETTINGS: AudioSettings = {
   highPassFrequency: 0,
   lowPassFrequency: 0,
   inputSensitivity: 40,
-  inputSensitivityEnabled: false,
+  inputSensitivityEnabled: true,
   noiseSuppressionModel: "dtln",
   suppressionStrength: 100,
   vadThreshold: 85,
@@ -1131,6 +1155,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         }
         if (track.kind === Track.Kind.Video) {
           dbg("voice", `TrackSubscribed video from ${participant.identity}, updating screen sharers`);
+          // Request max quality immediately to speed up stream loading
+          // (don't wait for component mount + requestAnimationFrame)
+          if (_publication.source === Track.Source.ScreenShare) {
+            _publication.setVideoDimensions({ width: 1920, height: 1080 });
+            _publication.setVideoQuality(VideoQuality.HIGH);
+          }
           get()._updateScreenSharers();
         }
       });
@@ -1406,16 +1436,21 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   toggleMute: () => {
     const { room, isMuted } = get();
     if (!room) return;
-    dbg("voice", `toggleMute ${isMuted ? "unmuting" : "muting"}`);
-    room.localParticipant.setMicrophoneEnabled(isMuted);
-    if (isMuted) playUnmuteSound(); else playMuteSound();
-    set({ isMuted: !isMuted });
+    const newMuted = !isMuted;
+    dbg("voice", `toggleMute ${newMuted ? "muting" : "unmuting"}`);
+    // Ensure noise gate track state is in sync when unmuting
+    if (!newMuted && localMicTrack) localMicTrack.enabled = true;
+    room.localParticipant.setMicrophoneEnabled(!newMuted);
+    if (newMuted) playMuteSound(); else playUnmuteSound();
+    set({ isMuted: newMuted });
     get()._updateParticipants();
   },
 
   setMuted: (muted: boolean) => {
     const { room, isMuted } = get();
     if (!room || isMuted === muted) return;
+    // Ensure noise gate track state is in sync when unmuting
+    if (!muted && localMicTrack) localMicTrack.enabled = true;
     room.localParticipant.setMicrophoneEnabled(!muted);
     set({ isMuted: muted });
     get()._updateParticipants();
@@ -1449,7 +1484,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       room.localParticipant.setMicrophoneEnabled(false);
       set({ isDeafened: newDeafened, isMuted: true });
     } else if (!newDeafened) {
-      // Undeafening also unmutes the mic
+      // Undeafening also unmutes the mic — ensure gate track state is in sync
+      if (localMicTrack) localMicTrack.enabled = true;
       room.localParticipant.setMicrophoneEnabled(true);
       set({ isDeafened: false, isMuted: false });
     } else {
@@ -1751,7 +1787,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           {
             audio: true,
             contentHint: preset.contentHint,
-            resolution: { width: preset.width, height: preset.height, frameRate: preset.frameRate },
+            // Capture at native resolution — quality is controlled via encoder params
+            // so quality can be changed live without re-capturing the screen
+            resolution: { width: 3840, height: 2160, frameRate: 60 },
             preferCurrentTab: false,
             selfBrowserSurface: "exclude",
             surfaceSwitching: "include",
@@ -1798,7 +1836,69 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   setScreenShareQuality: (quality) => {
+    const prevQuality = get().screenShareQuality;
     set({ screenShareQuality: quality });
+
+    const { room, isScreenSharing } = get();
+    if (!isScreenSharing || !room) return;
+
+    const preset = SCREEN_SHARE_PRESETS[quality];
+    const prevPreset = SCREEN_SHARE_PRESETS[prevQuality];
+
+    // Codec change (h264 ↔ vp9) requires republishing the track
+    if (preset.codec !== prevPreset.codec) {
+      dbg("voice", `setScreenShareQuality codec change ${prevPreset.codec} → ${preset.codec}, republishing`);
+      (async () => {
+        try {
+          for (const pub of room.localParticipant.videoTrackPublications.values()) {
+            if (pub.source === Track.Source.ScreenShare && pub.track) {
+              const mediaStreamTrack = pub.track.mediaStreamTrack;
+              await room.localParticipant.unpublishTrack(pub.track, false);
+              await room.localParticipant.publishTrack(mediaStreamTrack, {
+                source: Track.Source.ScreenShare,
+                videoCodec: preset.codec,
+                screenShareEncoding: {
+                  maxBitrate: preset.maxBitrate,
+                  maxFramerate: preset.frameRate,
+                  priority: "high",
+                },
+                scalabilityMode: preset.scalabilityMode,
+                degradationPreference: preset.degradationPreference,
+              });
+              get()._updateScreenSharers();
+              break;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to republish screen share for codec change:", e);
+        }
+      })();
+      return;
+    }
+
+    // Same codec — apply encoding params live via RTCRtpSender
+    dbg("voice", `setScreenShareQuality live update: ${prevQuality} → ${quality}`, preset);
+
+    for (const pub of room.localParticipant.videoTrackPublications.values()) {
+      if (pub.source === Track.Source.ScreenShare && pub.track) {
+        const sender = pub.track.sender;
+        if (sender) {
+          const params = sender.getParameters();
+          if (params.encodings && params.encodings.length > 0) {
+            params.encodings[0].maxBitrate = preset.maxBitrate;
+            params.encodings[0].maxFramerate = preset.frameRate;
+            sender.setParameters(params).catch((e: unknown) =>
+              console.warn("Failed to update screen share encoding:", e),
+            );
+          }
+        }
+        // Update content hint on the media track
+        const mediaTrack = pub.track.mediaStreamTrack;
+        if (mediaTrack?.readyState === "live") {
+          mediaTrack.contentHint = preset.contentHint;
+        }
+      }
+    }
   },
 
   incrementDrinkCount: () => {

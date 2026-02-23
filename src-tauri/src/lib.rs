@@ -239,8 +239,7 @@ pub fn run() {
             {
                 global_keys::init(_app.handle());
             }
-            // Open devtools automatically in debug builds
-            #[cfg(debug_assertions)]
+            // Open devtools (F12 / Ctrl+Shift+I) — enabled in all builds via "devtools" feature
             if let Some(window) = _app.get_webview_window("main") {
                 window.open_devtools();
             }

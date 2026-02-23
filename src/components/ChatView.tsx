@@ -478,8 +478,8 @@ export function ChatView() {
             const c = msg.content;
             if (/(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i.test(c)) return true;
             if (/(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i.test(c)) return true;
-            try { return new RegExp(`(?<![a-zA-Z0-9_])@${user.username}(?![a-zA-Z0-9_])`, "i").test(c); }
-            catch { return c.toLowerCase().includes(`@${user.username.toLowerCase()}`); }
+            const escaped = user.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            return new RegExp(`(?<![a-zA-Z0-9_])@${escaped}(?![a-zA-Z0-9_])`, "i").test(c);
           })();
 
           return (

@@ -37,7 +37,7 @@ export const useUIStore = create<UIState>()(
       showingEconomy: false,
       sidebarPosition: "left",
       appBorderStyle: "none",
-      showDummyUsers: true,
+      showDummyUsers: false,
       highlightOwnMessages: true,
       spellcheck: true,
       showSendButton: true,

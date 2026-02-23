@@ -98,6 +98,7 @@ interface SpotifyState {
   youtubePaused: boolean;
   searchSource: "spotify" | "youtube";
   youtubeSearchResults: YouTubeTrack[];
+  searchError: string | null;
   showSearch: boolean;
   searchInput: string;
 
@@ -152,15 +153,19 @@ function persistPlayer(player: SpotifyPlayer | null, deviceId: string | null) {
 }
 
 /** Play a track on a Spotify device, retrying on 404 (device not yet registered). */
-async function playOnDevice(deviceId: string, uris: string[]): Promise<boolean> {
-  dbg("spotify", `playOnDevice deviceId=${deviceId}`, { uris });
+async function playOnDevice(deviceId: string, uris: string[], positionMs?: number): Promise<boolean> {
+  dbg("spotify", `playOnDevice deviceId=${deviceId} positionMs=${positionMs ?? 0}`, { uris });
+  const bodyObj: Record<string, unknown> = { uris };
+  if (positionMs != null && positionMs > 0) {
+    bodyObj.position_ms = Math.round(positionMs);
+  }
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const { accessToken } = await api.getSpotifyToken();
       const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
         method: "PUT",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ uris }),
+        body: JSON.stringify(bodyObj),
       });
       if (res.ok) {
         dbg("spotify", `playOnDevice success on attempt ${attempt + 1}`);
@@ -202,6 +207,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   youtubePaused: true,
   searchSource: "spotify" as const,
   youtubeSearchResults: [],
+  searchError: null,
   showSearch: false,
   searchInput: "",
 
@@ -568,20 +574,17 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
         // If joining a session that has an active track playing, sync playback
         if (!wasAlreadyLoaded && data.session.isPlaying && data.session.currentTrackUri) {
+          const elapsed = Date.now() - new Date(data.session.updatedAt).getTime();
+          const seekTo = data.session.currentTrackPositionMs + Math.max(0, elapsed);
           dbg("spotify", "loadSession syncing playback to active track", {
             trackUri: data.session.currentTrackUri,
             positionMs: data.session.currentTrackPositionMs,
+            elapsed,
+            seekTo,
           });
           const deviceId = await get().ensureDeviceId();
           if (deviceId) {
-            await playOnDevice(deviceId, [data.session.currentTrackUri]);
-            const { player } = get();
-            if (player && data.session.currentTrackPositionMs > 0) {
-              const elapsed = Date.now() - new Date(data.session.updatedAt).getTime();
-              const seekTo = data.session.currentTrackPositionMs + elapsed;
-              dbg("spotify", `loadSession seeking to ${seekTo}ms (pos=${data.session.currentTrackPositionMs} + elapsed=${elapsed})`);
-              setTimeout(() => player.seek(seekTo), 500);
-            }
+            await playOnDevice(deviceId, [data.session.currentTrackUri], seekTo);
           } else {
             dbg("spotify", "loadSession sync failed — no deviceId");
           }
@@ -891,18 +894,18 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
         }
 
         // Sync playback from another session member
-        const playTrackOnDevice = async (uri: string) => {
+        const playTrackOnDevice = async (uri: string, positionMs?: number) => {
           const deviceId = await get().ensureDeviceId();
           if (!deviceId) {
             dbg("spotify", "playback_sync: no deviceId, cannot play");
             return;
           }
-          await playOnDevice(deviceId, [uri]);
+          await playOnDevice(deviceId, [uri], positionMs);
         };
 
         if (event.action === "play" && event.trackUri && player) {
-          dbg("spotify", `playback_sync: playing track ${event.trackUri}`);
-          playTrackOnDevice(event.trackUri);
+          dbg("spotify", `playback_sync: playing track ${event.trackUri} at position ${event.positionMs ?? 0}ms`);
+          playTrackOnDevice(event.trackUri, event.positionMs ?? undefined);
         } else if (event.action === "play" && !event.trackUri && player) {
           dbg("spotify", "playback_sync: resuming");
           player.resume();
@@ -969,13 +972,19 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   searchYouTube: async (query) => {
-    if (!query.trim()) { set({ youtubeSearchResults: [] }); return; }
-    set({ searchLoading: true });
+    if (!query.trim()) { set({ youtubeSearchResults: [], searchError: null }); return; }
+    set({ searchLoading: true, searchError: null });
+    dbg("spotify", `searchYouTube query="${query}"`);
     try {
       const data = await api.searchYouTubeTracks(query);
+      dbg("spotify", `searchYouTube results=${data.tracks?.length ?? 0}`);
       set({ youtubeSearchResults: data.tracks ?? [] });
-    } catch { set({ youtubeSearchResults: [] }); }
-    finally { set({ searchLoading: false }); }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("YouTube search failed:", msg);
+      dbg("spotify", `searchYouTube FAILED: ${msg}`);
+      set({ youtubeSearchResults: [], searchError: msg });
+    } finally { set({ searchLoading: false }); }
   },
 
   addYouTubeToQueue: async (track) => {

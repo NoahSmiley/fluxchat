@@ -285,7 +285,7 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
     searchResults, searchLoading, volume,
     youtubeTrack, youtubePaused, youtubeProgress, youtubeDuration,
     searchSource, youtubeSearchResults,
-    searchInput,
+    searchInput, searchError,
     startSession, loadSession, endSession, addTrackToQueue, removeFromQueue,
     play, pause, skip, seek, setVolume, searchTracks,
     setSearchInput, setSearchSource, searchYouTube, addYouTubeToQueue,
@@ -396,8 +396,12 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
           className="music-search-input"
           autoFocus
         />
+        <button type="submit" className="music-search-btn" title="Search">
+          <Search size={16} />
+        </button>
       </form>
       {searchLoading && <div className="music-search-loading">Searching...</div>}
+      {searchError && <div className="music-search-loading" style={{ color: "#ff6b6b" }}>{searchError}</div>}
       <div className="music-search-results">
         {searchSource === "spotify"
           ? searchResults.map((track) => (

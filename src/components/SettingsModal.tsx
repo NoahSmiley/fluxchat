@@ -320,7 +320,7 @@ export function SettingsModal() {
             <div className="settings-card">
               <h3 className="settings-card-title">Avatar</h3>
               <div className="profile-avatar-section">
-                <div className="profile-avatar-large">
+                <div className="profile-avatar-large" style={!user?.image ? { background: avatarColor(user?.username), borderColor: avatarColor(user?.username) } : undefined}>
                   {user?.image ? (
                     <img src={user.image} alt={user.username} className="profile-avatar-img" />
                   ) : (
@@ -634,7 +634,7 @@ export function SettingsModal() {
                       <span className="settings-slider-value">{audioSettings.inputSensitivity}%</span>
                     </div>
                     <div className="sensitivity-meter-bar">
-                      <div className="sensitivity-meter-fill" style={{ width: `${Math.min(micLevel * 700, 100)}%` }} />
+                      <div className="sensitivity-meter-fill" style={{ width: `${Math.min(Math.sqrt(micLevel / 0.1) * 100, 100)}%` }} />
                       <div className="sensitivity-meter-threshold" style={{ left: `${audioSettings.inputSensitivity}%` }} />
                     </div>
                     <input type="range" min="0" max="100" step="1" value={audioSettings.inputSensitivity} onChange={(e) => updateAudioSetting("inputSensitivity", parseInt(e.target.value))} className="settings-slider" />
