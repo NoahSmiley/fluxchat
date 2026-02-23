@@ -20,7 +20,7 @@ pub mod whitelist;
 
 use crate::ws;
 use crate::AppState;
-use axum::{routing::{get, post, patch, delete, put}, Router, extract::DefaultBodyLimit};
+use axum::{extract::{DefaultBodyLimit, Path}, response::IntoResponse, routing::{get, post, patch, delete, put}, Router};
 use std::sync::Arc;
 
 pub fn build_router(state: Arc<AppState>) -> Router {
@@ -136,6 +136,40 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .nest("/api/auth", auth_routes)
         .nest("/api", api_routes)
         .route("/gateway", get(ws::handler::ws_handler))
+        // Proxy DeepFilter model CDN to avoid CORS in Tauri production builds
+        .route("/deepfilter-cdn/{*path}", get(proxy_deepfilter_cdn))
         .layer(DefaultBodyLimit::max(10 * 1024 * 1024)) // 10 MB for GIF avatars
         .with_state(state)
+}
+
+/// Proxy requests to cdn.mezon.ai for DeepFilter model files (avoids CORS in Tauri)
+async fn proxy_deepfilter_cdn(
+    Path(path): Path<String>,
+) -> impl axum::response::IntoResponse {
+    let url = format!(
+        "https://cdn.mezon.ai/AI/models/datas/noise_suppression/deepfilternet3/{}",
+        path
+    );
+    let upstream = match reqwest::get(&url).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!("DeepFilter CDN proxy failed: {}", e);
+            return (
+                axum::http::StatusCode::BAD_GATEWAY,
+                "Failed to fetch model",
+            )
+                .into_response();
+        }
+    };
+    let status =
+        axum::http::StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(axum::http::StatusCode::OK);
+    let mut headers = axum::http::HeaderMap::new();
+    if let Some(ct) = upstream.headers().get(axum::http::header::CONTENT_TYPE) {
+        headers.insert(axum::http::header::CONTENT_TYPE, ct.clone());
+    }
+    if let Some(cl) = upstream.headers().get(axum::http::header::CONTENT_LENGTH) {
+        headers.insert(axum::http::header::CONTENT_LENGTH, cl.clone());
+    }
+    let body = axum::body::Body::from_stream(upstream.bytes_stream());
+    (status, headers, body).into_response()
 }
