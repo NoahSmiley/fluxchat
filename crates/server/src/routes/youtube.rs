@@ -14,6 +14,27 @@ use crate::AppState;
 
 const CACHE_TTL_SECS: u64 = 30 * 60; // 30 minutes
 
+/// Resolve the yt-dlp binary path. Checks next to the server executable first,
+/// then falls back to bare "yt-dlp" (relies on PATH).
+fn yt_dlp_path() -> std::path::PathBuf {
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            // Walk up from e.g. target/debug/ to project root
+            for ancestor in [dir, dir.parent().unwrap_or(dir), dir.parent().and_then(|p| p.parent()).unwrap_or(dir)] {
+                let candidate = ancestor.join("yt-dlp.exe");
+                if candidate.exists() {
+                    return candidate;
+                }
+                let candidate = ancestor.join("yt-dlp");
+                if candidate.exists() {
+                    return candidate;
+                }
+            }
+        }
+    }
+    std::path::PathBuf::from("yt-dlp")
+}
+
 #[derive(Deserialize)]
 pub struct SearchQuery {
     pub q: Option<String>,
@@ -43,7 +64,7 @@ pub async fn search(
     tracing::info!("YouTube search: q=\"{}\"", q);
     let output = match tokio::time::timeout(
         Duration::from_secs(15),
-        tokio::process::Command::new("yt-dlp")
+        tokio::process::Command::new(yt_dlp_path())
             .args(["--dump-json", "--flat-playlist", "--no-warnings", &search_query])
             .output(),
     )
@@ -105,7 +126,7 @@ async fn resolve_audio_url(state: &AppState, video_id: &str) -> Result<String, S
     let yt_url = format!("https://www.youtube.com/watch?v={}", video_id);
     let output = tokio::time::timeout(
         Duration::from_secs(15),
-        tokio::process::Command::new("yt-dlp")
+        tokio::process::Command::new(yt_dlp_path())
             .args(["-f", "bestaudio", "--get-url", "--no-warnings", &yt_url])
             .output(),
     )

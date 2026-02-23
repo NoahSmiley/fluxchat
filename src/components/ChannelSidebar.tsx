@@ -1296,6 +1296,23 @@ export function ChannelSidebar() {
               });
               setRoomCtxMenu(null);
             }},
+            { label: `Bitrate: ${(room.bitrate ?? 256_000) / 1000} kbps`, submenu: [64, 96, 128, 192, 256, 320, 384, 512].map((kbps) => ({
+              label: `${kbps} kbps`,
+              checked: (room.bitrate ?? 256_000) === kbps * 1000,
+              onClick: () => {
+                if (!activeServerId) return;
+                const bps = kbps * 1000;
+                useChatStore.setState((s) => ({ channels: s.channels.map((c) => c.id === room.id ? { ...c, bitrate: bps } : c) }));
+                api.updateChannel(activeServerId, room.id, { bitrate: bps }).catch(() => {
+                  useChatStore.setState((s) => ({ channels: s.channels.map((c) => c.id === room.id ? { ...c, bitrate: room.bitrate } : c) }));
+                });
+                // Apply live if we're in this room
+                if (connectedChannelId === room.id) {
+                  useVoiceStore.getState().applyBitrate(bps);
+                }
+                setRoomCtxMenu(null);
+              },
+            })) },
             { type: "separator" as const },
             { label: "Delete room", danger: true, onClick: async () => {
               setRoomCtxMenu(null);

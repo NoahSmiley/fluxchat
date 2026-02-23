@@ -232,7 +232,10 @@ function destroyAudioPipeline(trackSid: string) {
   if (pipeline) {
     dbg("voice", `destroyAudioPipeline sid=${trackSid}`, { remaining: audioPipelines.size - 1 });
     // Mute gain instantly to prevent static/click on teardown
-    try { pipeline.gain.gain.setValueAtTime(0, pipeline.context.currentTime); } catch {}
+    try {
+      pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
+      pipeline.gain.gain.setValueAtTime(0, pipeline.context.currentTime);
+    } catch {}
     // Disconnect all nodes from destination
     try { pipeline.gain.disconnect(); } catch {}
     try { pipeline.source.disconnect(); } catch {}
@@ -359,30 +362,7 @@ function startStatsPolling() {
     try {
       const stats = await collectWebRTCStats(room);
 
-      // Adaptive bitrate based on packet loss
-      if (stats.audioPacketLoss > 5) {
-        highLossCount++;
-        lowLossCount = 0;
-        if (highLossCount >= 2) {
-          const reduced = Math.round(adaptiveCurrentBitrate * 0.75);
-          adaptiveCurrentBitrate = Math.max(32_000, reduced);
-          useVoiceStore.getState().applyBitrate(adaptiveCurrentBitrate);
-        }
-      } else if (stats.audioPacketLoss < 1) {
-        lowLossCount++;
-        highLossCount = 0;
-        if (lowLossCount >= 5) {
-          const increased = Math.round(adaptiveCurrentBitrate * 1.1);
-          const newBitrate = Math.min(adaptiveTargetBitrate, increased);
-          if (newBitrate !== adaptiveCurrentBitrate) {
-            adaptiveCurrentBitrate = newBitrate;
-            useVoiceStore.getState().applyBitrate(adaptiveCurrentBitrate);
-          }
-        }
-      } else {
-        highLossCount = 0;
-        lowLossCount = 0;
-      }
+      // Bitrate is constant (no adaptive adjustment)
 
       // Only update store stats if overlay is visible
       if (useVoiceStore.getState().showStatsOverlay) {
@@ -1467,6 +1447,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       playDeafenSound();
       // Mute all audio via gain nodes
       for (const pipeline of audioPipelines.values()) {
+        pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
         pipeline.gain.gain.setValueAtTime(0, pipeline.context.currentTime);
       }
     } else {
@@ -1475,6 +1456,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       for (const [identity, trackSid] of Object.entries(participantTrackMap)) {
         const pipeline = audioPipelines.get(trackSid);
         if (pipeline) {
+          pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
           pipeline.gain.gain.setValueAtTime(participantVolumes[identity] ?? 1.0, pipeline.context.currentTime);
         }
       }
@@ -1512,7 +1494,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       const pipeline = audioPipelines.get(trackSid);
       if (pipeline) {
         if (pipeline.context.state === "suspended") pipeline.context.resume();
-        pipeline.gain.gain.value = volume;
+        // Must cancel scheduled automation before setting value —
+        // the initial fade-in puts the param in automation mode,
+        // after which direct .value writes are silently ignored.
+        pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
+        pipeline.gain.gain.setValueAtTime(volume, pipeline.context.currentTime);
       }
     }
   },
