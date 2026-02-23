@@ -188,8 +188,7 @@ export const useEconomyStore = create<EconomyState>((set, get) => ({
     try {
       const caseDetail = await api.getCase(caseId);
       set({ caseDetail, casesLoading: false });
-    } catch (err) {
-      console.error("Failed to fetch case detail:", err);
+    } catch {
       set({ casesLoading: false });
     }
   },

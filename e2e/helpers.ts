@@ -1,4 +1,4 @@
-import { type Page, type BrowserContext, expect } from "@playwright/test";
+import { type Page } from "@playwright/test";
 
 const API_BASE = "http://127.0.0.1:3001";
 
@@ -298,50 +298,11 @@ export async function whitelistEmailViaAPI(page: Page, email: string) {
 }
 
 /**
- * Open DMs view by clicking the DM icon or navigating to the DM sidebar.
- */
-export async function openDMs(page: Page) {
-  await page.evaluate(() => {
-    // @ts-ignore
-    const chatStore = (window as any).__ZUSTAND_CHAT_STORE__;
-    if (chatStore) chatStore.getState().showDMs();
-  });
-  await page.waitForTimeout(500);
-}
-
-/**
  * Open the economy/shop view by clicking the FluxFloat button.
  */
 export async function openEconomy(page: Page) {
   await page.locator('button[title="FluxFloat"]').click();
   await page.waitForTimeout(500);
-}
-
-/**
- * Set up two browser contexts with registered users.
- * Both users are pre-whitelisted automatically by the admin bootstrapping.
- * Both auto-join the existing "FluxChat" server.
- */
-export async function setupTwoUsers(
-  contextA: BrowserContext,
-  contextB: BrowserContext,
-) {
-  const pageA = await contextA.newPage();
-  const pageB = await contextB.newPage();
-
-  const alice = uniqueUser("alice");
-  const bob = uniqueUser("bob");
-
-  // Register Alice (pre-whitelisted by admin bootstrap)
-  await registerUser(pageA, alice.email, alice.username, alice.password);
-
-  // Alice also whitelists Bob's email (belt and suspenders)
-  await whitelistEmailViaAPI(pageA, bob.email);
-
-  // Register Bob
-  await registerUser(pageB, bob.email, bob.username, bob.password);
-
-  return { pageA, pageB, alice, bob };
 }
 
 /**

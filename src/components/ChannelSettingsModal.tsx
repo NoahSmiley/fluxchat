@@ -91,15 +91,13 @@ export function ChannelSettingsModal({ channel, serverId, onClose }: Props) {
       }
 
       if (channel.type === "voice") {
-        const newBitrate = bitrate;
-        if (newBitrate !== (channel.bitrate ?? 256_000)) {
-          updates.bitrate = newBitrate;
+        if (bitrate !== (channel.bitrate ?? 256_000)) {
+          updates.bitrate = bitrate;
         }
       }
 
       if (Object.keys(updates).length > 0) {
         const updated = await api.updateChannel(serverId, channel.id, updates);
-        // Update in chat store
         const { channels } = useChatStore.getState();
         useChatStore.setState({
           channels: channels.map((c) => (c.id === channel.id ? updated : c)),

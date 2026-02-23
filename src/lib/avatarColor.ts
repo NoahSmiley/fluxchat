@@ -1,15 +1,15 @@
 // Generate a consistent color from a string (username or userId)
 const AVATAR_COLORS = [
-  "#e06c75", // soft red
-  "#e5c07b", // warm yellow
-  "#98c379", // green
-  "#56b6c2", // cyan
-  "#61afef", // blue
-  "#c678dd", // purple
-  "#d19a66", // orange
-  "#be5046", // rust
-  "#7ec8e3", // sky blue
-  "#c3e88d", // lime
+  "#e06c75",
+  "#e5c07b",
+  "#98c379",
+  "#56b6c2",
+  "#61afef",
+  "#c678dd",
+  "#d19a66",
+  "#be5046",
+  "#7ec8e3",
+  "#c3e88d",
 ];
 
 export function avatarColor(name: string | null | undefined): string {
@@ -21,7 +21,8 @@ export function avatarColor(name: string | null | undefined): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-import { seedToPattern, type DopplerType } from "../components/items/dopplerPattern.js";
+import { seedToPattern, RING_GRADIENTS, type DopplerType } from "../components/items/dopplerPattern.js";
+import type { CSSProperties } from "react";
 
 /**
  * Returns CSS class string for an avatar ring based on user preferences.
@@ -62,7 +63,7 @@ export function ringClass(
  * Pass the ringStyle to distinguish doppler vs gamma_doppler.
  * Also sets --ring-glow for rare patterns.
  */
-export function ringGradientStyle(ringPatternSeed: number | null | undefined, ringStyle?: string): React.CSSProperties | undefined {
+export function ringGradientStyle(ringPatternSeed: number | null | undefined, ringStyle?: string): CSSProperties | undefined {
   if (ringPatternSeed == null) return undefined;
   const dopplerType: DopplerType = ringStyle === "gamma_doppler" ? "gamma_doppler" : "doppler";
   const pattern = seedToPattern(ringPatternSeed, dopplerType);
@@ -70,7 +71,7 @@ export function ringGradientStyle(ringPatternSeed: number | null | undefined, ri
   if (pattern.glowColor) {
     style["--ring-glow"] = pattern.glowColor;
   }
-  return style as unknown as React.CSSProperties;
+  return style as unknown as CSSProperties;
 }
 
 /** Static banner gradients for non-doppler banners. */
@@ -85,8 +86,6 @@ const BANNER_GRADIENTS: Record<string, string> = {
 export const BANNER_IMAGES: Record<string, string> = {
   wyrm_manuscript: "/banners/wyrm_manuscript.jpg",
 };
-
-import { RING_GRADIENTS } from "../components/items/dopplerPattern.js";
 
 /**
  * Returns the CSS background for a user's equipped banner.

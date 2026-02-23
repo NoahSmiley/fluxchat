@@ -11,8 +11,6 @@ import { API_BASE } from "../lib/serverUrl.js";
 import { TWEMOJI_OPTIONS } from "../lib/emoji.js";
 import { favCache } from "../lib/emojiCache.js";
 
-// ── emoji-mart data types ──────────────────────────────────────────────────
-
 interface EmojiSkin {
   native: string;
 }
@@ -32,8 +30,6 @@ interface EmojiData {
 }
 
 const emojiData = data as unknown as EmojiData;
-
-// ── Module-level caches ────────────────────────────────────────────────────
 
 /** Memoize twemoji.parse — runs once per unique emoji char across all picker opens. */
 const _twemojiCache = new Map<string, string>();
@@ -59,8 +55,6 @@ for (const [id, entry] of Object.entries(emojiData.emojis)) {
   _nativeToId.set(entry.skins[0].native, id);
 }
 
-// ── Category display names ─────────────────────────────────────────────────
-
 const CATEGORY_NAMES: Record<string, string> = {
   people: "Smileys & People",
   nature: "Animals & Nature",
@@ -72,8 +66,6 @@ const CATEGORY_NAMES: Record<string, string> = {
   flags: "Flags",
 };
 
-// ── Props ──────────────────────────────────────────────────────────────────
-
 interface EmojiPickerProps {
   serverId: string;
   onSelect: (emoji: string) => void;
@@ -81,8 +73,6 @@ interface EmojiPickerProps {
   /** "above" (default) = above trigger, right-aligned. "right" = right of trigger, fixed-positioned to escape overflow:hidden ancestors. "auto" = fixed-positioned, prefers above trigger, falls back to below if not enough room. */
   placement?: "above" | "right" | "auto";
 }
-
-// ── Lazy section renderer ─────────────────────────────────────────────────
 
 function LazySection({
   children,
@@ -112,8 +102,6 @@ function LazySection({
     </div>
   );
 }
-
-// ── Component ──────────────────────────────────────────────────────────────
 
 export default function EmojiPicker({ serverId, onSelect, onClose, placement = "above" }: EmojiPickerProps) {
   const customEmojis = useChatStore((s) => s.customEmojis);
@@ -248,8 +236,6 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
     };
   }, [onClose]);
 
-  // ── Custom emoji grouping ─────────────────────────────────────────────────
-
   const uploaderGroups = useMemo(() => {
     if (!customEmojis.length) return [];
     const groups: { uploaderId: string; uploaderUsername: string; uploaderImage: string | null; emojis: CustomEmoji[] }[] = [];
@@ -279,8 +265,6 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
     return groups;
   }, [customEmojis, user]);
 
-  // ── Category nav sections ─────────────────────────────────────────────────
-  // Order: favorites | standard categories | custom uploader groups
   const hasFavs = stdFavs.size > 0 || customFavIds.size > 0;
   const standardCats = emojiData.categories;
   const totalSections = 1 + standardCats.length + uploaderGroups.length;
@@ -294,8 +278,6 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
     sectionRefs.current[idx]?.scrollIntoView({ block: "start", behavior: "smooth" });
     setActiveCatIdx(idx);
   }
-
-  // ── Search results ────────────────────────────────────────────────────────
 
   const searchResults = useMemo(() => {
     if (deferredSearch.trim().length < 2) return null;
@@ -311,8 +293,6 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
     }
     return { customMatches, stdMatches };
   }, [deferredSearch, customEmojis]);
-
-  // ── Emoji cell renderers ──────────────────────────────────────────────────
 
   function StandardCell({ native }: { native: string }) {
     const id = _nativeToId.get(native);
@@ -342,13 +322,9 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
     );
   }
 
-  // ── Category nav icon (precomputed HTML, no per-render parsing) ───────────
-
   function CatNavIcon({ idx }: { idx: number }) {
     return <span dangerouslySetInnerHTML={{ __html: catNavHtml[idx] }} />;
   }
-
-  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <>

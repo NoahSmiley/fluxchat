@@ -2,13 +2,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronLeft, Coins, Package, Backpack, Store, Hammer, Eye } from "lucide-react";
 import { useEconomyStore } from "../stores/economy.js";
 import { useAuthStore } from "../stores/auth.js";
-import type { CaseInfo, CaseDetail, CaseItem, CaseOpenResult, InventoryItem, ItemRarity, ItemType, MarketplaceListing, Trade } from "../types/shared.js";
+import type { CaseInfo, CaseDetail, CaseItem, CaseOpenResult, InventoryItem, ItemRarity, MarketplaceListing } from "../types/shared.js";
 import { RARITY_COLORS as COLORS, RARITY_ORDER } from "../types/shared.js";
 import { ItemPreview } from "./items/ItemPreview.js";
 import { ItemViewer3D } from "./items/ItemViewer3D.js";
 import { seedToPattern, type DopplerType } from "./items/dopplerPattern.js";
-
-// ── Case Illustrations ──
 
 const CASE_THEMES: Record<string, { primary: string; secondary: string; accent: string; glow: string }> = {
   case_standard: { primary: "#4b69ff", secondary: "#3a54cc", accent: "#6b8aff", glow: "#4b69ff" },
@@ -62,8 +60,6 @@ function CaseIllustration({ caseId, size = 80 }: { caseId: string; size?: number
   );
 }
 
-// ── Shared helpers ──
-
 function rarityLabel(r: ItemRarity) {
   return r === "ultra_rare" ? "Ultra Rare" : r.charAt(0).toUpperCase() + r.slice(1);
 }
@@ -75,10 +71,6 @@ function rarityGlow(r: ItemRarity) {
 function typeLabel(type: string) {
   return type.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
-
-// ══════════════════════════════════════════
-//  CS2-style Spinning Reel
-// ══════════════════════════════════════════
 
 const REEL_ITEM_WIDTH = 140;
 const TOTAL_REEL_ITEMS = 60;
@@ -203,10 +195,6 @@ function WinReveal({ item, onClose }: { item: CaseOpenResult; onClose: () => voi
     </div>
   );
 }
-
-// ══════════════════════════════════════════
-//  Cases Tab
-// ══════════════════════════════════════════
 
 function CasesTab() {
   const { wallet, cases, caseDetail, casesLoading, fetchCases, fetchCaseDetail, openCase, fetchWallet } = useEconomyStore();
@@ -336,10 +324,6 @@ function CasesTab() {
   );
 }
 
-// ══════════════════════════════════════════
-//  Inventory Tab
-// ══════════════════════════════════════════
-
 function InventoryTab() {
   const { inventory, inventoryLoading, fetchInventory, toggleEquip } = useEconomyStore();
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -453,10 +437,6 @@ function InventoryTab() {
     </div>
   );
 }
-
-// ══════════════════════════════════════════
-//  Marketplace Tab
-// ══════════════════════════════════════════
 
 function MarketplaceTab() {
   const { wallet, listings, marketplaceLoading, fetchMarketplace, buyListing, cancelListing, inventory, fetchInventory, createListing } = useEconomyStore();
@@ -610,10 +590,6 @@ function MarketplaceTab() {
   );
 }
 
-// ══════════════════════════════════════════
-//  Crafting Tab
-// ══════════════════════════════════════════
-
 function CraftingTab() {
   const { inventory, fetchInventory, craftItems } = useEconomyStore();
   const [selected, setSelected] = useState<string[]>([]);
@@ -757,10 +733,6 @@ function CraftingTab() {
   );
 }
 
-// ══════════════════════════════════════════
-//  Economy View (main content area)
-// ══════════════════════════════════════════
-
 type EconomyTab = "cases" | "inventory" | "marketplace" | "crafting";
 
 const TAB_META: { key: EconomyTab; label: string; icon: typeof Package }[] = [
@@ -778,7 +750,6 @@ export function EconomyView() {
 
   return (
     <div className="economy-view">
-      {/* Header */}
       <div className="economy-view-header">
         <h2 className="economy-view-title">FluxFloat</h2>
         <div className="economy-header-right">
@@ -792,7 +763,6 @@ export function EconomyView() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="economy-tabs">
         {TAB_META.map(t => (
           <button
@@ -806,7 +776,6 @@ export function EconomyView() {
         ))}
       </div>
 
-      {/* Body */}
       <div className="economy-view-body">
         {tab === "cases" && <CasesTab />}
         {tab === "inventory" && <InventoryTab />}

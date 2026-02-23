@@ -2,6 +2,7 @@ import { create } from "zustand";
 import * as crypto from "../lib/crypto.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
+import { dbg } from "../lib/debug.js";
 
 interface CryptoState {
   keyPair: CryptoKeyPair | null;
@@ -48,7 +49,7 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
     try {
       await api.setPublicKey(publicKeyBase64);
     } catch (e) {
-      console.error("Failed to upload public key:", e);
+      dbg("crypto", "Failed to upload public key:", e);
     }
 
     // Load server keys for all joined servers
@@ -76,7 +77,7 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
           get().requestServerKey(server.id);
         }
       } catch (e) {
-        console.error(`Failed to load key for server ${server.id}:`, e);
+        dbg("crypto", `Failed to load key for server ${server.id}:`, e);
         get().requestServerKey(server.id);
       }
     }
@@ -138,7 +139,7 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
       const groupKey = await crypto.unwrapGroupKey(encryptedKey, senderPub, keyPair.privateKey);
       get().setServerKey(serverId, groupKey);
     } catch (e) {
-      console.error(`Failed to unwrap server key for ${serverId}:`, e);
+      dbg("crypto", `Failed to unwrap server key for ${serverId}:`, e);
     }
   },
 
@@ -167,7 +168,7 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
       const publicKeyBase64 = get().publicKeyBase64!;
       await api.shareServerKeyWith(serverId, requesterId, wrapped, publicKeyBase64).catch(() => {});
     } catch (e) {
-      console.error(`Failed to share key for server ${serverId}:`, e);
+      dbg("crypto", `Failed to share key for server ${serverId}:`, e);
     }
   },
 

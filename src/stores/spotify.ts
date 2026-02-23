@@ -236,7 +236,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
     const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined;
     if (!clientId) {
-      console.error("[spotify] VITE_SPOTIFY_CLIENT_ID not set");
+      dbg("spotify", "VITE_SPOTIFY_CLIENT_ID not set");
       set({ oauthError: "Spotify client ID not configured" });
       return;
     }
@@ -251,13 +251,12 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       // Determine redirect URI: use local OAuth listener in Tauri app,
       // fall back to backend redirect URI for web/dev
       let redirectUri = backendRedirectUri;
-      let listenerPromise: Promise<unknown> | null = null;
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         // Derive the server URL from API_BASE (strip "/api" suffix)
         const serverUrl = API_BASE.replace(/\/api$/, "");
         // Start one-shot local HTTP server BEFORE opening the browser
-        listenerPromise = invoke("start_oauth_listener", { serverUrl });
+        invoke("start_oauth_listener", { serverUrl });
         redirectUri = "http://127.0.0.1:29170/callback";
         dbg("spotify", "OAuth using local listener", { redirectUri });
       } catch {
@@ -310,7 +309,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
         set({ polling: false });
       }, 300000);
     } catch (err) {
-      console.error("[spotify] OAuth flow failed:", err);
+      dbg("spotify", "OAuth flow failed:", err);
       set({ oauthError: "Failed to start Spotify login. Check your connection." });
     }
   },
@@ -366,7 +365,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     const persisted = getPersistedPlayer();
     const persistedDeviceId = getPersistedDeviceId();
     if (persisted && !get().player) {
-      console.log("[spotify] restoring persisted player, deviceId:", persistedDeviceId);
+      dbg("spotify", "restoring persisted player, deviceId:", persistedDeviceId);
       set({ player: persisted, deviceId: persistedDeviceId });
 
       // Re-bind event listeners to the CURRENT store instance
@@ -400,7 +399,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
           const { accessToken } = await api.getSpotifyToken();
           cb(accessToken);
         } catch (e) {
-          console.error("Failed to get Spotify token:", e);
+          dbg("spotify", "Failed to get Spotify token:", e);
         }
       },
       volume: get().volume,
@@ -981,7 +980,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       set({ youtubeSearchResults: data.tracks ?? [] });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error("YouTube search failed:", msg);
       dbg("spotify", `searchYouTube FAILED: ${msg}`);
       set({ youtubeSearchResults: [], searchError: msg });
     } finally { set({ searchLoading: false }); }

@@ -7,8 +7,6 @@ import { useChatStore } from "../stores/chat.js";
 import { renderEmoji } from "../lib/emoji.js";
 import EmojiPicker from "./EmojiPicker.js";
 
-// ── WAV encoder ───────────────────────────────────────────────────────────
-
 function audioBufferToWav(buffer: AudioBuffer): Blob {
   const numChannels = Math.min(buffer.numberOfChannels, 2);
   const sampleRate = buffer.sampleRate;
@@ -50,8 +48,6 @@ function audioBufferToWav(buffer: AudioBuffer): Blob {
 
   return new Blob([arrayBuffer], { type: "audio/wav" });
 }
-
-// ── Waveform canvas ───────────────────────────────────────────────────────
 
 function WaveformCanvas({
   audioBuffer,
@@ -153,8 +149,6 @@ function WaveformCanvas({
   );
 }
 
-// ── Main SoundboardTab ────────────────────────────────────────────────────
-
 type View = "list" | "add" | "edit";
 
 export function SoundboardTab({ serverId }: { serverId: string }) {
@@ -192,23 +186,7 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
 
   useEffect(() => {
     api.getSoundboardSounds(serverId)
-      .then(async (loadedSounds) => {
-        setSounds(loadedSounds);
-        // Clear any existing image attachments from sounds (images removed from feature)
-        for (const sound of loadedSounds) {
-          if (sound.imageAttachmentId) {
-            try {
-              const updated = await api.updateSoundboardSound(serverId, sound.id, {
-                name: sound.name,
-                emoji: sound.emoji ?? undefined,
-                imageAttachmentId: null,
-                volume: sound.volume,
-              });
-              setSounds((prev) => prev.map((s) => (s.id === sound.id ? updated : s)));
-            } catch {}
-          }
-        }
-      })
+      .then((loadedSounds) => setSounds(loadedSounds))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [serverId]);

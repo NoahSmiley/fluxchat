@@ -7,6 +7,7 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 use tauri::Manager;
 
+// TODO: implement
 #[tauri::command]
 fn set_titlebar_color(window: tauri::Window, color: String) {
     let _ = (window, color);

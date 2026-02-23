@@ -16,14 +16,10 @@ import { API_BASE } from "../lib/serverUrl.js";
 import EmojiPicker from "./EmojiPicker.js";
 import ContextMenu from "./ContextMenu.js";
 
-// ── Mention autocomplete entry type ──────────────────────────────────────
-
 import type { MemberWithUser } from "../types/shared.js";
 type MentionEntry =
   | { kind: "special"; name: string; desc: string }
   | { kind: "user"; member: MemberWithUser };
-
-// ── Contenteditable helpers ───────────────────────────────────────────────
 
 /** Count chars to range.startContainer/startOffset, treating each twemoji <img> as 1 char. */
 function getCharOffset(root: HTMLElement, range: Range): number {
@@ -100,8 +96,6 @@ function getTextBeforeCursor(div: HTMLElement): string {
   }
   return text;
 }
-
-// ── URL extraction ────────────────────────────────────────────────────────
 
 const EXTRACT_URL_REGEX = /https?:\/\/[^\s<]+/g;
 
@@ -356,11 +350,6 @@ export function ChatView() {
     if (containerRef.current.scrollTop === 0 && hasMoreMessages && !loadingMessages) {
       loadMoreMessages();
     }
-  }
-
-  function decodeContent(msgId: string, content: string): string {
-    if (decryptedCache[msgId]) return decryptedCache[msgId];
-    return content ?? "";
   }
 
   function startEditing(msgId: string, currentText: string) {

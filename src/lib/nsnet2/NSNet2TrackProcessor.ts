@@ -1,5 +1,4 @@
-import { Track } from "livekit-client";
-import type { AudioProcessorOptions, TrackProcessor } from "livekit-client";
+import type { Track, AudioProcessorOptions, TrackProcessor } from "livekit-client";
 
 const NSNET2_SAMPLE_RATE = 16000;
 

@@ -28,11 +28,11 @@ import type {
   SoundboardSound,
   CustomEmoji,
   EmojiFavorites,
+  WhitelistEntry,
 } from "../types/shared.js";
 
 import { API_BASE } from "./serverUrl.js";
 
-const BASE_URL = API_BASE;
 const TOKEN_KEY = "flux-session-token";
 
 export function getStoredToken(): string | null {
@@ -57,7 +57,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
     ...options,
     headers,
@@ -104,7 +104,7 @@ export async function getSession(): Promise<{ user: { id: string; email: string;
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  const res = await fetch(`${BASE_URL}/auth/get-session`, {
+  const res = await fetch(`${API_BASE}/auth/get-session`, {
     credentials: "include",
     headers,
   });
@@ -155,11 +155,11 @@ export async function updateMemberRole(userId: string, role: string) {
 // ── Whitelist ──
 
 export async function getWhitelist() {
-  return request<import("../types/shared.js").WhitelistEntry[]>("/whitelist");
+  return request<WhitelistEntry[]>("/whitelist");
 }
 
 export async function addToWhitelist(emails: string[]) {
-  return request<import("../types/shared.js").WhitelistEntry[]>("/whitelist", {
+  return request<WhitelistEntry[]>("/whitelist", {
     method: "POST",
     body: JSON.stringify({ emails }),
   });
@@ -242,7 +242,7 @@ export async function searchMessages(channelId: string, query: string) {
   );
 }
 
-export interface ServerSearchOptions {
+interface ServerSearchOptions {
   q?: string;
   senderId?: string;
   channelId?: string;
@@ -349,7 +349,7 @@ export function uploadFile(file: File, onProgress?: (pct: number) => void): Prom
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${BASE_URL}/upload`);
+    xhr.open("POST", `${API_BASE}/upload`);
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress((e.loaded / e.total) * 100);
@@ -364,7 +364,7 @@ export function uploadFile(file: File, onProgress?: (pct: number) => void): Prom
 }
 
 export function getFileUrl(id: string, filename: string): string {
-  return `${BASE_URL}/files/${id}/${encodeURIComponent(filename)}`;
+  return `${API_BASE}/files/${id}/${encodeURIComponent(filename)}`;
 }
 
 export async function getLinkPreview(url: string): Promise<LinkPreview | null> {
@@ -385,13 +385,6 @@ export async function initSpotifyAuth(codeVerifier: string) {
   return request<{ state: string; redirectUri: string }>("/spotify/init-auth", {
     method: "POST",
     body: JSON.stringify({ codeVerifier }),
-  });
-}
-
-export async function spotifyCallback(code: string, codeVerifier: string, redirectUri: string) {
-  return request<{ success: boolean }>("/spotify/callback", {
-    method: "POST",
-    body: JSON.stringify({ code, codeVerifier, redirectUri }),
   });
 }
 
@@ -451,7 +444,7 @@ export async function searchYouTubeTracks(q: string) {
 
 export function getYouTubeAudioUrl(videoId: string): string {
   const token = getStoredToken();
-  return `${BASE_URL}/youtube/audio/${videoId}${token ? `?token=${token}` : ""}`;
+  return `${API_BASE}/youtube/audio/${videoId}${token ? `?token=${token}` : ""}`;
 }
 
 // ── Economy ──
@@ -504,10 +497,6 @@ export async function getInventory(filters?: { type?: string; rarity?: string })
   if (filters?.rarity) params.set("rarity", filters.rarity);
   const qs = params.toString();
   return request<InventoryItem[]>(`/inventory${qs ? `?${qs}` : ""}`);
-}
-
-export async function getUserInventory(userId: string) {
-  return request<InventoryItem[]>(`/users/${userId}/inventory`);
 }
 
 export async function toggleEquipItem(itemId: string) {

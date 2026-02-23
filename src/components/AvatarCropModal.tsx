@@ -18,12 +18,10 @@ export function AvatarCropModal({ imageUrl, onConfirm, onCancel }: AvatarCropMod
   const dragStart = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  // Load the image
   useEffect(() => {
     const img = new Image();
     img.onload = () => {
       imgRef.current = img;
-      // Fit image to canvas initially
       const scale = CANVAS_SIZE / Math.min(img.width, img.height);
       setZoom(scale);
       setOffset({
@@ -35,7 +33,6 @@ export function AvatarCropModal({ imageUrl, onConfirm, onCancel }: AvatarCropMod
     img.src = imageUrl;
   }, [imageUrl]);
 
-  // Draw on canvas
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const img = imgRef.current;
@@ -46,14 +43,11 @@ export function AvatarCropModal({ imageUrl, onConfirm, onCancel }: AvatarCropMod
 
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // Draw checkerboard background
     ctx.fillStyle = "#1a1a2e";
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // Draw image
     ctx.drawImage(img, offset.x, offset.y, img.width * zoom, img.height * zoom);
 
-    // Draw circular crop overlay
     ctx.save();
     ctx.globalCompositeOperation = "destination-in";
     ctx.beginPath();
@@ -61,7 +55,6 @@ export function AvatarCropModal({ imageUrl, onConfirm, onCancel }: AvatarCropMod
     ctx.fill();
     ctx.restore();
 
-    // Draw circle border
     ctx.strokeStyle = "rgba(255,255,255,0.3)";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -117,14 +110,12 @@ export function AvatarCropModal({ imageUrl, onConfirm, onCancel }: AvatarCropMod
     const img = imgRef.current;
     if (!img) return;
 
-    // Render to output canvas at OUTPUT_SIZE
     const out = document.createElement("canvas");
     out.width = OUTPUT_SIZE;
     out.height = OUTPUT_SIZE;
     const ctx = out.getContext("2d");
     if (!ctx) return;
 
-    // Scale from display canvas to output
     const scale = OUTPUT_SIZE / CANVAS_SIZE;
     ctx.beginPath();
     ctx.arc(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, 0, Math.PI * 2);

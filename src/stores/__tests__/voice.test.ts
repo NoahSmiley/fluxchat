@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // vi.hoisted runs before vi.mock factories — use it for shared mock references
 const { mockGatewayOn, mockGatewayOnConnect, mockGatewaySend } = vi.hoisted(() => ({

@@ -1,5 +1,4 @@
-import { Track } from "livekit-client";
-import type { AudioProcessorOptions, TrackProcessor } from "livekit-client";
+import type { Track, AudioProcessorOptions, TrackProcessor } from "livekit-client";
 
 const DTLN_SAMPLE_RATE = 16000;
 
@@ -48,6 +47,9 @@ export class DtlnTrackProcessor
         if (event.data === "ready") {
           clearTimeout(timeout);
           resolve();
+        } else if (event.data?.error) {
+          clearTimeout(timeout);
+          reject(new Error(event.data.error));
         }
       };
     });

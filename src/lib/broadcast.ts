@@ -21,25 +21,25 @@ export type StateMessage = ChatStateMessage | VoiceStateMessage;
 
 // ── Command messages (popout → main) ──
 
-export interface SendMessageCommand {
+interface SendMessageCommand {
   type: "send-message";
   content: string;
 }
 
-export interface WatchScreenShareCommand {
+interface WatchScreenShareCommand {
   type: "watch-screenshare";
   participantId: string;
 }
 
-export interface StopWatchingCommand {
+interface StopWatchingCommand {
   type: "stop-watching";
 }
 
-export interface RequestStateCommand {
+interface RequestStateCommand {
   type: "request-state";
 }
 
-export type CommandMessage = SendMessageCommand | WatchScreenShareCommand | StopWatchingCommand | RequestStateCommand;
+type CommandMessage = SendMessageCommand | WatchScreenShareCommand | StopWatchingCommand | RequestStateCommand;
 
 // ── Channels ──
 

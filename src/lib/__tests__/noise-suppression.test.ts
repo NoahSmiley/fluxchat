@@ -44,36 +44,12 @@ const {
     },
   });
 
-  // AudioWorkletNode constructor mock — must be a real function so `new` works
-  function MockAudioWorkletNode(this: any) {
-    this.connect = vi.fn();
-    this.disconnect = vi.fn();
-    this.port = mockWorkletNodePort;
-  }
-  vi.fn().mockImplementation(function (this: any) {
-    this.connect = vi.fn();
-    this.disconnect = vi.fn();
-    this.port = mockWorkletNodePort;
-  });
   const MockAudioWorkletNodeFn = vi.fn(function (this: any) {
     this.connect = vi.fn();
     this.disconnect = vi.fn();
     this.port = makePort();
   });
 
-  // AudioContext constructor mock — must be a real function so `new` works.
-  // createGain / createMediaStreamSource / createMediaStreamDestination are
-  // defined on the prototype so that instances returned by `new` have them.
-  function MockAudioContextCtor(this: any, opts?: { sampleRate?: number }) {
-    this.sampleRate = opts?.sampleRate ?? 48000;
-    this.state = "running";
-    this.currentTime = 0;
-    this.close = vi.fn(() => Promise.resolve());
-    this.createGain = vi.fn(makeGainNode);
-    this.createMediaStreamSource = vi.fn(makeSourceNode);
-    this.createMediaStreamDestination = vi.fn(makeDestinationNode);
-    this.audioWorklet = { addModule: vi.fn(() => Promise.resolve()) };
-  }
   const MockAudioContext = vi.fn(function (this: any, opts?: { sampleRate?: number }) {
     this.sampleRate = opts?.sampleRate ?? 48000;
     this.state = "running";

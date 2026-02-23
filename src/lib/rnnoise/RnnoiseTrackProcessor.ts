@@ -1,5 +1,4 @@
-import { Track } from "livekit-client";
-import type { AudioProcessorOptions, TrackProcessor } from "livekit-client";
+import type { Track, AudioProcessorOptions, TrackProcessor } from "livekit-client";
 
 const RNNOISE_SAMPLE_RATE = 48000;
 

@@ -41,7 +41,7 @@ function idbPut(db: IDBDatabase, key: string, value: unknown): Promise<void> {
 export async function generateKeyPair(): Promise<CryptoKeyPair> {
   return crypto.subtle.generateKey(
     { name: "ECDH", namedCurve: "P-256" },
-    true, // extractable (needed for JWK export/import)
+    true,
     ["deriveKey", "deriveBits"],
   );
 }
@@ -100,14 +100,12 @@ export async function deriveDMKey(
   theirPublic: CryptoKey,
   dmChannelId: string,
 ): Promise<CryptoKey> {
-  // Step 1: ECDH → raw shared bits
   const sharedBits = await crypto.subtle.deriveBits(
     { name: "ECDH", public: theirPublic },
     myPrivate,
     256,
   );
 
-  // Step 2: Import as HKDF key material
   const hkdfKey = await crypto.subtle.importKey(
     "raw",
     sharedBits,
@@ -116,7 +114,6 @@ export async function deriveDMKey(
     ["deriveKey"],
   );
 
-  // Step 3: HKDF → AES-256-GCM key
   const encoder = new TextEncoder();
   return crypto.subtle.deriveKey(
     {
@@ -193,7 +190,6 @@ export async function wrapGroupKey(
     name: "AES-GCM",
     iv,
   });
-  // Format: base64(iv + wrappedKey)
   const combined = new Uint8Array(iv.length + wrapped.byteLength);
   combined.set(iv, 0);
   combined.set(new Uint8Array(wrapped), iv.length);
@@ -230,7 +226,6 @@ export async function encrypt(plaintext: string, key: CryptoKey): Promise<string
     key,
     encoded,
   );
-  // Format: base64(iv + ciphertext_with_tag)
   const combined = new Uint8Array(iv.length + ciphertext.byteLength);
   combined.set(iv, 0);
   combined.set(new Uint8Array(ciphertext), iv.length);
@@ -268,8 +263,6 @@ export async function exportKeyAsBase64(key: CryptoKey): Promise<string> {
   const raw = await crypto.subtle.exportKey("raw", key);
   return bufToBase64(new Uint8Array(raw));
 }
-
-// ── Base64 <-> ArrayBuffer helpers ──
 
 function bufToBase64(buf: Uint8Array): string {
   let binary = "";

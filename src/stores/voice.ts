@@ -1,10 +1,9 @@
 import { create } from "zustand";
-import { Room, RoomEvent, Track, VideoPreset, VideoQuality, ExternalE2EEKeyProvider } from "livekit-client";
+import { Room, RoomEvent, Track, VideoQuality, ExternalE2EEKeyProvider } from "livekit-client";
 import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
-import { DtlnTrackProcessor } from "../lib/dtln/DtlnTrackProcessor.js";
 import type { TrackProcessor, AudioProcessorOptions } from "livekit-client";
 
 // ── Noise Suppression Model Selection ──
@@ -295,8 +294,10 @@ async function createNoiseProcessor(model: NoiseSuppressionModel): Promise<Track
       const { SpeexTrackProcessor } = await import("../lib/speex/SpeexTrackProcessor.js");
       return new SpeexTrackProcessor();
     }
-    case "dtln":
+    case "dtln": {
+      const { DtlnTrackProcessor } = await import("../lib/dtln/DtlnTrackProcessor.js");
       return new DtlnTrackProcessor();
+    }
     case "rnnoise": {
       const { RnnoiseTrackProcessor } = await import("../lib/rnnoise/RnnoiseTrackProcessor.js");
       return new RnnoiseTrackProcessor();
@@ -345,16 +346,6 @@ const DEFAULT_BITRATE = 256_000;
 // ── Adaptive Bitrate ──
 
 let adaptiveTargetBitrate = DEFAULT_BITRATE;
-let adaptiveCurrentBitrate = DEFAULT_BITRATE;
-let highLossCount = 0;
-let lowLossCount = 0;
-
-function resetAdaptiveBitrate() {
-  adaptiveTargetBitrate = DEFAULT_BITRATE;
-  adaptiveCurrentBitrate = DEFAULT_BITRATE;
-  highLossCount = 0;
-  lowLossCount = 0;
-}
 
 // ── WebRTC Stats Polling ──
 
@@ -387,7 +378,6 @@ function stopStatsPolling() {
     statsInterval = null;
   }
   resetStatsDelta();
-  resetAdaptiveBitrate();
 }
 
 // ── Lobby Music (Easter Egg) ──
@@ -527,15 +517,15 @@ function setupLocalAnalyser(room: any) {
   try {
     let mediaStreamTrack: MediaStreamTrack | undefined;
     for (const pub of room.localParticipant.audioTrackPublications.values()) {
-      console.log("[analyser] found audio pub:", pub.source, "has track:", !!pub.track);
+      dbg("voice", `[analyser] found audio pub: ${pub.source} has track: ${!!pub.track}`);
       if (pub.source === Track.Source.Microphone && pub.track) {
         mediaStreamTrack = pub.track.mediaStreamTrack;
-        console.log("[analyser] mic mediaStreamTrack:", mediaStreamTrack?.kind, "readyState:", mediaStreamTrack?.readyState);
+        dbg("voice", `[analyser] mic mediaStreamTrack: ${mediaStreamTrack?.kind} readyState: ${mediaStreamTrack?.readyState}`);
         break;
       }
     }
     if (!mediaStreamTrack) {
-      console.warn("[analyser] no mic track found, pubs count:", room.localParticipant.audioTrackPublications.size);
+      dbg("voice", "[analyser] no mic track found, pubs count:", room.localParticipant.audioTrackPublications.size);
       return;
     }
 
@@ -561,9 +551,9 @@ function setupLocalAnalyser(room: any) {
     const stream = new MediaStream([localAnalyserClone]);
     localAnalyserSource = localAnalyserCtx.createMediaStreamSource(stream);
     localAnalyserSource.connect(localAnalyser);
-    console.log("[analyser] setup complete, ctx state:", localAnalyserCtx.state);
+    dbg("voice", "[analyser] setup complete, ctx state:", localAnalyserCtx.state);
   } catch (e) {
-    console.error("[analyser] Failed to setup:", e);
+    dbg("voice", "[analyser] Failed to setup:", e);
     teardownLocalAnalyser();
   }
 }
@@ -1005,7 +995,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
       // Initialize adaptive bitrate ceiling to channel bitrate
       adaptiveTargetBitrate = channelBitrate;
-      adaptiveCurrentBitrate = channelBitrate;
 
       // E2EE: get server encryption key for voice
       const cryptoState = useCryptoStore.getState();
@@ -1026,7 +1015,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           dbg("voice", "joinVoiceChannel E2EE initialized");
         } catch (e) {
           dbg("voice", "joinVoiceChannel E2EE setup failed", e);
-          console.warn("Voice E2EE setup failed, continuing without:", e);
         }
       }
 
@@ -1266,7 +1254,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           }
         } catch (e) {
           dbg("voice", "joinVoiceChannel noise filter setup failed", e);
-          console.error(`Failed to enable ${audioSettings.noiseSuppressionModel} noise filter:`, e);
           await destroyNoiseProcessor();
           dryWetProcessor = null;
           set({ audioSettings: { ...get().audioSettings, noiseSuppressionModel: "off" } });
@@ -1320,7 +1307,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       get()._updateParticipants();
       get()._updateScreenSharers();
       startAudioLevelPolling();
-      startStatsPolling(); // Always run stats for adaptive bitrate
+      startStatsPolling(); // Stats for overlay display
       checkLobbyMusic();
 
       // If push-to-talk is configured, start muted
@@ -1603,7 +1590,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
                   gainTrackProcessor = new GainTrackProcessor((value as number) / 100);
                   await micPub.track!.setProcessor(gainTrackProcessor as any);
                 } catch (e) {
-                  console.warn("Failed to setup GainTrackProcessor:", e);
+                  dbg("voice", "Failed to setup GainTrackProcessor:", e);
                   gainTrackProcessor = null;
                 }
               };
@@ -1683,13 +1670,12 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
                 gainTrackProcessor = new GainTrackProcessor(currentGain / 100);
                 await micPub.track.setProcessor(gainTrackProcessor as any);
               } catch (e2) {
-                console.warn("Failed to setup GainTrackProcessor:", e2);
+                dbg("voice", "Failed to setup GainTrackProcessor:", e2);
                 gainTrackProcessor = null;
               }
             }
           })
-          .catch((e) => {
-            console.warn("Failed to disable noise filter:", e);
+          .catch(() => {
             destroyNoiseProcessor();
             dryWetProcessor = null;
           });
@@ -1725,7 +1711,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             }
           } catch (e) {
             if (myNonce !== noiseSwitchNonce) return;
-            console.error(`Failed to switch noise model to ${model}:`, e);
             dbg("voice", `Noise model ${model} failed — reverting to off`, e instanceof Error ? e.message : e);
             await destroyNoiseProcessor();
             dryWetProcessor = null;
@@ -1775,9 +1760,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     // Reset adaptive state when bitrate is manually set (e.g. channel bitrate change)
     adaptiveTargetBitrate = bitrate;
-    adaptiveCurrentBitrate = bitrate;
-    highLossCount = 0;
-    lowLossCount = 0;
 
     // Apply constant bitrate via RTCRtpSender (set min = max to force CBR)
     for (const pub of room.localParticipant.audioTrackPublications.values()) {
@@ -1861,7 +1843,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         return;
       }
       dbg("voice", "toggleScreenShare error", err);
-      console.error("Screen share error:", err);
     }
   },
 
@@ -1912,7 +1893,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             }
           }
         } catch (e) {
-          console.error("Failed to republish screen share for codec change:", e);
+          dbg("voice", "Failed to republish screen share for codec change:", e);
         }
       })();
       return;
@@ -1931,7 +1912,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             params.encodings[0].maxBitrate = preset.maxBitrate;
             params.encodings[0].maxFramerate = preset.frameRate;
             sender.setParameters(params).catch((e: unknown) =>
-              console.warn("Failed to update screen share encoding:", e),
+              dbg("voice", "Failed to update screen share encoding:", e),
             );
           }
         }
@@ -1944,7 +1925,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             height: { ideal: preset.height },
             frameRate: { ideal: preset.frameRate },
           }).catch((e: unknown) =>
-            console.warn("Failed to apply track constraints:", e),
+            dbg("voice", "Failed to apply track constraints:", e),
           );
         }
       }

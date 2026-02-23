@@ -32,11 +32,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-
-// // Hardcoded game channels — disabled for now
-// const HARDCODED_GAME_CHANNELS: Channel[] = [
-//   { id: "__game_cs2__", serverId: "", name: "counter-strike-2", type: "game", bitrate: null, parentId: null, position: 999, createdAt: "" },
-// ];
+import { dbg } from "../lib/debug.js";
 
 const COLLAPSE_KEY = "flux-collapsed-categories";
 const DROP_INTO_CATEGORY_DWELL_MS = 1000;
@@ -518,9 +514,7 @@ export function ChannelSidebar() {
   const regularChannels = useMemo(() => channels.filter((c) => !c.isRoom && c.type !== "voice"), [channels]);
   const rooms = useMemo(() => channels.filter((c) => c.isRoom), [channels]);
 
-  const allChannels = regularChannels;
-
-  const tree = useMemo(() => buildTree(allChannels), [allChannels]);
+  const tree = useMemo(() => buildTree(regularChannels), [regularChannels]);
   const flatList = useMemo(() => flattenTree(tree, collapsed, activeChannelId), [tree, collapsed, activeChannelId]);
   const flatIds = useMemo(() => flatList.map((n) => n.channel.id), [flatList]);
 
@@ -647,7 +641,7 @@ export function ChannelSidebar() {
 
     // Validate: parent must be a category, and not a descendant of the dragged item
     if (newParentId) {
-      const parent = allChannels.find((c) => c.id === newParentId);
+      const parent = regularChannels.find((c) => c.id === newParentId);
       if (!parent || parent.type !== "category") {
         newParentId = null;
       } else if (isActiveCategory) {
@@ -655,7 +649,7 @@ export function ChannelSidebar() {
         let checkId: string | null = newParentId;
         while (checkId) {
           if (checkId === active.id) { newParentId = null; break; }
-          checkId = allChannels.find((c) => c.id === checkId)?.parentId ?? null;
+          checkId = regularChannels.find((c) => c.id === checkId)?.parentId ?? null;
         }
       }
     }
@@ -674,7 +668,7 @@ export function ChannelSidebar() {
 
     if (sameParent) {
       // Same-parent reorder: only reorder within the same type group
-      const allSiblings = allChannels
+      const allSiblings = regularChannels
         .filter((c) => (c.parentId ?? null) === (newParentId ?? null))
         .sort((a, b) => a.position - b.position);
 
@@ -701,14 +695,14 @@ export function ChannelSidebar() {
     } else {
       // Cross-parent move: remove from old parent, add to new parent
       // Place the item at the end of its type group in the new parent
-      const newSiblings = allChannels
+      const newSiblings = regularChannels
         .filter((c) => (c.parentId ?? null) === (newParentId ?? null) && c.id !== (active.id as string));
 
       const withMoved = [...newSiblings, activeNode.channel];
       items.push(...assignPositions(withMoved, newParentId));
 
       // Reorder old siblings to close the gap
-      const oldSiblings = allChannels
+      const oldSiblings = regularChannels
         .filter((c) => (c.parentId ?? null) === (activeNode.channel.parentId ?? null) && c.id !== (active.id as string));
       items.push(...assignPositions(oldSiblings, activeNode.channel.parentId));
     }
@@ -823,7 +817,6 @@ export function ChannelSidebar() {
         </button>
       </div>
 
-      {/* ── Join Voice Button + Room Participants (pinned to bottom) ── */}
       {(() => {
         const isInVoice = !!connectedChannelId || connecting;
         // Gather all voice channels (rooms + legacy voice) that have participants
@@ -984,16 +977,16 @@ export function ChannelSidebar() {
                               if ((window as any)[key] && now - (window as any)[key] < 1000) return;
                               (window as any)[key] = now;
                               const newLocked = !current.isLocked;
-                              console.log(`[lock] toggling room ${vc.id} lock: ${current.isLocked} → ${newLocked}`);
+                              dbg("ui", `[lock] toggling room ${vc.id} lock: ${current.isLocked} → ${newLocked}`);
                               useChatStore.setState((s) => ({
                                 channels: s.channels.map((c) =>
                                   c.id === vc.id ? { ...c, isLocked: newLocked } : c,
                                 ),
                               }));
                               api.updateChannel(activeServerId, vc.id, { isLocked: newLocked })
-                                .then((res) => console.log("[lock] API success:", res))
+                                .then((res) => dbg("ui", "[lock] API success:", res))
                                 .catch((err) => {
-                                  console.error("[lock] API failed:", err);
+                                  dbg("ui", "[lock] API failed:", err);
                                   useChatStore.setState((s) => ({
                                     channels: s.channels.map((c) =>
                                       c.id === vc.id ? { ...c, isLocked: !newLocked } : c,
@@ -1008,7 +1001,6 @@ export function ChannelSidebar() {
                       </div>
                     </div>
                     {isRoomCollapsed ? (
-                      /* ── Collapsed: compact inline avatars ── */
                       <div className="voice-room-avatars">
                         {participants.map((p) => {
                           const member = members.find((m) => m.userId === p.userId);
@@ -1030,7 +1022,6 @@ export function ChannelSidebar() {
                         })}
                       </div>
                     ) : isInVoice ? (
-                      /* ── Expanded + connected: detailed rows with speaking indicators ── */
                       <div className="voice-room-detailed">
                         {/* Dummy users */}
                         {showDummyUsers && voiceChannels.indexOf(vc) === 0 && DUMMY_MEMBERS.map((d) => (
@@ -1076,7 +1067,6 @@ export function ChannelSidebar() {
                         })}
                       </div>
                     ) : (
-                      /* ── Expanded + not connected: compact avatar circles ── */
                       <div className="voice-room-avatars">
                         {participants.map((p) => {
                           const member = members.find((m) => m.userId === p.userId);
@@ -1121,7 +1111,7 @@ export function ChannelSidebar() {
                   selectChannel(newRoom.id);
                   useVoiceStore.getState().joinVoiceChannel(newRoom.id);
                 } catch (err) {
-                  console.error("Failed to create room:", err);
+                  dbg("ui", "Failed to create room:", err);
                 }
               }}
             >
@@ -1167,7 +1157,7 @@ export function ChannelSidebar() {
                 className="voice-user-context-menu-item"
                 onClick={() => {
                   if (activeServerId) {
-                    api.moveUserToRoom(activeServerId, contextMenu.channelId, contextMenu.userId, r.id).catch((err) => console.error("[move-user] failed:", err));
+                    api.moveUserToRoom(activeServerId, contextMenu.channelId, contextMenu.userId, r.id).catch((err) => dbg("ui", "[move-user] failed:", err));
                   }
                   setContextMenu(null);
                 }}
@@ -1330,7 +1320,7 @@ export function ChannelSidebar() {
                 useChatStore.setState({ channels: remaining });
                 if (activeChannelId === room.id && remaining.length > 0) selectChannel(remaining[0].id);
               } catch (err) {
-                console.error("Failed to delete room:", err);
+                dbg("ui", "Failed to delete room:", err);
               }
             }},
           ] : []),

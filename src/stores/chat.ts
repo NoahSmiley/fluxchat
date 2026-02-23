@@ -7,14 +7,12 @@ import { playMessageSound, showDesktopNotification, shouldNotifyChannel } from "
 import { useCryptoStore } from "./crypto.js";
 import { useUIStore } from "./ui.js";
 import { API_BASE } from "../lib/serverUrl.js";
+import { dbg } from "../lib/debug.js";
 
 const EVERYONE_MENTION_RE = /(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i;
 const HERE_MENTION_RE    = /(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i;
 
-// UTF-8-safe base64 encoding/decoding (btoa/atob only handle Latin-1)
-export function utf8ToBase64(str: string): string {
-  return btoa(String.fromCodePoint(...new TextEncoder().encode(str)));
-}
+// UTF-8-safe base64 decoding (btoa/atob only handle Latin-1)
 export function base64ToUtf8(b64: string): string {
   const binary = atob(b64);
   const bytes = Uint8Array.from(binary, (c) => c.codePointAt(0)!);
@@ -700,7 +698,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const key = await cryptoState.getDMKey(activeDMChannelId, dm.otherUser.id);
       ciphertext = await cryptoState.encryptMessage(content, key);
     } catch (e) {
-      console.error("DM encryption failed:", e);
+      dbg("chat", "DM encryption failed:", e);
       set({ dmError: "Failed to encrypt message. Try reinitializing encryption." });
       return;
     }
@@ -915,14 +913,14 @@ gateway.onConnect(() => {
   if (activeDMChannelId) gateway.send({ type: "join_dm", dmChannelId: activeDMChannelId });
 
   // Initialize E2EE crypto
-  useCryptoStore.getState().initialize().catch((e) => console.error("Crypto init failed:", e));
+  useCryptoStore.getState().initialize().catch((e) => dbg("chat", "Crypto init failed:", e));
 
   // Pre-fetch DM channels for instant DM switching
   useChatStore.getState().loadDMChannels();
 
   // Initialize Spotify
   import("./spotify.js").then(({ useSpotifyStore }) => {
-    useSpotifyStore.getState().loadAccount().catch((e) => console.error("Spotify init failed:", e));
+    useSpotifyStore.getState().loadAccount().catch((e) => dbg("chat", "Spotify init failed:", e));
   });
 
   // Start activity polling (detect running games/apps via Tauri)

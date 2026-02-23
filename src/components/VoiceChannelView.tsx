@@ -15,6 +15,7 @@ import {
 import { StatsOverlay } from "./StatsOverlay.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import { useUIStore } from "../stores/ui.js";
+import { dbg } from "../lib/debug.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
   // Request 1080p — matches the max resolution we actually publish
@@ -22,8 +23,6 @@ function applyMaxQuality(pub: RemoteTrackPublication) {
   pub.setVideoQuality(VideoQuality.HIGH);
 }
 
-// ── Single Stream Tile ──
-// Attaches a LiveKit video track to a <video> element for one screen sharer.
 function StreamTile({ participantId, username, isPinned }: {
   participantId: string;
   username: string;
@@ -131,7 +130,6 @@ function StreamTile({ participantId, username, isPinned }: {
   );
 }
 
-// ── Dummy Stream Tile (for preview when showDummyUsers is on) ──
 function DummyStreamTile({ participantId, username, isPinned }: {
   participantId: string;
   username: string;
@@ -177,9 +175,6 @@ const DUMMY_STREAMERS = [
   { participantId: "__d10", username: "Volt" },
 ];
 
-// ── Speaking Avatar ──
-// The glow ring animates via rAF reading audio levels directly from the store (no re-render).
-// Only the binary speaking boolean triggers a React re-render.
 function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle, memberRingSpin, memberRingPatternSeed, isStreaming }: {
   userId: string; username: string; image?: string | null; large?: boolean; role?: string;
   memberRingStyle?: string; memberRingSpin?: boolean; memberRingPatternSeed?: number | null;
@@ -226,7 +221,6 @@ function ParticipantTile({ userId, username, banner, children }: { userId: strin
   );
 }
 
-// ── Lobby Music Bar (Easter Egg) ──
 function LobbyMusicBar() {
   const lobbyMusicPlaying = useVoiceStore((s) => s.lobbyMusicPlaying);
   const lobbyMusicVolume = useVoiceStore((s) => s.lobbyMusicVolume);
@@ -270,8 +264,6 @@ function LobbyMusicBar() {
   );
 }
 
-// ── Room Switcher Bar ──
-// Simple pill-style row: "Lobby (9) | Room 1 (3) [x] | +"
 function RoomSwitcherBar() {
   const { channels, activeServerId } = useChatStore();
   const { connectedChannelId, channelParticipants, joinVoiceChannel } = useVoiceStore();
@@ -294,7 +286,7 @@ function RoomSwitcherBar() {
       useChatStore.getState().selectChannel(newRoom.id);
       joinVoiceChannel(newRoom.id);
     } catch (err) {
-      console.error("Failed to create room:", err);
+      dbg("voice", "Failed to create room:", err);
     } finally {
       setCreating(false);
     }
@@ -310,7 +302,7 @@ function RoomSwitcherBar() {
       useChatStore.setState({ channels: remaining });
       if (activeChannelId === roomId && remaining.length > 0) selectChannel(remaining[0].id);
     } catch (err) {
-      console.error("Failed to close room:", err);
+      dbg("voice", "Failed to close room:", err);
     }
   }
 
@@ -363,7 +355,6 @@ function RoomSwitcherBar() {
   );
 }
 
-// ── Main Export ──
 export function VoiceChannelView() {
   const { channels, activeChannelId, activeServerId, members } = useChatStore();
   const {
@@ -495,7 +486,7 @@ export function VoiceChannelView() {
                 useChatStore.getState().selectChannel(newRoom.id);
                 joinVoiceChannel(newRoom.id);
               } catch (err) {
-                console.error("Failed to create room:", err);
+                dbg("voice", "Failed to create room:", err);
               }
             }}
           >
@@ -600,8 +591,6 @@ export function VoiceChannelView() {
                     </div>
                   )}
                 </div>
-
-                {/* removed viewers sidebar */}
               </div>
             ) : (
               <div className="streams-empty">

@@ -23,7 +23,6 @@ export interface WebRTCQualityStats {
   connectionType: string; // e.g. "relay", "srflx", "host"
 }
 
-// Previous byte counts for delta-based bitrate calculation
 let prevAudioBytesSent = 0;
 let prevAudioBytesReceived = 0;
 let prevVideoBytesSent = 0;
@@ -85,7 +84,6 @@ export async function collectWebRTCStats(room: Room): Promise<WebRTCQualityStats
 
       if (s.type === "remote-inbound-rtp" && s.kind === "audio") {
         stats.audioJitter = s.jitter ?? 0;
-        // Store RTCP-based RTT as fallback only — prefer ICE candidate-pair below
         rtcpRtt = Math.round((s.roundTripTime ?? 0) * 1000);
       }
 
@@ -138,9 +136,6 @@ export async function collectWebRTCStats(room: Room): Promise<WebRTCQualityStats
             stats.audioPacketLoss = Math.round((lost / (received + lost)) * 10000) / 100;
           }
 
-          if (!stats.audioCodec && s.codecId) {
-            // Will be resolved from codec stats
-          }
           stats.audioJitter = stats.audioJitter || (s.jitter ?? 0);
         }
 
@@ -236,7 +231,6 @@ export async function collectWebRTCStats(room: Room): Promise<WebRTCQualityStats
     }
   } catch {}
 
-  // Fall back to RTCP-based RTT if ICE candidate-pair RTT unavailable
   if (stats.rtt === 0 && rtcpRtt > 0) {
     stats.rtt = rtcpRtt;
   }

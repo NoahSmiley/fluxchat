@@ -79,5 +79,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-// Initialize on load
 useAuthStore.getState().initialize();

@@ -114,7 +114,9 @@ describe("useChatStore", () => {
       decryptedCache: {},
       dmError: null,
       unreadChannels: new Set(),
+      mentionCounts: {},
       typingUsers: {},
+      customEmojis: [],
     });
   });
 

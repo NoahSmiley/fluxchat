@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 
-export type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "ready" | "error" | "up-to-date";
+type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "ready" | "error" | "up-to-date";
 
 interface UpdateState {
   status: UpdateStatus;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Monitor, AppWindow, Loader2 } from "lucide-react";
+import { dbg } from "../lib/debug.js";
 
 interface CaptureSource {
   id: string;
@@ -19,7 +20,6 @@ export function ScreenSharePicker({ onSelect, onCancel }: ScreenSharePickerProps
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"screen" | "window">("screen");
   const [selected, setSelected] = useState<string | null>(null);
-  const [audioEnabled, setAudioEnabled] = useState(true);
 
   useEffect(() => {
     invoke<CaptureSource[]>("get_capture_sources")
@@ -29,7 +29,7 @@ export function ScreenSharePicker({ onSelect, onCancel }: ScreenSharePickerProps
         const firstScreen = result.find((s) => s.source_type === "screen");
         if (firstScreen) setSelected(firstScreen.id);
       })
-      .catch((err) => console.error("Failed to get capture sources:", err))
+      .catch((err) => dbg("ui", "Failed to get capture sources:", err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -117,14 +117,6 @@ export function ScreenSharePicker({ onSelect, onCancel }: ScreenSharePickerProps
         </div>
 
         <div className="screenshare-picker-footer">
-          <label className="screenshare-audio-toggle">
-            <input
-              type="checkbox"
-              checked={audioEnabled}
-              onChange={(e) => setAudioEnabled(e.target.checked)}
-            />
-            Share audio
-          </label>
           <div className="screenshare-picker-actions">
             <button className="btn-small" onClick={onCancel}>
               Cancel

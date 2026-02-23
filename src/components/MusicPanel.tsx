@@ -3,6 +3,7 @@ import { useSpotifyStore } from "../stores/spotify.js";
 import { useAuthStore } from "../stores/auth.js";
 import { Play, Pause, SkipForward, Plus, Search, X, Music, LogOut, Shuffle, Volume2, VolumeX } from "lucide-react";
 import type { SpotifyTrack, YouTubeTrack } from "../types/shared.js";
+import { dbg } from "../lib/debug.js";
 
 // ── Kaleidoscopic Shader Visualizer (Easter Egg) ──
 
@@ -138,7 +139,7 @@ function MusicVisualizer({ isPaused, albumArtUrl, onClose }: { isPaused: boolean
       gl!.shaderSource(s, src);
       gl!.compileShader(s);
       if (!gl!.getShaderParameter(s, gl!.COMPILE_STATUS)) {
-        console.error("Shader compile error:", gl!.getShaderInfoLog(s));
+        dbg("music", "Shader compile error:", gl!.getShaderInfoLog(s));
       }
       return s;
     }
@@ -151,7 +152,7 @@ function MusicVisualizer({ isPaused, albumArtUrl, onClose }: { isPaused: boolean
     gl.linkProgram(prog);
 
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-      console.error("Program link error:", gl.getProgramInfoLog(prog));
+      dbg("music", "Program link error:", gl.getProgramInfoLog(prog));
     }
 
     gl.useProgram(prog);
@@ -335,11 +336,6 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
     await addTrackToQueue(track);
   }
 
-  function handlePlay(trackUri?: string, source?: string) {
-    play(trackUri, source);
-  }
-
-  // Not linked
   if (!account?.linked) {
     return (
       <div className="music-panel">
@@ -351,7 +347,6 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
     );
   }
 
-  // No session yet
   if (!session) {
     return (
       <div className="music-panel">
@@ -422,7 +417,7 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
                 <div className="music-search-item-actions">
                   <button
                     className="music-search-item-play"
-                    onClick={() => handlePlay(track.uri)}
+                    onClick={() => play(track.uri)}
                     title="Play now"
                   >
                     <Play size={14} />
@@ -460,7 +455,6 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
     </div>
   );
 
-  // Progress bar helpers
   const progressMs = activeSource === "youtube" ? youtubeProgress : (playerState?.position ?? 0);
   const durationMs = activeSource === "youtube" ? youtubeDuration : (playerState?.duration ?? 0);
   const progressPct = durationMs > 0 ? (progressMs / durationMs) * 100 : 0;
@@ -633,7 +627,7 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
                 {i === 0 && (
                   <button
                     className="music-queue-item-play"
-                    onClick={() => handlePlay(item.trackUri, item.source)}
+                    onClick={() => play(item.trackUri, item.source)}
                     title="Play"
                   >
                     <Play size={14} />

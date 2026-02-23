@@ -5,7 +5,6 @@ import { Crosshair, Trophy, TrendingUp, Users, Star, Swords, Map as MapIcon, Cop
 import { useUIStore } from "../stores/ui.js";
 import { avatarColor } from "../lib/avatarColor.js";
 
-// ── CS2 Shield Logo SVG ──
 function CS2Logo({ size = 48 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
@@ -28,7 +27,6 @@ function CS2Logo({ size = 48 }: { size?: number }) {
   );
 }
 
-// ── Crosshair Preview SVG ──
 function CrosshairPreview({ color, size: s, gap, thickness, dot }: {
   color: string; size: number; gap: number; thickness: number; dot: boolean;
 }) {
@@ -49,7 +47,6 @@ function CrosshairPreview({ color, size: s, gap, thickness, dot }: {
   );
 }
 
-// ── Copy button with feedback ──
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   function handleCopy() {
@@ -65,7 +62,6 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
-// ── Leetify API types ──
 interface LeetifyRatings {
   aim: number;
   positioning: number;
@@ -98,7 +94,6 @@ const MOCK_NEWS = [
   { id: 3, title: "Balance Patch 1.40.2", desc: "M4A1-S rate of fire increased. AK-47 first-shot accuracy improved.", date: "Feb 7, 2026" },
 ];
 
-// ── Pro Crosshairs Data ──
 const PRO_CROSSHAIRS = [
   { name: "s1mple", team: "NAVI", code: "CSGO-m58cB-AyBDC-AV6tp-Gwq2K-QGKeB", color: "#00ffff", size: 10, gap: 3, thickness: 2, dot: true, desc: "Cyan dot crosshair" },
   { name: "ZywOo", team: "Vitality", code: "CSGO-Os4Wd-wVikQ-bAPFj-5baaP-YhQXG", color: "#00ff00", size: 8, gap: 3, thickness: 1.5, dot: false, desc: "Small green classic" },
@@ -110,7 +105,6 @@ const PRO_CROSSHAIRS = [
   { name: "ropz", team: "FaZe", code: "CSGO-XrDOx-O74Yt-AYbxH-sD3OQ-jRMUP", color: "#00ff00", size: 9, gap: 3, thickness: 2, dot: false, desc: "Classic green" },
 ];
 
-// ── Surf Maps & Servers ──
 const SURF_MAPS = [
   { name: "surf_mesa", difficulty: "Beginner", tier: "T1", desc: "Classic intro surf map with smooth ramps" },
   { name: "surf_beginner", difficulty: "Beginner", tier: "T1", desc: "Perfect for learning the basics of surfing" },
@@ -131,7 +125,6 @@ const SURF_SERVERS = [
 
 type Tab = "team" | "crosshairs" | "surf";
 
-// ── Per-member Leetify cache ──
 const leetifyCache = new Map<string, { data: LeetifyProfile | null; fetched: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 min
 
@@ -149,7 +142,6 @@ async function fetchLeetifyProfile(steamId: string): Promise<LeetifyProfile | nu
   }
 }
 
-// ── Main Component ──
 export function GameChannelView() {
   const { members, onlineUsers, userStatuses, userActivities } = useChatStore();
   const { user } = useAuthStore();
@@ -164,14 +156,12 @@ export function GameChannelView() {
   const [teamLeetify, setTeamLeetify] = useState<Record<string, LeetifyProfile | null>>({});
   const [teamLoading, setTeamLoading] = useState(false);
 
-  // Fetch own stats
   useEffect(() => {
     if (!user?.steamId) { setMyLeetify(null); return; }
     setMyLoading(true);
     fetchLeetifyProfile(user.steamId).then((d) => { setMyLeetify(d); setMyLoading(false); });
   }, [user?.steamId]);
 
-  // Fetch team stats
   useEffect(() => {
     const linkedMembers = members.filter((m) => m.steamId && m.userId !== user?.id);
     if (linkedMembers.length === 0) { setTeamLeetify({}); return; }
@@ -239,7 +229,6 @@ export function GameChannelView() {
   );
 }
 
-// ── Team Tab ──
 function TeamTab({ user, isLinked, myLeetify, myLoading, members, onlineUsers, userActivities, teamLeetify, teamLoading, openSettings }: {
   user: any;
   isLinked: boolean;
@@ -444,7 +433,6 @@ function TeamTab({ user, isLinked, myLeetify, myLoading, members, onlineUsers, u
   );
 }
 
-// ── Crosshairs Tab ──
 function CrosshairsTab() {
   return (
     <>
@@ -479,7 +467,6 @@ function CrosshairsTab() {
   );
 }
 
-// ── Surf Tab ──
 function SurfTab() {
   return (
     <>

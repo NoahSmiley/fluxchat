@@ -5,17 +5,10 @@ use axum::{
     Json,
 };
 use rand::Rng;
-use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::models::AuthUser;
+use crate::models::{AuthUser, CraftRequest};
 use crate::AppState;
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CraftRequest {
-    pub inventory_ids: Vec<String>,
-}
 
 /// Rarity tier order for crafting upgrades
 fn rarity_tier(rarity: &str) -> Option<u8> {

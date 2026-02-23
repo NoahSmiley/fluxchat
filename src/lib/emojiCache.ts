@@ -1,4 +1,5 @@
 import { getEmojiFavorites } from "./api.js";
+import { dbg } from "./debug.js";
 
 /** Favorites cache — persists between picker opens so re-open is instant. */
 export const favCache: { data: { standard: Set<string>; customIds: Set<string> } | null } = { data: null };
@@ -9,5 +10,5 @@ export function prefetchEmojiFavorites(): void {
     .then((favs) => {
       favCache.data = { standard: new Set(favs.standard), customIds: new Set(favs.customIds) };
     })
-    .catch(() => {});
+    .catch((err) => dbg("emoji", "Failed to prefetch favorites", err));
 }

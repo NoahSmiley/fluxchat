@@ -18,8 +18,6 @@ export interface DopplerPattern {
   glowColor?: string;
 }
 
-// ── Hash utility ──
-
 function hash(seed: number): number {
   let h = seed * 2654435761;
   h = ((h >>> 16) ^ h) * 0x45d9f3b;
@@ -31,8 +29,6 @@ function val(seed: number, offset: number, min: number, max: number): number {
   const raw = ((hash(seed + offset * 1000) & 0xffff) / 0xffff);
   return min + raw * (max - min);
 }
-
-// ── Doppler (purple / blue / red) ──
 
 const DOPPLER_HUE_RANGES = [
   [260, 310],  // purple
@@ -57,7 +53,7 @@ function isSapphire(h1: number, h2: number, h3: number): boolean {
   return [h1, h2, h3].every(h => h >= 210 && h <= 250);
 }
 
-export function seedToDoppler(seed: number): DopplerPattern {
+function seedToDoppler(seed: number): DopplerPattern {
   const h1 = dopplerHue(seed, 0);
   const h2 = dopplerHue(seed, 1);
   const h3 = dopplerHue(seed, 2);
@@ -72,8 +68,6 @@ export function seedToDoppler(seed: number): DopplerPattern {
     patternName: "Doppler",
   };
 }
-
-// ── Gamma Doppler (green / cyan / blue) ──
 
 const GAMMA_HUE_RANGES = [
   [100, 155],  // green
@@ -97,7 +91,7 @@ function isDiamond(h1: number, h2: number, h3: number): boolean {
   return [h1, h2, h3].every(h => h >= 175 && h <= 200);
 }
 
-export function seedToGammaDoppler(seed: number): DopplerPattern {
+function seedToGammaDoppler(seed: number): DopplerPattern {
   const h1 = gammaHue(seed, 0);
   const h2 = gammaHue(seed, 1);
   const h3 = gammaHue(seed, 2);
@@ -113,8 +107,6 @@ export function seedToGammaDoppler(seed: number): DopplerPattern {
   };
 }
 
-// ── Shared gradient builder ──
-
 function buildGradient(hues: number[], angle: number): string {
   const [h1, h2, h3] = hues;
   const light1 = `hsl(${h1}, 85%, 55%)`;
@@ -125,9 +117,7 @@ function buildGradient(hues: number[], angle: number): string {
   return `linear-gradient(${angle}deg, ${mid1} 0%, ${light1} 18%, ${mid2} 35%, ${light2} 52%, ${accent} 70%, ${mid1} 88%, ${light1} 100%)`;
 }
 
-// ── Rare / Special patterns (hand-tuned) ──
-
-export const RARE_PATTERNS: Record<string, DopplerPattern> = {
+const RARE_PATTERNS: Record<string, DopplerPattern> = {
   ruby: {
     background: "linear-gradient(135deg, hsl(0, 80%, 12%) 0%, hsl(355, 90%, 28%) 15%, hsl(350, 95%, 45%) 30%, hsl(0, 85%, 55%) 45%, hsl(5, 95%, 48%) 55%, hsl(355, 88%, 32%) 70%, hsl(350, 90%, 25%) 85%, hsl(0, 80%, 12%) 100%)",
     isRare: true,
@@ -153,8 +143,6 @@ export const RARE_PATTERNS: Record<string, DopplerPattern> = {
     glowColor: "rgba(0, 220, 240, 0.5)",
   },
 };
-
-// ── Unified entry point (used by avatarColor.ts) ──
 
 /** Resolve a seed into a pattern, given the ring type (doppler or gamma_doppler). */
 export function seedToPattern(seed: number, type: DopplerType = "doppler"): DopplerPattern {

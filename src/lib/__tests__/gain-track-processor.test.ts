@@ -1,26 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock Web Audio API before importing GainTrackProcessor
-const mockGainNode = {
-  gain: {
-    value: 1,
-    setValueAtTime: vi.fn(),
-  },
-  connect: vi.fn(),
-  disconnect: vi.fn(),
-};
-
-const mockSourceNode = {
-  connect: vi.fn(),
-  disconnect: vi.fn(),
-};
-
-const mockDestinationNode = {
-  stream: {
-    getAudioTracks: () => [{ id: "processed-track", kind: "audio" }],
-  },
-};
-
 let mockContextState = "running";
 const mockContextClose = vi.fn();
 

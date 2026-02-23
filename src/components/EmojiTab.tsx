@@ -80,7 +80,6 @@ export function EmojiTab({ serverId }: { serverId: string }) {
       setEmojis((prev) => [...prev, emoji]);
       // Update the chat store so the picker sees the new emoji immediately
       fetchCustomEmojis(serverId).catch(() => {});
-      // Reset form
       setName("");
       setFile(null);
       setPreview(null);

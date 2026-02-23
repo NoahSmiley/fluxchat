@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 describe("serverUrl", () => {
-  const originalLocation = window.location;
-
   beforeEach(() => {
     vi.resetModules();
     // Clean up any VITE_SERVER_URL set by previous tests
