@@ -6,7 +6,6 @@ import { useAuthStore } from "../stores/auth.js";
 import { useSpotifyStore } from "../stores/spotify.js";
 import * as api from "../lib/api.js";
 import { MusicPanel } from "./MusicPanel.js";
-import { SoundboardPanel } from "./SoundboardPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
@@ -383,7 +382,7 @@ export function VoiceChannelView() {
   } = useVoiceStore();
   const { loadSession, account, playerState, session, queue, volume, setVolume, youtubeTrack } = useSpotifyStore();
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
-  const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music" | "sounds">("voice");
+  const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music">("voice");
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
   // Track if we're switching rooms (was connected, now reconnecting)
@@ -452,12 +451,6 @@ export function VoiceChannelView() {
           >
             <Music size={14} /> Music
           </button>
-          <button
-            className={`voice-tab ${activeTab === "sounds" ? "active" : ""}`}
-            onClick={() => setActiveTab("sounds")}
-          >
-            <Volume2 size={14} /> Sounds
-          </button>
         </div>
       )}
 
@@ -504,10 +497,6 @@ export function VoiceChannelView() {
 
       {showVoiceUI && activeTab === "music" && activeChannelId && (
         <MusicPanel voiceChannelId={activeChannelId} />
-      )}
-
-      {showVoiceUI && activeTab === "sounds" && activeServerId && activeChannelId && (
-        <SoundboardPanel serverId={activeServerId} channelId={activeChannelId} />
       )}
 
       {showVoiceUI && activeTab === "streams" && (() => {

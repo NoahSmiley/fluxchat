@@ -275,7 +275,7 @@ pub async fn search_dm_messages(
 /// GET /api/users/search
 pub async fn search_users(
     State(state): State<Arc<AppState>>,
-    user: AuthUser,
+    _user: AuthUser,
     Query(query): Query<UserSearchQuery>,
 ) -> impl IntoResponse {
     let q = match query.q.as_deref() {

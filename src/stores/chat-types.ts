@@ -111,7 +111,7 @@ export interface ChatState {
 }
 
 // Per-channel message cache for instant channel switching
-export interface ChannelCache {
+interface ChannelCache {
   messages: Message[];
   reactions: Record<string, { emoji: string; userIds: string[] }[]>;
   hasMore: boolean;
@@ -129,7 +129,7 @@ export function saveChannelCache(channelId: string, state: ChatState) {
 }
 
 // Server-level cache for instant restore when switching back from DMs
-export interface ServerCache {
+interface ServerCache {
   channels: ChatState["channels"];
   members: ChatState["members"];
   activeChannelId: string | null;
@@ -147,7 +147,7 @@ export function saveServerCache(state: ChatState) {
 }
 
 // DM message cache for instant switching between DMs
-export interface DMCache {
+interface DMCache {
   messages: ChatState["dmMessages"];
   hasMore: boolean;
   cursor: string | null;

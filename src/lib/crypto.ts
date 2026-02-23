@@ -139,11 +139,11 @@ export async function generateGroupKey(): Promise<CryptoKey> {
   );
 }
 
-export async function exportGroupKey(key: CryptoKey): Promise<ArrayBuffer> {
+async function exportGroupKey(key: CryptoKey): Promise<ArrayBuffer> {
   return crypto.subtle.exportKey("raw", key);
 }
 
-export async function importGroupKey(raw: ArrayBuffer): Promise<CryptoKey> {
+async function importGroupKey(raw: ArrayBuffer): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     "raw",
     raw,

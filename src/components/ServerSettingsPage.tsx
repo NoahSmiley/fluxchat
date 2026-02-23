@@ -5,7 +5,6 @@ import { useAuthStore } from "../stores/auth.js";
 import { useUIStore } from "../stores/ui.js";
 import * as api from "../lib/api.js";
 import type { WhitelistEntry, MemberWithUser } from "../types/shared.js";
-import { SoundboardTab } from "./SoundboardTab.js";
 import { EmojiTab } from "./EmojiTab.js";
 
 function OverviewTab({
@@ -221,9 +220,9 @@ function MembersTab({
   );
 }
 
-type Tab = "overview" | "members" | "emojis" | "soundboard";
-const TAB_LABELS: Record<Tab, string> = { overview: "Overview", members: "Members", emojis: "Emojis", soundboard: "Soundboard" };
-const TABS: Tab[] = ["overview", "members", "emojis", "soundboard"];
+type Tab = "overview" | "members" | "emojis";
+const TAB_LABELS: Record<Tab, string> = { overview: "Overview", members: "Members", emojis: "Emojis" };
+const TABS: Tab[] = ["overview", "members", "emojis"];
 
 export function ServerSettingsPage() {
   const { closeServerSettings } = useUIStore();
@@ -285,9 +284,6 @@ export function ServerSettingsPage() {
         )}
         {activeTab === "emojis" && (
           <EmojiTab serverId={server.id} />
-        )}
-        {activeTab === "soundboard" && (
-          <SoundboardTab serverId={server.id} />
         )}
       </div>
     </div>

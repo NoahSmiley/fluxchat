@@ -17,7 +17,6 @@ import "./styles/settings.css";
 import "./styles/emoji.css";
 import "./styles/dm.css";
 import "./styles/music.css";
-import "./styles/game.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -34,7 +34,6 @@ import {
   rebuildAllPipelines,
   destroyAllPipelines,
 } from "../lib/voice-pipeline.js";
-export type { AudioSettings } from "../lib/voice-pipeline.js";
 import type { AudioSettings } from "../lib/voice-pipeline.js";
 
 import {

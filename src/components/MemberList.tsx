@@ -14,13 +14,13 @@ const STATUS_OPTIONS: { value: PresenceStatus; label: string }[] = [
   { value: "invisible", label: "Invisible" },
 ];
 
-export function RoleBadge({ role }: { role: string }) {
+function RoleBadge({ role }: { role: string }) {
   if (role === "owner") return <Crown size={10} className="role-badge owner" />;
   if (role === "admin") return <Shield size={10} className="role-badge admin" />;
   return null;
 }
 
-export function ActivityTag({ activity }: { activity: ActivityInfo }) {
+function ActivityTag({ activity }: { activity: ActivityInfo }) {
   const isListening = activity.activityType === "listening";
   return (
     <div className="member-activity-tag">

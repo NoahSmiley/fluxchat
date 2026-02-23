@@ -10,7 +10,7 @@
 
 export type DopplerType = "doppler" | "gamma_doppler";
 
-export interface DopplerPattern {
+interface DopplerPattern {
   background: string;
   isRare: boolean;
   patternName: string;

@@ -7,12 +7,9 @@ import { ChannelSidebar } from "../components/ChannelSidebar.js";
 import { ChatView } from "../components/ChatView.js";
 import { VoiceChannelView } from "../components/VoiceChannelView.js";
 import { DMChatView } from "../components/DMChatView.js";
-import { GameChannelView } from "../components/GameChannelView.js";
 import { requestNotificationPermission } from "../lib/notifications.js";
 import { SettingsModal } from "../components/SettingsModal.js";
 import { ServerSettingsPage } from "../components/ServerSettingsPage.js";
-import { EconomyView } from "../components/CaseOpeningModal.js";
-import { EconomyToasts } from "../components/EconomyToasts.js";
 import { RoomToasts } from "../components/RoomToasts.js";
 import { useKeybindListener } from "../hooks/useKeybindListener.js";
 import { useIdleDetection } from "../hooks/useIdleDetection.js";
@@ -53,7 +50,6 @@ export function MainLayout() {
   useIdleDetection();
   const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels, showingDMs, activeDMChannelId } = useChatStore();
   const { user } = useAuthStore();
-  const showingEconomy = useUIStore((s) => s.showingEconomy);
   const serverSettingsOpen = useUIStore((s) => s.serverSettingsOpen);
   const [sidebarWidth, setSidebarWidth] = useState(240);
 
@@ -154,9 +150,7 @@ export function MainLayout() {
       {channelSidebarEl}
 
       <main className="main-content" style={mainStyle}>
-        {showingEconomy ? (
-          <EconomyView />
-        ) : showingDMs ? (
+        {showingDMs ? (
           activeDMChannelId ? (
             <DMChatView />
           ) : (
@@ -168,8 +162,6 @@ export function MainLayout() {
         ) : activeChannelId ? (
           activeChannel?.type === "voice" ? (
             <VoiceChannelView />
-          ) : activeChannel?.type === "game" || activeChannelId.startsWith("__game_") ? (
-            <GameChannelView />
           ) : (
             <ChatView />
           )
@@ -186,7 +178,6 @@ export function MainLayout() {
 
       <SettingsModal />
       {serverSettingsOpen && <ServerSettingsPage />}
-      <EconomyToasts />
       <RoomToasts />
     </div>
   );

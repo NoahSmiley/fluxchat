@@ -40,7 +40,7 @@ const DROP_INTO_CATEGORY_DWELL_MS = 1000;
 export function ChannelSidebar() {
   const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels, mentionCounts, markChannelRead } = useChatStore();
   const { channelParticipants, connectedChannelId, connecting, screenSharers, participants: voiceParticipants } = useVoiceStore();
-  const { showingEconomy, openServerSettings, showDummyUsers } = useUIStore();
+  const { openServerSettings, showDummyUsers } = useUIStore();
   const notifStore = useNotifStore();
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
@@ -324,7 +324,7 @@ export function ChannelSidebar() {
                 <SortableChannelItem
                   key={ch.id}
                   node={node}
-                  isActive={ch.id === activeChannelId && !showingEconomy}
+                  isActive={ch.id === activeChannelId}
                   isUnread={isUnread}
                   mentionCount={mentionCount}
                   isMuted={isMuted}

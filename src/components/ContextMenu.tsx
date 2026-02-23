@@ -1,7 +1,7 @@
 import { useState, useLayoutEffect, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 
-export interface ContextMenuItem {
+interface ContextMenuItem {
   label: string;
   icon?: React.ReactNode;
   checked?: boolean;
@@ -11,7 +11,7 @@ export interface ContextMenuItem {
   submenu?: ContextMenuEntry[];
 }
 
-export interface ContextMenuSeparator {
+interface ContextMenuSeparator {
   type: "separator";
 }
 

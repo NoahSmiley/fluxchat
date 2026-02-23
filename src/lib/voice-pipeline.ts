@@ -2,7 +2,7 @@ import { dbg } from "./debug.js";
 
 // ── Audio Pipeline (Web Audio API) ──
 
-export interface AudioPipeline {
+interface AudioPipeline {
   context: AudioContext;
   source: MediaStreamAudioSourceNode;
   element: HTMLAudioElement;

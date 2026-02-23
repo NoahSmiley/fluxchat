@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { FluxLogo } from "./FluxLogo.js";
-import { Settings, ShoppingBag } from "lucide-react";
+import { Settings } from "lucide-react";
 import { useUIStore } from "../stores/ui.js";
 import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
 import { UserCard } from "./MemberList.js";
@@ -12,7 +12,6 @@ import { useNotifStore } from "../stores/notifications.js";
 export function ServerSidebar() {
   const { servers, showDMs, selectServer, members, onlineUsers, userStatuses, userActivities, openDM } = useChatStore();
   const { user } = useAuthStore();
-  const showingEconomy = useUIStore((s) => s.showingEconomy);
   const sidebarPosition = useUIStore((s) => s.sidebarPosition);
   const notifStore = useNotifStore();
 
@@ -190,13 +189,6 @@ export function ServerSidebar() {
       <div className="server-sidebar-spacer" />
 
       <div className="server-sidebar-settings">
-        <button
-          className={`server-sidebar-settings-btn ${showingEconomy ? "active" : ""}`}
-          onClick={() => useUIStore.getState().toggleEconomy()}
-          title="FluxFloat"
-        >
-          <ShoppingBag size={18} />
-        </button>
         <button
           className="server-sidebar-settings-btn"
           onClick={() => useUIStore.getState().openSettings()}

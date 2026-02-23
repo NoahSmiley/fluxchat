@@ -3,7 +3,6 @@ import type { Message, DMMessage, PresenceStatus } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { useCryptoStore } from "./crypto.js";
-import { useUIStore } from "./ui.js";
 import { dbg } from "../lib/debug.js";
 import type { ChatState } from "./chat-types.js";
 import {
@@ -16,9 +15,8 @@ import {
 } from "./chat-types.js";
 import { setupChatEvents } from "./chat-events.js";
 
-// Re-export types and helpers so existing imports continue to work
+// Re-export helpers so existing imports continue to work
 export { base64ToUtf8, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "./chat-types.js";
-export type { ChatState } from "./chat-types.js";
 
 // Cache plaintext channel messages into the decryptedCache
 function cacheMessageContent(messages: Message[]) {
@@ -175,35 +173,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectChannel: async (channelId) => {
-    // Hide economy view when selecting a channel
-    useUIStore.getState().hideEconomy();
-
     // Skip if already viewing this channel
     if (get().activeChannelId === channelId) return;
 
     const prevChannel = get().activeChannelId;
     if (prevChannel && prevChannel !== channelId) {
       // Save current channel's messages to cache before switching
-      if (!prevChannel.startsWith("__game_")) saveChannelCache(prevChannel, get());
+      saveChannelCache(prevChannel, get());
       // Do not leave_channel — stay subscribed to all text channels for unread tracking
-    }
-
-    // Hardcoded game channels: just set active, no WS/API
-    if (channelId.startsWith("__game_")) {
-      set({
-        activeChannelId: channelId,
-        activeDMChannelId: null,
-        messages: [],
-        reactions: {},
-        hasMoreMessages: false,
-        messageCursor: null,
-        loadingMessages: false,
-        searchQuery: "",
-        searchFilters: {},
-        searchResults: null,
-        dmMessages: [],
-      });
-      return;
     }
 
     const channel = get().channels.find((c) => c.id === channelId);
@@ -467,9 +444,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   selectDM: async (dmChannelId) => {
-    // Hide economy view when selecting a DM
-    useUIStore.getState().hideEconomy();
-
     // Skip if already viewing this DM
     if (get().activeDMChannelId === dmChannelId && get().showingDMs) return;
 

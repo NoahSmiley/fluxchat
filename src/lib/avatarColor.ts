@@ -21,7 +21,7 @@ export function avatarColor(name: string | null | undefined): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-import { seedToPattern, RING_GRADIENTS, type DopplerType } from "../components/items/dopplerPattern.js";
+import { seedToPattern, RING_GRADIENTS, type DopplerType } from "./dopplerPattern.js";
 import type { CSSProperties } from "react";
 
 /**

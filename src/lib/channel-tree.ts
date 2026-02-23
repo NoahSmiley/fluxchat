@@ -70,7 +70,7 @@ export function flattenTree(nodes: TreeNode[], collapsed: Set<string>, activeCha
 
 /** Recursively find the path from the search root down to the active channel.
  *  Returns every node along the way, with intermediate categories marked pinned. */
-export function findActivePath(nodes: TreeNode[], activeChannelId: string): TreeNode[] | null {
+function findActivePath(nodes: TreeNode[], activeChannelId: string): TreeNode[] | null {
   for (const node of nodes) {
     if (node.channel.id === activeChannelId) return [node];
     if (node.channel.type === "category") {

@@ -1,10 +1,3 @@
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-  createdAt: string;
-}
-
 export interface Server {
   id: string;
   name: string;
@@ -235,10 +228,6 @@ export type WSServerEvent =
   | { type: "spotify_queue_remove"; sessionId: string; voiceChannelId: string; itemId: string }
   | { type: "spotify_playback_sync"; sessionId: string; voiceChannelId: string; action: string; trackUri?: string; positionMs?: number; source?: string }
   | { type: "spotify_session_ended"; sessionId: string; voiceChannelId: string }
-  | { type: "case_opened"; userId: string; username: string; itemName: string; itemRarity: ItemRarity; caseName: string }
-  | { type: "trade_offer_received"; tradeId: string; senderId: string; senderUsername: string }
-  | { type: "trade_resolved"; tradeId: string; status: string }
-  | { type: "coins_earned"; userId: string; amount: number; reason: string; newBalance: number }
   | { type: "soundboard_play"; channelId: string; soundId: string; audioAttachmentId: string; audioFilename: string; imageAttachmentId?: string; imageFilename?: string; volume: number; username: string }
   | { type: "room_created"; channel: Channel }
   | { type: "room_deleted"; channelId: string; serverId: string }
@@ -288,147 +277,10 @@ export interface PaginatedResponse<T> {
   hasMore: boolean;
 }
 
-// ── Economy types ──
+const MAX_USERNAME_LENGTH = 32;
+const MIN_USERNAME_LENGTH = 2;
+const MIN_PASSWORD_LENGTH = 8;
 
-export type ItemRarity = "common" | "uncommon" | "rare" | "epic" | "legendary" | "ultra_rare";
-export type ItemType = "ring_style" | "name_color" | "chat_badge" | "profile_banner" | "message_effect" | "trading_card";
-
-export interface CatalogItem {
-  id: string;
-  name: string;
-  rarity: ItemRarity;
-  type: ItemType;
-  imageUrl: string | null;
-}
-
-export interface CaseInfo {
-  id: string;
-  name: string;
-  imageUrl: string | null;
-  price: number;
-  createdAt: string;
-}
-
-export interface CaseDetail extends CaseInfo {
-  active: boolean;
-  items: CaseItem[];
-}
-
-export interface CaseItem {
-  id: string;
-  catalogItemId: string;
-  name: string;
-  rarity: ItemRarity;
-  type: ItemType;
-  imageUrl: string | null;
-  weight: number;
-  previewCss: string | null;
-  cardSeries: string | null;
-  cardNumber: string | null;
-  isHolographic: boolean;
-}
-
-export interface InventoryItem {
-  id: string;
-  userId: string;
-  catalogItemId: string;
-  name: string;
-  rarity: ItemRarity;
-  type: ItemType;
-  imageUrl: string | null;
-  acquiredVia: string;
-  equipped: boolean;
-  createdAt: string;
-  previewCss: string | null;
-  cardSeries: string | null;
-  cardNumber: string | null;
-  isHolographic: boolean;
-  patternSeed: number | null;
-}
-
-export interface CaseOpenResult extends InventoryItem {
-  newBalance: number;
-}
-
-export interface Wallet {
-  id: string;
-  userId: string;
-  balance: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CoinHistoryEntry {
-  id: string;
-  userId: string;
-  amount: number;
-  reason: string;
-  createdAt: string;
-}
-
-export interface TradeItem {
-  inventoryId: string;
-  name: string;
-  rarity: ItemRarity;
-  type: ItemType;
-  imageUrl: string | null;
-  previewCss: string | null;
-  cardSeries: string | null;
-  cardNumber: string | null;
-  isHolographic: boolean;
-  patternSeed: number | null;
-}
-
-export interface Trade {
-  id: string;
-  senderId: string;
-  receiverId: string;
-  senderCoins: number;
-  receiverCoins: number;
-  senderItems: TradeItem[];
-  receiverItems: TradeItem[];
-  status: "pending" | "accepted" | "declined" | "cancelled";
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface MarketplaceListing {
-  id: string;
-  sellerId: string;
-  sellerUsername: string;
-  inventoryId: string;
-  price: number;
-  status: string;
-  name: string;
-  rarity: ItemRarity;
-  type: ItemType;
-  imageUrl: string | null;
-  createdAt: string;
-  previewCss: string | null;
-  cardSeries: string | null;
-  cardNumber: string | null;
-  isHolographic: boolean;
-  patternSeed: number | null;
-}
-
-export interface CraftResult extends InventoryItem {
-  consumedItems: string[];
-}
-
-export const RARITY_ORDER: ItemRarity[] = ["common", "uncommon", "rare", "epic", "legendary", "ultra_rare"];
-
-export const RARITY_COLORS: Record<ItemRarity, string> = {
-  common: "#b0c3d9",
-  uncommon: "#5e98d9",
-  rare: "#4b69ff",
-  epic: "#8847ff",
-  legendary: "#d32ce6",
-  ultra_rare: "#eb4b4b",
-};
-
-export const MAX_USERNAME_LENGTH = 32;
-export const MIN_USERNAME_LENGTH = 2;
-export const MIN_PASSWORD_LENGTH = 8;
 export const WS_HEARTBEAT_INTERVAL = 30_000;
 export const WS_RECONNECT_BASE_DELAY = 1_000;
 export const WS_RECONNECT_MAX_DELAY = 30_000;
