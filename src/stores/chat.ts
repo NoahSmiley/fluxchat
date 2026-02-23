@@ -330,10 +330,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const channel = get().channels.find((c) => c.id === channelId);
 
-    const newUnread = new Set(get().unreadChannels);
-    newUnread.delete(channelId);
-    const newMentions = { ...get().mentionCounts };
-    delete newMentions[channelId];
+    // Clear unread/mention state via shared helper
+    get().markChannelRead(channelId);
 
     // Restore from cache for instant display, or start empty
     const cached = channelMessageCache.get(channelId);
@@ -350,8 +348,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       searchFilters: {},
       searchResults: null,
       dmMessages: [],
-      unreadChannels: newUnread,
-      mentionCounts: newMentions,
     });
 
     gateway.send({ type: "join_channel", channelId });
@@ -587,8 +583,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const dmChannels = await api.getDMChannels();
       set({ dmChannels });
-    } catch {
-      // ignore
+    } catch (e) {
+      dbg("chat", "Failed to load DM channels", e);
     }
   },
 
@@ -678,8 +674,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return { dmChannels: exists ? state.dmChannels : [...state.dmChannels, dm] };
       });
       get().selectDM(dm.id);
-    } catch {
-      // ignore
+    } catch (e) {
+      dbg("chat", "Failed to open DM", e);
     }
   },
 

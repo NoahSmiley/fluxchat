@@ -85,6 +85,17 @@ interface AudioPipeline {
 
 const audioPipelines = new Map<string, AudioPipeline>();
 
+function calculateRms(data: Float32Array): number {
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+  return Math.sqrt(sum / data.length);
+}
+
+function setGainValue(pipeline: AudioPipeline, value: number) {
+  pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
+  pipeline.gain.gain.setValueAtTime(value, pipeline.context.currentTime);
+}
+
 // Monotonically increasing counter to detect stale joinVoiceChannel calls
 let joinNonce = 0;
 
@@ -197,9 +208,7 @@ function createAudioPipeline(
   setTimeout(() => {
     if (!audioPipelines.has(trackSid)) return;
     analyser.getFloatTimeDomainData(analyserData);
-    let sum = 0;
-    for (let i = 0; i < analyserData.length; i++) sum += analyserData[i] * analyserData[i];
-    const rms = Math.sqrt(sum / analyserData.length);
+    const rms = calculateRms(analyserData);
     dbg("voice", `createAudioPipeline DIAG sid=${trackSid}`, {
       contextState: context.state,
       rms: rms.toFixed(6),
@@ -219,11 +228,7 @@ function createAudioPipeline(
 
 function getPipelineLevel(pipeline: AudioPipeline): number {
   pipeline.analyser.getFloatTimeDomainData(pipeline.analyserData);
-  let sum = 0;
-  for (let i = 0; i < pipeline.analyserData.length; i++) {
-    sum += pipeline.analyserData[i] * pipeline.analyserData[i];
-  }
-  return Math.sqrt(sum / pipeline.analyserData.length);
+  return calculateRms(pipeline.analyserData);
 }
 
 function destroyAudioPipeline(trackSid: string) {
@@ -232,12 +237,12 @@ function destroyAudioPipeline(trackSid: string) {
     dbg("voice", `destroyAudioPipeline sid=${trackSid}`, { remaining: audioPipelines.size - 1 });
     // Mute gain instantly to prevent static/click on teardown
     try {
-      pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
-      pipeline.gain.gain.setValueAtTime(0, pipeline.context.currentTime);
+      setGainValue(pipeline, 0);
     } catch {}
-    // Disconnect all nodes from destination
-    try { pipeline.gain.disconnect(); } catch {}
-    try { pipeline.source.disconnect(); } catch {}
+    try {
+      pipeline.gain.disconnect();
+      pipeline.source.disconnect();
+    } catch {}
     pipeline.element.pause();
     pipeline.element.srcObject = null;
     pipeline.context.close();
@@ -267,7 +272,6 @@ function rebuildAllPipelines(settings: AudioSettings, get: () => VoiceState) {
     destroyAudioPipeline(trackSid);
   }
   for (const { trackSid, element, srcObject, volume } of snapshot) {
-    // Restore the srcObject that destroy nulled out
     element.srcObject = srcObject;
     createAudioPipeline(element, trackSid, settings, volume);
   }
@@ -579,11 +583,7 @@ function teardownLocalAnalyser() {
 function getLocalMicLevel(): number {
   if (!localAnalyser || !localAnalyserData) return 0;
   localAnalyser.getFloatTimeDomainData(localAnalyserData);
-  let sum = 0;
-  for (let i = 0; i < localAnalyserData.length; i++) {
-    sum += localAnalyserData[i] * localAnalyserData[i];
-  }
-  return Math.sqrt(sum / localAnalyserData.length); // RMS level (0-1)
+  return calculateRms(localAnalyserData);
 }
 
 // Convert sensitivity (0-100) to an audio level threshold (0.0-1.0)
@@ -1452,8 +1452,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       playDeafenSound();
       // Mute all audio via gain nodes
       for (const pipeline of audioPipelines.values()) {
-        pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
-        pipeline.gain.gain.setValueAtTime(0, pipeline.context.currentTime);
+        setGainValue(pipeline, 0);
       }
     } else {
       playUndeafenSound();
@@ -1461,8 +1460,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       for (const [identity, trackSid] of Object.entries(participantTrackMap)) {
         const pipeline = audioPipelines.get(trackSid);
         if (pipeline) {
-          pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
-          pipeline.gain.gain.setValueAtTime(participantVolumes[identity] ?? 1.0, pipeline.context.currentTime);
+          setGainValue(pipeline, participantVolumes[identity] ?? 1.0);
         }
       }
     }
@@ -1522,8 +1520,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
     if (pipeline) {
       if (pipeline.context.state === "suspended") pipeline.context.resume();
-      pipeline.gain.gain.cancelScheduledValues(pipeline.context.currentTime);
-      pipeline.gain.gain.setValueAtTime(volume, pipeline.context.currentTime);
+      setGainValue(pipeline, volume);
       dbg("voice", `setParticipantVolume applied vol=${volume} ctx=${pipeline.context.state} participant=${participantId}`);
     } else {
       dbg("voice", `setParticipantVolume NO PIPELINE for ${participantId} trackSid=${trackSid} mapKeys=[${Object.keys(participantTrackMap)}] pipelineKeys=[${[...audioPipelines.keys()]}]`);

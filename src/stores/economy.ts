@@ -14,6 +14,7 @@ import type {
   MarketplaceListing,
   CraftResult,
   WSServerEvent,
+  RingStyle,
 } from "../types/shared.js";
 
 export interface CaseDropNotification {
@@ -245,12 +246,12 @@ export const useEconomyStore = create<EconomyState>((set, get) => ({
         const newPatternSeed = result.equipped ? (targetItem.patternSeed ?? null) : null;
         useChatStore.setState((s) => ({
           members: s.members.map((m) =>
-            m.userId === userId ? { ...m, ringStyle: newRingStyle as import("../types/shared.js").RingStyle, ringPatternSeed: newPatternSeed } : m
+            m.userId === userId ? { ...m, ringStyle: newRingStyle as RingStyle, ringPatternSeed: newPatternSeed } : m
           ),
         }));
         const current = useAuthStore.getState().user;
         if (current) {
-          useAuthStore.setState({ user: { ...current, ringStyle: newRingStyle as import("../types/shared.js").RingStyle, ringPatternSeed: newPatternSeed } });
+          useAuthStore.setState({ user: { ...current, ringStyle: newRingStyle as RingStyle, ringPatternSeed: newPatternSeed } });
         }
       } else if (targetItem.type === "profile_banner") {
         const newBannerCss = result.equipped ? (targetItem.previewCss ?? null) : null;

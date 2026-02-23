@@ -46,6 +46,8 @@
   --sc-border: 0 0% 13%;
   --sc-input: 0 0% 9%;
   --sc-ring: 0 0% 100%;
+  --bg-modifier-hover: rgba(255, 255, 255, 0.06);
+  --bg-modifier-active: rgba(255, 255, 255, 0.1);
 }
 
 html, body, #root {
@@ -814,19 +816,6 @@ input:focus {
 .create-room-btn:hover {
   background: rgba(67, 181, 129, 0.1);
   color: #4fdc96;
-}
-
-.room-rename-input {
-  flex: 1;
-  min-width: 0;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(88, 101, 242, 0.5);
-  border-radius: 3px;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 1px 4px;
-  outline: none;
 }
 
 /* ── Voice Room Users in Sidebar (compact avatars) ── */
@@ -2915,9 +2904,6 @@ input:focus {
   background: var(--accent);
   cursor: pointer;
 }
-
-/* ── Screen Share Notifications ── */
-/* (screen-share-notifications removed — streams are shown inline) */
 
 /* ── Pop-out Windows ── */
 .popout-container {

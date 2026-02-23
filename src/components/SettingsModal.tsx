@@ -484,7 +484,6 @@ export function SettingsModal() {
 
         {activeTab === "voice" && (
           <>
-            {/* Card 1: AI Noise Suppression */}
             <div className="settings-card">
               <h3 className="settings-card-title">AI Noise Suppression</h3>
               <div className="settings-row">

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { Channel, ChannelType, ReorderItem, MemberWithUser } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
@@ -8,7 +8,7 @@ import { useAuthStore } from "../stores/auth.js";
 import { useNotifStore, type ChannelNotifSetting, type CategoryNotifSetting } from "../stores/notifications.js";
 import { VoiceStatusBar } from "./VoiceStatusBar.js";
 import { UserCard } from "./MemberList.js";
-import { MessageSquareText, Volume2, Settings, Monitor, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, Radio, Lock, LockOpen } from "lucide-react";
+import { MessageSquareText, Volume2, Settings, Mic, MicOff, HeadphoneOff, Plus, Gamepad2, ChevronRight, Folder, Radio, Lock, LockOpen } from "lucide-react";
 import { gateway } from "../lib/ws.js";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal, DeleteConfirmDialog } from "./ChannelSettingsModal.js";
@@ -140,7 +140,7 @@ function SpeakingMic({ userId, isMuted, isDeafened }: { userId: string; isMuted?
 /** Voice user row with hover-to-inspect UserCard */
 function VoiceUserRow({
   userId, username, image, member, banner, ringStyle, ringClassName,
-  isMuted, isDeafened, isStreaming, allMembers, onContextMenu,
+  isMuted, isDeafened, isStreaming, onContextMenu,
 }: {
   userId: string;
   username: string;
@@ -152,7 +152,6 @@ function VoiceUserRow({
   isMuted?: boolean;
   isDeafened?: boolean;
   isStreaming?: boolean;
-  allMembers: MemberWithUser[];
   onContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const [showCard, setShowCard] = useState(false);
@@ -259,7 +258,6 @@ function SortableChannelItem({
   };
   isDragging?: boolean;
   isDropTarget?: boolean;
-  isPinned?: boolean;
 }) {
   const { channel, depth, pinned } = node;
   const isPinned = pinned ?? false;
@@ -360,7 +358,6 @@ function SortableChannelItem({
               ringClassName={ringClass(d.ringStyle, d.ringSpin, d.role, false, d.ringPatternSeed)}
               isMuted={d.userId === "__d2"}
               isDeafened={d.userId === "__d4"}
-              allMembers={voiceProps.members}
             />
           ))}
           {/* END DEBUG */}
@@ -381,7 +378,6 @@ function SortableChannelItem({
                 isMuted={voiceUser?.isMuted}
                 isDeafened={voiceUser?.isDeafened}
                 isStreaming={voiceProps.screenSharerIds.has(p.userId)}
-                allMembers={voiceProps.members}
               />
             );
           })}
@@ -781,7 +777,6 @@ export function ChannelSidebar() {
                   onSettings={() => setSettingsChannel(ch)}
                   onContextMenu={(e, ch) => setChannelCtxMenu({ x: e.clientX, y: e.clientY, channel: ch })}
                   isOwnerOrAdmin={!!isOwnerOrAdmin}
-                  isPinned={node.pinned ?? false}
                   isDragging={activeId === ch.id}
                   isDropTarget={ch.type === "category" && dropTargetCategoryId === ch.id}
                   voiceProps={ch.type === "voice" ? {
@@ -1036,7 +1031,6 @@ export function ChannelSidebar() {
                             ringClassName={ringClass(d.ringStyle, d.ringSpin, d.role, false, d.ringPatternSeed)}
                             isMuted={d.userId === "__d2"}
                             isDeafened={d.userId === "__d4"}
-                            allMembers={members}
                           />
                         ))}
                         {/* Real participants (skip dummies) */}
@@ -1056,7 +1050,6 @@ export function ChannelSidebar() {
                               isMuted={voiceUser?.isMuted}
                               isDeafened={voiceUser?.isDeafened}
                               isStreaming={screenSharerIds.has(p.userId)}
-                              allMembers={members}
                               onContextMenu={isOwnerOrAdmin ? (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();

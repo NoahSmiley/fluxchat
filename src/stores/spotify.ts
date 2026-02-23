@@ -117,7 +117,7 @@ interface SpotifyState {
   endSession: () => Promise<void>;
   addTrackToQueue: (track: SpotifyTrack) => Promise<void>;
   removeFromQueue: (itemId: string) => Promise<void>;
-  play: (trackUri?: string, source?: string) => void;
+  play: (trackUri?: string, source?: string) => Promise<void>;
   pause: () => void;
   skip: (trackUri?: string) => void;
   seek: (ms: number) => void;
@@ -136,7 +136,6 @@ interface SpotifyState {
 
 let wsUnsub: (() => void) | null = null;
 
-// ── Persist player across HMR ──
 // window properties survive Vite HMR module re-evaluation,
 // so we keep the Spotify Player alive instead of recreating it every time.
 const W = window as any;
@@ -248,12 +247,9 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       // Send code_verifier to backend; backend returns state nonce
       const { state, redirectUri: backendRedirectUri } = await api.initSpotifyAuth(codeVerifier);
 
-      // Determine redirect URI: use local OAuth listener in Tauri app,
-      // fall back to backend redirect URI for web/dev
       let redirectUri = backendRedirectUri;
       try {
         const { invoke } = await import("@tauri-apps/api/core");
-        // Derive the server URL from API_BASE (strip "/api" suffix)
         const serverUrl = API_BASE.replace(/\/api$/, "");
         // Start one-shot local HTTP server BEFORE opening the browser
         invoke("start_oauth_listener", { serverUrl });
@@ -368,7 +364,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       dbg("spotify", "restoring persisted player, deviceId:", persistedDeviceId);
       set({ player: persisted, deviceId: persistedDeviceId });
 
-      // Re-bind event listeners to the CURRENT store instance
       persisted.removeListener("player_state_changed");
       persisted.removeListener("ready");
       persisted.removeListener("not_ready");
@@ -645,7 +640,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     await api.removeFromQueue(session.id, itemId);
   },
 
-  // ── Play: handles play-from-search, play-from-queue, and resume ──
   play: async (trackUri?: string, source?: string) => {
     const { session, player, queue, youtubeTrack } = get();
     if (!session) return;
@@ -689,7 +683,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     // Default source to spotify if still unknown
     if (!effectiveSource) effectiveSource = "spotify";
 
-    // Remove from queue if present
     const queueItem = queue.find((item) => item.trackUri === trackUri);
     if (queueItem) {
       set((s) => ({ queue: s.queue.filter((item) => item.trackUri !== trackUri) }));
@@ -723,7 +716,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     }
   },
 
-  // ── Pause: pauses whichever player is active ──
   pause: () => {
     const { session, player, playerState, youtubeTrack } = get();
     if (!session) return;
@@ -746,7 +738,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     get().updateActivity();
   },
 
-  // ── Skip: advance to next queue item or stop ──
   skip: async (trackUri) => {
     const { session, player, queue } = get();
     if (!session) return;
@@ -790,7 +781,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     }
   },
 
-  // ── Seek: routes to correct player ──
   seek: (ms) => {
     const { session, player, youtubeTrack } = get();
     if (!session) return;
@@ -938,7 +928,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     }
   },
 
-  // ── Stop YouTube completely: pause, clear src, reset state ──
   stopYouTube: () => {
     const { youtubeAudio } = get();
     if (youtubeAudio) {
@@ -999,7 +988,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     });
   },
 
-  // ── Play YouTube: creates/reuses audio element, sets track state ──
   playYouTube: (videoId, trackInfo) => {
     dbg("spotify", `playYouTube videoId=${videoId}`, trackInfo);
     // Stop lobby music when YouTube plays
@@ -1029,8 +1017,6 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
         set({ youtubePaused: true });
         get().skip();
       });
-      // Don't let browser pause/play events override our state during loading
-      // We manage youtubePaused explicitly in play/pause/stopYouTube
       set({ youtubeAudio: audio });
     }
 

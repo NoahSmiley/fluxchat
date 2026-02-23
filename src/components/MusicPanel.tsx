@@ -332,10 +332,6 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
     }
   }
 
-  async function handleAddToQueue(track: SpotifyTrack) {
-    await addTrackToQueue(track);
-  }
-
   if (!account?.linked) {
     return (
       <div className="music-panel">
@@ -424,7 +420,7 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
                   </button>
                   <button
                     className="music-search-item-add"
-                    onClick={() => handleAddToQueue(track)}
+                    onClick={() => addTrackToQueue(track)}
                     title="Add to queue"
                   >
                     <Plus size={14} />
