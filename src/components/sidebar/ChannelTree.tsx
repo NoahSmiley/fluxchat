@@ -22,7 +22,7 @@ import { buildTree, flattenTree } from "../../lib/channel-tree.js";
 import { SortableChannelItem, getChannelIcon } from "./SortableChannelItem.js";
 import * as api from "../../lib/api.js";
 import type { MemberWithUser } from "../../types/shared.js";
-import type { Participant } from "livekit-client";
+import type { VoiceUser } from "../../stores/voice-types.js";
 
 const DROP_INTO_CATEGORY_DWELL_MS = 1000;
 const DRAG_ACTIVATION_DELAY_MS = 500;
@@ -39,7 +39,7 @@ export interface ChannelTreeProps {
   channelParticipants: Record<string, { userId: string; username: string; drinkCount: number }[]>;
   connectedChannelId: string | null;
   screenSharers: { participantId: string }[];
-  voiceParticipants: Participant[];
+  voiceParticipants: VoiceUser[];
   collapsed: Set<string>;
   onToggleCollapse: (id: string) => void;
   selectChannel: (id: string) => void;

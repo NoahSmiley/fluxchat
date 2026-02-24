@@ -11,7 +11,7 @@ import * as api from "../../lib/api.js";
 import { dbg } from "../../lib/debug.js";
 import { VoiceUserRow } from "../voice/VoiceUserRow.js";
 import { AnimatedList } from "../AnimatedList.js";
-import type { Participant } from "livekit-client";
+import type { VoiceUser } from "../../stores/voice-types.js";
 
 const LOCK_TOGGLE_DEBOUNCE_MS = 400;
 const ANIMATED_LIST_DURATION_MS = 500;
@@ -61,7 +61,7 @@ export interface JoinVoiceSectionProps {
   connectedChannelId: string | null;
   connecting: boolean;
   screenSharers: { participantId: string }[];
-  voiceParticipants: Participant[];
+  voiceParticipants: VoiceUser[];
   selectChannel: (id: string) => void;
   onRoomContextMenu: (e: React.MouseEvent, room: Channel) => void;
   onUserContextMenu: (e: React.MouseEvent, userId: string, username: string, channelId: string) => void;

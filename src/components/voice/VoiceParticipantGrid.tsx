@@ -3,30 +3,12 @@ import { useVoiceStore } from "../../stores/voice.js";
 import { ParticipantTile } from "./ParticipantTile.js";
 import { LobbyMusicBar } from "./LobbyMusicBar.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
+import type { SpotifyPlayerState } from "../../stores/spotify-types.js";
+import type { ListeningSession, QueueItem } from "../../types/user.js";
+import type { MemberWithUser } from "../../types/shared.js";
+import type { VoiceUser } from "../../stores/voice-types.js";
 
 // ── Types ──
-
-interface VoiceParticipant {
-  userId: string;
-  username: string;
-  isMuted?: boolean;
-  isDeafened?: boolean;
-}
-
-interface MemberInfo {
-  userId: string;
-  image?: string | null;
-  role?: string;
-  ringStyle?: string;
-  ringSpin?: boolean;
-  ringPatternSeed?: number | null;
-  bannerCss?: string | null;
-  bannerPatternSeed?: number | null;
-}
-
-interface SpotifySession {
-  [key: string]: unknown;
-}
 
 interface NowPlayingTrack {
   name: string;
@@ -35,18 +17,18 @@ interface NowPlayingTrack {
 }
 
 export interface VoiceParticipantGridProps {
-  participants: VoiceParticipant[];
-  members: MemberInfo[];
+  participants: VoiceUser[];
+  members: MemberWithUser[];
   localParticipantIdentity: string | undefined;
   participantVolumes: Record<string, number>;
   setParticipantVolume: (userId: string, volume: number) => void;
   screenSharerIds: Set<string>;
   showDummyUsers: boolean;
   // Now-playing props
-  session: SpotifySession | null;
-  playerState: { track_window?: { current_track?: { name: string; artists: { name: string }[]; album: { images: { url: string }[] } } } } | null;
+  session: ListeningSession | null;
+  playerState: SpotifyPlayerState | null;
   youtubeTrack: NowPlayingTrack | null;
-  queue: { trackName: string }[];
+  queue: QueueItem[];
   volume: number;
   setVolume: (v: number) => void;
 }
@@ -96,8 +78,8 @@ const DUMMY_PARTICIPANTS = [
 
 // ── Now-Playing Bar ──
 function NowPlayingBar({ session, playerState, youtubeTrack, queue, volume, setVolume }: {
-  session: SpotifySession | null;
-  playerState: VoiceParticipantGridProps["playerState"];
+  session: ListeningSession | null;
+  playerState: SpotifyPlayerState | null;
   youtubeTrack: NowPlayingTrack | null;
   queue: { trackName: string }[];
   volume: number;
