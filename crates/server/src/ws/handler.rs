@@ -259,7 +259,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
             if let Some((1, 0)) = room_info {
                 state.gateway.schedule_room_cleanup(
                     channel_id.clone(),
-                    std::time::Duration::from_secs(120),
+                    std::time::Duration::from_secs(state.config.room_cleanup_delay_secs),
                     state.db.clone(),
                 ).await;
             }
@@ -612,7 +612,7 @@ async fn handle_client_event(
                             if let Some((1, 0)) = room_info {
                                 state.gateway.schedule_room_cleanup(
                                     left_channel.clone(),
-                                    std::time::Duration::from_secs(120),
+                                    std::time::Duration::from_secs(state.config.room_cleanup_delay_secs),
                                     state.db.clone(),
                                 ).await;
                             }

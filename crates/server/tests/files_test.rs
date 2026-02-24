@@ -3,7 +3,7 @@ mod common;
 use axum::http::{HeaderName, HeaderValue, StatusCode};
 use axum_test::multipart::{MultipartForm, Part};
 use axum_test::TestServer;
-use serde_json::json;
+
 
 fn auth_header(token: &str) -> (HeaderName, HeaderValue) {
     (
@@ -94,6 +94,7 @@ async fn upload_file_too_large() {
             livekit_url: "ws://localhost:7880".into(),
             upload_dir: "/tmp/flux-test-uploads".into(),
             max_upload_bytes: 100, // Very small limit
+            room_cleanup_delay_secs: 2,
         },
         gateway: Arc::new(ws::gateway::GatewayState::new()),
         spotify_auth_pending: tokio::sync::RwLock::new(std::collections::HashMap::new()),

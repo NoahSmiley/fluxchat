@@ -21,7 +21,7 @@ export interface Channel {
   createdAt: string;
 }
 
-export type ChannelType = "text" | "voice" | "game" | "category";
+export type ChannelType = "text" | "voice" | "category";
 
 export type RingStyle = "default" | "chroma" | "pulse" | "wave" | "ember" | "frost" | "neon" | "galaxy" | "none"
   | "doppler" | "gamma_doppler";

@@ -22,7 +22,7 @@ async fn setup() -> (TestServer, sqlx::SqlitePool) {
 async fn create_dm_channel() {
     let (server, pool) = setup().await;
 
-    let (user1_id, user1_token) =
+    let (_user1_id, user1_token) =
         common::create_test_user(&pool, "alice@test.com", "alice", "pass123").await;
     let (user2_id, _) =
         common::create_test_user(&pool, "bob@test.com", "bob", "pass123").await;

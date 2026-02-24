@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use axum::Router;
 use flux_server::{config::Config, routes, ws, AppState};
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
@@ -107,6 +109,7 @@ pub fn create_test_app(pool: SqlitePool) -> Router {
             livekit_url: "ws://localhost:7880".into(),
             upload_dir: "/tmp/flux-test-uploads".into(),
             max_upload_bytes: 10_485_760,
+            room_cleanup_delay_secs: 2,
         },
         gateway: Arc::new(ws::gateway::GatewayState::new()),
         spotify_auth_pending: tokio::sync::RwLock::new(std::collections::HashMap::new()),
@@ -185,57 +188,6 @@ pub async fn create_test_user(
     (user_id, session_token)
 }
 
-/// Seed the economy data (item catalog, cases, case_items) for testing.
-pub async fn seed_economy(pool: &SqlitePool) {
-    let now = chrono::Utc::now().to_rfc3339();
-
-    // Insert a few catalog items
-    let items = [
-        ("item_badge_star", "Star Badge", "chat_badge", "common", "star"),
-        ("item_name_fire", "Fire Name", "name_color", "uncommon", "linear-gradient(90deg, #ff4500, #ff8c00)"),
-        ("item_ring_doppler", "Doppler Ring", "ring_style", "legendary", "doppler"),
-        ("item_banner_sunset", "Sunset Banner", "profile_banner", "uncommon", "sunset"),
-    ];
-
-    for (id, name, item_type, rarity, css) in &items {
-        sqlx::query(
-            "INSERT INTO item_catalog (id, name, description, item_type, rarity, preview_css, tradeable, created_at) VALUES (?, ?, 'Test item', ?, ?, ?, 1, ?)",
-        )
-        .bind(id).bind(name).bind(item_type).bind(rarity).bind(css).bind(&now)
-        .execute(pool)
-        .await
-        .unwrap();
-    }
-
-    // Insert a test case
-    sqlx::query(
-        "INSERT INTO cases (id, name, description, cost_coins, is_active, created_at) VALUES ('case_test', 'Test Case', 'A test case', 50, 1, ?)",
-    )
-    .bind(&now)
-    .execute(pool)
-    .await
-    .unwrap();
-
-    // Insert case items (loot table)
-    let case_items = [
-        ("item_badge_star", 200),
-        ("item_name_fire", 150),
-        ("item_ring_doppler", 40),
-        ("item_banner_sunset", 100),
-    ];
-
-    for (item_id, weight) in &case_items {
-        let ci_id = uuid::Uuid::new_v4().to_string();
-        sqlx::query(
-            "INSERT INTO case_items (id, case_id, item_id, weight) VALUES (?, 'case_test', ?, ?)",
-        )
-        .bind(&ci_id).bind(item_id).bind(weight)
-        .execute(pool)
-        .await
-        .unwrap();
-    }
-}
-
 use argon2::PasswordHasher;
 
 /// Create a test server with owner membership and default channel.
@@ -274,6 +226,16 @@ pub async fn create_text_channel(pool: &SqlitePool, server_id: &str, name: &str)
     let now = chrono::Utc::now().to_rfc3339();
     sqlx::query("INSERT INTO channels (id, server_id, name, type, position, created_at) VALUES (?, ?, ?, 'text', 99, ?)")
         .bind(&channel_id).bind(server_id).bind(name).bind(&now)
+        .execute(pool).await.unwrap();
+    channel_id
+}
+
+/// Create a room (voice channel with is_room=1) in a server.
+pub async fn create_room(pool: &SqlitePool, server_id: &str, name: &str, creator_id: &str) -> String {
+    let channel_id = uuid::Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+    sqlx::query("INSERT INTO channels (id, server_id, name, type, position, created_at, is_room, creator_id) VALUES (?, ?, ?, 'voice', 99, ?, 1, ?)")
+        .bind(&channel_id).bind(server_id).bind(name).bind(&now).bind(creator_id)
         .execute(pool).await.unwrap();
     channel_id
 }

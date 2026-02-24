@@ -2,7 +2,7 @@ import type { Channel, ChannelType } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
 import { useUIStore } from "../stores/ui.js";
-import { MessageSquareText, Volume2, Settings, Gamepad2, ChevronRight, Folder, Radio, Lock, LockOpen } from "lucide-react";
+import { MessageSquareText, Volume2, Settings, ChevronRight, Folder, Radio, Lock, LockOpen } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { TreeNode } from "../lib/channel-tree.js";
@@ -13,7 +13,6 @@ export function getChannelIcon(type: ChannelType, size = 14) {
   switch (type) {
     case "text": return <MessageSquareText size={size} className="channel-type-icon" />;
     case "voice": return <Volume2 size={size} className="channel-type-icon" />;
-    case "game": return <Gamepad2 size={size} className="channel-type-icon" />;
     case "category": return <Folder size={size} className="channel-type-icon" />;
   }
 }
