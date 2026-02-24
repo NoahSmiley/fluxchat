@@ -1,30 +1,19 @@
 import { create } from "zustand";
-import type { Message, PresenceStatus } from "../types/shared.js";
+import type { PresenceStatus } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
-import { dbg } from "../lib/debug.js";
 import type { ChatState } from "./chat-types.js";
-import {
-  channelMessageCache,
-  serverCache,
-  saveChannelCache,
-  saveServerCache,
-} from "./chat-types.js";
 import { setupChatEvents } from "./chat-events.js";
+import {
+  cacheMessageContent,
+  createSelectServerAction,
+  createSelectChannelAction,
+  createSearchMessagesAction,
+  createSearchUserActivityAction,
+} from "./chat-helpers.js";
 
 // Re-export helpers so existing imports continue to work
 export { base64ToUtf8, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "./chat-types.js";
-
-// Cache plaintext channel messages into the decryptedCache
-function cacheMessageContent(messages: Message[]) {
-  const cache: Record<string, string> = {};
-  for (const msg of messages) {
-    cache[msg.id] = msg.content;
-  }
-  useChatStore.setState((s) => ({
-    decryptedCache: { ...s.decryptedCache, ...cache },
-  }));
-}
 
 // Lazy ref to auth store to avoid circular imports
 let authStoreRef: typeof import("../stores/auth.js").useAuthStore | null = null;
@@ -64,13 +53,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   roomInvites: [],
 
   dismissKnock: (timestamp) => {
-    useChatStore.setState((s) => ({
+    set((s) => ({
       roomKnocks: s.roomKnocks.filter((k) => k.timestamp !== timestamp),
     }));
   },
 
   dismissRoomInvite: (timestamp) => {
-    useChatStore.setState((s) => ({
+    set((s) => ({
       roomInvites: s.roomInvites.filter((i) => i.timestamp !== timestamp),
     }));
   },
@@ -85,155 +74,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  selectServer: async (serverId) => {
-    // Skip if already viewing this server (avoids redundant state updates that flicker room cards)
-    const current = get();
-    const dmState = dmStoreRef?.getState();
-    if (current.activeServerId === serverId && !dmState?.showingDMs) return;
+  selectServer: createSelectServerAction(set, get, () => dmStoreRef),
 
-    // Save current channel cache before switching
-    const prevChannel = current.activeChannelId;
-    if (prevChannel) saveChannelCache(prevChannel, get());
-
-    // Restore cached server state instantly for flicker-free transition
-    const cached = serverCache.get(serverId);
-
-    // Clear DM state when switching to a server
-    dmStoreRef?.setState({
-      showingDMs: false,
-      activeDMChannelId: null,
-      dmMessages: [],
-    });
-
-    set({
-      activeServerId: serverId,
-      searchQuery: "",
-      searchFilters: {},
-      searchResults: null,
-      // Restore cached data instantly (or keep current if no cache)
-      ...(cached ? {
-        channels: cached.channels,
-        members: cached.members,
-        activeChannelId: cached.activeChannelId,
-      } : {}),
-    });
-
-    // If we restored a cached channel, rejoin it and restore messages
-    if (cached?.activeChannelId) {
-      gateway.send({ type: "join_channel", channelId: cached.activeChannelId });
-      const cachedMessages = channelMessageCache.get(cached.activeChannelId);
-      if (cachedMessages) {
-        set({
-          messages: cachedMessages.messages,
-          reactions: cachedMessages.reactions,
-          hasMoreMessages: cachedMessages.hasMore,
-          messageCursor: cachedMessages.cursor,
-          loadingMessages: false,
-        });
-      }
-    }
-
-    // Fetch fresh data in background
-    const [channels, members, customEmojis] = await Promise.all([
-      api.getChannels(serverId),
-      api.getServerMembers(serverId),
-      api.getCustomEmojis(serverId).catch(() => [] as import("../types/shared.js").CustomEmoji[]),
-    ]);
-
-    // Only apply if we're still viewing this server
-    if (get().activeServerId !== serverId) return;
-
-    set({ channels, members, channelsLoaded: true, customEmojis });
-
-    // Subscribe to all text channels so we receive events for unread tracking
-    for (const ch of channels) {
-      if (ch.type === "text") gateway.send({ type: "join_channel", channelId: ch.id });
-    }
-
-    // If no cached channel was restored, auto-select first text channel
-    if (!cached?.activeChannelId) {
-      const textChannel = channels.find((c) => c.type === "text");
-      if (textChannel) {
-        get().selectChannel(textChannel.id);
-      }
-    }
-  },
-
-  selectChannel: async (channelId) => {
-    // Skip if already viewing this channel
-    if (get().activeChannelId === channelId) return;
-
-    const prevChannel = get().activeChannelId;
-    if (prevChannel && prevChannel !== channelId) {
-      // Save current channel's messages to cache before switching
-      saveChannelCache(prevChannel, get());
-      // Do not leave_channel — stay subscribed to all text channels for unread tracking
-    }
-
-    const channel = get().channels.find((c) => c.id === channelId);
-
-    // Clear unread/mention state via shared helper
-    get().markChannelRead(channelId);
-
-    // Restore from cache for instant display, or start empty
-    const cached = channelMessageCache.get(channelId);
-
-    set({
-      activeChannelId: channelId,
-      messages: cached?.messages ?? [],
-      reactions: cached?.reactions ?? {},
-      hasMoreMessages: cached?.hasMore ?? false,
-      messageCursor: cached?.cursor ?? null,
-      loadingMessages: false,
-      searchQuery: "",
-      searchFilters: {},
-      searchResults: null,
-    });
-
-    gateway.send({ type: "join_channel", channelId });
-
-    // Only fetch messages for text channels
-    if (channel?.type === "text") {
-      try {
-        const result = await api.getMessages(channelId);
-        // Only apply if still viewing this channel
-        if (get().activeChannelId !== channelId) return;
-        set({
-          messages: result.items,
-          hasMoreMessages: result.hasMore,
-          messageCursor: result.cursor,
-          loadingMessages: false,
-        });
-        // Update cache with fresh data
-        saveChannelCache(channelId, get());
-
-        // Cache plaintext content for display
-        cacheMessageContent(result.items);
-
-        // Load reactions for the fetched messages
-        if (result.items.length > 0) {
-          try {
-            const reactionItems = await api.getReactions(result.items.map((m) => m.id));
-            const grouped: Record<string, { emoji: string; userIds: string[] }[]> = {};
-            for (const r of reactionItems) {
-              if (!grouped[r.messageId]) grouped[r.messageId] = [];
-              const existing = grouped[r.messageId].find((g) => g.emoji === r.emoji);
-              if (existing) {
-                existing.userIds.push(r.userId);
-              } else {
-                grouped[r.messageId].push({ emoji: r.emoji, userIds: [r.userId] });
-              }
-            }
-            set({ reactions: grouped });
-            // Update cache with reactions
-            saveChannelCache(channelId, get());
-          } catch { /* non-critical */ }
-        }
-      } catch {
-        set({ loadingMessages: false });
-      }
-    }
-  },
+  selectChannel: createSelectChannelAction(set, get),
 
   loadMoreMessages: async () => {
     const { activeChannelId, messageCursor, hasMoreMessages, loadingMessages } = get();
@@ -248,8 +91,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messageCursor: result.cursor,
         loadingMessages: false,
       }));
-      // Cache plaintext content for display
-      cacheMessageContent(result.items);
+      cacheMessageContent(result.items, set);
     } catch {
       set({ loadingMessages: false });
     }
@@ -337,65 +179,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     gateway.send({ type: "remove_reaction", messageId, emoji });
   },
 
-  searchMessages: async (query, filters = {}) => {
-    const { activeServerId } = get();
-    if (!activeServerId) return;
-    const hasFilters = !!(filters.fromUserId || filters.inChannelId || filters.has || filters.mentionsUserId || filters.before || filters.on || filters.after);
-    if (!query.trim() && !hasFilters) return;
-    set({ searchQuery: query, searchFilters: filters });
-    try {
-      const result = await api.searchServerMessages(activeServerId, {
-        q: query.trim() || undefined,
-        senderId: filters.fromUserId,
-        channelId: filters.inChannelId,
-        has: filters.has,
-        mentionsUsername: filters.mentionsUsername,
-        before: filters.before,
-        on: filters.on,
-        after: filters.after,
-      });
-      // Server-side FTS — results are already plaintext
-      const cache: Record<string, string> = {};
-      for (const msg of result.items) {
-        cache[msg.id] = msg.content;
-      }
-      useChatStore.setState((s) => ({
-        decryptedCache: { ...s.decryptedCache, ...cache },
-      }));
-      set({ searchResults: result.items });
-    } catch {
-      set({ searchResults: [] });
-    }
-  },
+  searchMessages: createSearchMessagesAction(set, get),
 
-  searchUserActivity: async (userId, username) => {
-    const { activeServerId } = get();
-    if (!activeServerId) return;
-    set({
-      searchQuery: "",
-      searchFilters: { fromUserId: userId, fromUsername: username },
-    });
-    try {
-      // Parallel: messages FROM the user + messages containing their name as text
-      // (FTS tokenizes @username as "username", so this catches both @username mentions and bare text)
-      const [fromResult, textResult] = await Promise.all([
-        api.searchServerMessages(activeServerId, { senderId: userId }),
-        api.searchServerMessages(activeServerId, { q: username }),
-      ]);
-      const seen = new Set<string>();
-      const merged: Message[] = [];
-      for (const msg of [...fromResult.items, ...textResult.items]) {
-        if (!seen.has(msg.id)) { seen.add(msg.id); merged.push(msg); }
-      }
-      merged.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      const cache: Record<string, string> = {};
-      for (const msg of merged) cache[msg.id] = msg.content;
-      useChatStore.setState((s) => ({ decryptedCache: { ...s.decryptedCache, ...cache } }));
-      set({ searchResults: merged });
-    } catch {
-      set({ searchResults: [] });
-    }
-  },
+  searchUserActivity: createSearchUserActivityAction(set, get),
 
   clearSearch: () => {
     set({ searchQuery: "", searchFilters: {}, searchResults: null });
