@@ -1,0 +1,182 @@
+/* ── Music Search ── */
+
+.music-search {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.music-search-form {
+  display: flex;
+}
+
+.music-search-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius) 0 0 var(--radius);
+  color: #fff;
+  outline: none;
+}
+
+.music-search-btn {
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: none;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.music-search-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.music-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.music-search-input:focus {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.music-search-loading {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 8px 0;
+}
+
+.music-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.music-search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+
+.music-search-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.music-search-item:hover .music-search-item-name {
+  color: #fff;
+}
+
+.music-search-item-art {
+  width: 36px;
+  height: 36px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.music-search-item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.music-search-item-name {
+  font-size: 13px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-search-item-artist {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-search-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.music-search-item-play,
+.music-search-item-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.music-search-item-play:hover {
+  background: #1db954;
+  color: #fff;
+}
+
+.music-search-item-add:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+/* Source tabs for search */
+.music-search-source-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.music-source-tab {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.music-source-tab:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.music-source-tab svg {
+  flex-shrink: 0;
+}
+
+.music-source-tab.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}

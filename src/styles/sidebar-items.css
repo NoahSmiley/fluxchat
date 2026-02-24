@@ -1,0 +1,262 @@
+.channel-list {
+  padding: 8px 0;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.channel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.channel-item:hover {
+  color: var(--text-primary);
+}
+
+.channel-item.active {
+  color: var(--text-primary);
+}
+
+.channel-item.unread {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Left-edge semicircle pill for channels with unread messages */
+.channel-item-has-unread::before {
+  content: "";
+  position: absolute;
+  left: calc(-8px - var(--ch-indent, 0px));
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 8px;
+  border-radius: 0 3px 3px 0;
+  background: var(--text-primary);
+}
+
+/* Mention count badge — red pill on right side */
+.channel-mention-badge {
+  flex-shrink: 0;
+  margin-right: 8px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ed4245;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.channel-type-icon {
+  opacity: 0.5;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.channel-item:hover .channel-type-icon,
+.channel-item.active .channel-type-icon {
+  opacity: 0.8;
+}
+
+/* ── Server Sidebar User ── */
+.server-sidebar-spacer {
+  flex: 0;
+}
+
+/* ── Channel Settings Icon ── */
+.channel-item-wrapper {
+  display: flex;
+  align-items: center;
+  margin: 2px 8px;
+  border-radius: 6px;
+  position: relative;
+}
+
+.channel-item-wrapper:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.channel-item-wrapper:has(.channel-item.active) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.channel-sortable-active {
+  position: relative;
+}
+
+.channel-sortable-active > .channel-item-wrapper {
+  position: relative;
+}
+
+.channel-sortable-active > .channel-item-wrapper::before {
+  content: "";
+  position: absolute;
+  left: calc(-8px - var(--ch-indent, 0px));
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--text-primary);
+}
+
+.channel-item-wrapper .channel-item {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+}
+
+.channel-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.channel-settings-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.channel-item-wrapper:hover .channel-settings-btn {
+  opacity: 1;
+}
+
+.channel-settings-btn:hover {
+  color: var(--text-primary);
+}
+
+
+/* ── Category Headers ── */
+.channel-category-header {
+  display: flex;
+  align-items: center;
+  margin: 2px 8px;
+  border-radius: 6px;
+  position: relative;
+  min-height: 28px;
+}
+
+.channel-category-root {
+  margin-top: 12px;
+}
+
+.channel-category-header:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.channel-category-header:hover .channel-settings-btn {
+  opacity: 1;
+}
+
+.channel-category-drop-target {
+  background: rgba(88, 166, 255, 0.12);
+  outline: 1px dashed rgba(88, 166, 255, 0.5);
+  outline-offset: -1px;
+}
+
+.channel-category-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  text-align: left;
+}
+
+.channel-category-toggle:hover {
+  color: var(--text-secondary);
+}
+
+.channel-category-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.channel-chevron-open {
+  transform: rotate(90deg);
+}
+
+.channel-chevron-hidden {
+  visibility: hidden;
+}
+
+.channel-muted {
+  opacity: 0.45;
+}
+
+
+
+/* ── Drag Overlay ── */
+.channel-drag-overlay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+
+/* ── Avatar username tooltip (server sidebar) ── */
+.avatar-name-tooltip {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+}

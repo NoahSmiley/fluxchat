@@ -1,0 +1,60 @@
+/* ── Screen Share / Streams ── */
+
+/* Default: streams are a contained section, participants stay prominent */
+.streams-area {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 12px 12px 0;
+  gap: 8px;
+}
+
+/* Theatre mode: expand stream */
+.voice-channel-view.theatre .streams-area { flex: 1; min-height: 0; }
+.voice-channel-view.theatre .voice-participants-grid { flex: 0 0 auto; flex-direction: row; flex-wrap: nowrap; align-content: flex-start; justify-content: flex-start; padding: 8px; gap: 8px; overflow-x: auto; overflow-y: visible; }
+.voice-channel-view.theatre .voice-participant-tile { width: auto; flex-direction: row; padding: 6px 10px; gap: 8px; }
+.voice-channel-view.theatre .voice-avatar-wrapper.large { width: 32px; height: 32px; }
+.voice-channel-view.theatre .voice-participant-avatar.large { width: 32px; height: 32px; font-size: 14px; border-width: 2px; }
+
+/* Stream tiles */
+.stream-tile { position: relative; border-radius: var(--radius); overflow: hidden; background: #000; display: flex; flex-direction: column; }
+.stream-tile.pinned { flex: 1; min-height: 0; align-self: stretch; }
+.stream-tile-label { font-size: 12px; color: #fff; font-weight: 600; text-transform: uppercase; }
+.stream-tile-actions { display: flex; gap: 4px; }
+
+.stream-tile-btn {
+  width: 28px; height: 28px; border-radius: 6px; border: none;
+  background: rgba(255, 255, 255, 0.15); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s; backdrop-filter: blur(4px);
+}
+.stream-tile-btn:hover { background: rgba(255, 255, 255, 0.3); }
+
+.stream-tile-video { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+.dummy-stream-video {
+  width: 100%; height: 100%; min-height: 200px;
+  display: flex; align-items: center; justify-content: center; background: var(--bg-tertiary);
+}
+.stream-tile.pinned .dummy-stream-video { min-height: 300px; }
+
+/* Secondary streams (unpinned) */
+.streams-secondary { display: flex; gap: 6px; flex-shrink: 0; overflow-x: auto; padding-top: 6px; }
+.streams-secondary .stream-tile { flex: 0 0 180px; height: 110px; }
+.streams-secondary .stream-tile .stream-tile-label { font-size: 10px; }
+.streams-secondary .dummy-stream-video { min-height: unset; }
+
+/* ── Pop-out Windows ── */
+.popout-container { height: 100%; display: flex; flex-direction: column; }
+.popout-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 14px; font-weight: 600; flex-shrink: 0; }
+.popout-status { font-size: 12px; color: var(--text-secondary); font-weight: 400; }
+.popout-chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.popout-messages { flex: 1; min-height: 0; }
+.popout-screenshare { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.popout-screenshare-video { flex: 1; width: 100%; background: #000; object-fit: contain; min-height: 0; }
+.popout-btn { font-size: 14px; padding: 4px 8px; line-height: 1; }
+
+.chat-header { height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; position: relative; z-index: 1001; }
+.chat-header-channel { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.chat-header-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }

@@ -1,0 +1,206 @@
+/* ── Server Sidebar Cell (grid wrapper) ── */
+.server-sidebar-cell {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Server Sidebar ── */
+.server-sidebar {
+  flex: 1;
+  min-height: 0;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0 8px;
+  gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none; /* Firefox */
+  border-right: 1px solid var(--border);
+}
+.server-sidebar::-webkit-scrollbar {
+  display: none; /* Chrome/Edge */
+}
+
+.server-sidebar-logo {
+  color: var(--text-primary);
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+/* ── Sidebar Member Avatars ── */
+.sidebar-members {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding: 2px 0;
+}
+
+.sidebar-members::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar-member-avatar {
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s, opacity 0.15s;
+  border-radius: 50%;
+  position: relative;
+}
+
+.sidebar-member-avatar.sticky-self {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-primary);
+  padding: 2px 0;
+}
+
+/* Rare glow on sidebar avatars — uses pseudo to avoid overflow clipping */
+.sidebar-member-avatar.has-rare-glow {
+  position: relative;
+}
+
+.sidebar-member-avatar.has-rare-glow::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--ring-glow, transparent) 30%, transparent 70%);
+  animation: sidebar-glow-pulse 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar-member-avatar.has-rare-glow .member-avatar-ring {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes sidebar-glow-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.65; }
+}
+
+.sidebar-member-avatar .member-avatar-ring {
+  width: 36px;
+  height: 36px;
+}
+
+.sidebar-member-avatar:hover {
+  transform: scale(1.1);
+}
+
+.sidebar-member-avatar.offline {
+  opacity: 0.35;
+}
+
+.sidebar-member-avatar.offline:hover {
+  opacity: 0.7;
+}
+
+.sidebar-member-avatar.selected {
+  transform: scale(1.1);
+}
+
+/* User card from sidebar — position fixed to viewport */
+.server-sidebar .user-card {
+  position: fixed;
+  left: 72px;
+  right: auto;
+  z-index: 1200;
+}
+
+/* ── Sidebar Position Variants ── */
+
+/* Right: server sidebar on the right edge */
+.app-layout.sidebar-right .server-sidebar {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+.app-layout.sidebar-right .server-sidebar .user-card {
+  left: auto;
+  right: 72px;
+}
+
+/* Top: server sidebar as horizontal bar at top */
+.app-layout.sidebar-top .server-sidebar {
+  flex-direction: row;
+  align-items: center;
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0 140px 0 8px;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  height: 48px;
+}
+.app-layout.sidebar-top .server-sidebar .sidebar-members {
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: auto;
+  min-height: unset;
+  align-items: center;
+}
+.app-layout.sidebar-top .sidebar-member-avatar .member-avatar-ring {
+  width: 36px;
+  height: 36px;
+}
+.app-layout.sidebar-top .server-sidebar-logo {
+  padding: 0;
+}
+.app-layout.sidebar-top .server-sidebar-spacer {
+  flex: 1;
+}
+.app-layout.sidebar-top .server-sidebar .user-card {
+  left: auto;
+  top: 56px;
+}
+
+/* Bottom: server sidebar as horizontal bar at bottom */
+.app-layout.sidebar-bottom .server-sidebar {
+  flex-direction: row;
+  align-items: center;
+  border-right: none;
+  border-top: 1px solid var(--border);
+  padding: 0 8px;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  height: 48px;
+}
+.app-layout.sidebar-bottom .server-sidebar .sidebar-members {
+  flex-direction: row;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: auto;
+  min-height: unset;
+  align-items: center;
+}
+.app-layout.sidebar-bottom .sidebar-member-avatar .member-avatar-ring {
+  width: 36px;
+  height: 36px;
+}
+.app-layout.sidebar-bottom .server-sidebar-logo {
+  padding: 0;
+}
+.app-layout.sidebar-bottom .server-sidebar-spacer {
+  flex: 1;
+}
+.app-layout.sidebar-bottom .server-sidebar .user-card {
+  left: auto;
+  bottom: 56px;
+  top: auto;
+}

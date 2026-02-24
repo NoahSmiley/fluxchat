@@ -1,0 +1,29 @@
+/* ── Emoji picker trigger (soundboard) ── */
+.emoji-picker-trigger { width: 48px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 20px; }
+.emoji-picker-trigger:hover { border-color: var(--accent); }
+.emoji-placeholder { color: var(--text-muted); font-size: 18px; }
+
+/* ── Emoji Tab (server settings) ── */
+.emoji-upload-form { display: flex; gap: 12px; align-items: flex-start; margin-top: 8px; }
+
+.emoji-upload-drop {
+  width: 64px; height: 64px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; gap: 4px;
+  background: var(--bg-secondary); border: 1px dashed var(--border);
+  border-radius: 8px; cursor: pointer;
+}
+.emoji-upload-drop:hover { border-color: var(--accent); }
+.emoji-upload-preview { width: 100%; height: 100%; object-fit: contain; border-radius: 6px; }
+
+.emoji-upload-progress { height: 4px; background: var(--bg-tertiary); border-radius: 2px; overflow: hidden; }
+.emoji-upload-progress-bar { height: 100%; background: var(--accent); transition: width 0.1s; }
+
+.emoji-tab-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.emoji-tab-row { display: flex; align-items: center; gap: 10px; padding: 4px 2px; }
+.emoji-tab-img { width: 32px; height: 32px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
+.emoji-tab-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.emoji-tab-name { font-size: 13px; color: var(--text-primary); font-family: monospace; }
+
+.emoji-tab-uploader { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); }
+.emoji-tab-uploader-avatar { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; }
