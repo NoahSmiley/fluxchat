@@ -1,7 +1,7 @@
 import { SearchBar } from "./SearchBar.js";
 import type { Channel } from "@/types/shared.js";
 
-export interface ChatHeaderProps {
+interface ChatHeaderProps {
   channels: Channel[];
   activeChannelId: string | null;
   searchResults: unknown[] | null;

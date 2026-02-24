@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 
-export interface SearchFilterTagProps {
+interface SearchFilterTagProps {
   label: string;
   value: string;
   onRemove: () => void;

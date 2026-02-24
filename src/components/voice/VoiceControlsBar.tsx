@@ -3,7 +3,7 @@ import {
   PhoneOff, Monitor, MonitorOff,
 } from "lucide-react";
 
-export interface VoiceControlsBarProps {
+interface VoiceControlsBarProps {
   isMuted: boolean;
   isDeafened: boolean;
   isScreenSharing: boolean;

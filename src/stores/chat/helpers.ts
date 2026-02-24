@@ -15,7 +15,7 @@ type Get = StoreApi<ChatState>["getState"];
 // ── Pure helpers ──────────────────────────────────────────────
 
 /** Build a messageId -> content cache from an array of messages. */
-export function buildMessageContentCache(messages: Message[]): Record<string, string> {
+function buildMessageContentCache(messages: Message[]): Record<string, string> {
   const cache: Record<string, string> = {};
   for (const msg of messages) {
     cache[msg.id] = msg.content;
@@ -24,7 +24,7 @@ export function buildMessageContentCache(messages: Message[]): Record<string, st
 }
 
 /** Group flat reaction rows into per-message grouped reactions. */
-export function groupReactionItems(
+function groupReactionItems(
   reactionItems: { messageId: string; emoji: string; userId: string }[],
 ): Record<string, { emoji: string; userIds: string[] }[]> {
   const grouped: Record<string, { emoji: string; userIds: string[] }[]> = {};
@@ -41,7 +41,7 @@ export function groupReactionItems(
 }
 
 /** Merge two search result arrays, deduplicate by id, sort newest first. */
-export function mergeSearchResults(a: Message[], b: Message[]): Message[] {
+function mergeSearchResults(a: Message[], b: Message[]): Message[] {
   const seen = new Set<string>();
   const merged: Message[] = [];
   for (const msg of [...a, ...b]) {

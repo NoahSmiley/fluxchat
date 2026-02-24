@@ -8,5 +8,5 @@ export const LOBBY_DEFAULT_GAIN = 0.15;
 export const DEFAULT_BITRATE = 256_000;
 
 // Audio level polling
-export const AUDIO_LEVEL_POLL_FPS = 20;
+const AUDIO_LEVEL_POLL_FPS = 20;
 export const AUDIO_LEVEL_INTERVAL_MS = 1000 / AUDIO_LEVEL_POLL_FPS;

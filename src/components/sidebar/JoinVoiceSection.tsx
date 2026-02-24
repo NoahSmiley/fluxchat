@@ -21,7 +21,7 @@ import {
   LockToggleButton,
 } from "./JoinVoiceHelpers.js";
 
-export interface JoinVoiceSectionProps {
+interface JoinVoiceSectionProps {
   channels: Channel[];
   rooms: Channel[];
   activeServerId: string;

@@ -25,7 +25,7 @@ export function formatKeyLabel(e: KeyboardEvent): string {
 
 // ── Mouse Button Config ──────────────────────────────────────────────────────
 
-export const MOUSE_LABELS: Record<number, string> = {
+const MOUSE_LABELS: Record<number, string> = {
   0: "Mouse 1",
   1: "Mouse 3", // middle click is conventionally "mouse 3"
   2: "Mouse 2", // right click is conventionally "mouse 2"

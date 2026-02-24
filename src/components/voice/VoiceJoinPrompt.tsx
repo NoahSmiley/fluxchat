@@ -1,6 +1,6 @@
 import { Volume2 } from "lucide-react";
 
-export interface VoiceJoinPromptProps {
+interface VoiceJoinPromptProps {
   channelName: string;
   connecting: boolean;
   connectionError: string | null;

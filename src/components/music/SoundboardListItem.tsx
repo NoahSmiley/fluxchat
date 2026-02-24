@@ -4,7 +4,7 @@ import { API_BASE } from "@/lib/serverUrl.js";
 import { renderEmoji } from "@/lib/emoji.js";
 import type { CustomEmoji } from "@/types/shared.js";
 
-export interface SoundboardListItemProps {
+interface SoundboardListItemProps {
   sound: SoundboardSound;
   customEmojis: CustomEmoji[];
   onEdit: (sound: SoundboardSound) => void;

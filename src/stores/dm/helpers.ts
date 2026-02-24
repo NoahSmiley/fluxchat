@@ -18,7 +18,7 @@ export function getChatStoreRef() {
  * Bulk-decrypt DM messages into the shared decrypted cache.
  * DMs remain E2EE — decrypted plaintext is held only in memory.
  */
-export async function decryptDMMessages(
+async function decryptDMMessages(
   messages: DMMessage[],
   key: CryptoKey | null,
 ) {
@@ -39,7 +39,7 @@ export async function decryptDMMessages(
  * Resolve the DM encryption key for a given channel/user pair.
  * Returns `null` when no key-pair is available or derivation fails.
  */
-export async function getDMKey(
+async function getDMKey(
   dmChannelId: string,
   otherUserId: string,
 ): Promise<CryptoKey | null> {

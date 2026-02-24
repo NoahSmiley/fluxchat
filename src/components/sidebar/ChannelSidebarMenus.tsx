@@ -10,7 +10,7 @@ import * as api from "@/lib/api/index.js";
 import { dbg } from "@/lib/debug.js";
 
 /** Build the mute duration submenu entries for channel/category context menus. */
-export function buildMuteSubmenu(
+function buildMuteSubmenu(
   isMuted: boolean,
   isMentionMuted: boolean,
   onMute: (ms: number) => void,
@@ -36,7 +36,7 @@ export function buildMuteSubmenu(
   return entries;
 }
 
-export interface ChannelSidebarMenusProps {
+interface ChannelSidebarMenusProps {
   activeServerId: string;
   isOwnerOrAdmin: boolean;
   connectedChannelId: string | null;

@@ -2,9 +2,7 @@ import { create } from "zustand";
 import type { AudioSettings } from "@/lib/audio/voice-pipeline.js";
 import { LOBBY_DEFAULT_GAIN } from "@/lib/audio/voice-constants.js";
 
-// Re-export types that external files import from this module
-export type { NoiseSuppressionModel } from "./types.js";
-export type { VoiceState } from "./types.js";
+// Types are exported from index.ts — no re-export needed here
 
 import type { VoiceState, ScreenShareQuality } from "./types.js";
 import { DEFAULT_SETTINGS } from "./types.js";

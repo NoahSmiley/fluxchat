@@ -29,7 +29,7 @@ import {
 const DRAG_ACTIVATION_DELAY_MS = 500;
 const DRAG_ACTIVATION_TOLERANCE_PX = 5;
 
-export interface ChannelTreeProps {
+interface ChannelTreeProps {
   channels: Channel[];
   activeChannelId: string | null;
   activeServerId: string;

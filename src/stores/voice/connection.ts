@@ -27,7 +27,7 @@ export function setAdaptiveTargetBitrate(bitrate: number) {
   adaptiveTargetBitrate = bitrate;
 }
 
-export function bumpJoinNonce() {
+function bumpJoinNonce() {
   return ++joinNonce;
 }
 

@@ -24,6 +24,9 @@ target/
 .vscode/
 .idea/
 
+# Uploads (user-generated, not tracked)
+uploads/
+
 # OS
 .DS_Store
 Thumbs.db

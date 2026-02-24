@@ -12,8 +12,7 @@ import {
   createSearchUserActivityAction,
 } from "./helpers.js";
 
-// Re-export helpers so existing imports continue to work
-export { base64ToUtf8, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "./types.js";
+// Helpers are exported from index.ts — no re-export needed here
 
 // Lazy ref to auth store to avoid circular imports
 let authStoreRef: typeof import("@/stores/auth.js").useAuthStore | null = null;

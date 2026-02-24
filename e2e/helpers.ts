@@ -181,7 +181,7 @@ export async function loginUser(page: Page, email: string, password: string) {
  * Fetch the list of servers the current user belongs to via API.
  * Returns the parsed JSON array of servers.
  */
-export async function getServersViaAPI(page: Page) {
+async function getServersViaAPI(page: Page) {
   return await page.evaluate(async () => {
     const token = localStorage.getItem("flux-session-token");
     const headers: Record<string, string> = {};

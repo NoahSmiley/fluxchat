@@ -6,7 +6,7 @@ import { API_BASE } from "@/lib/serverUrl.js";
 import { renderEmoji } from "@/lib/emoji.js";
 import EmojiPicker from "@/components/EmojiPicker.js";
 
-export interface SoundboardEditFormProps {
+interface SoundboardEditFormProps {
   serverId: string;
   sound: SoundboardSound;
   customEmojis: CustomEmoji[];

@@ -1,6 +1,6 @@
 import { Play, Pause, SkipForward, Volume2, VolumeX } from "lucide-react";
 
-export interface MusicNowPlayingProps {
+interface MusicNowPlayingProps {
   currentTrackName: string | undefined;
   currentTrackArtist: string | undefined;
   albumArtUrl: string | undefined;

@@ -16,7 +16,7 @@ interface NowPlayingTrack {
   imageUrl?: string;
 }
 
-export interface VoiceParticipantGridProps {
+interface VoiceParticipantGridProps {
   participants: VoiceUser[];
   members: MemberWithUser[];
   localParticipantIdentity: string | undefined;

@@ -29,7 +29,7 @@ export function getLocalMicTrack(): MediaStreamTrack | null {
   return localMicTrack;
 }
 
-export function setupLocalAnalyser(room: any) {
+function setupLocalAnalyser(room: any) {
   teardownLocalAnalyser();
   try {
     let mediaStreamTrack: MediaStreamTrack | undefined;
@@ -75,7 +75,7 @@ export function setupLocalAnalyser(room: any) {
   }
 }
 
-export function teardownLocalAnalyser() {
+function teardownLocalAnalyser() {
   try { localAnalyserSource?.disconnect(); } catch {}
   localAnalyserSource = null;
   localAnalyser = null;
@@ -93,7 +93,7 @@ export function teardownLocalAnalyser() {
   }
 }
 
-export function getLocalMicLevel(): number {
+function getLocalMicLevel(): number {
   if (!localAnalyser || !localAnalyserData) return 0;
   localAnalyser.getFloatTimeDomainData(localAnalyserData);
   return calculateRms(localAnalyserData);
@@ -102,7 +102,7 @@ export function getLocalMicLevel(): number {
 // Convert sensitivity (0-100) to an audio level threshold (0.0-1.0)
 // Uses a quadratic curve so low values are fine-grained (speech range)
 // and high values gate more aggressively. RMS of normal speech ≈ 0.01-0.05.
-export function sensitivityToThreshold(sensitivity: number): number {
+function sensitivityToThreshold(sensitivity: number): number {
   const t = sensitivity / 100;
   return t * t * 0.1; // 10% → 0.001, 50% → 0.025, 100% → 0.1
 }

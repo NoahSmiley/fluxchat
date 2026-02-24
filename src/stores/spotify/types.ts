@@ -155,7 +155,7 @@ export function yt() {
   return useYouTubeStore.getState();
 }
 
-export { useYouTubeStore, api, dbg };
+export { useYouTubeStore, dbg };
 
 /** Play a track on a Spotify device, retrying on 404 (device not yet registered). */
 export async function playOnDevice(deviceId: string, uris: string[], positionMs?: number): Promise<boolean> {

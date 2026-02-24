@@ -9,7 +9,7 @@ export function RoleBadge({ role }: { role: string }) {
   return null;
 }
 
-export function ActivityTag({ activity }: { activity: ActivityInfo }) {
+function ActivityTag({ activity }: { activity: ActivityInfo }) {
   const isListening = activity.activityType === "listening";
   return (
     <div className="member-activity-tag">
@@ -19,7 +19,7 @@ export function ActivityTag({ activity }: { activity: ActivityInfo }) {
   );
 }
 
-export interface MemberListItemProps {
+interface MemberListItemProps {
   member: MemberWithUser;
   isOnline: boolean;
   isSelected: boolean;

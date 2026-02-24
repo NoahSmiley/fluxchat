@@ -112,7 +112,7 @@ function randomParams(): VisualizerParams {
   };
 }
 
-export interface MusicVisualizerProps {
+interface MusicVisualizerProps {
   isPaused: boolean;
   albumArtUrl?: string;
   onClose: () => void;

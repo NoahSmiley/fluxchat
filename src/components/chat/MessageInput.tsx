@@ -13,7 +13,7 @@ type MentionEntry =
   | { kind: "special"; name: string; desc: string }
   | { kind: "user"; member: MemberWithUser };
 
-export interface MessageInputProps {
+interface MessageInputProps {
   activeChannelId: string | null;
   activeServerId: string | null;
   members: MemberWithUser[];

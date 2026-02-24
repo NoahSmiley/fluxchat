@@ -14,7 +14,7 @@ function applyMaxQuality(pub: RemoteTrackPublication) {
 
 // ── Single Stream Tile ──
 // Attaches a LiveKit video track to a <video> element for one screen sharer.
-export interface StreamTileProps {
+interface StreamTileProps {
   participantId: string;
   username: string;
   isPinned: boolean;
@@ -99,7 +99,7 @@ export function StreamTile({ participantId, username, isPinned }: StreamTileProp
 }
 
 // ── Dummy Stream Tile (for preview when showDummyUsers is on) ──
-export interface DummyStreamTileProps {
+interface DummyStreamTileProps {
   participantId: string;
   username: string;
   isPinned: boolean;

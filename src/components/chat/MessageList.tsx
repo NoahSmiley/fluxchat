@@ -8,9 +8,7 @@ import { setCursorAtOffset, getDivPlainText } from "@/lib/contentEditable.js";
 import { MessageItem, type MessageDataEntry } from "./MessageItem.js";
 import type { Message, CustomEmoji } from "@/types/shared.js";
 
-export type { MessageDataEntry };
-
-export interface MessageListProps {
+interface MessageListProps {
   displayMessages: Message[];
   messageData: Map<string, MessageDataEntry>;
   usernameMap: Record<string, string>;

@@ -1,5 +1,5 @@
 // ── Base helpers (kept here for backwards compatibility) ──
-export { getStoredToken, request } from "./base.js";
+export { getStoredToken } from "./base.js";
 
 // ── Domain re-exports ──
 export {

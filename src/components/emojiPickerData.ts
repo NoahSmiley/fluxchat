@@ -2,20 +2,20 @@ import twemoji from "twemoji";
 import data from "@emoji-mart/data";
 import { TWEMOJI_OPTIONS } from "@/lib/emoji.js";
 
-export interface EmojiSkin {
+interface EmojiSkin {
   native: string;
 }
-export interface EmojiEntry {
+interface EmojiEntry {
   id: string;
   name: string;
   keywords?: string[];
   skins: EmojiSkin[];
 }
-export interface EmojiCategory {
+interface EmojiCategory {
   id: string;
   emojis: string[];
 }
-export interface EmojiData {
+interface EmojiData {
   categories: EmojiCategory[];
   emojis: Record<string, EmojiEntry>;
 }

@@ -20,7 +20,7 @@ export interface MessageDataEntry {
   isMentioned: boolean;
 }
 
-export interface MessageItemProps {
+interface MessageItemProps {
   msg: Message;
   msgData: MessageDataEntry | undefined;
   senderName: string;

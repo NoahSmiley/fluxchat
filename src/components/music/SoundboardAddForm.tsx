@@ -9,7 +9,7 @@ import { audioBufferToWav, WaveformCanvas } from "./SoundboardWaveform.js";
 
 // ── Add Sound Form ────────────────────────────────────────────────────────
 
-export interface SoundboardAddFormProps {
+interface SoundboardAddFormProps {
   serverId: string;
   customEmojis: CustomEmoji[];
   onSave: (sound: SoundboardSound) => void;

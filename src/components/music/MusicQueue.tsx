@@ -1,7 +1,7 @@
 import { Play, X } from "lucide-react";
 import type { QueueItem } from "@/types/shared.js";
 
-export interface MusicQueueProps {
+interface MusicQueueProps {
   queue: QueueItem[];
   hasTrack: boolean;
   play: (trackUri?: string, source?: string) => Promise<void>;

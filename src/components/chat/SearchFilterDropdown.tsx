@@ -9,7 +9,7 @@ export function isDateMode(mode: DropdownMode): mode is "before" | "on" | "after
   return mode === "before" || mode === "on" || mode === "after";
 }
 
-export const HAS_OPTIONS = [
+const HAS_OPTIONS = [
   { value: "image",  label: "Image",  Icon: Image },
   { value: "video",  label: "Video",  Icon: Video },
   { value: "link",   label: "Link",   Icon: Link },
@@ -34,7 +34,7 @@ export interface SearchFilterDropdownHandle {
   executeItem: (index: number) => void;
 }
 
-export interface SearchFilterDropdownProps {
+interface SearchFilterDropdownProps {
   dropdownMode: DropdownMode;
   selectedIndex: number;
   filterSubquery: string;

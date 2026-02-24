@@ -46,7 +46,7 @@ export function audioBufferToWav(buffer: AudioBuffer): Blob {
 
 // ── Waveform canvas ───────────────────────────────────────────────────────
 
-export interface WaveformCanvasProps {
+interface WaveformCanvasProps {
   audioBuffer: AudioBuffer;
   startSec: number;
   endSec: number;
