@@ -7,14 +7,13 @@ import { useYouTubeStore } from "../../stores/youtube.js";
 import { MusicPanel } from "../music/MusicPanel.js";
 import { SoundboardPanel } from "../music/SoundboardPanel.js";
 import { StreamTile, DummyStreamTile } from "./StreamTile.js";
-import { ParticipantTile } from "./ParticipantTile.js";
-import { LobbyMusicBar } from "./LobbyMusicBar.js";
+import { VoiceParticipantGrid } from "./VoiceParticipantGrid.js";
+import { VoiceControlsBar } from "./VoiceControlsBar.js";
+import { VoiceJoinPrompt } from "./VoiceJoinPrompt.js";
 import {
-  Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
-  PhoneOff, Monitor, MonitorOff,
+  Volume2, Monitor, MonitorOff,
   Music, Eye, Radio,
 } from "lucide-react";
-import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
 import { useUIStore } from "../../stores/ui.js";
 
 const DUMMY_STREAMERS = [
@@ -29,37 +28,6 @@ const DUMMY_STREAMERS = [
   { participantId: "__d9", username: "Spectre" },
   { participantId: "__d10", username: "Volt" },
 ];
-
-// ── Speaking Avatar ──
-// The glow ring animates via rAF reading audio levels directly from the store (no re-render).
-// Only the binary speaking boolean triggers a React re-render.
-function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle, memberRingSpin, memberRingPatternSeed, isStreaming }: {
-  userId: string; username: string; image?: string | null; large?: boolean; role?: string;
-  memberRingStyle?: string; memberRingSpin?: boolean; memberRingPatternSeed?: number | null;
-  isStreaming?: boolean;
-}) {
-  const speaking = useVoiceStore((s) => s.speakingUserIds.has(userId));
-  const rc = ringClass(memberRingStyle, memberRingSpin, role, false, memberRingPatternSeed);
-
-  return (
-    <div className={`voice-avatar-wrapper ${large ? "large" : ""}`}>
-      <div className={`voice-participant-ring ${rc}`} style={{ "--ring-color": avatarColor(username), ...ringGradientStyle(memberRingPatternSeed, memberRingStyle) } as React.CSSProperties}>
-        <div className={`voice-participant-avatar ${speaking ? "speaking" : ""} ${large ? "large" : ""}`}>
-          {image ? (
-            <img src={image} alt={username} className="avatar-img" />
-          ) : (
-            username.charAt(0).toUpperCase()
-          )}
-        </div>
-      </div>
-      {isStreaming && (
-        <div className="voice-avatar-streaming-badge" title="Streaming">
-          <Radio size={10} />
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ── Main Export ──
 export function VoiceChannelView() {
@@ -97,7 +65,7 @@ export function VoiceChannelView() {
     toggleScreenShare: s.toggleScreenShare, setParticipantVolume: s.setParticipantVolume,
     screenShareQuality: s.screenShareQuality, setScreenShareQuality: s.setScreenShareQuality,
   })));
-  const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
+  const { loadSession, playerState, session, queue, volume, setVolume } = useSpotifyStore();
   const { youtubeTrack } = useYouTubeStore();
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
   const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music" | "sounds">("voice");
@@ -169,29 +137,20 @@ export function VoiceChannelView() {
         </div>
       )}
 
-      {connectionError && (
+      {/* Pre-join / connecting state */}
+      {!isConnected && (
+        <VoiceJoinPrompt
+          channelName={channel?.name ?? "Voice Channel"}
+          connecting={connecting}
+          connectionError={connectionError}
+          activeChannelId={activeChannelId}
+          joinVoiceChannel={joinVoiceChannel}
+        />
+      )}
+
+      {/* Connection error while connected */}
+      {isConnected && connectionError && (
         <div className="voice-error">{connectionError}</div>
-      )}
-
-      {!isConnected && !connecting && (
-        <div className="voice-join-prompt">
-          <span className="voice-join-icon"><Volume2 size={48} /></span>
-          <h2>{channel?.name ?? "Voice Channel"}</h2>
-          <p>No one is currently in this voice channel.</p>
-          <button
-            className="btn-primary voice-join-btn"
-            onClick={() => activeChannelId && joinVoiceChannel(activeChannelId)}
-          >
-            Join Voice
-          </button>
-        </div>
-      )}
-
-      {connecting && (
-        <div className="voice-connecting">
-          <div className="loading-spinner" />
-          <p>Connecting...</p>
-        </div>
       )}
 
       {isConnected && activeTab === "music" && activeChannelId && (
@@ -307,158 +266,34 @@ export function VoiceChannelView() {
       })()}
 
       {isConnected && activeTab === "voice" && (
-        <>
-          {/* Participants */}
-          <div className="voice-participants-grid">
-            {/* DEBUG: dummy voice tiles */}
-            {showDummyUsers && [
-              { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=1" },
-              { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=8" },
-              { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/128?img=12" },
-              { userId: "__d4", username: "Cosmo", bannerCss: "space", bannerPatternSeed: null, ringStyle: "emerald", ringSpin: false, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/128?img=15" },
-              { userId: "__d5", username: "ghost404", bannerCss: null, bannerPatternSeed: null, ringStyle: "default", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=22" },
-              { userId: "__d6", username: "Prism", bannerCss: "gamma_doppler", bannerPatternSeed: 77, ringStyle: "doppler", ringSpin: false, ringPatternSeed: 77, role: "member", image: "https://i.pravatar.cc/128?img=33" },
-              { userId: "__d7", username: "Nyx", bannerCss: "cityscape", bannerPatternSeed: null, ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 150, role: "member", image: "https://i.pravatar.cc/128?img=47" },
-              { userId: "__d8", username: "ZeroDay", bannerCss: "doppler", bannerPatternSeed: 200, ringStyle: "ruby", ringSpin: true, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/128?img=51" },
-            ].map((d) => (
-              <ParticipantTile key={d.userId} userId={d.userId} username={d.username} banner={bannerBackground(d.bannerCss, d.bannerPatternSeed)}>
-                <SpeakingAvatar
-                  userId={d.userId}
-                  username={d.username}
-                  image={d.image}
-                  role={d.role}
-                  memberRingStyle={d.ringStyle}
-                  memberRingSpin={d.ringSpin}
-                  memberRingPatternSeed={d.ringPatternSeed}
-                  large
-                />
-                <span className="voice-tile-name">{d.username}</span>
-              </ParticipantTile>
-            ))}
-            {/* END DEBUG */}
-            {participants.map((user) => {
-              const member = members.find((m) => m.userId === user.userId);
-              const tileBanner = bannerBackground(member?.bannerCss, member?.bannerPatternSeed);
-              return (
-              <ParticipantTile key={user.userId} userId={user.userId} username={user.username} banner={tileBanner}>
-                <SpeakingAvatar
-                  userId={user.userId}
-                  username={user.username}
-                  image={member?.image}
-                  role={member?.role}
-                  memberRingStyle={member?.ringStyle}
-                  memberRingSpin={member?.ringSpin}
-                  memberRingPatternSeed={member?.ringPatternSeed}
-                  isStreaming={screenSharerIds.has(user.userId)}
-                  large
-                />
-                <span className="voice-tile-name">
-                  {user.username}
-                  {(user.isMuted || user.isDeafened) && (
-                    <span className="voice-tile-status-icons">
-                      {user.isMuted && <MicOff size={14} className="voice-tile-status-icon" />}
-                      {user.isDeafened && <HeadphoneOff size={14} className="voice-tile-status-icon" />}
-                    </span>
-                  )}
-                </span>
-                {user.userId !== room?.localParticipant?.identity && (
-                  <div className="voice-tile-volume">
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      value={Math.round((participantVolumes[user.userId] ?? 1.0) * 100)}
-                      onChange={(e) => setParticipantVolume(user.userId, parseInt(e.target.value) / 100)}
-                      className="volume-slider"
-                      title={`Volume: ${Math.round((participantVolumes[user.userId] ?? 1.0) * 100)}%`}
-                    />
-                  </div>
-                )}
-              </ParticipantTile>
-            );
-            })}
-          </div>
-
-          {/* Lobby music bar (easter egg) */}
-          <LobbyMusicBar />
-
-          {/* Mini now-playing bar (Spotify or YouTube) */}
-          {session && (() => {
-            const spotifyTrack = playerState?.track_window?.current_track;
-            const npName = youtubeTrack ? youtubeTrack.name : spotifyTrack?.name;
-            const npArtist = youtubeTrack ? youtubeTrack.artist : spotifyTrack?.artists.map(a => a.name).join(", ");
-            const npArt = youtubeTrack ? youtubeTrack.imageUrl : spotifyTrack?.album.images[0]?.url;
-            if (!npName) return null;
-            const nextTrack = queue[0];
-            return (
-              <div className="voice-now-playing">
-                {npArt && (
-                  <img src={npArt} alt="" className="voice-np-art" />
-                )}
-                <div className="voice-np-info">
-                  <span className="voice-np-name">{npName}</span>
-                  <span className="voice-np-artist">{npArtist}</span>
-                </div>
-                <div className="voice-np-volume">
-                  <button
-                    className="voice-np-mute-btn"
-                    onClick={() => setVolume(volume > 0 ? 0 : 0.5)}
-                    title={volume === 0 ? "Unmute Music" : "Mute Music"}
-                  >
-                    {volume === 0 ? <VolumeX size={16} /> : <Volume1 size={16} />}
-                  </button>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={Math.round(volume * 100)}
-                    onChange={(e) => setVolume(parseInt(e.target.value) / 100)}
-                    className="volume-slider voice-np-slider"
-                  />
-                </div>
-                {nextTrack && (
-                  <span className="voice-np-next" title={`Next: ${nextTrack.trackName}`}>
-                    Next: {nextTrack.trackName}
-                  </span>
-                )}
-              </div>
-            );
-          })()}
-        </>
+        <VoiceParticipantGrid
+          participants={participants}
+          members={members}
+          localParticipantIdentity={room?.localParticipant?.identity}
+          participantVolumes={participantVolumes}
+          setParticipantVolume={setParticipantVolume}
+          screenSharerIds={screenSharerIds}
+          showDummyUsers={showDummyUsers}
+          session={session}
+          playerState={playerState}
+          youtubeTrack={youtubeTrack}
+          queue={queue}
+          volume={volume}
+          setVolume={setVolume}
+        />
       )}
 
-      {/* Controls bar — always visible when connected */}
+      {/* Controls bar -- always visible when connected */}
       {isConnected && (
-        <div className="voice-controls-bar">
-          <button
-            className={`voice-ctrl-btn ${isMuted ? "active" : ""}`}
-            onClick={toggleMute}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-          </button>
-          <button
-            className={`voice-ctrl-btn ${isDeafened ? "active" : ""}`}
-            onClick={toggleDeafen}
-            title={isDeafened ? "Undeafen" : "Deafen"}
-          >
-            {isDeafened ? <HeadphoneOff size={20} /> : <Headphones size={20} />}
-          </button>
-          <button
-            className={`voice-ctrl-btn ${isScreenSharing ? "active" : ""}`}
-            onClick={() => toggleScreenShare()}
-            title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
-          >
-            {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
-          </button>
-          <button
-            className="voice-ctrl-btn disconnect"
-            onClick={leaveVoiceChannel}
-            title="Disconnect"
-          >
-            <PhoneOff size={20} />
-          </button>
-        </div>
+        <VoiceControlsBar
+          isMuted={isMuted}
+          isDeafened={isDeafened}
+          isScreenSharing={isScreenSharing}
+          toggleMute={toggleMute}
+          toggleDeafen={toggleDeafen}
+          toggleScreenShare={toggleScreenShare}
+          leaveVoiceChannel={leaveVoiceChannel}
+        />
       )}
     </div>
   );
