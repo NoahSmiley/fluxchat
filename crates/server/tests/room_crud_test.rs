@@ -401,7 +401,7 @@ async fn delete_room_with_participants_returns_403() {
     // Try to delete room via HTTP — should fail
     let client = reqwest::Client::new();
     let res = client
-        .delete(&format!("{}/api/servers/{}/channels/{}", base, server_id, room_id))
+        .delete(format!("{}/api/servers/{}/channels/{}", base, server_id, room_id))
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await

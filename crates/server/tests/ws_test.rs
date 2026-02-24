@@ -536,7 +536,7 @@ async fn voice_leave_broadcasts_state() {
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     let msgs = drain_messages(&mut ws).await;
     let has_voice_empty = msgs.iter().any(|m| {
-        m["type"] == "voice_state" && m["participants"].as_array().map_or(false, |a| a.is_empty())
+        m["type"] == "voice_state" && m["participants"].as_array().is_some_and(|a| a.is_empty())
     });
     assert!(has_voice_empty, "Voice state should show empty participants after leave");
 }
@@ -564,7 +564,7 @@ async fn voice_drink_update() {
         m["type"] == "voice_state"
             && m["participants"]
                 .as_array()
-                .map_or(false, |a| a.iter().any(|p| p["drinkCount"] == 3))
+                .is_some_and(|a| a.iter().any(|p| p["drinkCount"] == 3))
     });
     assert!(has_drink);
 }

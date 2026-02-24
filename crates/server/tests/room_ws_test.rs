@@ -152,7 +152,7 @@ async fn room_voice_leave_broadcasts_empty() {
             && m["channelId"] == room_id
             && m["participants"]
                 .as_array()
-                .map_or(false, |a| a.is_empty())
+                .is_some_and(|a| a.is_empty())
     });
     assert!(has_empty, "Should broadcast empty participants after leave");
 }
@@ -197,7 +197,7 @@ async fn room_voice_multiple_users_in_room() {
             && m["channelId"] == room_id
             && m["participants"]
                 .as_array()
-                .map_or(false, |a| a.len() == 2)
+                .is_some_and(|a| a.len() == 2)
     });
     assert!(two_participants, "Room should show 2 participants");
 }
@@ -245,7 +245,7 @@ async fn room_voice_switch_between_rooms() {
             && m["channelId"] == room1_id
             && m["participants"]
                 .as_array()
-                .map_or(false, |a| a.is_empty())
+                .is_some_and(|a| a.is_empty())
     });
     // Room 2 should have user
     let room2_occupied = msgs.iter().any(|m| {
@@ -253,7 +253,7 @@ async fn room_voice_switch_between_rooms() {
             && m["channelId"] == room2_id
             && m["participants"]
                 .as_array()
-                .map_or(false, |a| !a.is_empty())
+                .is_some_and(|a| !a.is_empty())
     });
 
     assert!(room1_empty, "Room 1 should be empty after switch");
@@ -276,7 +276,7 @@ async fn room_created_event_on_http_create() {
     // Create room via HTTP
     let client = reqwest::Client::new();
     let res = client
-        .post(&format!("{}/api/servers/{}/channels", base, server_id))
+        .post(format!("{}/api/servers/{}/channels", base, server_id))
         .header("Authorization", format!("Bearer {}", token))
         .json(&json!({
             "name": "New Room",
@@ -311,7 +311,7 @@ async fn room_deleted_event_on_http_delete() {
     // Delete room via HTTP
     let client = reqwest::Client::new();
     let res = client
-        .delete(&format!("{}/api/servers/{}/channels/{}", base, server_id, room_id))
+        .delete(format!("{}/api/servers/{}/channels/{}", base, server_id, room_id))
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
@@ -346,7 +346,7 @@ async fn room_lock_toggled_broadcast() {
     // Lock the room via HTTP
     let client = reqwest::Client::new();
     let res = client
-        .patch(&format!("{}/api/servers/{}/channels/{}", base, server_id, room_id))
+        .patch(format!("{}/api/servers/{}/channels/{}", base, server_id, room_id))
         .header("Authorization", format!("Bearer {}", token1))
         .json(&json!({ "isLocked": true }))
         .send()
@@ -386,7 +386,7 @@ async fn room_unlock_toggled_broadcast() {
     // Unlock via HTTP
     let client = reqwest::Client::new();
     let res = client
-        .patch(&format!("{}/api/servers/{}/channels/{}", base, server_id, room_id))
+        .patch(format!("{}/api/servers/{}/channels/{}", base, server_id, room_id))
         .header("Authorization", format!("Bearer {}", token))
         .json(&json!({ "isLocked": false }))
         .send()
@@ -546,7 +546,7 @@ async fn accept_knock_sends_accepted_to_knocker() {
     // Owner accepts knock via HTTP
     let client = reqwest::Client::new();
     let res = client
-        .post(&format!(
+        .post(format!(
             "{}/api/servers/{}/rooms/{}/accept-knock",
             base, server_id, room_id
         ))
@@ -583,7 +583,7 @@ async fn accept_knock_requires_creator_or_admin() {
     // Non-creator member tries to accept
     let client = reqwest::Client::new();
     let res = client
-        .post(&format!(
+        .post(format!(
             "{}/api/servers/{}/rooms/{}/accept-knock",
             base, server_id, room_id
         ))
@@ -613,7 +613,7 @@ async fn invite_to_room_sends_event_to_target() {
     // Owner invites target via HTTP
     let client = reqwest::Client::new();
     let res = client
-        .post(&format!(
+        .post(format!(
             "{}/api/servers/{}/rooms/{}/invite",
             base, server_id, room_id
         ))
@@ -648,7 +648,7 @@ async fn invite_requires_target_is_member() {
 
     let client = reqwest::Client::new();
     let res = client
-        .post(&format!(
+        .post(format!(
             "{}/api/servers/{}/rooms/{}/invite",
             base, server_id, room_id
         ))
@@ -688,7 +688,7 @@ async fn force_move_sends_event_to_target() {
     // Owner force moves target from room 1 to room 2
     let client = reqwest::Client::new();
     let res = client
-        .post(&format!(
+        .post(format!(
             "{}/api/servers/{}/rooms/{}/move",
             base, server_id, room1_id
         ))

@@ -195,7 +195,7 @@ pub async fn create_test_server(pool: &SqlitePool, owner_id: &str, name: &str) -
     let now = chrono::Utc::now().to_rfc3339();
 
     sqlx::query("INSERT INTO servers (id, name, owner_id, invite_code, created_at) VALUES (?, ?, ?, ?, ?)")
-        .bind(&server_id).bind(name).bind(owner_id).bind(&uuid::Uuid::new_v4().to_string()).bind(&now)
+        .bind(&server_id).bind(name).bind(owner_id).bind(uuid::Uuid::new_v4().to_string()).bind(&now)
         .execute(pool).await.unwrap();
 
     sqlx::query("INSERT INTO memberships (user_id, server_id, role, joined_at, role_updated_at) VALUES (?, ?, 'owner', ?, ?)")
@@ -203,7 +203,7 @@ pub async fn create_test_server(pool: &SqlitePool, owner_id: &str, name: &str) -
         .execute(pool).await.unwrap();
 
     sqlx::query("INSERT INTO channels (id, server_id, name, type, position, created_at) VALUES (?, ?, 'general', 'text', 0, ?)")
-        .bind(&uuid::Uuid::new_v4().to_string()).bind(&server_id).bind(&now)
+        .bind(uuid::Uuid::new_v4().to_string()).bind(&server_id).bind(&now)
         .execute(pool).await.unwrap();
 
     server_id

@@ -71,7 +71,7 @@ async fn list_dm_channels() {
     sqlx::query(
         "INSERT INTO dm_channels (id, user1_id, user2_id, created_at) VALUES (?, ?, ?, ?)",
     )
-    .bind(&uuid::Uuid::new_v4().to_string())
+    .bind(uuid::Uuid::new_v4().to_string())
     .bind(id1)
     .bind(id2)
     .bind(&now)
@@ -121,11 +121,11 @@ async fn list_dm_messages_paginated() {
         sqlx::query(
             "INSERT INTO dm_messages (id, dm_channel_id, sender_id, ciphertext, mls_epoch, created_at) VALUES (?, ?, ?, ?, 0, ?)",
         )
-        .bind(&uuid::Uuid::new_v4().to_string())
+        .bind(uuid::Uuid::new_v4().to_string())
         .bind(&dm_channel_id)
         .bind(&user1_id)
-        .bind(&format!("encrypted msg {}", i))
-        .bind(&chrono::Utc::now().to_rfc3339())
+        .bind(format!("encrypted msg {}", i))
+        .bind(chrono::Utc::now().to_rfc3339())
         .execute(&pool)
         .await
         .unwrap();

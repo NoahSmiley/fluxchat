@@ -226,8 +226,8 @@ pub async fn search_dm_messages(
     Path(dm_channel_id): Path<String>,
     Query(query): Query<UserSearchQuery>,
 ) -> impl IntoResponse {
-    let _q = match query.q.as_deref() {
-        Some(q) if !q.trim().is_empty() => q.trim().to_string(),
+    match query.q.as_deref() {
+        Some(q) if !q.trim().is_empty() => {},
         _ => {
             return (
                 StatusCode::BAD_REQUEST,

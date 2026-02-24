@@ -48,7 +48,7 @@ async fn setup_with_server() -> (TestServer, sqlx::SqlitePool, String, String, S
     sqlx::query(
         "INSERT INTO channels (id, server_id, name, type, position, created_at) VALUES (?, ?, 'general', 'text', 0, ?)",
     )
-    .bind(&uuid::Uuid::new_v4().to_string())
+    .bind(uuid::Uuid::new_v4().to_string())
     .bind(&server_id)
     .bind(&now)
     .execute(&pool)
@@ -225,7 +225,7 @@ async fn list_channels_ordered_by_position() {
     sqlx::query(
         "INSERT INTO channels (id, server_id, name, type, position, created_at) VALUES (?, ?, 'second', 'text', 1, ?)",
     )
-    .bind(&uuid::Uuid::new_v4().to_string())
+    .bind(uuid::Uuid::new_v4().to_string())
     .bind(&server_id)
     .bind(&now)
     .execute(&pool)

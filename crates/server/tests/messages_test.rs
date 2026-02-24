@@ -217,7 +217,7 @@ async fn get_reactions_for_messages() {
     sqlx::query(
         "INSERT INTO reactions (id, message_id, user_id, emoji, created_at) VALUES (?, ?, ?, '👍', ?)",
     )
-    .bind(&uuid::Uuid::new_v4().to_string())
+    .bind(uuid::Uuid::new_v4().to_string())
     .bind(&msg_id)
     .bind(&user_id)
     .bind(&now)
