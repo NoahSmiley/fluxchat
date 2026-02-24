@@ -6,8 +6,9 @@ import { useChatStore } from "../../stores/chat.js";
 import { useDMStore } from "../../stores/dm.js";
 import { useAuthStore } from "../../stores/auth.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
-import { Crown, Shield, MessageSquare, Music, Gamepad2, ChevronDown } from "lucide-react";
+import { MessageSquare, ChevronDown } from "lucide-react";
 import type { MemberWithUser, ActivityInfo, PresenceStatus } from "../../types/shared.js";
+import { RoleBadge, MemberListItem } from "./MemberListItem.js";
 
 const STATUS_OPTIONS: { value: PresenceStatus; label: string }[] = [
   { value: "online", label: "Online" },
@@ -15,22 +16,6 @@ const STATUS_OPTIONS: { value: PresenceStatus; label: string }[] = [
   { value: "dnd", label: "Do Not Disturb" },
   { value: "invisible", label: "Invisible" },
 ];
-
-function RoleBadge({ role }: { role: string }) {
-  if (role === "owner") return <Crown size={10} className="role-badge owner" />;
-  if (role === "admin") return <Shield size={10} className="role-badge admin" />;
-  return null;
-}
-
-function ActivityTag({ activity }: { activity: ActivityInfo }) {
-  const isListening = activity.activityType === "listening";
-  return (
-    <div className="member-activity-tag">
-      {isListening ? <Music size={10} /> : <Gamepad2 size={10} />}
-      <span>{isListening ? activity.artist ?? "Spotify" : activity.name}</span>
-    </div>
-  );
-}
 
 const STATUS_LABELS: Record<string, string> = {
   online: "Online",
@@ -200,6 +185,12 @@ function MemberList() {
     setSelectedUserId(userId);
   }
 
+  function handleContextMenu(e: React.MouseEvent, userId: string) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (userId !== user?.id) setUserCtxMenu({ x: e.clientX, y: e.clientY, userId });
+  }
+
   function handleDM(userId: string) {
     setSelectedUserId(null);
     showDMs();
@@ -213,44 +204,19 @@ function MemberList() {
       {online.length > 0 && (
         <>
           <div className="member-section-label">{online.length} Online</div>
-          {online.map((m) => {
-            const activity = userActivities[m.userId];
-            const isSelf = m.userId === user?.id;
-            const status = userStatuses[m.userId] ?? "online";
-            return (
-              <div
-                key={m.userId}
-                className={`member-item ${selectedUserId === m.userId ? "selected" : ""}`}
-                onClick={(e) => handleMemberClick(e, m.userId)}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData("application/flux-member", JSON.stringify({ userId: m.userId, username: m.username }));
-                  e.dataTransfer.effectAllowed = "copy";
-                }}
-                onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); if (m.userId !== user?.id) setUserCtxMenu({ x: e.clientX, y: e.clientY, userId: m.userId }); }}
-              >
-                <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, !!activity, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle), position: "relative" } as React.CSSProperties}>
-                  <div className="member-avatar" style={{ background: m.image ? 'transparent' : avatarColor(m.username) }}>
-                    {m.image ? (
-                      <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    ) : (
-                      (m.username ?? "?").charAt(0).toUpperCase()
-                    )}
-                  </div>
-                  {status !== "offline" && (status !== "invisible" || isSelf) && (
-                    <span className={`avatar-status-indicator ${status}`} />
-                  )}
-                </div>
-                <div className="member-info">
-                  <span className="member-name">
-                    {m.username}
-                    <RoleBadge role={m.role} />
-                  </span>
-                  {activity && <ActivityTag activity={activity} />}
-                </div>
-              </div>
-            );
-          })}
+          {online.map((m) => (
+            <MemberListItem
+              key={m.userId}
+              member={m}
+              isOnline
+              isSelected={selectedUserId === m.userId}
+              isSelf={m.userId === user?.id}
+              status={userStatuses[m.userId] ?? "online"}
+              activity={userActivities[m.userId]}
+              onClick={handleMemberClick}
+              onContextMenu={handleContextMenu}
+            />
+          ))}
         </>
       )}
 
@@ -258,32 +224,15 @@ function MemberList() {
         <>
           <div className="member-section-label">{offline.length} Offline</div>
           {offline.map((m) => (
-            <div
+            <MemberListItem
               key={m.userId}
-              className={`member-item offline ${selectedUserId === m.userId ? "selected" : ""}`}
-              onClick={(e) => handleMemberClick(e, m.userId)}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("application/flux-member", JSON.stringify({ userId: m.userId, username: m.username }));
-                e.dataTransfer.effectAllowed = "copy";
-              }}
-              onContextMenu={(e) => { e.stopPropagation(); e.preventDefault(); if (m.userId !== user?.id) setUserCtxMenu({ x: e.clientX, y: e.clientY, userId: m.userId }); }}
-            >
-              <div className={`member-avatar-ring ${ringClass(m.ringStyle, m.ringSpin, m.role, false, m.ringPatternSeed)}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
-                <div className="member-avatar" style={{ background: m.image ? 'transparent' : avatarColor(m.username) }}>
-                  {m.image ? (
-                    <img src={m.image} alt={m.username} className="avatar-img-sm" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  ) : (
-                    (m.username ?? "?").charAt(0).toUpperCase()
-                  )}
-                </div>
-              </div>
-              <div className="member-info">
-                <span className="member-name">{m.username}
-                  <RoleBadge role={m.role} />
-                </span>
-              </div>
-            </div>
+              member={m}
+              isOnline={false}
+              isSelected={selectedUserId === m.userId}
+              isSelf={m.userId === user?.id}
+              onClick={handleMemberClick}
+              onContextMenu={handleContextMenu}
+            />
           ))}
         </>
       )}
