@@ -36,33 +36,6 @@ CREATE TABLE IF NOT EXISTS "account" (
     updatedAt TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS "verification" (
-    id TEXT PRIMARY KEY,
-    identifier TEXT NOT NULL,
-    value TEXT NOT NULL,
-    expiresAt TEXT NOT NULL,
-    createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL
-);
-
--- E2EE tables
-CREATE TABLE IF NOT EXISTS "devices" (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
-    display_name TEXT,
-    signing_key TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    last_seen_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS "key_packages" (
-    id TEXT PRIMARY KEY,
-    device_id TEXT NOT NULL REFERENCES "devices"(id) ON DELETE CASCADE,
-    key_package TEXT NOT NULL,
-    consumed INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
-);
-
 -- Application tables
 CREATE TABLE IF NOT EXISTS "servers" (
     id TEXT PRIMARY KEY,
