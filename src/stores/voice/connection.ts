@@ -6,17 +6,13 @@ import { useCryptoStore } from "@/stores/crypto.js";
 import { exportKeyAsBase64 } from "@/lib/crypto.js";
 import { dbg } from "@/lib/debug.js";
 
-import { playJoinSound, playLeaveSound } from "@/lib/audio/voice-effects.js";
-import { audioPipelines, destroyAllPipelines } from "@/lib/audio/voice-pipeline.js";
-import { startAudioLevelPolling, stopAudioLevelPolling } from "@/lib/audio/voice-analysis.js";
-import { DEFAULT_BITRATE } from "@/lib/audio/voice-constants.js";
 import type { VoiceState } from "./types.js";
 import { checkLobbyMusic, stopLobbyMusic } from "./lobby.js";
 import { startStatsPolling, stopStatsPolling } from "./stats.js";
-import { cleanupAudioProcessors } from "./helpers.js";
 import { setupRoomEventHandlers } from "./room-events.js";
-import { setupNoiseProcessor } from "./noise-setup.js";
 import type { StoreApi } from "zustand";
+
+const DEFAULT_BITRATE = 128_000;
 
 // Monotonically increasing counter to detect stale joinVoiceChannel calls
 let joinNonce = 0;
@@ -25,10 +21,6 @@ let joinNonce = 0;
 export let adaptiveTargetBitrate = DEFAULT_BITRATE;
 export function setAdaptiveTargetBitrate(bitrate: number) {
   adaptiveTargetBitrate = bitrate;
-}
-
-function bumpJoinNonce() {
-  return ++joinNonce;
 }
 
 export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
@@ -62,10 +54,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         }
       } catch (e) { dbg("voice", "Failed to stop local mic tracks during room switch", e); }
 
-      stopAudioLevelPolling();
       stopLobbyMusic();
-      await cleanupAudioProcessors();
-      destroyAllPipelines();
 
       for (const participant of existingRoom.remoteParticipants.values()) {
         for (const pub of participant.audioTrackPublications.values()) {
@@ -156,7 +145,6 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       }
 
       await room.localParticipant.setMicrophoneEnabled(true);
-      await setupNoiseProcessor(room, audioSettings, get, set);
 
       // Optimistically add self to channelParticipants
       const localIdentity = room.localParticipant.identity;
@@ -187,7 +175,6 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
 
       get()._updateParticipants();
       get()._updateScreenSharers();
-      startAudioLevelPolling(storeRef);
       startStatsPolling();
       checkLobbyMusic();
 
@@ -199,7 +186,6 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         set({ isMuted: true });
       }
 
-      playJoinSound();
       if (previousChannelId) {
         gateway.send({ type: "voice_state_update", channelId: previousChannelId, action: "leave" });
       }
@@ -224,8 +210,6 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
     const { room, connectedChannelId, channelParticipants } = get();
     const localId = room?.localParticipant?.identity;
 
-    playLeaveSound();
-    stopAudioLevelPolling();
     stopStatsPolling();
     stopLobbyMusic();
 
@@ -234,9 +218,6 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
         useSpotifyStore.getState().leaveSession();
       });
     } catch (e) { dbg("voice", "Failed to stop Spotify session on voice leave", e); }
-
-    cleanupAudioProcessors();
-    destroyAllPipelines();
 
     if (room) {
       for (const participant of room.remoteParticipants.values()) {

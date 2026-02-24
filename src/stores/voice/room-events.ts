@@ -1,15 +1,5 @@
 import { Room, RoomEvent, Track, VideoQuality } from "livekit-client";
 import { dbg } from "@/lib/debug.js";
-import {
-  playJoinSound,
-  playLeaveSound,
-} from "@/lib/audio/voice-effects.js";
-import {
-  createAudioPipeline,
-  destroyAudioPipeline,
-  destroyAllPipelines,
-} from "@/lib/audio/voice-pipeline.js";
-import { stopAudioLevelPolling } from "@/lib/audio/voice-analysis.js";
 import { checkLobbyMusic } from "./lobby.js";
 import { stopStatsPolling } from "./stats.js";
 import { adaptiveTargetBitrate } from "./connection.js";
@@ -24,13 +14,11 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
 
   room.on(RoomEvent.ParticipantConnected, (p) => {
     dbg("voice", `ParticipantConnected identity=${p.identity} name=${p.name}`);
-    playJoinSound();
     get()._updateParticipants();
     checkLobbyMusic();
   });
   room.on(RoomEvent.ParticipantDisconnected, (p) => {
     dbg("voice", `ParticipantDisconnected identity=${p.identity}`);
-    playLeaveSound();
     get()._updateParticipants();
     get()._updateScreenSharers();
     checkLobbyMusic();
@@ -59,19 +47,8 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     });
 
     if (track.kind === Track.Kind.Audio) {
-      const audioEl = track.attach() as HTMLAudioElement;
-      dbg("voice", `TrackSubscribed attached audio for ${participant.identity}`, {
-        paused: audioEl.paused,
-        readyState: audioEl.readyState,
-        srcObject: !!audioEl.srcObject,
-        trackEnabled: track.mediaStreamTrack?.enabled,
-        trackReadyState: track.mediaStreamTrack?.readyState,
-      });
-
-      const { audioSettings: settings, participantVolumes, isDeafened } = get();
-      const volume = isDeafened ? 0 : (participantVolumes[participant.identity] ?? 1.0);
-      dbg("voice", `TrackSubscribed creating pipeline for ${participant.identity}`, { volume, isDeafened });
-      createAudioPipeline(audioEl, track.sid!, settings, volume);
+      track.attach();
+      dbg("voice", `TrackSubscribed attached audio for ${participant.identity}`);
 
       // Track participant → track mapping
       set((state) => ({
@@ -94,7 +71,6 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
   room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
     dbg("voice", `TrackUnsubscribed participant=${participant?.identity} kind=${track.kind} sid=${track.sid}`);
     if (track.kind === Track.Kind.Audio) {
-      destroyAudioPipeline(track.sid!);
       if (participant) {
         set((state) => {
           const newMap = { ...state.participantTrackMap };
@@ -140,8 +116,6 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
   });
   room.on(RoomEvent.Disconnected, (reason) => {
     dbg("voice", `Room Disconnected reason=${reason}`);
-    destroyAllPipelines();
-    stopAudioLevelPolling();
     stopStatsPolling();
     set({
       room: null,

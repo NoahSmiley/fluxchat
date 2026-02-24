@@ -1,20 +1,26 @@
 import { create } from "zustand";
-import type { AudioSettings } from "@/lib/audio/voice-pipeline.js";
-import { LOBBY_DEFAULT_GAIN } from "@/lib/audio/voice-constants.js";
 
 // Types are exported from index.ts — no re-export needed here
 
-import type { VoiceState, ScreenShareQuality } from "./types.js";
+import type { VoiceState, ScreenShareQuality, AudioSettings } from "./types.js";
 import { DEFAULT_SETTINGS } from "./types.js";
-import { loadAudioSettings } from "./audio-settings.js";
 import { initLobbyMusic, setLobbyMusicGain, stopLobbyMusic } from "./lobby.js";
 import { initStatsPolling } from "./stats.js";
 import { initVoiceEvents } from "./events.js";
 import { createJoinVoiceChannel, createLeaveVoiceChannel } from "./connection.js";
 import { createToggleMute, createSetMuted, createToggleDeafen, createSetParticipantVolume, createApplyBitrate } from "./controls.js";
-import { createUpdateAudioSetting } from "./audio-update.js";
 import { createToggleScreenShare, createSetScreenShareQuality } from "./screen-share.js";
 import { createUpdateParticipants, createUpdateScreenSharers, createSetChannelParticipants } from "./participants.js";
+
+const LOBBY_DEFAULT_GAIN = 0.15;
+
+function loadAudioSettings(): AudioSettings {
+  try {
+    const saved = localStorage.getItem("flux-audio-settings");
+    if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+  } catch { /* ignore corrupt data */ }
+  return { ...DEFAULT_SETTINGS };
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // Store Definition
@@ -32,7 +38,12 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
   const setMuted = createSetMuted(storeApi);
   const toggleDeafen = createToggleDeafen(storeApi);
   const setParticipantVolume = createSetParticipantVolume(storeApi);
-  const updateAudioSetting = createUpdateAudioSetting(storeApi);
+  const updateAudioSetting = (key: keyof AudioSettings, value: boolean | number | string) => {
+    const current = storeApi.getState().audioSettings;
+    const updated = { ...current, [key]: value };
+    storeApi.setState({ audioSettings: updated });
+    try { localStorage.setItem("flux-audio-settings", JSON.stringify(updated)); } catch { /* ignore */ }
+  };
   const applyBitrate = createApplyBitrate(storeApi);
   const toggleScreenShare = createToggleScreenShare(storeApi);
   const setScreenShareQuality = createSetScreenShareQuality(storeApi);

@@ -1,11 +1,10 @@
 import { dbg } from "@/lib/debug.js";
-import {
-  LOBBY_WAIT_MS,
-  LOBBY_FADE_IN_S,
-  LOBBY_FADE_OUT_S,
-} from "@/lib/audio/voice-constants.js";
 import type { StoreApi } from "zustand";
 import type { VoiceState } from "./types.js";
+
+const LOBBY_WAIT_MS = 30_000;
+const LOBBY_FADE_IN_S = 2;
+const LOBBY_FADE_OUT_S = 1;
 
 // ═══════════════════════════════════════════════════════════════════
 // Lobby Music (Easter Egg)

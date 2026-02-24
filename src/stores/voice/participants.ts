@@ -1,8 +1,4 @@
 import { Track } from "livekit-client";
-import {
-  playScreenShareStartSound,
-  playScreenShareStopSound,
-} from "@/lib/audio/voice-effects.js";
 import type { VoiceState, VoiceUser, ScreenShareInfo } from "./types.js";
 import type { VoiceParticipant } from "@/types/shared.js";
 import type { StoreApi } from "zustand";
@@ -72,28 +68,11 @@ export function createUpdateScreenSharers(storeRef: StoreApi<VoiceState>) {
       }
     }
 
-    // Detect new/removed screen sharers for sounds
-    const prevIds = new Set(previousSharers.map((s) => s.participantId));
     const newIds = new Set(sharers.map((s) => s.participantId));
 
-    let playedStart = false;
-    for (const s of sharers) {
-      if (!prevIds.has(s.participantId)) {
-        if (!playedStart) {
-          playScreenShareStartSound();
-          playedStart = true;
-        }
-      }
-    }
-
-    let playedStop = false;
     let clearPin = false;
     for (const s of previousSharers) {
       if (!newIds.has(s.participantId)) {
-        if (!playedStop) {
-          playScreenShareStopSound();
-          playedStop = true;
-        }
         if (pinnedScreenShare === s.participantId) {
           clearPin = true;
         }

@@ -1,7 +1,6 @@
 import type { ScalabilityMode } from "livekit-client";
 import type { Room } from "livekit-client";
 import type { VoiceParticipant } from "@/types/shared.js";
-import type { AudioSettings } from "@/lib/audio/voice-pipeline.js";
 import type { WebRTCQualityStats } from "@/lib/webrtcStats.js";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -9,6 +8,29 @@ import type { WebRTCQualityStats } from "@/lib/webrtcStats.js";
 // ═══════════════════════════════════════════════════════════════════
 
 export type NoiseSuppressionModel = "off" | "speex" | "rnnoise" | "dtln" | "deepfilter" | "nsnet2";
+
+export interface AudioSettings {
+  noiseSuppression: boolean;
+  echoCancellation: boolean;
+  autoGainControl: boolean;
+  dtx: boolean;
+  highPassFrequency: number;
+  lowPassFrequency: number;
+  inputSensitivity: number;
+  inputSensitivityEnabled: boolean;
+  noiseSuppressionModel: NoiseSuppressionModel;
+  suppressionStrength: number;
+  vadThreshold: number;
+  micInputGain: number;
+  noiseGateHoldTime: number;
+  compressorEnabled: boolean;
+  compressorThreshold: number;
+  compressorRatio: number;
+  compressorAttack: number;
+  compressorRelease: number;
+  deEsserEnabled: boolean;
+  deEsserStrength: number;
+}
 
 export interface VoiceUser {
   userId: string;

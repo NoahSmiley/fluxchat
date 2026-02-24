@@ -42,10 +42,6 @@ vi.mock("../../lib/crypto.js", () => ({
   exportKeyAsBase64: vi.fn(),
 }));
 
-vi.mock("../../lib/audio/dtln/DtlnTrackProcessor.js", () => ({
-  DtlnTrackProcessor: vi.fn(),
-}));
-
 vi.mock("../../lib/webrtcStats.js", () => ({
   collectWebRTCStats: vi.fn(() => Promise.resolve({
     audioBitrate: 128, audioCodec: "opus", audioPacketLoss: 0.5,

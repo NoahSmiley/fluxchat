@@ -8,7 +8,6 @@ import { getDebugEnabled, setDebugEnabled, dumpLogs } from "@/lib/debug.js";
 import { X } from "lucide-react";
 import { ProfileTab } from "./settings/ProfileTab.js";
 import { AppearanceTab } from "./settings/AppearanceTab.js";
-import { VoiceAudioTab } from "./settings/VoiceAudioTab.js";
 import { NotificationsTab } from "./settings/NotificationsTab.js";
 
 
@@ -135,7 +134,12 @@ export function SettingsModal() {
 
         {activeTab === "notifications" && <NotificationsTab />}
 
-        {activeTab === "voice" && <VoiceAudioTab />}
+        {activeTab === "voice" && (
+          <div className="settings-card">
+            <h3 className="settings-card-title">Voice & Audio</h3>
+            <p className="settings-card-desc">Voice settings are not available in this version.</p>
+          </div>
+        )}
 
         {activeTab === "keybinds" && (
           <div className="settings-card">
