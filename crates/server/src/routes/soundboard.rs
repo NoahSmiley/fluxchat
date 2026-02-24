@@ -21,8 +21,6 @@ pub struct SoundboardSoundRow {
     pub emoji: Option<String>,
     pub audio_attachment_id: String,
     pub audio_filename: String,
-    pub image_attachment_id: Option<String>,
-    pub image_filename: Option<String>,
     pub volume: f64,
     pub created_by: String,
     pub creator_username: String,
@@ -36,7 +34,6 @@ pub struct CreateSoundRequest {
     pub name: String,
     pub emoji: Option<String>,
     pub audio_attachment_id: String,
-    pub image_attachment_id: Option<String>,
     pub volume: f64,
 }
 
@@ -45,7 +42,6 @@ pub struct CreateSoundRequest {
 pub struct UpdateSoundRequest {
     pub name: String,
     pub emoji: Option<String>,
-    pub image_attachment_id: Option<String>,
     pub volume: f64,
 }
 
@@ -111,8 +107,6 @@ pub async fn list_sounds(
             s.emoji,
             s.audio_attachment_id,
             a_audio.filename AS audio_filename,
-            s.image_attachment_id,
-            a_image.filename AS image_filename,
             s.volume,
             s.created_by,
             COALESCE(u.username, 'Unknown') AS creator_username,
@@ -120,7 +114,6 @@ pub async fn list_sounds(
             CASE WHEN sf.user_id IS NOT NULL THEN TRUE ELSE FALSE END AS favorited
            FROM soundboard_sounds s
            JOIN attachments a_audio ON a_audio.id = s.audio_attachment_id
-           LEFT JOIN attachments a_image ON a_image.id = s.image_attachment_id
            LEFT JOIN "user" u ON u.id = s.created_by
            LEFT JOIN soundboard_favorites sf ON sf.sound_id = s.id AND sf.user_id = ?
            WHERE s.server_id = ?
@@ -182,15 +175,14 @@ pub async fn create_sound(
 
     let result = sqlx::query(
         r#"INSERT INTO soundboard_sounds
-           (id, server_id, name, emoji, audio_attachment_id, image_attachment_id, volume, created_by, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+           (id, server_id, name, emoji, audio_attachment_id, volume, created_by, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)"#,
     )
     .bind(&id)
     .bind(&server_id)
     .bind(&name)
     .bind(&body.emoji)
     .bind(&body.audio_attachment_id)
-    .bind(&body.image_attachment_id)
     .bind(volume)
     .bind(&user.id)
     .bind(&now)
@@ -215,8 +207,6 @@ pub async fn create_sound(
             s.emoji,
             s.audio_attachment_id,
             a_audio.filename AS audio_filename,
-            s.image_attachment_id,
-            a_image.filename AS image_filename,
             s.volume,
             s.created_by,
             COALESCE(u.username, 'Unknown') AS creator_username,
@@ -224,7 +214,6 @@ pub async fn create_sound(
             FALSE AS favorited
            FROM soundboard_sounds s
            JOIN attachments a_audio ON a_audio.id = s.audio_attachment_id
-           LEFT JOIN attachments a_image ON a_image.id = s.image_attachment_id
            LEFT JOIN "user" u ON u.id = s.created_by
            WHERE s.id = ?"#,
     )
@@ -264,11 +253,10 @@ pub async fn update_sound(
     let volume = body.volume.clamp(0.0, 1.0);
 
     let result = sqlx::query(
-        "UPDATE soundboard_sounds SET name = ?, emoji = ?, image_attachment_id = ?, volume = ? WHERE id = ? AND server_id = ?",
+        "UPDATE soundboard_sounds SET name = ?, emoji = ?, volume = ? WHERE id = ? AND server_id = ?",
     )
     .bind(&name)
     .bind(&body.emoji)
-    .bind(&body.image_attachment_id)
     .bind(volume)
     .bind(&sound_id)
     .bind(&server_id)
@@ -292,8 +280,6 @@ pub async fn update_sound(
             s.emoji,
             s.audio_attachment_id,
             a_audio.filename AS audio_filename,
-            s.image_attachment_id,
-            a_image.filename AS image_filename,
             s.volume,
             s.created_by,
             COALESCE(u.username, 'Unknown') AS creator_username,
@@ -301,7 +287,6 @@ pub async fn update_sound(
             FALSE AS favorited
            FROM soundboard_sounds s
            JOIN attachments a_audio ON a_audio.id = s.audio_attachment_id
-           LEFT JOIN attachments a_image ON a_image.id = s.image_attachment_id
            LEFT JOIN "user" u ON u.id = s.created_by
            WHERE s.id = ?"#,
     )

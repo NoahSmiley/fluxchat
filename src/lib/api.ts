@@ -438,7 +438,6 @@ export async function createSoundboardSound(serverId: string, data: {
   name: string;
   emoji?: string;
   audioAttachmentId: string;
-  imageAttachmentId?: string;
   volume: number;
 }) {
   return request<SoundboardSound>(`/servers/${serverId}/soundboard`, {
@@ -450,7 +449,7 @@ export async function createSoundboardSound(serverId: string, data: {
 export async function updateSoundboardSound(
   serverId: string,
   soundId: string,
-  data: { name: string; emoji?: string; imageAttachmentId?: string | null; volume: number },
+  data: { name: string; emoji?: string; volume: number },
 ) {
   return request<SoundboardSound>(`/servers/${serverId}/soundboard/${soundId}`, {
     method: "PATCH",

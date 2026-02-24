@@ -155,7 +155,6 @@ describe("chat store room event handlers", () => {
       type: "voice",
       isRoom: 1,
       isLocked: 0,
-      isPersistent: 0,
       creatorId: "u1",
       parentId: null,
       position: 5,

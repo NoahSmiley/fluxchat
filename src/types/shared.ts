@@ -15,7 +15,6 @@ export interface Channel {
   parentId: string | null;
   position: number;
   isRoom: boolean;
-  isPersistent: boolean;
   creatorId: string | null;
   isLocked: boolean;
   createdAt: string;
@@ -155,8 +154,6 @@ export interface SoundboardSound {
   emoji: string | null;
   audioAttachmentId: string;
   audioFilename: string;
-  imageAttachmentId: string | null;
-  imageFilename: string | null;
   volume: number;
   createdBy: string;
   creatorUsername: string;
@@ -202,7 +199,8 @@ export type WSClientEvent =
   | { type: "voice_drink_update"; channelId: string; drinkCount: number }
   | { type: "update_status"; status: string }
   | { type: "play_sound"; channelId: string; soundId: string }
-  | { type: "room_knock"; channelId: string };
+  | { type: "room_knock"; channelId: string }
+  | { type: "ping" };
 
 export type WSServerEvent =
   | { type: "message"; message: Message; attachments?: Attachment[] }
@@ -213,7 +211,7 @@ export type WSServerEvent =
   | { type: "server_updated"; serverId: string; name: string }
   | { type: "server_deleted"; serverId: string }
   | { type: "member_role_updated"; serverId: string; userId: string; role: string }
-  | { type: "channel_update"; channelId: string; bitrate: number | null }
+  | { type: "channel_update"; channelId: string; name?: string; bitrate: number | null }
   | { type: "profile_update"; userId: string; username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; ringPatternSeed?: number | null; bannerCss?: string | null; bannerPatternSeed?: number | null }
   | { type: "voice_state"; channelId: string; participants: VoiceParticipant[] }
   | { type: "reaction_add"; messageId: string; userId: string; emoji: string }
@@ -228,7 +226,7 @@ export type WSServerEvent =
   | { type: "spotify_queue_remove"; sessionId: string; voiceChannelId: string; itemId: string }
   | { type: "spotify_playback_sync"; sessionId: string; voiceChannelId: string; action: string; trackUri?: string; positionMs?: number; source?: string }
   | { type: "spotify_session_ended"; sessionId: string; voiceChannelId: string }
-  | { type: "soundboard_play"; channelId: string; soundId: string; audioAttachmentId: string; audioFilename: string; imageAttachmentId?: string; imageFilename?: string; volume: number; username: string }
+  | { type: "soundboard_play"; channelId: string; soundId: string; audioAttachmentId: string; audioFilename: string; volume: number; username: string }
   | { type: "room_created"; channel: Channel }
   | { type: "room_deleted"; channelId: string; serverId: string }
   | { type: "room_lock_toggled"; channelId: string; serverId: string; isLocked: boolean }

@@ -183,7 +183,6 @@ async fn create_room_defaults() {
     res.assert_status(StatusCode::CREATED);
     let body: serde_json::Value = res.json();
     assert_eq!(body["isLocked"], 0, "Room should be unlocked by default");
-    assert_eq!(body["isPersistent"], 0, "Room should be non-persistent by default");
 }
 
 // ── Room Update/Lock Tests (5) ──

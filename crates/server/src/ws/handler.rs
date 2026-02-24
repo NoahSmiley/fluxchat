@@ -245,10 +245,10 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
     if let Some(channel_id) = old_voice {
         let participants = state.gateway.voice_channel_participants(&channel_id).await;
 
-        // Schedule delayed cleanup for empty temporary rooms on disconnect (120s grace period)
+        // Schedule delayed cleanup for empty rooms on disconnect (120s grace period)
         if participants.is_empty() {
-            let room_info = sqlx::query_as::<_, (i64, i64)>(
-                "SELECT is_room, is_persistent FROM channels WHERE id = ?",
+            let is_room = sqlx::query_scalar::<_, i64>(
+                "SELECT is_room FROM channels WHERE id = ?",
             )
             .bind(&channel_id)
             .fetch_optional(&state.db)
@@ -256,7 +256,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
             .ok()
             .flatten();
 
-            if let Some((1, 0)) = room_info {
+            if is_room == Some(1) {
                 state.gateway.schedule_room_cleanup(
                     channel_id.clone(),
                     std::time::Duration::from_secs(state.config.room_cleanup_delay_secs),
@@ -599,9 +599,9 @@ async fn handle_client_event(
                             .execute(&state.db)
                             .await;
 
-                            // Schedule delayed cleanup for empty temporary rooms (120s grace period)
-                            let room_info = sqlx::query_as::<_, (i64, i64)>(
-                                "SELECT is_room, is_persistent FROM channels WHERE id = ?",
+                            // Schedule delayed cleanup for empty rooms (120s grace period)
+                            let is_room = sqlx::query_scalar::<_, i64>(
+                                "SELECT is_room FROM channels WHERE id = ?",
                             )
                             .bind(&left_channel)
                             .fetch_optional(&state.db)
@@ -609,7 +609,7 @@ async fn handle_client_event(
                             .ok()
                             .flatten();
 
-                            if let Some((1, 0)) = room_info {
+                            if is_room == Some(1) {
                                 state.gateway.schedule_room_cleanup(
                                     left_channel.clone(),
                                     std::time::Duration::from_secs(state.config.room_cleanup_delay_secs),
@@ -1027,16 +1027,13 @@ async fn handle_client_event(
             }
 
             // Look up sound + attachment filenames
-            let row = sqlx::query_as::<_, (String, String, Option<String>, Option<String>, f64)>(
+            let row = sqlx::query_as::<_, (String, String, f64)>(
                 r#"SELECT
                     s.audio_attachment_id,
                     a_audio.filename,
-                    s.image_attachment_id,
-                    a_image.filename,
                     s.volume
                    FROM soundboard_sounds s
                    JOIN attachments a_audio ON a_audio.id = s.audio_attachment_id
-                   LEFT JOIN attachments a_image ON a_image.id = s.image_attachment_id
                    WHERE s.id = ?"#,
             )
             .bind(&sound_id)
@@ -1045,7 +1042,7 @@ async fn handle_client_event(
             .ok()
             .flatten();
 
-            let (audio_attachment_id, audio_filename, image_attachment_id, image_filename, volume) = match row {
+            let (audio_attachment_id, audio_filename, volume) = match row {
                 Some(r) => r,
                 None => return,
             };
@@ -1058,8 +1055,6 @@ async fn handle_client_event(
                         sound_id,
                         audio_attachment_id,
                         audio_filename,
-                        image_attachment_id,
-                        image_filename,
                         volume,
                         username: user.username.clone(),
                     },

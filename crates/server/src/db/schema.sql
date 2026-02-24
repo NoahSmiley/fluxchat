@@ -140,7 +140,6 @@ CREATE TABLE IF NOT EXISTS "soundboard_sounds" (
     name TEXT NOT NULL,
     emoji TEXT,
     audio_attachment_id TEXT NOT NULL REFERENCES "attachments"(id) ON DELETE CASCADE,
-    image_attachment_id TEXT REFERENCES "attachments"(id) ON DELETE SET NULL,
     volume REAL NOT NULL DEFAULT 1.0,
     created_by TEXT NOT NULL REFERENCES "user"(id),
     created_at TEXT NOT NULL

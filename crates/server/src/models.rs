@@ -49,7 +49,6 @@ pub struct Channel {
     pub parent_id: Option<String>,
     pub position: i64,
     pub is_room: i64,
-    pub is_persistent: i64,
     pub creator_id: Option<String>,
     pub is_locked: i64,
     pub created_at: String,

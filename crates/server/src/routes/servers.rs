@@ -264,7 +264,7 @@ pub async fn create_channel(
     let position = max_pos.unwrap_or(-1) + 1;
 
     let _ = sqlx::query(
-        "INSERT INTO channels (id, server_id, name, type, bitrate, parent_id, position, is_room, is_persistent, creator_id, is_locked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?)",
+        "INSERT INTO channels (id, server_id, name, type, bitrate, parent_id, position, is_room, creator_id, is_locked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
     )
     .bind(&channel_id)
     .bind(&server_id)
@@ -288,7 +288,6 @@ pub async fn create_channel(
         parent_id,
         position,
         is_room,
-        is_persistent: 0,
         creator_id,
         is_locked: 0,
         created_at: now,
@@ -411,7 +410,6 @@ pub async fn update_channel(
         parent_id: channel.parent_id,
         position: channel.position,
         is_room: channel.is_room,
-        is_persistent: channel.is_persistent,
         creator_id: channel.creator_id,
         is_locked: new_is_locked,
         created_at: channel.created_at,

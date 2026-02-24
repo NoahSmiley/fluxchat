@@ -317,10 +317,6 @@ pub enum ServerEvent {
         audio_attachment_id: String,
         #[serde(rename = "audioFilename")]
         audio_filename: String,
-        #[serde(rename = "imageAttachmentId", skip_serializing_if = "Option::is_none")]
-        image_attachment_id: Option<String>,
-        #[serde(rename = "imageFilename", skip_serializing_if = "Option::is_none")]
-        image_filename: Option<String>,
         volume: f64,
         username: String,
     },

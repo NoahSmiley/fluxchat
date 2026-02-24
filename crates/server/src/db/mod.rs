@@ -34,17 +34,6 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         }
     }
 
-    // Migration: rename messages.ciphertext → content (old E2EE schema)
-    sqlx::query(r#"ALTER TABLE "messages" RENAME COLUMN ciphertext TO content"#)
-        .execute(&pool)
-        .await
-        .ok();
-    // Also rename dm_messages.ciphertext if it was already named that
-    sqlx::query(r#"ALTER TABLE "dm_messages" RENAME COLUMN plaintext TO ciphertext"#)
-        .execute(&pool)
-        .await
-        .ok();
-
     // Migrations: add columns that may not exist in older databases
     sqlx::query(r#"ALTER TABLE "user" ADD COLUMN public_key TEXT"#)
         .execute(&pool)
@@ -167,12 +156,8 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         .await
         .ok();
 
-    // Migration: rooms — add is_room, is_persistent, creator_id to channels
+    // Migration: rooms — add is_room, creator_id to channels
     sqlx::query(r#"ALTER TABLE "channels" ADD COLUMN is_room INTEGER NOT NULL DEFAULT 0"#)
-        .execute(&pool)
-        .await
-        .ok();
-    sqlx::query(r#"ALTER TABLE "channels" ADD COLUMN is_persistent INTEGER NOT NULL DEFAULT 0"#)
         .execute(&pool)
         .await
         .ok();
@@ -195,7 +180,6 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
             name TEXT NOT NULL,
             emoji TEXT,
             audio_attachment_id TEXT NOT NULL REFERENCES "attachments"(id) ON DELETE CASCADE,
-            image_attachment_id TEXT REFERENCES "attachments"(id) ON DELETE SET NULL,
             volume REAL NOT NULL DEFAULT 1.0,
             created_by TEXT NOT NULL REFERENCES "user"(id),
             created_at TEXT NOT NULL
@@ -218,12 +202,6 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
     )
     .execute(&pool)
     .await?;
-
-    // Migration: remove legacy persistent lobby rooms (rooms are now all equal)
-    sqlx::query("DELETE FROM channels WHERE is_room = 1 AND (is_persistent = 1 OR name = 'Lobby')")
-        .execute(&pool)
-        .await
-        .ok();
 
     tracing::info!("Database initialized at {}", database_path);
     Ok(pool)

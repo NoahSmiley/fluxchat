@@ -122,8 +122,8 @@ describe("useChatStore", () => {
 
   it("loadServers populates servers array", async () => {
     const mockServers = [
-      { id: "s1", name: "Server 1", ownerId: "u1", createdAt: "2024-01-01", role: "owner" },
-      { id: "s2", name: "Server 2", ownerId: "u2", createdAt: "2024-01-01", role: "member" },
+      { id: "s1", name: "Server 1", ownerId: "u1", inviteCode: "abc", createdAt: "2024-01-01", role: "owner" },
+      { id: "s2", name: "Server 2", ownerId: "u2", inviteCode: "def", createdAt: "2024-01-01", role: "member" },
     ];
     mockedApi.getServers.mockResolvedValue(mockServers);
 
@@ -207,7 +207,7 @@ describe("useChatStore", () => {
   it("unread tracking clears on channel select", async () => {
     useChatStore.setState({
       activeServerId: "s1",
-      channels: [{ id: "ch1", name: "general", serverId: "s1", type: "text", position: 0, createdAt: "2024-01-01" }],
+      channels: [{ id: "ch1", name: "general", serverId: "s1", type: "text" as const, bitrate: null, parentId: null, position: 0, isRoom: false, creatorId: null, isLocked: false, createdAt: "2024-01-01" }],
       unreadChannels: new Set(["ch1", "ch2"]),
     });
     mockedApi.getMessages.mockResolvedValue({ items: [], hasMore: false, cursor: null });
@@ -230,8 +230,8 @@ describe("useChatStore", () => {
 
 describe("chat store helper functions", () => {
   const members = [
-    { userId: "u1", serverId: "s1", username: "alice", image: "a.png", role: "owner" as const, joinedAt: "2024-01-01", ringStyle: "default", ringSpin: false, steamId: null, ringPatternSeed: null, bannerCss: null, bannerPatternSeed: null },
-    { userId: "u2", serverId: "s1", username: "bob", image: null, role: "member" as const, joinedAt: "2024-01-01", ringStyle: "default", ringSpin: false, steamId: null, ringPatternSeed: null, bannerCss: null, bannerPatternSeed: null },
+    { userId: "u1", serverId: "s1", username: "alice", image: "a.png", role: "owner" as const, joinedAt: "2024-01-01", ringStyle: "default" as const, ringSpin: false, steamId: null, ringPatternSeed: null, bannerCss: null, bannerPatternSeed: null },
+    { userId: "u2", serverId: "s1", username: "bob", image: null, role: "member" as const, joinedAt: "2024-01-01", ringStyle: "default" as const, ringSpin: false, steamId: null, ringPatternSeed: null, bannerCss: null, bannerPatternSeed: null },
   ];
 
   it("getUsernameMap returns userId->username mapping", () => {

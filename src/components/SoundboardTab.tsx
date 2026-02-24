@@ -192,22 +192,8 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
 
   useEffect(() => {
     api.getSoundboardSounds(serverId)
-      .then(async (loadedSounds) => {
+      .then((loadedSounds) => {
         setSounds(loadedSounds);
-        // Clear any existing image attachments from sounds (images removed from feature)
-        for (const sound of loadedSounds) {
-          if (sound.imageAttachmentId) {
-            try {
-              const updated = await api.updateSoundboardSound(serverId, sound.id, {
-                name: sound.name,
-                emoji: sound.emoji ?? undefined,
-                imageAttachmentId: null,
-                volume: sound.volume,
-              });
-              setSounds((prev) => prev.map((s) => (s.id === sound.id ? updated : s)));
-            } catch {}
-          }
-        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -343,7 +329,6 @@ export function SoundboardTab({ serverId }: { serverId: string }) {
       const updated = await api.updateSoundboardSound(serverId, editingSound.id, {
         name: editName.trim(),
         emoji: editEmoji.trim() || undefined,
-        imageAttachmentId: null,
         volume: editVolume,
       });
       setSounds((prev) => prev.map((s) => (s.id === editingSound.id ? updated : s)));
