@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type DragEvent } from "react";
 import { createPortal } from "react-dom";
+import { useShallow } from "zustand/react/shallow";
 import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useUIStore } from "../stores/ui.js";
@@ -16,88 +17,15 @@ import { API_BASE } from "../lib/serverUrl.js";
 import EmojiPicker from "./EmojiPicker.js";
 import ContextMenu from "./ContextMenu.js";
 
+import { getCharOffset, setCursorAtOffset, getDivPlainText, getTextBeforeCursor } from "../lib/contentEditable.js";
 import type { MemberWithUser } from "../types/shared.js";
+import { EVERYONE_MENTION_RE, HERE_MENTION_RE } from "../stores/chat-types.js";
 type MentionEntry =
   | { kind: "special"; name: string; desc: string }
   | { kind: "user"; member: MemberWithUser };
 
-/** Count chars to range.startContainer/startOffset, treating each twemoji <img> as 1 char. */
-function getCharOffset(root: HTMLElement, range: Range): number {
-  let count = 0;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL);
-  let node: Node | null = walker.nextNode();
-  while (node) {
-    if (node === range.startContainer) { count += range.startOffset; break; }
-    if (node.nodeType === Node.TEXT_NODE) count += (node as Text).length;
-    else if ((node as Element).tagName === "IMG") count += 1;
-    node = walker.nextNode();
-  }
-  return count;
-}
-
-/** Place cursor at charOffset inside root, treating each twemoji <img> as 1 char. */
-function setCursorAtOffset(root: HTMLElement, charOffset: number): void {
-  let remaining = charOffset;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ALL);
-  let node: Node | null = walker.nextNode();
-  while (node) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const len = (node as Text).length;
-      if (remaining <= len) {
-        const r = document.createRange();
-        r.setStart(node, remaining); r.collapse(true);
-        const s = window.getSelection(); s?.removeAllRanges(); s?.addRange(r);
-        return;
-      }
-      remaining -= len;
-    } else if ((node as Element).tagName === "IMG") {
-      if (remaining === 0) {
-        const r = document.createRange();
-        r.setStartBefore(node); r.collapse(true);
-        const s = window.getSelection(); s?.removeAllRanges(); s?.addRange(r);
-        return;
-      }
-      remaining -= 1;
-    }
-    node = walker.nextNode();
-  }
-  const r = document.createRange();
-  r.selectNodeContents(root); r.collapse(false);
-  const s = window.getSelection(); s?.removeAllRanges(); s?.addRange(r);
-}
-
-/** Read plain text, treating twemoji <img> alt as the original emoji char. */
-function getDivPlainText(div: HTMLElement): string {
-  let text = "";
-  const walker = document.createTreeWalker(div, NodeFilter.SHOW_ALL);
-  let node: Node | null = walker.nextNode();
-  while (node) {
-    if (node.nodeType === Node.TEXT_NODE) text += (node as Text).data;
-    else if ((node as Element).tagName === "IMG") text += (node as Element).getAttribute("alt") ?? "";
-    node = walker.nextNode();
-  }
-  return text;
-}
-
-/** Plain text from start-of-div to current cursor (for @mention detection). */
-function getTextBeforeCursor(div: HTMLElement): string {
-  const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return "";
-  const range = sel.getRangeAt(0).cloneRange();
-  range.setStart(div, 0);
-  const frag = range.cloneContents();
-  let text = "";
-  const walker = document.createTreeWalker(frag, NodeFilter.SHOW_ALL);
-  let node: Node | null = walker.nextNode();
-  while (node) {
-    if (node.nodeType === Node.TEXT_NODE) text += (node as Text).data;
-    else if ((node as Element).tagName === "IMG") text += (node as Element).getAttribute("alt") ?? "";
-    node = walker.nextNode();
-  }
-  return text;
-}
-
 const EXTRACT_URL_REGEX = /https?:\/\/[^\s<]+/g;
+const RELATIVE_STYLE: React.CSSProperties = { position: "relative" };
 
 function extractUrls(text: string): string[] {
   if (!text) return [];
@@ -119,7 +47,20 @@ export function ChatView() {
     channels, activeChannelId, activeServerId, decryptedCache,
     pendingAttachments, uploadProgress, uploadFile, removePendingAttachment,
     typingUsers, customEmojis,
-  } = useChatStore();
+  } = useChatStore(useShallow((s) => ({
+    messages: s.messages, sendMessage: s.sendMessage, editMessage: s.editMessage,
+    deleteMessage: s.deleteMessage, loadMoreMessages: s.loadMoreMessages,
+    hasMoreMessages: s.hasMoreMessages, loadingMessages: s.loadingMessages,
+    members: s.members, onlineUsers: s.onlineUsers, userStatuses: s.userStatuses,
+    reactions: s.reactions, addReaction: s.addReaction, removeReaction: s.removeReaction,
+    searchResults: s.searchResults, searchQuery: s.searchQuery, searchFilters: s.searchFilters,
+    searchUserActivity: s.searchUserActivity, channels: s.channels,
+    activeChannelId: s.activeChannelId, activeServerId: s.activeServerId,
+    decryptedCache: s.decryptedCache, pendingAttachments: s.pendingAttachments,
+    uploadProgress: s.uploadProgress, uploadFile: s.uploadFile,
+    removePendingAttachment: s.removePendingAttachment,
+    typingUsers: s.typingUsers, customEmojis: s.customEmojis,
+  })));
   const { user } = useAuthStore();
   const { highlightOwnMessages, spellcheck, showSendButton, setSpellcheck, setShowSendButton } = useUIStore();
   const inputValueRef = useRef(""); // stores current input text without triggering re-renders
@@ -213,8 +154,9 @@ export function ChatView() {
 
   const displayMessages = searchResults ?? messages;
 
-  // Cache expensive per-message work (twemoji.parse, regex) so it doesn't re-run on keystrokes
+  // Cache expensive per-message work (twemoji.parse, regex, mention detection) so it doesn't re-run on keystrokes
   const messageData = useMemo(() => {
+    const userMentionRe = user ? new RegExp(`(?<![a-zA-Z0-9_])@${user.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-zA-Z0-9_])`, "i") : null;
     return new Map(displayMessages.map((msg) => {
       const decoded = decryptedCache[msg.id] ?? msg.content ?? "";
       return [msg.id, {
@@ -222,9 +164,14 @@ export function ChatView() {
         html: renderMessageContent(decoded, customEmojis, API_BASE, memberUsernames),
         emojiOnly: isEmojiOnly(decoded, customEmojis),
         urls: extractUrls(decoded),
+        isMentioned: !!user && (
+          EVERYONE_MENTION_RE.test(msg.content) ||
+          HERE_MENTION_RE.test(msg.content) ||
+          (userMentionRe?.test(msg.content) ?? false)
+        ),
       }];
     }));
-  }, [displayMessages, decryptedCache, customEmojis, memberUsernames]);
+  }, [displayMessages, decryptedCache, customEmojis, memberUsernames, user]);
 
   function formatReactors(users: string[]): string {
     if (users.length === 0) return "";
@@ -463,13 +410,7 @@ export function ChatView() {
           const msgData = messageData.get(msg.id);
           const decoded = msgData?.decoded ?? "";
           const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole, false, senderRing?.ringPatternSeed);
-          const isMentioned = !!user && (() => {
-            const c = msg.content;
-            if (/(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i.test(c)) return true;
-            if (/(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i.test(c)) return true;
-            const escaped = user.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            return new RegExp(`(?<![a-zA-Z0-9_])@${escaped}(?![a-zA-Z0-9_])`, "i").test(c);
-          })();
+          const isMentioned = msgData?.isMentioned ?? false;
 
           return (
             <div
@@ -591,7 +532,7 @@ export function ChatView() {
                     </button>
                   </>
                 )}
-                <div style={{ position: "relative" }}>
+                <div style={RELATIVE_STYLE}>
                   <button
                     className="reaction-add-btn"
                     onClick={(e) => { e.stopPropagation(); setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id); }}
