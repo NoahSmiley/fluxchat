@@ -111,10 +111,12 @@ function stopStatsPolling() {
 
 // ── Lobby Music (Easter Egg) ──
 
-let lobbyMusicTimer: ReturnType<typeof setTimeout> | null = null;
-let lobbyMusicAudio: HTMLAudioElement | null = null;
-let lobbyMusicGain: GainNode | null = null;
-let lobbyMusicCtx: AudioContext | null = null;
+const lobbyMusicState = {
+  timer: null as ReturnType<typeof setTimeout> | null,
+  audio: null as HTMLAudioElement | null,
+  gain: null as GainNode | null,
+  ctx: null as AudioContext | null,
+};
 
 function checkLobbyMusic() {
   if (localStorage.getItem("flux-lobby-music-enabled") === "false") return;
@@ -125,25 +127,25 @@ function checkLobbyMusic() {
   const isAlone = room.remoteParticipants.size === 0;
 
   if (isAlone) {
-    if (!lobbyMusicTimer && !lobbyMusicAudio) {
-      lobbyMusicTimer = setTimeout(() => {
-        lobbyMusicTimer = null;
+    if (!lobbyMusicState.timer && !lobbyMusicState.audio) {
+      lobbyMusicState.timer = setTimeout(() => {
+        lobbyMusicState.timer = null;
         startLobbyMusic();
       }, LOBBY_WAIT_MS);
     }
   } else {
-    if (lobbyMusicTimer) {
-      clearTimeout(lobbyMusicTimer);
-      lobbyMusicTimer = null;
+    if (lobbyMusicState.timer) {
+      clearTimeout(lobbyMusicState.timer);
+      lobbyMusicState.timer = null;
     }
-    if (lobbyMusicAudio) {
+    if (lobbyMusicState.audio) {
       fadeOutLobbyMusic();
     }
   }
 }
 
 function startLobbyMusic() {
-  if (lobbyMusicAudio) return;
+  if (lobbyMusicState.audio) return;
 
   const vol = useVoiceStore.getState().lobbyMusicVolume;
   const audio = new Audio("/lobby-music.mp3");
@@ -164,18 +166,18 @@ function startLobbyMusic() {
     useVoiceStore.setState({ lobbyMusicPlaying: false });
   });
 
-  lobbyMusicAudio = audio;
-  lobbyMusicGain = gain;
-  lobbyMusicCtx = ctx;
+  lobbyMusicState.audio = audio;
+  lobbyMusicState.gain = gain;
+  lobbyMusicState.ctx = ctx;
   useVoiceStore.setState({ lobbyMusicPlaying: true });
 }
 
 function fadeOutLobbyMusic() {
-  if (!lobbyMusicGain || !lobbyMusicCtx || !lobbyMusicAudio) return;
+  if (!lobbyMusicState.gain || !lobbyMusicState.ctx || !lobbyMusicState.audio) return;
 
-  const gain = lobbyMusicGain;
-  const ctx = lobbyMusicCtx;
-  const audio = lobbyMusicAudio;
+  const gain = lobbyMusicState.gain;
+  const ctx = lobbyMusicState.ctx;
+  const audio = lobbyMusicState.audio;
 
   gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
   gain.gain.linearRampToValueAtTime(0, ctx.currentTime + LOBBY_FADE_OUT_S);
@@ -186,27 +188,27 @@ function fadeOutLobbyMusic() {
     ctx.close().catch((e) => { dbg("voice", "Failed to close lobby music AudioContext after fade-out", e); });
   }, LOBBY_FADE_OUT_S * 1000);
 
-  lobbyMusicAudio = null;
-  lobbyMusicGain = null;
-  lobbyMusicCtx = null;
+  lobbyMusicState.audio = null;
+  lobbyMusicState.gain = null;
+  lobbyMusicState.ctx = null;
   useVoiceStore.setState({ lobbyMusicPlaying: false });
 }
 
 function stopLobbyMusic() {
-  if (lobbyMusicTimer) {
-    clearTimeout(lobbyMusicTimer);
-    lobbyMusicTimer = null;
+  if (lobbyMusicState.timer) {
+    clearTimeout(lobbyMusicState.timer);
+    lobbyMusicState.timer = null;
   }
-  if (lobbyMusicAudio) {
-    lobbyMusicAudio.pause();
-    lobbyMusicAudio.src = "";
+  if (lobbyMusicState.audio) {
+    lobbyMusicState.audio.pause();
+    lobbyMusicState.audio.src = "";
   }
-  if (lobbyMusicCtx) {
-    lobbyMusicCtx.close().catch((e) => { dbg("voice", "Failed to close lobby music AudioContext on stop", e); });
+  if (lobbyMusicState.ctx) {
+    lobbyMusicState.ctx.close().catch((e) => { dbg("voice", "Failed to close lobby music AudioContext on stop", e); });
   }
-  lobbyMusicAudio = null;
-  lobbyMusicGain = null;
-  lobbyMusicCtx = null;
+  lobbyMusicState.audio = null;
+  lobbyMusicState.gain = null;
+  lobbyMusicState.ctx = null;
   useVoiceStore.setState({ lobbyMusicPlaying: false });
 }
 
@@ -214,9 +216,9 @@ function stopLobbyMusic() {
 window.addEventListener("beforeunload", stopLobbyMusic);
 
 function setLobbyMusicGain(volume: number) {
-  if (lobbyMusicGain && lobbyMusicCtx) {
-    lobbyMusicGain.gain.setValueAtTime(lobbyMusicGain.gain.value, lobbyMusicCtx.currentTime);
-    lobbyMusicGain.gain.linearRampToValueAtTime(volume, lobbyMusicCtx.currentTime + 0.1);
+  if (lobbyMusicState.gain && lobbyMusicState.ctx) {
+    lobbyMusicState.gain.gain.setValueAtTime(lobbyMusicState.gain.gain.value, lobbyMusicState.ctx.currentTime);
+    lobbyMusicState.gain.gain.linearRampToValueAtTime(volume, lobbyMusicState.ctx.currentTime + 0.1);
   }
 }
 
