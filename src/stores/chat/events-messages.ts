@@ -7,7 +7,7 @@ import {
   dmMessageCache,
   getUsernameMap,
 } from "./types.js";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { playMessageSound, showDesktopNotification, shouldNotifyChannel } from "../../lib/notifications.js";
 import { useCryptoStore } from "../crypto.js";
 import type {

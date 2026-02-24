@@ -6,7 +6,7 @@ import { useNotifStore, type ChannelNotifSetting, type CategoryNotifSetting } fr
 import ContextMenu, { type ContextMenuEntry } from "../ContextMenu.js";
 import { ChannelSettingsModal, DeleteConfirmDialog } from "../modals/ChannelSettingsModal.js";
 import { CreateChannelModal } from "../modals/CreateChannelModal.js";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { dbg } from "../../lib/debug.js";
 
 /** Build the mute duration submenu entries for channel/category context menus. */

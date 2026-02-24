@@ -147,7 +147,7 @@ export function persistPlayer(player: SpotifyPlayer | null, deviceId: string | n
 // ═══════════════════════════════════════════════════════════════════
 
 import { useYouTubeStore } from "../youtube.js";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { dbg } from "../../lib/debug.js";
 
 /** Helper to get YouTube store state (synchronous). */

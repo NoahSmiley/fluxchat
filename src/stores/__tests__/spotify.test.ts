@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mocks ──
 
-vi.mock("../../lib/api.js", () => ({
+vi.mock("../../lib/api/index.js", () => ({
   getSpotifyAuthInfo: vi.fn(),
   getSpotifyToken: vi.fn(() => Promise.resolve({ accessToken: "fake-token" })),
   initSpotifyAuth: vi.fn(),
@@ -64,7 +64,7 @@ vi.mock("../voice.js", () => ({
 
 import { useSpotifyStore } from "../spotify/index.js";
 import { useYouTubeStore } from "../youtube.js";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { gateway } from "../../lib/ws.js";
 import type { QueueItem, SpotifyTrack, ListeningSession } from "../../types/shared.js";
 

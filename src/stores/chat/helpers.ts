@@ -1,7 +1,7 @@
 import type { Message } from "../../types/shared.js";
 import type { ChatState } from "./types.js";
 import type { StoreApi } from "zustand";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { gateway } from "../../lib/ws.js";
 import {
   channelMessageCache,

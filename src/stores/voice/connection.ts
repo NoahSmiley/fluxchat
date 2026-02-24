@@ -1,5 +1,5 @@
 import { Room, ExternalE2EEKeyProvider } from "livekit-client";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { gateway } from "../../lib/ws.js";
 import { useKeybindsStore } from "../keybinds.js";
 import { useCryptoStore } from "../crypto.js";

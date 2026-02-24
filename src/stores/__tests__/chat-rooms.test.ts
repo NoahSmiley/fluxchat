@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mocks (same pattern as chat.test.ts) ──
 
-vi.mock("../../lib/api.js", () => ({
+vi.mock("../../lib/api/index.js", () => ({
   getServers: vi.fn(),
   getChannels: vi.fn(),
   getServerMembers: vi.fn(),

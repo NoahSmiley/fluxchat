@@ -14,7 +14,7 @@ vi.mock("../../lib/crypto.js", () => ({
   deriveDMKey: vi.fn(),
 }));
 
-vi.mock("../../lib/api.js", () => ({
+vi.mock("../../lib/api/index.js", () => ({
   setPublicKey: vi.fn(),
   getPublicKey: vi.fn(),
   getMyServerKey: vi.fn(),
@@ -34,7 +34,7 @@ vi.mock("../chat.js", () => ({
 
 import { useCryptoStore } from "../crypto.js";
 import * as cryptoLib from "../../lib/crypto.js";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { gateway } from "../../lib/ws.js";
 
 const mockedCrypto = vi.mocked(cryptoLib);

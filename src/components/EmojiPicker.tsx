@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useMemo, useDeferredValue
 import type { CustomEmoji } from "../types/shared.js";
 import { useChatStore } from "../stores/chat/index.js";
 import { useAuthStore } from "../stores/auth.js";
-import { getEmojiFavorites, addStandardFavorite, removeStandardFavorite, addCustomFavorite, removeCustomFavorite } from "../lib/api.js";
+import { getEmojiFavorites, addStandardFavorite, removeStandardFavorite, addCustomFavorite, removeCustomFavorite } from "../lib/api/index.js";
 import ContextMenu from "./ContextMenu.js";
 import { favCache } from "../lib/emojiCache.js";
 import { emojiData } from "./emojiPickerData.js";

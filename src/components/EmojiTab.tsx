@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Upload } from "lucide-react";
-import * as api from "../lib/api.js";
+import * as api from "../lib/api/index.js";
 import type { CustomEmoji } from "../types/shared.js";
 import { API_BASE } from "../lib/serverUrl.js";
 import { useChatStore } from "../stores/chat/index.js";

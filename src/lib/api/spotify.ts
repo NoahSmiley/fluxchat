@@ -3,9 +3,9 @@ import type {
   SpotifyTrack,
   ListeningSession,
   QueueItem,
-} from "../types/shared.js";
+} from "../../types/shared.js";
 
-import { API_BASE, request, getStoredToken } from "./api-base.js";
+import { API_BASE, request, getStoredToken } from "./base.js";
 
 interface SpotifySearchResponse {
   tracks: {

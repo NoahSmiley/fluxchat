@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // voice store transitively imports so the module loads cleanly in jsdom.
 // ---------------------------------------------------------------------------
 
-vi.mock("../../lib/api.js", () => ({
+vi.mock("../../lib/api/index.js", () => ({
   getVoiceToken: vi.fn(() => Promise.resolve({ token: "fake-token", url: "ws://localhost:7880" })),
   getStoredToken: vi.fn(() => null),
   setStoredToken: vi.fn(),

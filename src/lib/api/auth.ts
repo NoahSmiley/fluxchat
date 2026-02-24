@@ -1,7 +1,7 @@
-import type { RingStyle } from "../types/shared.js";
+import type { RingStyle } from "../../types/shared.js";
 
-import { API_BASE, request, getStoredToken, setStoredToken } from "./api-base.js";
-import type { AuthResponse } from "./api-base.js";
+import { API_BASE, request, getStoredToken, setStoredToken } from "./base.js";
+import type { AuthResponse } from "./base.js";
 
 // ── Auth ──
 

@@ -1,6 +1,6 @@
-import type { SoundboardSound } from "../types/shared.js";
+import type { SoundboardSound } from "../../types/shared.js";
 
-import { request } from "./api-base.js";
+import { request } from "./base.js";
 
 // ── Soundboard ──
 

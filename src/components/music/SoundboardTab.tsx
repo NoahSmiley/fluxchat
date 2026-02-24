@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import type { SoundboardSound } from "../../types/shared.js";
 import { useChatStore } from "../../stores/chat/index.js";
 import { SoundboardAddForm } from "./SoundboardAddForm.js";

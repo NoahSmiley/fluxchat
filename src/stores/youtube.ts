@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import * as api from "../lib/api.js";
+import * as api from "../lib/api/index.js";
 import { gateway } from "../lib/ws.js";
 import type { YouTubeTrack } from "../types/shared.js";
 import { dbg } from "../lib/debug.js";

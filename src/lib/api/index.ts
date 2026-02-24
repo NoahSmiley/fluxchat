@@ -1,5 +1,5 @@
 // ── Base helpers (kept here for backwards compatibility) ──
-export { getStoredToken, request } from "./api-base.js";
+export { getStoredToken, request } from "./base.js";
 
 // ── Domain re-exports ──
 export {
@@ -13,7 +13,7 @@ export {
   storeServerKey,
   getMyServerKey,
   shareServerKeyWith,
-} from "./api-auth.js";
+} from "./auth.js";
 
 export {
   getServers,
@@ -41,7 +41,7 @@ export {
   removeStandardFavorite,
   addCustomFavorite,
   removeCustomFavorite,
-} from "./api-servers.js";
+} from "./servers.js";
 
 export {
   getMessages,
@@ -54,11 +54,11 @@ export {
   uploadFile,
   getFileUrl,
   getLinkPreview,
-} from "./api-messages.js";
+} from "./messages.js";
 
 export {
   getVoiceToken,
-} from "./api-voice.js";
+} from "./voice.js";
 
 export {
   getSpotifyAuthInfo,
@@ -73,7 +73,7 @@ export {
   deleteListeningSession,
   searchYouTubeTracks,
   getYouTubeAudioUrl,
-} from "./api-spotify.js";
+} from "./spotify.js";
 
 export {
   getSoundboardSounds,
@@ -82,4 +82,4 @@ export {
   deleteSoundboardSound,
   favoriteSoundboardSound,
   unfavoriteSoundboardSound,
-} from "./api-soundboard.js";
+} from "./soundboard.js";

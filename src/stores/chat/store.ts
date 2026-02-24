@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { PresenceStatus } from "../../types/shared.js";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { gateway } from "../../lib/ws.js";
 import type { ChatState } from "./types.js";
 import { setupChatEvents } from "./events.js";

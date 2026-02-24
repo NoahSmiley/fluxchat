@@ -1,4 +1,4 @@
-import { getEmojiFavorites } from "./api.js";
+import { getEmojiFavorites } from "./api/index.js";
 import { dbg } from "./debug.js";
 
 /** Favorites cache — persists between picker opens so re-open is instant. */

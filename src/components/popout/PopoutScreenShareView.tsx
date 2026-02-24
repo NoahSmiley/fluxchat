@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { onStateUpdate, sendCommand, type VoiceStateMessage } from "../../lib/broadcast.js";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { dbg } from "../../lib/debug.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {

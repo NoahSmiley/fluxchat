@@ -4,7 +4,7 @@ import { Trash2, X } from "lucide-react";
 import { useChatStore } from "../stores/chat/index.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useUIStore } from "../stores/ui.js";
-import * as api from "../lib/api.js";
+import * as api from "../lib/api/index.js";
 import type { WhitelistEntry, MemberWithUser } from "../types/shared.js";
 import { SoundboardTab } from "./music/SoundboardTab.js";
 import { EmojiTab } from "./EmojiTab.js";

@@ -2,7 +2,7 @@ import type { StoreApi } from "zustand";
 import type { SpotifyState } from "./types.js";
 import { playOnDevice, yt, useYouTubeStore, dbg } from "./types.js";
 import { gateway } from "../../lib/ws.js";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // Session action creators

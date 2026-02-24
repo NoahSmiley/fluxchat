@@ -6,7 +6,7 @@ import { useAuthStore } from "../../stores/auth.js";
 import { ChevronRight, Plus } from "lucide-react";
 import { gateway } from "../../lib/ws.js";
 import { ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { dbg } from "../../lib/debug.js";
 import { VoiceUserRow } from "../voice/VoiceUserRow.js";
 import { AnimatedList } from "../AnimatedList.js";

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Heart, Volume2, VolumeX } from "lucide-react";
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { gateway } from "../../lib/ws.js";
 import type { SoundboardSound } from "../../types/shared.js";
 import { API_BASE } from "../../lib/serverUrl.js";

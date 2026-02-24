@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useAuthStore } from "../auth.js";
 
 // Mock the api module
-vi.mock("../../lib/api.js", () => ({
+vi.mock("../../lib/api/index.js", () => ({
   getSession: vi.fn(),
   signIn: vi.fn(),
   signUp: vi.fn(),
@@ -12,7 +12,7 @@ vi.mock("../../lib/api.js", () => ({
   setStoredToken: vi.fn(),
 }));
 
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 
 const mockedApi = vi.mocked(api);
 

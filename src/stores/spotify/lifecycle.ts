@@ -1,4 +1,4 @@
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { API_BASE } from "../../lib/serverUrl.js";
 import { dbg } from "../../lib/debug.js";
 import type { SpotifyState } from "./types.js";

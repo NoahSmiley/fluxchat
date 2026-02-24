@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap } from "../chat/index.js";
 
 // Mock dependencies
-vi.mock("../../lib/api.js", () => ({
+vi.mock("../../lib/api/index.js", () => ({
   getServers: vi.fn(),
   getChannels: vi.fn(),
   getServerMembers: vi.fn(),
@@ -86,7 +86,7 @@ vi.mock("../dm.js", () => ({
   },
 }));
 
-import * as api from "../../lib/api.js";
+import * as api from "../../lib/api/index.js";
 import { gateway } from "../../lib/ws.js";
 
 const mockedApi = vi.mocked(api);

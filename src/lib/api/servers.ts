@@ -9,9 +9,9 @@ import type {
   WhitelistEntry,
   CustomEmoji,
   EmojiFavorites,
-} from "../types/shared.js";
+} from "../../types/shared.js";
 
-import { request } from "./api-base.js";
+import { request } from "./base.js";
 
 // ── Servers ──
 
