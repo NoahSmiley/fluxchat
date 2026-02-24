@@ -13,6 +13,7 @@ import type {
   Attachment,
   LinkPreview,
   SpotifyAccount,
+  SpotifyTrack,
   ListeningSession,
   QueueItem,
   RingStyle,
@@ -23,6 +24,17 @@ import type {
 } from "../types/shared.js";
 
 import { API_BASE } from "./serverUrl.js";
+
+interface AuthResponse {
+  user: { id: string; email: string; username: string; image?: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId?: string | null; ringPatternSeed?: number | null; bannerCss?: string | null; bannerPatternSeed?: number | null; status?: string };
+  token?: string;
+}
+
+interface SpotifySearchResponse {
+  tracks: {
+    items: SpotifyTrack[];
+  };
+}
 
 const TOKEN_KEY = "flux-session-token";
 
@@ -55,6 +67,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
+    // TODO: improve error handling — catch returns {} so body.error is undefined (not a crash), but a typed error response would be better
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Request failed: ${res.status}`);
   }
@@ -66,7 +79,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 // ── Auth ──
 
 export async function signUp(email: string, password: string, username: string) {
-  const data = await request<{ user: any; token?: string }>("/auth/sign-up/email", {
+  const data = await request<AuthResponse>("/auth/sign-up/email", {
     method: "POST",
     body: JSON.stringify({ email, password, name: username, username }),
   });
@@ -75,7 +88,7 @@ export async function signUp(email: string, password: string, username: string) 
 }
 
 export async function signIn(email: string, password: string) {
-  const data = await request<{ user: any; token?: string }>("/auth/sign-in/email", {
+  const data = await request<AuthResponse>("/auth/sign-in/email", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
@@ -378,7 +391,7 @@ export async function unlinkSpotify() {
 }
 
 export async function searchSpotifyTracks(q: string) {
-  return request<any>(`/spotify/search?q=${encodeURIComponent(q)}`);
+  return request<SpotifySearchResponse>(`/spotify/search?q=${encodeURIComponent(q)}`);
 }
 
 export async function createListeningSession(voiceChannelId: string) {
