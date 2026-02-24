@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// The root view after authentication. Implements Discord mobile-style navigation:
@@ -26,6 +27,15 @@ struct MainView: View {
 
     @State private var showSettings = false
     @State private var showDMChat: DMChannel?
+
+    // MARK: - Profile Editing State
+
+    @State private var isEditingUsername = false
+    @State private var editedUsername = ""
+    @State private var isSavingProfile = false
+    @State private var profileError: String?
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isUploadingAvatar = false
 
     // MARK: - Drawer Constants
 
@@ -385,23 +395,122 @@ struct MainView: View {
             VStack(spacing: 16) {
                 Spacer().frame(height: 8)
 
-                // User Card
+                // User Card with editable avatar and username
                 if let user = authState.user {
-                    HStack(spacing: 14) {
-                        AvatarView(username: user.username, image: user.image, size: 52)
+                    VStack(spacing: 16) {
+                        // Avatar with photo picker
+                        PhotosPicker(
+                            selection: $selectedPhotoItem,
+                            matching: .images,
+                            photoLibrary: .shared()
+                        ) {
+                            ZStack(alignment: .bottomTrailing) {
+                                if isUploadingAvatar {
+                                    Circle()
+                                        .fill(bgTertiary)
+                                        .frame(width: 72, height: 72)
+                                        .overlay(ProgressView().tint(textSecondary))
+                                } else {
+                                    AvatarView(username: user.username, image: user.image, size: 72)
+                                }
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(user.username)
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(textPrimary)
-                            Text(user.email)
-                                .font(.system(size: 13))
-                                .foregroundStyle(textSecondary)
+                                // Camera badge
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 24, height: 24)
+                                    .background(Circle().fill(bgTertiary))
+                                    .overlay(
+                                        Circle().stroke(bgPrimary, lineWidth: 2)
+                                    )
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .onChange(of: selectedPhotoItem) { _, newItem in
+                            guard let item = newItem else { return }
+                            Task { await uploadAvatar(item: item) }
                         }
 
-                        Spacer()
+                        // Username (tap to edit)
+                        if isEditingUsername {
+                            HStack(spacing: 10) {
+                                TextField("Username", text: $editedUsername)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(textPrimary)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(bgInput)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(borderColor, lineWidth: 1)
+                                    )
+                                    .autocorrectionDisabled()
+                                    .textInputAutocapitalization(.never)
+                                    .onSubmit { Task { await saveUsername() } }
+
+                                // Save button
+                                Button {
+                                    Task { await saveUsername() }
+                                } label: {
+                                    if isSavingProfile {
+                                        ProgressView()
+                                            .tint(textPrimary)
+                                            .frame(width: 32, height: 32)
+                                    } else {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 22))
+                                            .foregroundStyle(.green)
+                                    }
+                                }
+                                .disabled(isSavingProfile || editedUsername.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                                // Cancel button
+                                Button {
+                                    isEditingUsername = false
+                                    editedUsername = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 22))
+                                        .foregroundStyle(textMuted)
+                                }
+                            }
+                        } else {
+                            Button {
+                                editedUsername = user.username
+                                isEditingUsername = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Text(user.username)
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(textPrimary)
+
+                                    Image(systemName: "pencil")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(textMuted)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        // Email (non-editable)
+                        Text(user.email)
+                            .font(.system(size: 13))
+                            .foregroundStyle(textSecondary)
+
+                        // Error message
+                        if let profileError {
+                            Text(profileError)
+                                .font(.system(size: 12))
+                                .foregroundStyle(danger)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                     .padding(16)
+                    .frame(maxWidth: .infinity)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(bgSecondary)
@@ -468,6 +577,63 @@ struct MainView: View {
             }
         }
         .background(bgPrimary)
+    }
+
+    // MARK: - Profile Actions
+
+    private func saveUsername() async {
+        let trimmed = editedUsername.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+
+        isSavingProfile = true
+        profileError = nil
+
+        do {
+            let updated = try await UserAPI.updateProfile(username: trimmed)
+            await MainActor.run {
+                authState.user = updated
+                isEditingUsername = false
+                editedUsername = ""
+                isSavingProfile = false
+            }
+        } catch {
+            await MainActor.run {
+                profileError = error.localizedDescription
+                isSavingProfile = false
+            }
+        }
+    }
+
+    private func uploadAvatar(item: PhotosPickerItem) async {
+        isUploadingAvatar = true
+        profileError = nil
+
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                await MainActor.run {
+                    profileError = "Could not load image"
+                    isUploadingAvatar = false
+                    selectedPhotoItem = nil
+                }
+                return
+            }
+
+            let base64 = data.base64EncodedString()
+            let dataURL = "data:image/jpeg;base64,\(base64)"
+
+            let updated = try await UserAPI.updateProfile(image: dataURL)
+            await MainActor.run {
+                authState.user = updated
+                isUploadingAvatar = false
+                selectedPhotoItem = nil
+            }
+        } catch {
+            await MainActor.run {
+                profileError = error.localizedDescription
+                isUploadingAvatar = false
+                selectedPhotoItem = nil
+            }
+        }
     }
 
     // MARK: - Nav Bar Appearance

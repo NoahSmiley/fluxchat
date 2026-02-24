@@ -1,4 +1,3 @@
-import CryptoKit
 import SwiftUI
 
 /// Discord-style chat view with:
@@ -10,7 +9,6 @@ import SwiftUI
 /// - Message search with results overlay
 struct ChatView: View {
     @Environment(ChatState.self) private var chatState
-    @Environment(CryptoState.self) private var cryptoState
     @Environment(AuthState.self) private var authState
 
     let channel: Channel
@@ -18,7 +16,6 @@ struct ChatView: View {
     /// Callback to open the left drawer from parent MainView.
     var onOpenLeftDrawer: (() -> Void)?
 
-    @State private var serverKey: SymmetricKey?
     @State private var scrolledToBottom = true
 
     // Action sheet state
@@ -103,7 +100,6 @@ struct ChatView: View {
                                 ForEach(Array(chatState.messages.enumerated()), id: \.element.id) { index, message in
                                     MessageRow(
                                         message: message,
-                                        serverKey: serverKey,
                                         showHeader: shouldShowHeader(at: index),
                                         onLongPress: { msg, text in
                                             actionSheetMessage = msg
@@ -166,16 +162,11 @@ struct ChatView: View {
                     channelName: channel.name,
                     onSend: { text, attachmentIds in
                         Task {
-                            if let key = serverKey {
-                                await chatState.sendMessage(
-                                    text,
-                                    channelId: channel.id,
-                                    key: key,
-                                    attachmentIds: attachmentIds
-                                )
-                            } else {
-                                await chatState.sendPlaintext(text, channelId: channel.id, attachmentIds: attachmentIds)
-                            }
+                            await chatState.sendMessage(
+                                text,
+                                channelId: channel.id,
+                                attachmentIds: attachmentIds
+                            )
                         }
                     },
                     editingMessage: editingMessage,
@@ -218,7 +209,6 @@ struct ChatView: View {
         }
         .task(id: channel.id) {
             await chatState.selectChannel(channel.id)
-            await loadKey()
         }
     }
 
@@ -397,8 +387,8 @@ struct ChatView: View {
                             .foregroundStyle(textMuted)
                     }
 
-                    // Decrypted message text
-                    Text(chatState.decryptedText(for: message, key: serverKey))
+                    // Message text
+                    Text(message.content)
                         .font(.system(size: 13))
                         .foregroundStyle(textPrimary)
                         .lineLimit(3)
@@ -495,9 +485,8 @@ struct ChatView: View {
     // MARK: - Edit Actions
 
     private func startEditing(_ message: Message) {
-        let plaintext = chatState.decryptedText(for: message, key: serverKey)
         editingMessage = message
-        editingText = plaintext
+        editingText = message.content
     }
 
     private func cancelEdit() {
@@ -508,9 +497,7 @@ struct ChatView: View {
     private func submitEdit(_ newText: String) {
         guard let message = editingMessage else { return }
         Task {
-            if let key = serverKey {
-                await chatState.editMessage(message.id, newText: newText, key: key)
-            }
+            await chatState.editMessage(message.id, newText: newText)
         }
         cancelEdit()
     }
@@ -551,14 +538,6 @@ struct ChatView: View {
         searchResults = []
         searchTask?.cancel()
         searchTask = nil
-    }
-
-    // MARK: - Crypto
-
-    private func loadKey() async {
-        guard let serverId = chatState.selectedServerId else { return }
-        let key = await cryptoState.getServerKey(serverId)
-        await MainActor.run { self.serverKey = key }
     }
 
     // MARK: - Helpers

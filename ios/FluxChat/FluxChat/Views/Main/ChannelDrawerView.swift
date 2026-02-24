@@ -217,6 +217,9 @@ struct ChannelDrawerView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 16)
                 }
+                .refreshable {
+                    await refreshChannelsAndMembers(serverId: serverId)
+                }
             } else {
                 Spacer()
                 HStack {
@@ -381,5 +384,18 @@ struct ChannelDrawerView: View {
         }
 
         return groups
+    }
+
+    // MARK: - Pull to Refresh
+
+    private func refreshChannelsAndMembers(serverId: String) async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await chatState.loadChannels(serverId: serverId)
+            }
+            group.addTask {
+                await chatState.loadMembers(serverId: serverId)
+            }
+        }
     }
 }

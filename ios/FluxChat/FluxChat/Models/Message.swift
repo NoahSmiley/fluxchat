@@ -4,8 +4,7 @@ struct Message: Codable, Identifiable {
     let id: String
     let channelId: String
     let senderId: String
-    let ciphertext: String
-    let mlsEpoch: Int
+    let content: String
     let createdAt: String
     let editedAt: String?
     let attachments: [Attachment]?
