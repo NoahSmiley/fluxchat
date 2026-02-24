@@ -9,7 +9,6 @@ interface UIState {
   serverSettingsOpen: boolean;
   sidebarPosition: SidebarPosition;
   appBorderStyle: AppBorderStyle;
-  showDummyUsers: boolean;
   highlightOwnMessages: boolean;
   spellcheck: boolean;
   showSendButton: boolean;
@@ -19,7 +18,6 @@ interface UIState {
   closeServerSettings: () => void;
   setSidebarPosition: (pos: SidebarPosition) => void;
   setAppBorderStyle: (style: AppBorderStyle) => void;
-  toggleDummyUsers: () => void;
   setHighlightOwnMessages: (val: boolean) => void;
   setSpellcheck: (val: boolean) => void;
   setShowSendButton: (val: boolean) => void;
@@ -32,7 +30,6 @@ export const useUIStore = create<UIState>()(
       serverSettingsOpen: false,
       sidebarPosition: "left",
       appBorderStyle: "none",
-      showDummyUsers: false,
       highlightOwnMessages: true,
       spellcheck: true,
       showSendButton: true,
@@ -42,7 +39,6 @@ export const useUIStore = create<UIState>()(
       closeServerSettings: () => set({ serverSettingsOpen: false }),
       setSidebarPosition: (pos) => set({ sidebarPosition: pos }),
       setAppBorderStyle: (style) => set({ appBorderStyle: style }),
-      toggleDummyUsers: () => set((s) => ({ showDummyUsers: !s.showDummyUsers })),
       setHighlightOwnMessages: (val) => set({ highlightOwnMessages: val }),
       setSpellcheck: (val) => set({ spellcheck: val }),
       setShowSendButton: (val) => set({ showSendButton: val }),
@@ -52,7 +48,6 @@ export const useUIStore = create<UIState>()(
       partialize: (state) => ({
         sidebarPosition: state.sidebarPosition,
         appBorderStyle: state.appBorderStyle,
-        showDummyUsers: state.showDummyUsers,
         highlightOwnMessages: state.highlightOwnMessages,
         spellcheck: state.spellcheck,
         showSendButton: state.showSendButton,

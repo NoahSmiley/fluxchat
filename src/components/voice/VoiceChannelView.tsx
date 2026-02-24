@@ -7,7 +7,7 @@ import { useYouTubeStore } from "@/stores/youtube.js";
 import { SoundboardPanel } from "@/components/music/SoundboardPanel.js";
 
 const MusicPanel = lazy(() => import("@/components/music/MusicPanel.js").then(m => ({ default: m.MusicPanel })));
-import { StreamTile, DummyStreamTile } from "./StreamTile.js";
+import { StreamTile } from "./StreamTile.js";
 import { VoiceParticipantGrid } from "./VoiceParticipantGrid.js";
 import { VoiceControlsBar } from "./VoiceControlsBar.js";
 import { VoiceJoinPrompt } from "./VoiceJoinPrompt.js";
@@ -15,21 +15,6 @@ import {
   Volume2, Monitor, MonitorOff,
   Music, Eye, Radio,
 } from "lucide-react";
-import { useUIStore } from "@/stores/ui.js";
-
-const DUMMY_STREAMERS = [
-  { participantId: "__d1", username: "xKira" },
-  { participantId: "__d2", username: "Blaze" },
-  { participantId: "__d3", username: "PhaseShift" },
-  { participantId: "__d4", username: "Cosmo" },
-  { participantId: "__d5", username: "ghost404" },
-  { participantId: "__d6", username: "Prism" },
-  { participantId: "__d7", username: "Nyx" },
-  { participantId: "__d8", username: "ZeroDay" },
-  { participantId: "__d9", username: "Spectre" },
-  { participantId: "__d10", username: "Volt" },
-];
-
 // ── Main Export ──
 export function VoiceChannelView() {
   const { channels, activeChannelId, activeServerId, members } = useChatStore(useShallow((s) => ({
@@ -68,13 +53,10 @@ export function VoiceChannelView() {
   })));
   const { loadSession, playerState, session, queue, volume, setVolume } = useSpotifyStore();
   const { youtubeTrack } = useYouTubeStore();
-  const showDummyUsers = useUIStore((s) => s.showDummyUsers);
   const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music" | "sounds">("voice");
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
-  const allScreenSharers = showDummyUsers
-    ? [...screenSharers, ...DUMMY_STREAMERS]
-    : screenSharers;
+  const allScreenSharers = screenSharers;
   const hasScreenShares = allScreenSharers.length > 0;
   const screenSharerIds = useMemo(() => new Set(allScreenSharers.map(s => s.participantId)), [allScreenSharers]);
 
@@ -165,28 +147,15 @@ export function VoiceChannelView() {
       {isConnected && activeTab === "streams" && (() => {
         const localIsSharing = isScreenSharing;
         const viewerCount = participants.length - screenSharers.length;
-        const isDummy = (id: string) => id.startsWith("__d");
 
-        const renderStreamTile = (sharer: { participantId: string; username: string }, pinned: boolean) => {
-          if (isDummy(sharer.participantId)) {
-            return (
-              <DummyStreamTile
-                key={sharer.participantId}
-                participantId={sharer.participantId}
-                username={sharer.username}
-                isPinned={pinned}
-              />
-            );
-          }
-          return (
-            <StreamTile
-              key={sharer.participantId}
-              participantId={sharer.participantId}
-              username={sharer.username}
-              isPinned={pinned}
-            />
-          );
-        };
+        const renderStreamTile = (sharer: { participantId: string; username: string }, pinned: boolean) => (
+          <StreamTile
+            key={sharer.participantId}
+            participantId={sharer.participantId}
+            username={sharer.username}
+            isPinned={pinned}
+          />
+        );
 
         return (
           <div className="streams-tab-view">
@@ -274,7 +243,6 @@ export function VoiceChannelView() {
           participantVolumes={participantVolumes}
           setParticipantVolume={setParticipantVolume}
           screenSharerIds={screenSharerIds}
-          showDummyUsers={showDummyUsers}
           session={session}
           playerState={playerState}
           youtubeTrack={youtubeTrack}

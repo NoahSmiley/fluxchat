@@ -144,7 +144,15 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         return;
       }
 
+      const micDeviceId = audioSettings.audioInputDeviceId;
+      if (micDeviceId) {
+        await room.switchActiveDevice("audioinput", micDeviceId);
+      }
       await room.localParticipant.setMicrophoneEnabled(true);
+      const outputDeviceId = audioSettings.audioOutputDeviceId;
+      if (outputDeviceId) {
+        await room.switchActiveDevice("audiooutput", outputDeviceId).catch(() => {});
+      }
 
       // Optimistically add self to channelParticipants
       const localIdentity = room.localParticipant.identity;
@@ -257,5 +265,22 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
       pinnedScreenShare: null,
       webrtcStats: null,
     });
+
+    // If we left a room (ephemeral voice channel), switch to a text channel
+    // since the room will be cleaned up shortly
+    if (connectedChannelId) {
+      import("@/stores/chat/store.js").then(({ useChatStore }) => {
+        const chatState = useChatStore.getState();
+        const channel = chatState.channels.find((c) => c.id === connectedChannelId);
+        if (channel?.isRoom && chatState.activeChannelId === connectedChannelId) {
+          const fallback = chatState.channels.find(
+            (c) => c.type === "text" && c.serverId === channel.serverId,
+          );
+          if (fallback) {
+            useChatStore.getState().selectChannel(fallback.id);
+          }
+        }
+      });
+    }
   };
 }

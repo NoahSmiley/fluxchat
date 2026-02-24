@@ -1,7 +1,6 @@
 import type { Channel, ChannelType } from "@/types/shared.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
-import { useUIStore } from "@/stores/ui.js";
 import { MessageSquareText, Volume2, Settings, ChevronRight, Folder, Radio, Lock, LockOpen } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -64,8 +63,6 @@ export function SortableChannelItem({
     transform,
     transition,
   } = useSortable({ id: channel.id });
-
-  const showDummyUsers = useUIStore((s) => s.showDummyUsers);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -132,31 +129,6 @@ export function SortableChannelItem({
       </div>
       {channel.type === "voice" && voiceProps && voiceProps.participants.length > 0 && (
         <div className="voice-channel-users">
-          {/* DEBUG: dummy sidebar users */}
-          {showDummyUsers && [
-            { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=1" },
-            { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=8" },
-            { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/64?img=12" },
-            { userId: "__d4", username: "Cosmo", bannerCss: "space", bannerPatternSeed: null, ringStyle: "emerald", ringSpin: false, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/64?img=15" },
-            { userId: "__d5", username: "ghost404", bannerCss: null, bannerPatternSeed: null, ringStyle: "default", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/64?img=22" },
-            { userId: "__d6", username: "Prism", bannerCss: "gamma_doppler", bannerPatternSeed: 77, ringStyle: "doppler", ringSpin: false, ringPatternSeed: 77, role: "member", image: "https://i.pravatar.cc/64?img=33" },
-            { userId: "__d7", username: "Nyx", bannerCss: "cityscape", bannerPatternSeed: null, ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 150, role: "member", image: "https://i.pravatar.cc/64?img=47" },
-            { userId: "__d8", username: "ZeroDay", bannerCss: "doppler", bannerPatternSeed: 200, ringStyle: "ruby", ringSpin: true, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/64?img=51" },
-          ].map((d) => (
-            <VoiceUserRow
-              key={d.userId}
-              userId={d.userId}
-              username={d.username}
-              image={d.image}
-              member={undefined}
-              banner={bannerBackground(d.bannerCss, d.bannerPatternSeed)}
-              ringStyle={{ ...ringGradientStyle(d.ringPatternSeed, d.ringStyle) } as React.CSSProperties}
-              ringClassName={ringClass(d.ringStyle, d.ringSpin, d.role, false, d.ringPatternSeed)}
-              isMuted={d.userId === "__d2"}
-              isDeafened={d.userId === "__d4"}
-            />
-          ))}
-          {/* END DEBUG */}
           {voiceProps.participants.map((p) => {
             const member = voiceProps.members.find((m) => m.userId === p.userId);
             const voiceUser = voiceProps.isConnected ? voiceProps.voiceParticipants.find((v) => v.userId === p.userId) : null;

@@ -6,11 +6,125 @@ import { adaptiveTargetBitrate } from "./connection.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";
 
+const SPEAKING_THRESHOLD = 0.02;
+const SPEAKING_HOLD_MS = 200;
+const POLL_INTERVAL_MS = 50; // 20fps
+
 export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState>) {
   const get = () => storeRef.getState();
   const set = (partial: Partial<VoiceState> | ((state: VoiceState) => Partial<VoiceState>)) => {
     storeRef.setState(partial as any);
   };
+
+  // ── Local mic audio level via Web Audio API (instant) ──
+  let localAnalyser: AnalyserNode | null = null;
+  let localAudioCtx: AudioContext | null = null;
+  let localSource: MediaStreamAudioSourceNode | null = null;
+  const analyserData = new Uint8Array(256);
+
+  function attachLocalAnalyser() {
+    cleanupLocalAnalyser();
+    const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+    const mst = pub?.track?.mediaStreamTrack;
+    if (!mst) return;
+    try {
+      localAudioCtx = new AudioContext();
+      localSource = localAudioCtx.createMediaStreamSource(new MediaStream([mst]));
+      localAnalyser = localAudioCtx.createAnalyser();
+      localAnalyser.fftSize = 256;
+      localSource.connect(localAnalyser);
+    } catch { /* ignore */ }
+  }
+
+  function cleanupLocalAnalyser() {
+    localSource?.disconnect();
+    localAnalyser?.disconnect();
+    localAudioCtx?.close().catch(() => {});
+    localAnalyser = null;
+    localAudioCtx = null;
+    localSource = null;
+  }
+
+  function getLocalLevel(): number {
+    if (!localAnalyser) return 0;
+    localAnalyser.getByteTimeDomainData(analyserData);
+    let sum = 0;
+    for (let i = 0; i < analyserData.length; i++) {
+      const v = (analyserData[i] - 128) / 128;
+      sum += v * v;
+    }
+    return Math.sqrt(sum / analyserData.length);
+  }
+
+  // Attach analyser once mic track is published
+  room.on(RoomEvent.LocalTrackPublished, (pub) => {
+    if (pub.source === Track.Source.Microphone) attachLocalAnalyser();
+  });
+  room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
+    if (pub.source === Track.Source.Microphone) cleanupLocalAnalyser();
+  });
+  // Also attach if mic is already published
+  if (room.localParticipant.getTrackPublication(Track.Source.Microphone)?.track) {
+    attachLocalAnalyser();
+  }
+
+  // ── Polling loop for speaking indicators ──
+  const speakingHoldTimers = new Map<string, number>();
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+  const pollAudioLevels = () => {
+    const levels: Record<string, number> = {};
+    const speaking = new Set<string>();
+    const now = Date.now();
+
+    // Local participant: use Web Audio analyser for instant detection
+    const localId = room.localParticipant.identity;
+    const localLevel = get().isMuted ? 0 : getLocalLevel();
+    levels[localId] = localLevel;
+
+    if (localLevel > SPEAKING_THRESHOLD) {
+      speaking.add(localId);
+      speakingHoldTimers.set(localId, now);
+    } else if (speakingHoldTimers.has(localId)) {
+      if (now - speakingHoldTimers.get(localId)! < SPEAKING_HOLD_MS) {
+        speaking.add(localId);
+      } else {
+        speakingHoldTimers.delete(localId);
+      }
+    }
+
+    // Remote participants: use LiveKit's audioLevel (server-driven, best available)
+    for (const p of room.remoteParticipants.values()) {
+      const level = p.audioLevel ?? 0;
+      levels[p.identity] = level;
+
+      if (level > SPEAKING_THRESHOLD) {
+        speaking.add(p.identity);
+        speakingHoldTimers.set(p.identity, now);
+      } else if (speakingHoldTimers.has(p.identity)) {
+        if (now - speakingHoldTimers.get(p.identity)! < SPEAKING_HOLD_MS) {
+          speaking.add(p.identity);
+        } else {
+          speakingHoldTimers.delete(p.identity);
+        }
+      }
+    }
+
+    set({ audioLevels: levels, speakingUserIds: speaking });
+  };
+
+  pollTimer = setInterval(pollAudioLevels, POLL_INTERVAL_MS);
+
+  // Clean up on disconnect
+  const cleanupHandler = () => {
+    if (pollTimer !== null) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+    cleanupLocalAnalyser();
+    speakingHoldTimers.clear();
+  };
+  room.on(RoomEvent.Disconnected, cleanupHandler);
 
   room.on(RoomEvent.ParticipantConnected, (p) => {
     dbg("voice", `ParticipantConnected identity=${p.identity} name=${p.name}`);
@@ -22,10 +136,6 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     get()._updateParticipants();
     get()._updateScreenSharers();
     checkLobbyMusic();
-  });
-  room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-    dbg("voice", `ActiveSpeakersChanged count=${speakers.length}`, speakers.map((s) => s.identity));
-    get()._updateParticipants();
   });
   room.on(RoomEvent.TrackMuted, (pub, participant) => {
     dbg("voice", `TrackMuted participant=${participant.identity} track=${pub.trackSid} source=${pub.source}`);

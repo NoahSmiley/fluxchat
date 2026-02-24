@@ -10,6 +10,8 @@ import type { WebRTCQualityStats } from "@/lib/webrtcStats.js";
 export type NoiseSuppressionModel = "off" | "speex" | "rnnoise" | "dtln" | "deepfilter" | "nsnet2";
 
 export interface AudioSettings {
+  audioInputDeviceId: string;
+  audioOutputDeviceId: string;
   noiseSuppression: boolean;
   echoCancellation: boolean;
   autoGainControl: boolean;
@@ -71,6 +73,8 @@ export const SCREEN_SHARE_PRESETS: Record<ScreenShareQuality, ScreenSharePreset>
 };
 
 export const DEFAULT_SETTINGS: AudioSettings = {
+  audioInputDeviceId: "",
+  audioOutputDeviceId: "",
   noiseSuppression: true,
   echoCancellation: true,
   autoGainControl: true,

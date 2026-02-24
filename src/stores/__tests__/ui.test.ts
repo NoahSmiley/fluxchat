@@ -8,7 +8,6 @@ describe("useUIStore", () => {
       serverSettingsOpen: false,
       sidebarPosition: "left",
       appBorderStyle: "none",
-      showDummyUsers: false,
     });
   });
 
@@ -18,7 +17,6 @@ describe("useUIStore", () => {
     expect(state.serverSettingsOpen).toBe(false);
     expect(state.sidebarPosition).toBe("left");
     expect(state.appBorderStyle).toBe("none");
-    expect(state.showDummyUsers).toBe(false);
   });
 
   it("openSettings sets settingsOpen to true", () => {
@@ -62,17 +60,4 @@ describe("useUIStore", () => {
     expect(useUIStore.getState().appBorderStyle).toBe("neon");
   });
 
-  it("toggleDummyUsers toggles showDummyUsers", () => {
-    expect(useUIStore.getState().showDummyUsers).toBe(false);
-    useUIStore.getState().toggleDummyUsers();
-    expect(useUIStore.getState().showDummyUsers).toBe(true);
-  });
-
-  it("multiple toggles work correctly", () => {
-    expect(useUIStore.getState().showDummyUsers).toBe(false);
-    useUIStore.getState().toggleDummyUsers();
-    expect(useUIStore.getState().showDummyUsers).toBe(true);
-    useUIStore.getState().toggleDummyUsers();
-    expect(useUIStore.getState().showDummyUsers).toBe(false);
-  });
 });

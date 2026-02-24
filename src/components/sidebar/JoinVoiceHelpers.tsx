@@ -10,51 +10,15 @@ const LOCK_TOGGLE_DEBOUNCE_MS = 400;
 
 export const ANIMATED_LIST_DURATION_MS = 500;
 
-export const DUMMY_VOICE_USERS = [
-  { userId: "__d1", username: "xKira", drinkCount: 0 },
-  { userId: "__d2", username: "Blaze", drinkCount: 0 },
-  { userId: "__d3", username: "PhaseShift", drinkCount: 0 },
-  { userId: "__d4", username: "Cosmo", drinkCount: 0 },
-  { userId: "__d5", username: "ghost404", drinkCount: 0 },
-  { userId: "__d6", username: "Prism", drinkCount: 0 },
-  { userId: "__d7", username: "Nyx", drinkCount: 0 },
-  { userId: "__d8", username: "ZeroDay", drinkCount: 0 },
-];
-
-export function getDummyImages(showDummyUsers: boolean): Record<string, string> {
-  if (!showDummyUsers) return {};
-  return {
-    __d1: "https://i.pravatar.cc/64?img=1", __d2: "https://i.pravatar.cc/64?img=8",
-    __d3: "https://i.pravatar.cc/64?img=12", __d4: "https://i.pravatar.cc/64?img=15",
-    __d5: "https://i.pravatar.cc/64?img=22", __d6: "https://i.pravatar.cc/64?img=33",
-    __d7: "https://i.pravatar.cc/64?img=47", __d8: "https://i.pravatar.cc/64?img=51",
-  };
-}
-
-export function getDummyMembers(showDummyUsers: boolean) {
-  if (!showDummyUsers) return [];
-  return [
-    { userId: "__d1", username: "xKira", image: "https://i.pravatar.cc/64?img=1", ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null as number | null, bannerCss: "aurora", bannerPatternSeed: null as number | null, role: "member" },
-    { userId: "__d2", username: "Blaze", image: "https://i.pravatar.cc/64?img=8", ringStyle: "ruby", ringSpin: false, ringPatternSeed: null as number | null, bannerCss: "sunset", bannerPatternSeed: null as number | null, role: "member" },
-    { userId: "__d3", username: "PhaseShift", image: "https://i.pravatar.cc/64?img=12", ringStyle: "chroma", ringSpin: true, ringPatternSeed: null as number | null, bannerCss: "doppler", bannerPatternSeed: 42 as number | null, role: "owner" },
-    { userId: "__d4", username: "Cosmo", image: "https://i.pravatar.cc/64?img=15", ringStyle: "emerald", ringSpin: false, ringPatternSeed: null as number | null, bannerCss: "space", bannerPatternSeed: null as number | null, role: "admin" },
-    { userId: "__d5", username: "ghost404", image: "https://i.pravatar.cc/64?img=22", ringStyle: "default", ringSpin: false, ringPatternSeed: null as number | null, bannerCss: null as string | null, bannerPatternSeed: null as number | null, role: "member" },
-    { userId: "__d6", username: "Prism", image: "https://i.pravatar.cc/64?img=33", ringStyle: "doppler", ringSpin: false, ringPatternSeed: 77 as number | null, bannerCss: "gamma_doppler", bannerPatternSeed: 77 as number | null, role: "member" },
-    { userId: "__d7", username: "Nyx", image: "https://i.pravatar.cc/64?img=47", ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 150 as number | null, bannerCss: "cityscape", bannerPatternSeed: null as number | null, role: "member" },
-    { userId: "__d8", username: "ZeroDay", image: "https://i.pravatar.cc/64?img=51", ringStyle: "ruby", ringSpin: true, ringPatternSeed: null as number | null, bannerCss: "doppler", bannerPatternSeed: 200 as number | null, role: "admin" },
-  ];
-}
-
-export function CollapsedAvatars({ participants, members, dummyImages }: {
+export function CollapsedAvatars({ participants, members }: {
   participants: { userId: string; username: string }[];
   members: MemberWithUser[];
-  dummyImages: Record<string, string>;
 }) {
   return (
     <div className="voice-room-avatars">
       {participants.map((p) => {
         const member = members.find((m) => m.userId === p.userId);
-        const image = dummyImages[p.userId] ?? member?.image;
+        const image = member?.image;
         return (
           <span
             key={p.userId}

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { Channel, MemberWithUser } from "@/types/shared.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
-import { useUIStore } from "@/stores/ui.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { ChevronRight, Plus } from "lucide-react";
 import { gateway } from "@/lib/ws.js";
@@ -13,9 +12,6 @@ import { AnimatedList } from "@/components/AnimatedList.js";
 import type { VoiceUser } from "@/stores/voice/types.js";
 import {
   ANIMATED_LIST_DURATION_MS,
-  DUMMY_VOICE_USERS,
-  getDummyImages,
-  getDummyMembers,
   CollapsedAvatars,
   RoomRenameInput,
   LockToggleButton,
@@ -57,23 +53,16 @@ export function JoinVoiceSection({
   setRenamingRoomId,
 }: JoinVoiceSectionProps) {
   const { user } = useAuthStore();
-  const showDummyUsers = useUIStore((s) => s.showDummyUsers);
   const [collapsedRooms, setCollapsedRooms] = useState<Set<string>>(new Set());
   const [dragHighlightRoom, setDragHighlightRoom] = useState<string | null>(null);
 
   const isInVoice = !!connectedChannelId || connecting;
   const voiceChannels = channels.filter((c) => c.type === "voice");
 
-  const DUMMY_IMAGES = getDummyImages(showDummyUsers);
-  const DUMMY_MEMBERS = getDummyMembers(showDummyUsers);
-
-  const firstRoomId = voiceChannels.find((c) => c.isRoom)?.id;
   const voiceWithUsers = voiceChannels
     .map((c) => {
-      const real = channelParticipants[c.id] ?? [];
-      const isFirstRoom = c.isRoom && c.id === firstRoomId;
-      const allParticipants = (showDummyUsers && isFirstRoom) ? [...DUMMY_VOICE_USERS, ...real] : real;
-      return { channel: c, participants: allParticipants };
+      const participants = channelParticipants[c.id] ?? [];
+      return { channel: c, participants };
     })
     .filter((r) => r.participants.length > 0 || connectedChannelId === r.channel.id);
 
@@ -153,24 +142,10 @@ export function JoinVoiceSection({
                       </div>
                     </div>
                     {isRoomCollapsed ? (
-                      <CollapsedAvatars participants={participants} members={members} dummyImages={DUMMY_IMAGES} />
+                      <CollapsedAvatars participants={participants} members={members} />
                     ) : isInVoice ? (
                       <div className="voice-room-detailed">
-                        {showDummyUsers && voiceChannels.indexOf(vc) === 0 && DUMMY_MEMBERS.map((d) => (
-                          <VoiceUserRow
-                            key={d.userId}
-                            userId={d.userId}
-                            username={d.username}
-                            image={d.image}
-                            member={undefined}
-                            banner={bannerBackground(d.bannerCss, d.bannerPatternSeed)}
-                            ringStyle={{ ...ringGradientStyle(d.ringPatternSeed, d.ringStyle) } as React.CSSProperties}
-                            ringClassName={ringClass(d.ringStyle, d.ringSpin, d.role, false, d.ringPatternSeed)}
-                            isMuted={d.userId === "__d2"}
-                            isDeafened={d.userId === "__d4"}
-                          />
-                        ))}
-                        {participants.filter((p) => !p.userId.startsWith("__d")).map((p) => {
+                        {participants.map((p) => {
                           const member = members.find((m) => m.userId === p.userId);
                           const voiceUser = connectedChannelId === vc.id ? voiceParticipants.find((v) => v.userId === p.userId) : null;
                           return (
@@ -196,7 +171,7 @@ export function JoinVoiceSection({
                         })}
                       </div>
                     ) : (
-                      <CollapsedAvatars participants={participants} members={members} dummyImages={DUMMY_IMAGES} />
+                      <CollapsedAvatars participants={participants} members={members} />
                     )}
                   </div>
                 </div>

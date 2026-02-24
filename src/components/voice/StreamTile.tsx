@@ -2,9 +2,8 @@ import { useEffect, useRef } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import {
-  ArrowUpRight, Pin, PinOff, Maximize2, Minimize2, Monitor,
+  ArrowUpRight, Pin, PinOff, Maximize2, Minimize2,
 } from "lucide-react";
-import { avatarColor } from "@/lib/avatarColor.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
   // Request 1080p — matches the max resolution we actually publish
@@ -98,37 +97,3 @@ export function StreamTile({ participantId, username, isPinned }: StreamTileProp
   );
 }
 
-// ── Dummy Stream Tile (for preview when showDummyUsers is on) ──
-interface DummyStreamTileProps {
-  participantId: string;
-  username: string;
-  isPinned: boolean;
-}
-
-export function DummyStreamTile({ participantId, username, isPinned }: DummyStreamTileProps) {
-  const color = avatarColor(username);
-  const { pinScreenShare, unpinScreenShare } = useVoiceStore();
-
-  return (
-    <div className={`stream-tile ${isPinned ? "pinned" : ""}`}>
-      <div className="dummy-stream-video" style={{ background: `linear-gradient(135deg, ${color}22, ${color}08)` }}>
-        <Monitor size={isPinned ? 64 : 32} style={{ color: `${color}44` }} />
-      </div>
-
-      <div className="stream-tile-bottom-bar">
-        <span className="stream-tile-label">{username}'s screen</span>
-        <div className="stream-tile-actions">
-          {isPinned ? (
-            <button className="stream-tile-btn" onClick={unpinScreenShare} title="Unpin">
-              <PinOff size={14} />
-            </button>
-          ) : (
-            <button className="stream-tile-btn" onClick={() => pinScreenShare(participantId)} title="Pin as main">
-              <Pin size={14} />
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}

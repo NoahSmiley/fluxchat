@@ -9,7 +9,60 @@ import { X } from "lucide-react";
 import { ProfileTab } from "./settings/ProfileTab.js";
 import { AppearanceTab } from "./settings/AppearanceTab.js";
 import { NotificationsTab } from "./settings/NotificationsTab.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
 
+function VoiceSettingsTab() {
+  const { audioSettings, updateAudioSetting } = useVoiceStore();
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+
+  useEffect(() => {
+    navigator.mediaDevices.enumerateDevices().then(setDevices).catch(() => {});
+    const onChange = () => navigator.mediaDevices.enumerateDevices().then(setDevices).catch(() => {});
+    navigator.mediaDevices.addEventListener("devicechange", onChange);
+    return () => navigator.mediaDevices.removeEventListener("devicechange", onChange);
+  }, []);
+
+  const inputs = devices.filter((d) => d.kind === "audioinput");
+  const outputs = devices.filter((d) => d.kind === "audiooutput");
+
+  return (
+    <div className="settings-card">
+      <h3 className="settings-card-title">Voice & Audio</h3>
+      <div className="settings-row">
+        <div className="settings-row-info">
+          <span className="settings-row-label">Input Device</span>
+          <span className="settings-row-desc">Microphone used for voice chat</span>
+        </div>
+        <select
+          className="settings-select"
+          value={audioSettings.audioInputDeviceId}
+          onChange={(e) => updateAudioSetting("audioInputDeviceId", e.target.value)}
+        >
+          <option value="">System Default</option>
+          {inputs.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${d.deviceId.slice(0, 8)}`}</option>
+          ))}
+        </select>
+      </div>
+      <div className="settings-row">
+        <div className="settings-row-info">
+          <span className="settings-row-label">Output Device</span>
+          <span className="settings-row-desc">Speaker or headphones for audio playback</span>
+        </div>
+        <select
+          className="settings-select"
+          value={audioSettings.audioOutputDeviceId}
+          onChange={(e) => updateAudioSetting("audioOutputDeviceId", e.target.value)}
+        >
+          <option value="">System Default</option>
+          {outputs.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${d.deviceId.slice(0, 8)}`}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
 
 export function ToggleSwitch({ checked, onChange }: {
   checked: boolean;
@@ -82,9 +135,8 @@ const TAB_LABELS: Record<SettingsTab, string> = {
 };
 
 export function SettingsModal() {
-  const { settingsOpen, closeSettings, showDummyUsers, toggleDummyUsers } = useUIStore(useShallow((s) => ({
+  const { settingsOpen, closeSettings } = useUIStore(useShallow((s) => ({
     settingsOpen: s.settingsOpen, closeSettings: s.closeSettings,
-    showDummyUsers: s.showDummyUsers, toggleDummyUsers: s.toggleDummyUsers,
   })));
   const { keybinds } = useKeybindsStore();
   const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore();
@@ -134,12 +186,7 @@ export function SettingsModal() {
 
         {activeTab === "notifications" && <NotificationsTab />}
 
-        {activeTab === "voice" && (
-          <div className="settings-card">
-            <h3 className="settings-card-title">Voice & Audio</h3>
-            <p className="settings-card-desc">Voice settings are not available in this version.</p>
-          </div>
-        )}
+        {activeTab === "voice" && <VoiceSettingsTab />}
 
         {activeTab === "keybinds" && (
           <div className="settings-card">
@@ -240,13 +287,6 @@ export function SettingsModal() {
               <button className="btn-small" onClick={() => { navigator.clipboard.writeText(dumpLogs()).then(() => { setLogsCopied(true); setTimeout(() => setLogsCopied(false), 2000); }); }}>
                 {logsCopied ? "Copied!" : "Copy Logs"}
               </button>
-            </div>
-            <div className="settings-row">
-              <div className="settings-row-info">
-                <span className="settings-row-label">Dummy Users</span>
-                <span className="settings-row-desc">Show placeholder users in sidebars and voice channels</span>
-              </div>
-              <ToggleSwitch checked={showDummyUsers} onChange={toggleDummyUsers} />
             </div>
           </div>
         )}

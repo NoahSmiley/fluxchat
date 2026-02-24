@@ -43,6 +43,15 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
     const updated = { ...current, [key]: value };
     storeApi.setState({ audioSettings: updated });
     try { localStorage.setItem("flux-audio-settings", JSON.stringify(updated)); } catch { /* ignore */ }
+
+    // Switch audio device live if connected
+    const room = storeApi.getState().room;
+    if (room && key === "audioInputDeviceId" && typeof value === "string") {
+      room.switchActiveDevice("audioinput", value).catch(() => {});
+    }
+    if (room && key === "audioOutputDeviceId" && typeof value === "string") {
+      room.switchActiveDevice("audiooutput", value).catch(() => {});
+    }
   };
   const applyBitrate = createApplyBitrate(storeApi);
   const toggleScreenShare = createToggleScreenShare(storeApi);

@@ -23,7 +23,6 @@ interface VoiceParticipantGridProps {
   participantVolumes: Record<string, number>;
   setParticipantVolume: (userId: string, volume: number) => void;
   screenSharerIds: Set<string>;
-  showDummyUsers: boolean;
   // Now-playing props
   session: ListeningSession | null;
   playerState: SpotifyPlayerState | null;
@@ -63,18 +62,6 @@ function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle,
     </div>
   );
 }
-
-// ── Dummy users for debug mode ──
-const DUMMY_PARTICIPANTS = [
-  { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=1" },
-  { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=8" },
-  { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/128?img=12" },
-  { userId: "__d4", username: "Cosmo", bannerCss: "space", bannerPatternSeed: null, ringStyle: "emerald", ringSpin: false, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/128?img=15" },
-  { userId: "__d5", username: "ghost404", bannerCss: null, bannerPatternSeed: null, ringStyle: "default", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=22" },
-  { userId: "__d6", username: "Prism", bannerCss: "gamma_doppler", bannerPatternSeed: 77, ringStyle: "doppler", ringSpin: false, ringPatternSeed: 77, role: "member", image: "https://i.pravatar.cc/128?img=33" },
-  { userId: "__d7", username: "Nyx", bannerCss: "cityscape", bannerPatternSeed: null, ringStyle: "gamma_doppler", ringSpin: true, ringPatternSeed: 150, role: "member", image: "https://i.pravatar.cc/128?img=47" },
-  { userId: "__d8", username: "ZeroDay", bannerCss: "doppler", bannerPatternSeed: 200, ringStyle: "ruby", ringSpin: true, ringPatternSeed: null, role: "admin", image: "https://i.pravatar.cc/128?img=51" },
-] as const;
 
 // ── Now-Playing Bar ──
 function NowPlayingBar({ session, playerState, youtubeTrack, queue, volume, setVolume }: {
@@ -137,7 +124,6 @@ export function VoiceParticipantGrid({
   participantVolumes,
   setParticipantVolume,
   screenSharerIds,
-  showDummyUsers,
   session,
   playerState,
   youtubeTrack,
@@ -149,23 +135,6 @@ export function VoiceParticipantGrid({
     <>
       {/* Participants */}
       <div className="voice-participants-grid">
-        {/* DEBUG: dummy voice tiles */}
-        {showDummyUsers && DUMMY_PARTICIPANTS.map((d) => (
-          <ParticipantTile key={d.userId} userId={d.userId} username={d.username} banner={bannerBackground(d.bannerCss, d.bannerPatternSeed)}>
-            <SpeakingAvatar
-              userId={d.userId}
-              username={d.username}
-              image={d.image}
-              role={d.role}
-              memberRingStyle={d.ringStyle}
-              memberRingSpin={d.ringSpin}
-              memberRingPatternSeed={d.ringPatternSeed}
-              large
-            />
-            <span className="voice-tile-name">{d.username}</span>
-          </ParticipantTile>
-        ))}
-        {/* END DEBUG */}
         {participants.map((user) => {
           const member = members.find((m) => m.userId === user.userId);
           const tileBanner = bannerBackground(member?.bannerCss, member?.bannerPatternSeed);
