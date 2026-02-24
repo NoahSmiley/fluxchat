@@ -158,8 +158,9 @@ function startLobbyMusic() {
   source.connect(gain);
   gain.connect(ctx.destination);
 
-  audio.play().catch(() => {
-    ctx.close().catch(() => {});
+  audio.play().catch((e) => {
+    dbg("voice", "Failed to play lobby music", e);
+    ctx.close().catch((e2) => { dbg("voice", "Failed to close lobby music AudioContext after play error", e2); });
     useVoiceStore.setState({ lobbyMusicPlaying: false });
   });
 
@@ -182,7 +183,7 @@ function fadeOutLobbyMusic() {
   setTimeout(() => {
     audio.pause();
     audio.src = "";
-    ctx.close().catch(() => {});
+    ctx.close().catch((e) => { dbg("voice", "Failed to close lobby music AudioContext after fade-out", e); });
   }, LOBBY_FADE_OUT_S * 1000);
 
   lobbyMusicAudio = null;
@@ -201,7 +202,7 @@ function stopLobbyMusic() {
     lobbyMusicAudio.src = "";
   }
   if (lobbyMusicCtx) {
-    lobbyMusicCtx.close().catch(() => {});
+    lobbyMusicCtx.close().catch((e) => { dbg("voice", "Failed to close lobby music AudioContext on stop", e); });
   }
   lobbyMusicAudio = null;
   lobbyMusicGain = null;
@@ -363,14 +364,14 @@ function loadAudioSettings(): AudioSettings {
     if (saved) {
       return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
     }
-  } catch {}
+  } catch (e) { dbg("voice", "Failed to load audio settings from localStorage", e); }
   return { ...DEFAULT_SETTINGS };
 }
 
 function saveAudioSettings(settings: AudioSettings) {
   try {
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  } catch {}
+  } catch (e) { dbg("voice", "Failed to save audio settings to localStorage", e); }
 }
 
 export const useVoiceStore = create<VoiceState>((set, get) => ({
@@ -427,7 +428,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             pub.track.stop();
           }
         }
-      } catch {}
+      } catch (e) { dbg("voice", "Failed to stop local mic tracks during room switch", e); }
 
       stopAudioLevelPolling();
       stopLobbyMusic();
@@ -854,7 +855,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       import("./spotify.js").then(({ useSpotifyStore }) => {
         useSpotifyStore.getState().leaveSession();
       });
-    } catch {}
+    } catch (e) { dbg("voice", "Failed to stop Spotify session on voice leave", e); }
 
     // Clean up noise suppression processor
     cleanupAudioProcessors();
@@ -1325,7 +1326,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
                 width: { ideal: preset.width },
                 height: { ideal: preset.height },
                 frameRate: { ideal: preset.frameRate },
-              }).catch(() => {});
+              }).catch((e) => { dbg("voice", "Failed to apply screen share track constraints", e); });
             }
           }
         }
