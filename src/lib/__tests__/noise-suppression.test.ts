@@ -153,12 +153,12 @@ Object.defineProperty(globalThis, "MessageChannel", {
 // ---------------------------------------------------------------------------
 // Import processors AFTER globals are patched
 // ---------------------------------------------------------------------------
-import { DryWetTrackProcessor } from "../audio/DryWetTrackProcessor.js";
-import { RnnoiseTrackProcessor } from "../audio/rnnoise/RnnoiseTrackProcessor.js";
-import { DtlnTrackProcessor } from "../audio/dtln/DtlnTrackProcessor.js";
-import { DeepFilterTrackProcessor } from "../audio/deepfilter/DeepFilterTrackProcessor.js";
-import { NSNet2TrackProcessor } from "../audio/nsnet2/NSNet2TrackProcessor.js";
-import { SpeexTrackProcessor } from "../audio/speex/SpeexTrackProcessor.js";
+import { DryWetTrackProcessor } from "@/lib/audio/DryWetTrackProcessor.js";
+import { RnnoiseTrackProcessor } from "@/lib/audio/rnnoise/RnnoiseTrackProcessor.js";
+import { DtlnTrackProcessor } from "@/lib/audio/dtln/DtlnTrackProcessor.js";
+import { DeepFilterTrackProcessor } from "@/lib/audio/deepfilter/DeepFilterTrackProcessor.js";
+import { NSNet2TrackProcessor } from "@/lib/audio/nsnet2/NSNet2TrackProcessor.js";
+import { SpeexTrackProcessor } from "@/lib/audio/speex/SpeexTrackProcessor.js";
 
 // ---------------------------------------------------------------------------
 // Helper factories

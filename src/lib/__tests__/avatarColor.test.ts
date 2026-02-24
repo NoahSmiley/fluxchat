@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { avatarColor } from "../avatarColor.js";
+import { avatarColor } from "@/lib/avatarColor.js";
 
 describe("avatarColor", () => {
   it("returns a deterministic color for the same name", () => {

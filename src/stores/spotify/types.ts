@@ -1,4 +1,4 @@
-import type { SpotifyAccount, ListeningSession, QueueItem, SpotifyTrack, WSServerEvent } from "../../types/shared.js";
+import type { SpotifyAccount, ListeningSession, QueueItem, SpotifyTrack, WSServerEvent } from "@/types/shared.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // PKCE helpers
@@ -146,9 +146,9 @@ export function persistPlayer(player: SpotifyPlayer | null, deviceId: string | n
 // Shared helpers
 // ═══════════════════════════════════════════════════════════════════
 
-import { useYouTubeStore } from "../youtube.js";
-import * as api from "../../lib/api/index.js";
-import { dbg } from "../../lib/debug.js";
+import { useYouTubeStore } from "@/stores/youtube.js";
+import * as api from "@/lib/api/index.js";
+import { dbg } from "@/lib/debug.js";
 
 /** Helper to get YouTube store state (synchronous). */
 export function yt() {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ChevronDown } from "lucide-react";
-import type { CustomEmoji } from "../types/shared.js";
-import { API_BASE } from "../lib/serverUrl.js";
+import type { CustomEmoji } from "@/types/shared.js";
+import { API_BASE } from "@/lib/serverUrl.js";
 import {
   emojiData,
   parseTwemoji,

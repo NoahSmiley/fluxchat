@@ -1,8 +1,8 @@
 import type { ScalabilityMode } from "livekit-client";
 import type { Room } from "livekit-client";
-import type { VoiceParticipant } from "../../types/shared.js";
-import type { AudioSettings } from "../../lib/audio/voice-pipeline.js";
-import type { WebRTCQualityStats } from "../../lib/webrtcStats.js";
+import type { VoiceParticipant } from "@/types/shared.js";
+import type { AudioSettings } from "@/lib/audio/voice-pipeline.js";
+import type { WebRTCQualityStats } from "@/lib/webrtcStats.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // Types & Constants

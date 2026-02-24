@@ -1,6 +1,6 @@
 import twemoji from "twemoji";
 import data from "@emoji-mart/data";
-import { TWEMOJI_OPTIONS } from "../lib/emoji.js";
+import { TWEMOJI_OPTIONS } from "@/lib/emoji.js";
 
 export interface EmojiSkin {
   native: string;

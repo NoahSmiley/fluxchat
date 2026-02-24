@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useNotifStore } from "../notifications.js";
+import { useNotifStore } from "@/stores/notifications.js";
 
 describe("useNotifStore", () => {
   beforeEach(() => {

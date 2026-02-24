@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useCallback, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import twemoji from "twemoji";
-import { renderEmoji, getEmojiLabel, TWEMOJI_OPTIONS } from "../../lib/emoji.js";
-import { API_BASE } from "../../lib/serverUrl.js";
-import ContextMenu from "../ContextMenu.js";
-import { setCursorAtOffset, getDivPlainText } from "../../lib/contentEditable.js";
+import { renderEmoji, getEmojiLabel, TWEMOJI_OPTIONS } from "@/lib/emoji.js";
+import { API_BASE } from "@/lib/serverUrl.js";
+import ContextMenu from "@/components/ContextMenu.js";
+import { setCursorAtOffset, getDivPlainText } from "@/lib/contentEditable.js";
 import { MessageItem, type MessageDataEntry } from "./MessageItem.js";
-import type { Message, CustomEmoji } from "../../types/shared.js";
+import type { Message, CustomEmoji } from "@/types/shared.js";
 
 export type { MessageDataEntry };
 

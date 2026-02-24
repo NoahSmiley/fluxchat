@@ -1,10 +1,10 @@
 import { useState } from "react";
-import type { Channel, MemberWithUser } from "../../types/shared.js";
-import { useChatStore } from "../../stores/chat/index.js";
+import type { Channel, MemberWithUser } from "@/types/shared.js";
+import { useChatStore } from "@/stores/chat/index.js";
 import { Lock, LockOpen } from "lucide-react";
-import * as api from "../../lib/api/index.js";
-import { dbg } from "../../lib/debug.js";
-import { avatarColor } from "../../lib/avatarColor.js";
+import * as api from "@/lib/api/index.js";
+import { dbg } from "@/lib/debug.js";
+import { avatarColor } from "@/lib/avatarColor.js";
 
 const LOCK_TOGGLE_DEBOUNCE_MS = 400;
 

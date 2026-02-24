@@ -1,6 +1,6 @@
 import { type FormEvent } from "react";
 import { Play, Plus, Search } from "lucide-react";
-import type { SpotifyTrack, YouTubeTrack } from "../../types/shared.js";
+import type { SpotifyTrack, YouTubeTrack } from "@/types/shared.js";
 
 export interface MusicSearchProps {
   searchSource: "spotify" | "youtube";

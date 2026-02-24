@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useUIStore } from "../stores/ui.js";
-import { useKeybindsStore, type KeybindAction, type KeybindEntry } from "../stores/keybinds.js";
-import { useSpotifyStore } from "../stores/spotify/index.js";
-import { useUpdater } from "../hooks/useUpdater.js";
-import { getDebugEnabled, setDebugEnabled, dumpLogs } from "../lib/debug.js";
+import { useUIStore } from "@/stores/ui.js";
+import { useKeybindsStore, type KeybindAction, type KeybindEntry } from "@/stores/keybinds.js";
+import { useSpotifyStore } from "@/stores/spotify/index.js";
+import { useUpdater } from "@/hooks/useUpdater.js";
+import { getDebugEnabled, setDebugEnabled, dumpLogs } from "@/lib/debug.js";
 import { X } from "lucide-react";
 import { ProfileTab } from "./settings/ProfileTab.js";
 import { AppearanceTab } from "./settings/AppearanceTab.js";

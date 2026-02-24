@@ -1,4 +1,4 @@
-import { dbg } from "../debug.js";
+import { dbg } from "@/lib/debug.js";
 
 // ── Audio Pipeline (Web Audio API) ──
 
@@ -24,7 +24,7 @@ export interface AudioSettings {
   lowPassFrequency: number;
   inputSensitivity: number;
   inputSensitivityEnabled: boolean;
-  noiseSuppressionModel: import("../../stores/voice/index.js").NoiseSuppressionModel;
+  noiseSuppressionModel: import("@/stores/voice/index.js").NoiseSuppressionModel;
   suppressionStrength: number;
   vadThreshold: number;
   micInputGain: number;

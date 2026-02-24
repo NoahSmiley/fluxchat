@@ -1,14 +1,14 @@
 import { useState, useRef, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
-import type { MemberWithUser } from "../../types/shared.js";
-import { useAuthStore } from "../../stores/auth.js";
-import { useChatStore } from "../../stores/chat/index.js";
-import { useDMStore } from "../../stores/dm/index.js";
-import { useVoiceStore } from "../../stores/voice/index.js";
-import { UserCard } from "../sidebar/MemberList.js";
+import type { MemberWithUser } from "@/types/shared.js";
+import { useAuthStore } from "@/stores/auth.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useDMStore } from "@/stores/dm/index.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
+import { UserCard } from "@/components/sidebar/MemberList.js";
 import { Mic, MicOff, HeadphoneOff, Radio } from "lucide-react";
-import { avatarColor } from "../../lib/avatarColor.js";
+import { avatarColor } from "@/lib/avatarColor.js";
 
 /** Tiny component so only the mic icon re-renders when speaking state changes, not the whole sidebar */
 function SpeakingMic({ userId, isMuted, isDeafened }: { userId: string; isMuted?: boolean; isDeafened?: boolean }) {

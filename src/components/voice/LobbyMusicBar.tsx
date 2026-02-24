@@ -1,4 +1,4 @@
-import { useVoiceStore } from "../../stores/voice/index.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
 import { Music, Square, Volume1, VolumeX } from "lucide-react";
 
 // ── Lobby Music Bar (Easter Egg) ──

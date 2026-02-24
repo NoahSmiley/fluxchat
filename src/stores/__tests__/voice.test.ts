@@ -116,7 +116,7 @@ vi.mock("../../lib/serverUrl.js", () => ({
   getGatewayUrl: vi.fn(() => "ws://localhost:3001/gateway"),
 }));
 
-import { useVoiceStore } from "../voice/index.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
 
 // Capture the voice_state handler registered at module load time BEFORE clearAllMocks
 // gateway.on was called during voice.ts import, so the callback is in mockGatewayOn.mock.calls

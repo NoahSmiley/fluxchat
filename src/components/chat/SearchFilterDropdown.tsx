@@ -1,6 +1,6 @@
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { User, Hash, Paperclip, AtSign, CalendarDays, Image, Video, Link, Volume2, FileText } from "lucide-react";
-import { avatarColor } from "../../lib/avatarColor.js";
+import { avatarColor } from "@/lib/avatarColor.js";
 import { SearchDatePicker, type SearchDatePickerHandle } from "./SearchDatePicker.js";
 
 export type DropdownMode = "main" | "from" | "in" | "has" | "mentions" | "before" | "on" | "after";

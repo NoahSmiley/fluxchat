@@ -1,6 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
-import { useVoiceStore } from "../../stores/voice/index.js";
-import { useChatStore } from "../../stores/chat/index.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
+import { useChatStore } from "@/stores/chat/index.js";
 import { Mic, MicOff, Headphones, HeadphoneOff, PhoneOff } from "lucide-react";
 
 export function VoiceStatusBar() {

@@ -1,6 +1,6 @@
-import type { RingStyle } from "../../types/shared.js";
+import type { RingStyle } from "@/types/shared.js";
 
-import { API_BASE } from "../serverUrl.js";
+import { API_BASE } from "@/lib/serverUrl.js";
 
 export { API_BASE };
 

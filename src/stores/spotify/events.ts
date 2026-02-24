@@ -1,8 +1,8 @@
 import type { StoreApi } from "zustand";
 import type { SpotifyState } from "./types.js";
-import type { WSServerEvent } from "../../types/shared.js";
+import type { WSServerEvent } from "@/types/shared.js";
 import { playOnDevice, yt, useYouTubeStore, dbg } from "./types.js";
-import { gateway } from "../../lib/ws.js";
+import { gateway } from "@/lib/ws.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // WebSocket event handler

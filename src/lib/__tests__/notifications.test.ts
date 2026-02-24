@@ -51,9 +51,9 @@ import {
   playMessageSound,
   showDesktopNotification,
   requestNotificationPermission,
-} from "../notifications.js";
-import { useAuthStore } from "../../stores/auth.js";
-import { useChatStore } from "../../stores/chat/index.js";
+} from "@/lib/notifications.js";
+import { useAuthStore } from "@/stores/auth.js";
+import { useChatStore } from "@/stores/chat/index.js";
 
 const mockedAuthStore = vi.mocked(useAuthStore);
 const mockedChatStore = vi.mocked(useChatStore);

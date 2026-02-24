@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Shuffle } from "lucide-react";
-import { dbg } from "../../lib/debug.js";
+import { dbg } from "@/lib/debug.js";
 
 // ── Kaleidoscopic Shader Visualizer (Easter Egg) ──
 

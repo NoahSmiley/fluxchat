@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getDivPlainText, getCharOffset } from "../contentEditable.js";
+import { getDivPlainText, getCharOffset } from "@/lib/contentEditable.js";
 
 // NOTE: setCursorAtOffset and getTextBeforeCursor rely on window.getSelection()
 // which jsdom does not fully support (returns null or a stub). These functions

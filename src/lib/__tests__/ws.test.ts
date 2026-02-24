@@ -102,7 +102,7 @@ describe("FluxWebSocket (gateway)", () => {
       dbg: vi.fn(),
     }));
 
-    const mod = await import("../ws.js");
+    const mod = await import("@/lib/ws.js");
     gateway = mod.gateway;
   });
 

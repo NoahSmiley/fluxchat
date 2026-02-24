@@ -1,5 +1,5 @@
-import type { WSClientEvent, WSServerEvent } from "../types/shared.js";
-import { WS_HEARTBEAT_INTERVAL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from "../types/shared.js";
+import type { WSClientEvent, WSServerEvent } from "@/types/shared.js";
+import { WS_HEARTBEAT_INTERVAL, WS_RECONNECT_BASE_DELAY, WS_RECONNECT_MAX_DELAY } from "@/types/shared.js";
 import { getGatewayUrl } from "./serverUrl.js";
 import { getStoredToken } from "./api/index.js";
 import { dbg } from "./debug.js";

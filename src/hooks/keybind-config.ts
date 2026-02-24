@@ -1,4 +1,4 @@
-import { useKeybindsStore } from "../stores/keybinds.js";
+import { useKeybindsStore } from "@/stores/keybinds.js";
 
 // ── Environment Detection ────────────────────────────────────────────────────
 

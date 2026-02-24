@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Play, X } from "lucide-react";
-import * as api from "../../lib/api/index.js";
-import type { SoundboardSound, CustomEmoji } from "../../types/shared.js";
-import { API_BASE } from "../../lib/serverUrl.js";
-import { renderEmoji } from "../../lib/emoji.js";
-import EmojiPicker from "../EmojiPicker.js";
+import * as api from "@/lib/api/index.js";
+import type { SoundboardSound, CustomEmoji } from "@/types/shared.js";
+import { API_BASE } from "@/lib/serverUrl.js";
+import { renderEmoji } from "@/lib/emoji.js";
+import EmojiPicker from "@/components/EmojiPicker.js";
 
 export interface SoundboardEditFormProps {
   serverId: string;

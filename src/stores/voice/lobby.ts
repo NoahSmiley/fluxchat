@@ -1,9 +1,9 @@
-import { dbg } from "../../lib/debug.js";
+import { dbg } from "@/lib/debug.js";
 import {
   LOBBY_WAIT_MS,
   LOBBY_FADE_IN_S,
   LOBBY_FADE_OUT_S,
-} from "../../lib/audio/voice-constants.js";
+} from "@/lib/audio/voice-constants.js";
 import type { StoreApi } from "zustand";
 import type { VoiceState } from "./types.js";
 

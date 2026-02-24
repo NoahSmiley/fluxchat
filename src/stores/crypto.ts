@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import * as crypto from "../lib/crypto.js";
-import * as api from "../lib/api/index.js";
-import { gateway } from "../lib/ws.js";
-import { dbg } from "../lib/debug.js";
+import * as crypto from "@/lib/crypto.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
+import { dbg } from "@/lib/debug.js";
 
 interface CryptoState {
   keyPair: CryptoKeyPair | null;

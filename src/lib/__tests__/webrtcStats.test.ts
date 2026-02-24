@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { collectWebRTCStats, resetStatsDelta } from "../webrtcStats.js";
+import { collectWebRTCStats, resetStatsDelta } from "@/lib/webrtcStats.js";
 
 // Helper to create a mock RTCStatsReport
 function createMockStatsReport(entries: Record<string, any>[]): Map<string, any> {

@@ -1,13 +1,13 @@
 import { useState, useRef, useCallback, useMemo, type FormEvent, type RefObject } from "react";
 import { Paperclip, X, Smile } from "lucide-react";
-import { avatarColor } from "../../lib/avatarColor.js";
-import { gateway } from "../../lib/ws.js";
+import { avatarColor } from "@/lib/avatarColor.js";
+import { gateway } from "@/lib/ws.js";
 import twemoji from "twemoji";
-import { TWEMOJI_OPTIONS } from "../../lib/emoji.js";
-import EmojiPicker from "../EmojiPicker.js";
-import ContextMenu from "../ContextMenu.js";
-import { getCharOffset, setCursorAtOffset, getDivPlainText, getTextBeforeCursor } from "../../lib/contentEditable.js";
-import type { MemberWithUser, Attachment } from "../../types/shared.js";
+import { TWEMOJI_OPTIONS } from "@/lib/emoji.js";
+import EmojiPicker from "@/components/EmojiPicker.js";
+import ContextMenu from "@/components/ContextMenu.js";
+import { getCharOffset, setCursorAtOffset, getDivPlainText, getTextBeforeCursor } from "@/lib/contentEditable.js";
+import type { MemberWithUser, Attachment } from "@/types/shared.js";
 
 type MentionEntry =
   | { kind: "special"; name: string; desc: string }

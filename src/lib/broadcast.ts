@@ -1,4 +1,4 @@
-import type { Message } from "../types/shared.js";
+import type { Message } from "@/types/shared.js";
 
 // ── State messages (main → popout) ──
 

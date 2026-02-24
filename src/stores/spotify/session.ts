@@ -1,8 +1,8 @@
 import type { StoreApi } from "zustand";
 import type { SpotifyState } from "./types.js";
 import { playOnDevice, yt, useYouTubeStore, dbg } from "./types.js";
-import { gateway } from "../../lib/ws.js";
-import * as api from "../../lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
+import * as api from "@/lib/api/index.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // Session action creators
@@ -12,7 +12,7 @@ export function createStartSession(store: StoreApi<SpotifyState>) {
   return async (voiceChannelId: string) => {
     dbg("spotify", `startSession channel=${voiceChannelId}`);
     // Stop lobby music when a jam session starts
-    import("../voice/store.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
+    import("@/stores/voice/store.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
     const { player } = store.getState();
     player?.pause();
     yt().stopYouTube();
@@ -30,7 +30,7 @@ export function createLoadSession(store: StoreApi<SpotifyState>) {
     try {
       const data = await api.getListeningSession(voiceChannelId);
       if (data.session) {
-        const { useAuthStore } = await import("../auth.js");
+        const { useAuthStore } = await import("@/stores/auth.js");
         const userId = useAuthStore.getState().user?.id;
         const wasAlreadyLoaded = store.getState().session?.id === data.session.id;
         dbg("spotify", "loadSession found session", {

@@ -1,9 +1,9 @@
-import type { PresenceStatus } from "../../types/shared.js";
+import type { PresenceStatus } from "@/types/shared.js";
 import type { StoreApi, UseBoundStore } from "zustand";
-import { gateway } from "../../lib/ws.js";
-import { broadcastState, onCommand, isPopout } from "../../lib/broadcast.js";
-import { useCryptoStore } from "../crypto.js";
-import { dbg } from "../../lib/debug.js";
+import { gateway } from "@/lib/ws.js";
+import { broadcastState, onCommand, isPopout } from "@/lib/broadcast.js";
+import { useCryptoStore } from "@/stores/crypto.js";
+import { dbg } from "@/lib/debug.js";
 import type { ChatState } from "./types.js";
 
 // ── Message handlers ──
@@ -50,18 +50,18 @@ import {
 
 // ── Lazy store refs (shared with domain modules via exported types) ──
 
-export type AuthStoreRef = typeof import("../auth.js").useAuthStore | null;
-export type NotifStoreRef = typeof import("../notifications.js").useNotifStore | null;
-export type DMStoreRef = typeof import("../dm/store.js").useDMStore | null;
+export type AuthStoreRef = typeof import("@/stores/auth.js").useAuthStore | null;
+export type NotifStoreRef = typeof import("@/stores/notifications.js").useNotifStore | null;
+export type DMStoreRef = typeof import("@/stores/dm/store.js").useDMStore | null;
 
 let authStoreRef: AuthStoreRef = null;
-import("../auth.js").then((m) => { authStoreRef = m.useAuthStore; });
+import("@/stores/auth.js").then((m) => { authStoreRef = m.useAuthStore; });
 
 let notifStoreRef: NotifStoreRef = null;
-import("../notifications.js").then((m) => { notifStoreRef = m.useNotifStore; });
+import("@/stores/notifications.js").then((m) => { notifStoreRef = m.useNotifStore; });
 
 let dmStoreRef: DMStoreRef = null;
-import("../dm/store.js").then((m) => { dmStoreRef = m.useDMStore; });
+import("@/stores/dm/store.js").then((m) => { dmStoreRef = m.useDMStore; });
 
 // ── Shared helpers (exported for domain modules) ──
 
@@ -128,7 +128,7 @@ gateway.onConnect(() => {
   dmStoreRef?.getState().loadDMChannels();
 
   // Initialize Spotify
-  import("../spotify/store.js").then(({ useSpotifyStore }) => {
+  import("@/stores/spotify/store.js").then(({ useSpotifyStore }) => {
     useSpotifyStore.getState().loadAccount().catch((e) => dbg("chat", "Spotify init failed:", e));
   });
 
@@ -139,7 +139,7 @@ gateway.onConnect(() => {
   async function pollActivity() {
     try {
       // Skip activity detection when not in a voice channel
-      const voiceMod = await import("../voice/store.js");
+      const voiceMod = await import("@/stores/voice/store.js");
       if (!voiceMod.useVoiceStore.getState().connectedChannelId) return;
       const { invoke } = await import("@tauri-apps/api/core");
       const result = await invoke<{ name: string; activityType: string } | null>("detect_activity");

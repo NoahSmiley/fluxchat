@@ -2,9 +2,9 @@ import { Track } from "livekit-client";
 import {
   playScreenShareStartSound,
   playScreenShareStopSound,
-} from "../../lib/audio/voice-effects.js";
+} from "@/lib/audio/voice-effects.js";
 import type { VoiceState, VoiceUser, ScreenShareInfo } from "./types.js";
-import type { VoiceParticipant } from "../../types/shared.js";
+import type { VoiceParticipant } from "@/types/shared.js";
 import type { StoreApi } from "zustand";
 
 export function createUpdateParticipants(storeRef: StoreApi<VoiceState>) {

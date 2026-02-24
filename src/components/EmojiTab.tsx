@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Upload } from "lucide-react";
-import * as api from "../lib/api/index.js";
-import type { CustomEmoji } from "../types/shared.js";
-import { API_BASE } from "../lib/serverUrl.js";
-import { useChatStore } from "../stores/chat/index.js";
-import { useAuthStore } from "../stores/auth.js";
+import * as api from "@/lib/api/index.js";
+import type { CustomEmoji } from "@/types/shared.js";
+import { API_BASE } from "@/lib/serverUrl.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useAuthStore } from "@/stores/auth.js";
 
 const MAX_EMOJI_SIZE = 256 * 1024; // 256 KB
 const NAME_REGEX = /^[a-zA-Z0-9_]{1,32}$/;

@@ -1,13 +1,13 @@
 import type { StoreApi, UseBoundStore } from "zustand";
-import type { DMMessage } from "../../types/shared.js";
-import type { ChatState } from "../chat/types.js";
-import { saveChannelCache, saveServerCache } from "../chat/types.js";
-import { useCryptoStore } from "../crypto.js";
-import { gateway } from "../../lib/ws.js";
+import type { DMMessage } from "@/types/shared.js";
+import type { ChatState } from "@/stores/chat/types.js";
+import { saveChannelCache, saveServerCache } from "@/stores/chat/types.js";
+import { useCryptoStore } from "@/stores/crypto.js";
+import { gateway } from "@/lib/ws.js";
 
 // Lazy ref to chat store to avoid circular imports
 let chatStoreRef: UseBoundStore<StoreApi<ChatState>> | null = null;
-import("../chat/store.js").then((m) => { chatStoreRef = m.useChatStore; });
+import("@/stores/chat/store.js").then((m) => { chatStoreRef = m.useChatStore; });
 
 /** Accessor for the lazily-loaded chat store reference. */
 export function getChatStoreRef() {

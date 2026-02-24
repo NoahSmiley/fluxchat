@@ -1,5 +1,5 @@
-import type { AudioSettings } from "../../lib/audio/voice-pipeline.js";
-import { dbg } from "../../lib/debug.js";
+import type { AudioSettings } from "@/lib/audio/voice-pipeline.js";
+import { dbg } from "@/lib/debug.js";
 import { DEFAULT_SETTINGS } from "./types.js";
 
 // ═══════════════════════════════════════════════════════════════════

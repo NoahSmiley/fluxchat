@@ -1,6 +1,6 @@
 import type { StoreApi, UseBoundStore } from "zustand";
 import type { ChatState } from "./types.js";
-import { API_BASE } from "../../lib/serverUrl.js";
+import { API_BASE } from "@/lib/serverUrl.js";
 
 // ── Voice / room interaction event handlers ──
 
@@ -20,7 +20,7 @@ export function handleRoomKnock(
 
 export function handleRoomKnockAccepted(event: any) {
   // Auto-join the room
-  import("../voice/store.js").then((mod) => {
+  import("@/stores/voice/store.js").then((mod) => {
     mod.useVoiceStore.getState().joinVoiceChannel(event.channelId);
   });
 }
@@ -40,13 +40,13 @@ export function handleRoomInvite(
 }
 
 export function handleRoomForceMove(event: any) {
-  import("../voice/store.js").then((mod) => {
+  import("@/stores/voice/store.js").then((mod) => {
     mod.useVoiceStore.getState().joinVoiceChannel(event.targetChannelId);
   });
 }
 
 export function handleSoundboardPlay(event: any) {
-  import("../voice/store.js").then((mod) => {
+  import("@/stores/voice/store.js").then((mod) => {
     const store = mod.useVoiceStore.getState();
     if (store.connectedChannelId !== event.channelId) return;
     store.stopLobbyMusicAction();

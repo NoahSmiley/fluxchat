@@ -1,6 +1,6 @@
-import type { CustomEmoji } from "../types/shared.js";
+import type { CustomEmoji } from "@/types/shared.js";
 import { parseTwemoji, nativeToId } from "./emojiPickerData.js";
-import { API_BASE } from "../lib/serverUrl.js";
+import { API_BASE } from "@/lib/serverUrl.js";
 
 interface SearchResults {
   customMatches: { type: "custom"; emoji: CustomEmoji }[];

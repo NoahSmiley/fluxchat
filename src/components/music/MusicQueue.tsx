@@ -1,5 +1,5 @@
 import { Play, X } from "lucide-react";
-import type { QueueItem } from "../../types/shared.js";
+import type { QueueItem } from "@/types/shared.js";
 
 export interface MusicQueueProps {
   queue: QueueItem[];

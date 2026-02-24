@@ -15,7 +15,7 @@ export function handleChannelUpdate(
     ),
   }));
   // Apply bitrate change if connected to this voice channel
-  import("../voice/store.js").then((mod) => {
+  import("@/stores/voice/store.js").then((mod) => {
     const voiceState = mod.useVoiceStore.getState();
     if (voiceState.connectedChannelId === event.channelId && event.bitrate != null) {
       voiceState.applyBitrate(event.bitrate);

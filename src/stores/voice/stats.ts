@@ -1,5 +1,5 @@
-import { dbg } from "../../lib/debug.js";
-import { collectWebRTCStats, resetStatsDelta } from "../../lib/webrtcStats.js";
+import { dbg } from "@/lib/debug.js";
+import { collectWebRTCStats, resetStatsDelta } from "@/lib/webrtcStats.js";
 import type { StoreApi } from "zustand";
 import type { VoiceState } from "./types.js";
 

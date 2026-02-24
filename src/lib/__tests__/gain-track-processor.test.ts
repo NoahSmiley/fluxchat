@@ -59,7 +59,7 @@ if (typeof globalThis.MediaStream === "undefined") {
 }
 
 // Now import the actual module
-import { GainTrackProcessor } from "../audio/GainTrackProcessor.js";
+import { GainTrackProcessor } from "@/lib/audio/GainTrackProcessor.js";
 
 describe("GainTrackProcessor", () => {
   beforeEach(() => {

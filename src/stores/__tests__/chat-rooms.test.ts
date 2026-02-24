@@ -100,7 +100,7 @@ vi.mock("../voice.js", () => ({
   },
 }));
 
-import { useChatStore } from "../chat/index.js";
+import { useChatStore } from "@/stores/chat/index.js";
 
 // Capture the event handler registered at module load time BEFORE clearAllMocks
 let eventHandler: (event: Record<string, unknown>) => void;

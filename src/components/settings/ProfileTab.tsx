@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useAuthStore } from "../../stores/auth.js";
-import { avatarColor } from "../../lib/avatarColor.js";
-import { AvatarCropModal } from "../modals/AvatarCropModal.js";
-import { ToggleSwitch } from "../SettingsModal.js";
-import type { RingStyle } from "../../types/shared.js";
+import { useAuthStore } from "@/stores/auth.js";
+import { avatarColor } from "@/lib/avatarColor.js";
+import { AvatarCropModal } from "@/components/modals/AvatarCropModal.js";
+import { ToggleSwitch } from "@/components/SettingsModal.js";
+import type { RingStyle } from "@/types/shared.js";
 
 const RING_STYLES: { value: RingStyle; label: string; desc: string }[] = [
   { value: "default", label: "Default", desc: "Standard ring based on role" },

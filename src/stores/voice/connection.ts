@@ -1,15 +1,15 @@
 import { Room, ExternalE2EEKeyProvider } from "livekit-client";
-import * as api from "../../lib/api/index.js";
-import { gateway } from "../../lib/ws.js";
-import { useKeybindsStore } from "../keybinds.js";
-import { useCryptoStore } from "../crypto.js";
-import { exportKeyAsBase64 } from "../../lib/crypto.js";
-import { dbg } from "../../lib/debug.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
+import { useKeybindsStore } from "@/stores/keybinds.js";
+import { useCryptoStore } from "@/stores/crypto.js";
+import { exportKeyAsBase64 } from "@/lib/crypto.js";
+import { dbg } from "@/lib/debug.js";
 
-import { playJoinSound, playLeaveSound } from "../../lib/audio/voice-effects.js";
-import { audioPipelines, destroyAllPipelines } from "../../lib/audio/voice-pipeline.js";
-import { startAudioLevelPolling, stopAudioLevelPolling } from "../../lib/audio/voice-analysis.js";
-import { DEFAULT_BITRATE } from "../../lib/audio/voice-constants.js";
+import { playJoinSound, playLeaveSound } from "@/lib/audio/voice-effects.js";
+import { audioPipelines, destroyAllPipelines } from "@/lib/audio/voice-pipeline.js";
+import { startAudioLevelPolling, stopAudioLevelPolling } from "@/lib/audio/voice-analysis.js";
+import { DEFAULT_BITRATE } from "@/lib/audio/voice-constants.js";
 import type { VoiceState } from "./types.js";
 import { checkLobbyMusic, stopLobbyMusic } from "./lobby.js";
 import { startStatsPolling, stopStatsPolling } from "./stats.js";
@@ -96,7 +96,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         return;
       }
 
-      const { useChatStore } = await import("../chat/store.js");
+      const { useChatStore } = await import("@/stores/chat/store.js");
       const chatState = useChatStore.getState();
       const channel = chatState.channels.find((c) => c.id === channelId);
       const channelBitrate = channel?.bitrate ?? DEFAULT_BITRATE;
@@ -230,7 +230,7 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
     stopLobbyMusic();
 
     try {
-      import("../spotify/store.js").then(({ useSpotifyStore }) => {
+      import("@/stores/spotify/store.js").then(({ useSpotifyStore }) => {
         useSpotifyStore.getState().leaveSession();
       });
     } catch (e) { dbg("voice", "Failed to stop Spotify session on voice leave", e); }

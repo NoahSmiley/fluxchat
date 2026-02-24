@@ -19,8 +19,8 @@ import {
   renderEmoji,
   renderMessageContent,
   isEmojiOnly,
-} from "../emoji.js";
-import type { CustomEmoji } from "../../types/shared.js";
+} from "@/lib/emoji.js";
+import type { CustomEmoji } from "@/types/shared.js";
 
 function makeCustomEmoji(name: string): CustomEmoji {
   return {

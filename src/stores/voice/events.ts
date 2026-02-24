@@ -1,7 +1,7 @@
-import type { VoiceParticipant } from "../../types/shared.js";
-import { gateway } from "../../lib/ws.js";
-import { broadcastState, onCommand, isPopout } from "../../lib/broadcast.js";
-import { dbg } from "../../lib/debug.js";
+import type { VoiceParticipant } from "@/types/shared.js";
+import { gateway } from "@/lib/ws.js";
+import { broadcastState, onCommand, isPopout } from "@/lib/broadcast.js";
+import { dbg } from "@/lib/debug.js";
 import type { StoreApi } from "zustand";
 import type { VoiceState } from "./types.js";
 
@@ -11,7 +11,7 @@ import type { VoiceState } from "./types.js";
 
 // Lazy ref to auth store (avoids circular import)
 let _authStore: { getState: () => { user?: { id: string } | null } } | null = null;
-import("../auth.js").then((m) => { _authStore = m.useAuthStore; });
+import("@/stores/auth.js").then((m) => { _authStore = m.useAuthStore; });
 
 export function initVoiceEvents(store: StoreApi<VoiceState>) {
   // Listen for voice_state events from WebSocket (for sidebar display)

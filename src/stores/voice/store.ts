@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { AudioSettings } from "../../lib/audio/voice-pipeline.js";
-import { LOBBY_DEFAULT_GAIN } from "../../lib/audio/voice-constants.js";
+import type { AudioSettings } from "@/lib/audio/voice-pipeline.js";
+import { LOBBY_DEFAULT_GAIN } from "@/lib/audio/voice-constants.js";
 
 // Re-export types that external files import from this module
 export type { NoiseSuppressionModel } from "./types.js";

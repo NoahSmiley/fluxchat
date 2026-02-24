@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap } from "../chat/index.js";
+import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap } from "@/stores/chat/index.js";
 
 // Mock dependencies
 vi.mock("../../lib/api/index.js", () => ({
@@ -86,8 +86,8 @@ vi.mock("../dm.js", () => ({
   },
 }));
 
-import * as api from "../../lib/api/index.js";
-import { gateway } from "../../lib/ws.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
 
 const mockedApi = vi.mocked(api);
 const mockedGateway = vi.mocked(gateway);

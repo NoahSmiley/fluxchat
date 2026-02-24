@@ -1,4 +1,4 @@
-import type { Channel } from "../types/shared.js";
+import type { Channel } from "@/types/shared.js";
 
 const COLLAPSE_KEY = "flux-collapsed-categories";
 

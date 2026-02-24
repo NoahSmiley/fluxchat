@@ -1,15 +1,15 @@
 import { Room, RoomEvent, Track, VideoQuality } from "livekit-client";
-import { dbg } from "../../lib/debug.js";
+import { dbg } from "@/lib/debug.js";
 import {
   playJoinSound,
   playLeaveSound,
-} from "../../lib/audio/voice-effects.js";
+} from "@/lib/audio/voice-effects.js";
 import {
   createAudioPipeline,
   destroyAudioPipeline,
   destroyAllPipelines,
-} from "../../lib/audio/voice-pipeline.js";
-import { stopAudioLevelPolling } from "../../lib/audio/voice-analysis.js";
+} from "@/lib/audio/voice-pipeline.js";
+import { stopAudioLevelPolling } from "@/lib/audio/voice-analysis.js";
 import { checkLobbyMusic } from "./lobby.js";
 import { stopStatsPolling } from "./stats.js";
 import { adaptiveTargetBitrate } from "./connection.js";

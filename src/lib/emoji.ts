@@ -1,6 +1,6 @@
 import twemoji from "twemoji";
 import data from "@emoji-mart/data";
-import type { CustomEmoji } from "../types/shared.js";
+import type { CustomEmoji } from "@/types/shared.js";
 
 interface EmojiSkin { native: string; }
 interface EmojiEntry { skins: EmojiSkin[]; }

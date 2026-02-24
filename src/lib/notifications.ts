@@ -1,6 +1,6 @@
-import { useChatStore } from "../stores/chat/index.js";
-import { useAuthStore } from "../stores/auth.js";
-import type { useNotifStore as NotifStoreType } from "../stores/notifications.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useAuthStore } from "@/stores/auth.js";
+import type { useNotifStore as NotifStoreType } from "@/stores/notifications.js";
 import { dbg } from "./debug.js";
 
 // True when running inside the Tauri desktop app
@@ -28,7 +28,7 @@ function isDND(): boolean {
 
 // Lazy reference to notif store to avoid circular imports
 let notifStoreRef: typeof NotifStoreType | null = null;
-import("../stores/notifications.js").then((m) => { notifStoreRef = m.useNotifStore; });
+import("@/stores/notifications.js").then((m) => { notifStoreRef = m.useNotifStore; });
 
 export function playMessageSound() {
   if (!isSoundEnabled() || isDND()) return;

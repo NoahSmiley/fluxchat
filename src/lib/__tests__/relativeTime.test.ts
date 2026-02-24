@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { relativeTime } from "../relativeTime.js";
+import { relativeTime } from "@/lib/relativeTime.js";
 
 describe("relativeTime", () => {
   afterEach(() => {

@@ -1,4 +1,4 @@
-import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment, ActivityInfo, PresenceStatus, CustomEmoji } from "../../types/shared.js";
+import type { Server, Channel, Message, MemberWithUser, DMMessage, Attachment, ActivityInfo, PresenceStatus, CustomEmoji } from "@/types/shared.js";
 
 // UTF-8-safe base64 decoding (btoa/atob only handle Latin-1)
 export function base64ToUtf8(b64: string): string {

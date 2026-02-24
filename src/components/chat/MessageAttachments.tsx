@@ -1,6 +1,6 @@
 import { Download } from "lucide-react";
-import type { Attachment } from "../../types/shared.js";
-import { getFileUrl } from "../../lib/api/index.js";
+import type { Attachment } from "@/types/shared.js";
+import { getFileUrl } from "@/lib/api/index.js";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

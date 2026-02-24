@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { buildTree, flattenTree, loadCollapsed, saveCollapsed } from "../channel-tree.js";
-import type { Channel } from "../../types/shared.js";
+import { buildTree, flattenTree, loadCollapsed, saveCollapsed } from "@/lib/channel-tree.js";
+import type { Channel } from "@/types/shared.js";
 
 function makeChannel(overrides: Partial<Channel> & { id: string; name: string }): Channel {
   return {

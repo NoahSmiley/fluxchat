@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { useKeybindsStore } from "../stores/keybinds.js";
-import { useVoiceStore } from "../stores/voice/index.js";
+import { useKeybindsStore } from "@/stores/keybinds.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
 import {
   isTauri,
   isTextInput,

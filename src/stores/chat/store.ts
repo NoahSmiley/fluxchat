@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import type { PresenceStatus } from "../../types/shared.js";
-import * as api from "../../lib/api/index.js";
-import { gateway } from "../../lib/ws.js";
+import type { PresenceStatus } from "@/types/shared.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
 import type { ChatState } from "./types.js";
 import { setupChatEvents } from "./events.js";
 import {
@@ -16,12 +16,12 @@ import {
 export { base64ToUtf8, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "./types.js";
 
 // Lazy ref to auth store to avoid circular imports
-let authStoreRef: typeof import("../auth.js").useAuthStore | null = null;
-import("../auth.js").then((m) => { authStoreRef = m.useAuthStore; });
+let authStoreRef: typeof import("@/stores/auth.js").useAuthStore | null = null;
+import("@/stores/auth.js").then((m) => { authStoreRef = m.useAuthStore; });
 
 // Lazy ref to DM store to avoid circular imports
-let dmStoreRef: typeof import("../dm/store.js").useDMStore | null = null;
-import("../dm/store.js").then((m) => { dmStoreRef = m.useDMStore; });
+let dmStoreRef: typeof import("@/stores/dm/store.js").useDMStore | null = null;
+import("@/stores/dm/store.js").then((m) => { dmStoreRef = m.useDMStore; });
 
 export const useChatStore = create<ChatState>((set, get) => ({
   servers: [],

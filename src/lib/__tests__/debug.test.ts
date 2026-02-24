@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 describe("debug", () => {
-  let dbg: typeof import("../debug.js").dbg;
-  let dumpLogs: typeof import("../debug.js").dumpLogs;
-  let getLogs: typeof import("../debug.js").getLogs;
-  let setDebugEnabled: typeof import("../debug.js").setDebugEnabled;
-  let getDebugEnabled: typeof import("../debug.js").getDebugEnabled;
+  let dbg: typeof import("@/lib/debug.js").dbg;
+  let dumpLogs: typeof import("@/lib/debug.js").dumpLogs;
+  let getLogs: typeof import("@/lib/debug.js").getLogs;
+  let setDebugEnabled: typeof import("@/lib/debug.js").setDebugEnabled;
+  let getDebugEnabled: typeof import("@/lib/debug.js").getDebugEnabled;
 
   beforeEach(async () => {
     vi.resetModules();
     localStorage.clear();
-    const mod = await import("../debug.js");
+    const mod = await import("@/lib/debug.js");
     dbg = mod.dbg;
     dumpLogs = mod.dumpLogs;
     getLogs = mod.getLogs;

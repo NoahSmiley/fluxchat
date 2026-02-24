@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from "react";
 import { Search, X } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { useChatStore } from "../../stores/chat/index.js";
+import { useChatStore } from "@/stores/chat/index.js";
 import { SearchFilterTag } from "./SearchFilterTag.js";
 import { SearchFilterDropdown, isDateMode, type DropdownMode, type SearchFilterDropdownHandle } from "./SearchFilterDropdown.js";
 

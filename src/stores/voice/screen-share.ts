@@ -1,5 +1,5 @@
 import { Track } from "livekit-client";
-import { dbg } from "../../lib/debug.js";
+import { dbg } from "@/lib/debug.js";
 import type { VoiceState, ScreenShareQuality } from "./types.js";
 import { SCREEN_SHARE_PRESETS } from "./types.js";
 import type { StoreApi } from "zustand";

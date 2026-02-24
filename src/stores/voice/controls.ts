@@ -1,15 +1,15 @@
-import { dbg } from "../../lib/debug.js";
+import { dbg } from "@/lib/debug.js";
 import {
   playMuteSound,
   playUnmuteSound,
   playDeafenSound,
   playUndeafenSound,
-} from "../../lib/audio/voice-effects.js";
+} from "@/lib/audio/voice-effects.js";
 import {
   audioPipelines,
   setGainValue,
-} from "../../lib/audio/voice-pipeline.js";
-import { getLocalMicTrack } from "../../lib/audio/voice-analysis.js";
+} from "@/lib/audio/voice-pipeline.js";
+import { getLocalMicTrack } from "@/lib/audio/voice-analysis.js";
 import { setAdaptiveTargetBitrate } from "./connection.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";

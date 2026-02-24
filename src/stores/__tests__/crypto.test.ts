@@ -32,10 +32,10 @@ vi.mock("../chat.js", () => ({
   useChatStore: { getState: () => ({ servers: [] }) },
 }));
 
-import { useCryptoStore } from "../crypto.js";
-import * as cryptoLib from "../../lib/crypto.js";
-import * as api from "../../lib/api/index.js";
-import { gateway } from "../../lib/ws.js";
+import { useCryptoStore } from "@/stores/crypto.js";
+import * as cryptoLib from "@/lib/crypto.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
 
 const mockedCrypto = vi.mocked(cryptoLib);
 const mockedApi = vi.mocked(api);

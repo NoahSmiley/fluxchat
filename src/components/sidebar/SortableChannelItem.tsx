@@ -1,13 +1,13 @@
-import type { Channel, ChannelType } from "../../types/shared.js";
-import { useChatStore } from "../../stores/chat/index.js";
-import { useVoiceStore } from "../../stores/voice/index.js";
-import { useUIStore } from "../../stores/ui.js";
+import type { Channel, ChannelType } from "@/types/shared.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
+import { useUIStore } from "@/stores/ui.js";
 import { MessageSquareText, Volume2, Settings, ChevronRight, Folder, Radio, Lock, LockOpen } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { TreeNode } from "../../lib/channel-tree.js";
-import { VoiceUserRow } from "../voice/VoiceUserRow.js";
-import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
+import type { TreeNode } from "@/lib/channel-tree.js";
+import { VoiceUserRow } from "@/components/voice/VoiceUserRow.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "@/lib/avatarColor.js";
 
 export function getChannelIcon(type: ChannelType, size = 14) {
   switch (type) {

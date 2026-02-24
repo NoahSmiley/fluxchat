@@ -5,7 +5,7 @@ import type {
   DMMessage,
   Attachment,
   LinkPreview,
-} from "../../types/shared.js";
+} from "@/types/shared.js";
 
 import { API_BASE, request, getStoredToken } from "./base.js";
 

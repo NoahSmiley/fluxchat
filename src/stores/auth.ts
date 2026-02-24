@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import * as api from "../lib/api/index.js";
-import type { RingStyle } from "../types/shared.js";
+import * as api from "@/lib/api/index.js";
+import type { RingStyle } from "@/types/shared.js";
 
 interface AuthUser {
   id: string;

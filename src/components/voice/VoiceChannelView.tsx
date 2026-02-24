@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useVoiceStore } from "../../stores/voice/index.js";
-import { useChatStore } from "../../stores/chat/index.js";
-import { useSpotifyStore } from "../../stores/spotify/index.js";
-import { useYouTubeStore } from "../../stores/youtube.js";
-import { MusicPanel } from "../music/MusicPanel.js";
-import { SoundboardPanel } from "../music/SoundboardPanel.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useSpotifyStore } from "@/stores/spotify/index.js";
+import { useYouTubeStore } from "@/stores/youtube.js";
+import { MusicPanel } from "@/components/music/MusicPanel.js";
+import { SoundboardPanel } from "@/components/music/SoundboardPanel.js";
 import { StreamTile, DummyStreamTile } from "./StreamTile.js";
 import { VoiceParticipantGrid } from "./VoiceParticipantGrid.js";
 import { VoiceControlsBar } from "./VoiceControlsBar.js";
@@ -14,7 +14,7 @@ import {
   Volume2, Monitor, MonitorOff,
   Music, Eye, Radio,
 } from "lucide-react";
-import { useUIStore } from "../../stores/ui.js";
+import { useUIStore } from "@/stores/ui.js";
 
 const DUMMY_STREAMERS = [
   { participantId: "__d1", username: "xKira" },

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useKeybindsStore } from "../keybinds.js";
+import { useKeybindsStore } from "@/stores/keybinds.js";
 
 describe("useKeybindsStore", () => {
   beforeEach(() => {

@@ -1,10 +1,10 @@
 import { Track } from "livekit-client";
-import { dbg } from "../../lib/debug.js";
-import type { AudioSettings } from "../../lib/audio/voice-pipeline.js";
+import { dbg } from "@/lib/debug.js";
+import type { AudioSettings } from "@/lib/audio/voice-pipeline.js";
 import {
   audioPipelines,
   rebuildAllPipelines,
-} from "../../lib/audio/voice-pipeline.js";
+} from "@/lib/audio/voice-pipeline.js";
 import {
   getOrCreateNoiseProcessor,
   destroyNoiseProcessor,
@@ -16,8 +16,8 @@ import {
   setDryWetProcessor,
   getGainTrackProcessor,
   setGainTrackProcessor,
-} from "../../lib/audio/voice-noise.js";
-import { getLocalMicTrack } from "../../lib/audio/voice-analysis.js";
+} from "@/lib/audio/voice-noise.js";
+import { getLocalMicTrack } from "@/lib/audio/voice-analysis.js";
 import { saveAudioSettings } from "./audio-settings.js";
 import { cleanupAudioProcessors } from "./helpers.js";
 import type { NoiseSuppressionModel, VoiceState } from "./types.js";
@@ -88,7 +88,7 @@ export function createUpdateAudioSetting(storeRef: StoreApi<VoiceState>) {
             } else {
               const setupGain = async () => {
                 try {
-                  const { GainTrackProcessor } = await import("../../lib/audio/GainTrackProcessor.js");
+                  const { GainTrackProcessor } = await import("@/lib/audio/GainTrackProcessor.js");
                   const newGtp = new GainTrackProcessor((value as number) / 100);
                   setGainTrackProcessor(newGtp);
                   await micPub.track!.setProcessor(newGtp as any);
@@ -170,7 +170,7 @@ export function createUpdateAudioSetting(storeRef: StoreApi<VoiceState>) {
             // If mic gain is non-unity, set up GainTrackProcessor
             if (currentGain !== 100 && micPub.track) {
               try {
-                const { GainTrackProcessor } = await import("../../lib/audio/GainTrackProcessor.js");
+                const { GainTrackProcessor } = await import("@/lib/audio/GainTrackProcessor.js");
                 const gtp = new GainTrackProcessor(currentGain / 100);
                 setGainTrackProcessor(gtp);
                 await micPub.track.setProcessor(gtp as any);
@@ -207,7 +207,7 @@ export function createUpdateAudioSetting(storeRef: StoreApi<VoiceState>) {
               }
 
               // Always wrap with DryWetTrackProcessor so micInputGain works at any suppression strength
-              const { DryWetTrackProcessor } = await import("../../lib/audio/DryWetTrackProcessor.js");
+              const { DryWetTrackProcessor } = await import("@/lib/audio/DryWetTrackProcessor.js");
               const dwp = new DryWetTrackProcessor(processor, strength);
               dwp.setPreGain(currentSettings.micInputGain / 100);
               setDryWetProcessor(dwp);

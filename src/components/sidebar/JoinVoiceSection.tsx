@@ -1,16 +1,16 @@
 import { useState } from "react";
-import type { Channel, MemberWithUser } from "../../types/shared.js";
-import { useVoiceStore } from "../../stores/voice/index.js";
-import { useUIStore } from "../../stores/ui.js";
-import { useAuthStore } from "../../stores/auth.js";
+import type { Channel, MemberWithUser } from "@/types/shared.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
+import { useUIStore } from "@/stores/ui.js";
+import { useAuthStore } from "@/stores/auth.js";
 import { ChevronRight, Plus } from "lucide-react";
-import { gateway } from "../../lib/ws.js";
-import { ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
-import * as api from "../../lib/api/index.js";
-import { dbg } from "../../lib/debug.js";
-import { VoiceUserRow } from "../voice/VoiceUserRow.js";
-import { AnimatedList } from "../AnimatedList.js";
-import type { VoiceUser } from "../../stores/voice/types.js";
+import { gateway } from "@/lib/ws.js";
+import { ringClass, ringGradientStyle, bannerBackground } from "@/lib/avatarColor.js";
+import * as api from "@/lib/api/index.js";
+import { dbg } from "@/lib/debug.js";
+import { VoiceUserRow } from "@/components/voice/VoiceUserRow.js";
+import { AnimatedList } from "@/components/AnimatedList.js";
+import type { VoiceUser } from "@/stores/voice/types.js";
 import {
   ANIMATED_LIST_DURATION_MS,
   DUMMY_VOICE_USERS,

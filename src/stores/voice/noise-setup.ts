@@ -1,11 +1,11 @@
 import { Room, Track } from "livekit-client";
-import { dbg } from "../../lib/debug.js";
+import { dbg } from "@/lib/debug.js";
 import {
   getOrCreateNoiseProcessor,
   destroyNoiseProcessor,
   setDryWetProcessor,
   setGainTrackProcessor,
-} from "../../lib/audio/voice-noise.js";
+} from "@/lib/audio/voice-noise.js";
 import type { VoiceState } from "./types.js";
 
 export async function setupNoiseProcessor(
@@ -23,7 +23,7 @@ export async function setupNoiseProcessor(
           (processor as any).setVadThreshold(audioSettings.vadThreshold / 100);
         }
         const strength = audioSettings.suppressionStrength / 100;
-        const { DryWetTrackProcessor } = await import("../../lib/audio/DryWetTrackProcessor.js");
+        const { DryWetTrackProcessor } = await import("@/lib/audio/DryWetTrackProcessor.js");
         const dwp = new DryWetTrackProcessor(processor, strength);
         dwp.setPreGain(audioSettings.micInputGain / 100);
         setDryWetProcessor(dwp);
@@ -39,7 +39,7 @@ export async function setupNoiseProcessor(
     try {
       const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
       if (micPub?.track) {
-        const { GainTrackProcessor } = await import("../../lib/audio/GainTrackProcessor.js");
+        const { GainTrackProcessor } = await import("@/lib/audio/GainTrackProcessor.js");
         const gtp = new GainTrackProcessor(audioSettings.micInputGain / 100);
         setGainTrackProcessor(gtp);
         await micPub.track.setProcessor(gtp as any);

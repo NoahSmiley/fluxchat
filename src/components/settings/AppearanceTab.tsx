@@ -1,6 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
-import { useUIStore, type SidebarPosition, type AppBorderStyle } from "../../stores/ui.js";
-import { ToggleSwitch } from "../SettingsModal.js";
+import { useUIStore, type SidebarPosition, type AppBorderStyle } from "@/stores/ui.js";
+import { ToggleSwitch } from "@/components/SettingsModal.js";
 
 const SIDEBAR_POSITIONS: { value: SidebarPosition; label: string }[] = [
   { value: "left", label: "Left" },

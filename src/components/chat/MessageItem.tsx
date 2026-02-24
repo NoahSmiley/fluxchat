@@ -1,14 +1,14 @@
 import { Pencil, Trash2 } from "lucide-react";
 import { MessageAttachments } from "./MessageAttachments.js";
 import { LinkEmbed } from "./LinkEmbed.js";
-import { avatarColor, ringClass, ringGradientStyle } from "../../lib/avatarColor.js";
-import { relativeTime } from "../../lib/relativeTime.js";
-import { renderEmoji, TWEMOJI_OPTIONS } from "../../lib/emoji.js";
-import { API_BASE } from "../../lib/serverUrl.js";
-import EmojiPicker from "../EmojiPicker.js";
-import { getCharOffset, setCursorAtOffset } from "../../lib/contentEditable.js";
+import { avatarColor, ringClass, ringGradientStyle } from "@/lib/avatarColor.js";
+import { relativeTime } from "@/lib/relativeTime.js";
+import { renderEmoji, TWEMOJI_OPTIONS } from "@/lib/emoji.js";
+import { API_BASE } from "@/lib/serverUrl.js";
+import EmojiPicker from "@/components/EmojiPicker.js";
+import { getCharOffset, setCursorAtOffset } from "@/lib/contentEditable.js";
 import twemoji from "twemoji";
-import type { Message, CustomEmoji } from "../../types/shared.js";
+import type { Message, CustomEmoji } from "@/types/shared.js";
 
 const RELATIVE_STYLE: React.CSSProperties = { position: "relative" };
 

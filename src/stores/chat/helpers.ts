@@ -1,8 +1,8 @@
-import type { Message } from "../../types/shared.js";
+import type { Message } from "@/types/shared.js";
 import type { ChatState } from "./types.js";
 import type { StoreApi } from "zustand";
-import * as api from "../../lib/api/index.js";
-import { gateway } from "../../lib/ws.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
 import {
   channelMessageCache,
   serverCache,
@@ -130,7 +130,7 @@ export function createSelectServerAction(
     const [channels, members, customEmojis] = await Promise.all([
       api.getChannels(serverId),
       api.getServerMembers(serverId),
-      api.getCustomEmojis(serverId).catch(() => [] as import("../../types/shared.js").CustomEmoji[]),
+      api.getCustomEmojis(serverId).catch(() => [] as import("@/types/shared.js").CustomEmoji[]),
     ]);
 
     // Only apply if we're still viewing this server

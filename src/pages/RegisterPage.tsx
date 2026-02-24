@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { useAuthStore } from "../stores/auth.js";
-import { validateUsername, validatePassword } from "../types/shared.js";
+import { useAuthStore } from "@/stores/auth.js";
+import { validateUsername, validatePassword } from "@/types/shared.js";
 
 export function RegisterPage() {
   const { register, error } = useAuthStore();

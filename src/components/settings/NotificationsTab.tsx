@@ -1,4 +1,4 @@
-import { useNotifStore, type GlobalNotifSetting } from "../../stores/notifications.js";
+import { useNotifStore, type GlobalNotifSetting } from "@/stores/notifications.js";
 
 export function NotificationsTab() {
   const { defaultChannelSetting, setDefaultChannelSetting } = useNotifStore();

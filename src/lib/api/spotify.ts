@@ -3,7 +3,7 @@ import type {
   SpotifyTrack,
   ListeningSession,
   QueueItem,
-} from "../../types/shared.js";
+} from "@/types/shared.js";
 
 import { API_BASE, request, getStoredToken } from "./base.js";
 
@@ -77,7 +77,7 @@ export async function deleteListeningSession(sessionId: string) {
 // ── YouTube ──
 
 export async function searchYouTubeTracks(q: string) {
-  return request<{ tracks: import("../types/shared.js").YouTubeTrack[] }>(`/youtube/search?q=${encodeURIComponent(q)}`);
+  return request<{ tracks: import("@/types/shared.js").YouTubeTrack[] }>(`/youtube/search?q=${encodeURIComponent(q)}`);
 }
 
 export function getYouTubeAudioUrl(videoId: string): string {

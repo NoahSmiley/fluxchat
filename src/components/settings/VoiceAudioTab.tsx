@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useVoiceStore } from "../../stores/voice/index.js";
-import { ToggleSwitch } from "../SettingsModal.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
+import { ToggleSwitch } from "@/components/SettingsModal.js";
 
 export function VoiceAudioTab() {
   const { audioSettings, updateAudioSetting, lobbyMusicVolume, setLobbyMusicVolume } = useVoiceStore(useShallow((s) => ({

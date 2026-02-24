@@ -1,10 +1,10 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useDeferredValue, useCallback } from "react";
-import type { CustomEmoji } from "../types/shared.js";
-import { useChatStore } from "../stores/chat/index.js";
-import { useAuthStore } from "../stores/auth.js";
-import { getEmojiFavorites, addStandardFavorite, removeStandardFavorite, addCustomFavorite, removeCustomFavorite } from "../lib/api/index.js";
+import type { CustomEmoji } from "@/types/shared.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useAuthStore } from "@/stores/auth.js";
+import { getEmojiFavorites, addStandardFavorite, removeStandardFavorite, addCustomFavorite, removeCustomFavorite } from "@/lib/api/index.js";
 import ContextMenu from "./ContextMenu.js";
-import { favCache } from "../lib/emojiCache.js";
+import { favCache } from "@/lib/emojiCache.js";
 import { emojiData } from "./emojiPickerData.js";
 import { EmojiPickerTabs } from "./EmojiPickerTabs.js";
 import { EmojiSearchInput, EmojiSearchResults } from "./EmojiSearch.js";

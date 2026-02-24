@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import * as api from "../../lib/api/index.js";
-import { gateway } from "../../lib/ws.js";
-import { dbg } from "../../lib/debug.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
+import { dbg } from "@/lib/debug.js";
 
 // Re-export types that external files may import from this module
 export type { SpotifyState, SpotifyPlayer, SpotifyPlayerState } from "./types.js";

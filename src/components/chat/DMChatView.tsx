@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, type FormEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useChatStore, base64ToUtf8 } from "../../stores/chat/index.js";
-import { useDMStore } from "../../stores/dm/index.js";
-import { useAuthStore } from "../../stores/auth.js";
-import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
+import { useChatStore, base64ToUtf8 } from "@/stores/chat/index.js";
+import { useDMStore } from "@/stores/dm/index.js";
+import { useAuthStore } from "@/stores/auth.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "@/lib/avatarColor.js";
 
 const URL_REGEX = /https?:\/\/[^\s<]+/g;
 

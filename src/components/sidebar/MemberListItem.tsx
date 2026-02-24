@@ -1,7 +1,7 @@
 import { memo } from "react";
-import { avatarColor, ringClass, ringGradientStyle } from "../../lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle } from "@/lib/avatarColor.js";
 import { Crown, Shield, Music, Gamepad2 } from "lucide-react";
-import type { MemberWithUser, ActivityInfo, PresenceStatus } from "../../types/shared.js";
+import type { MemberWithUser, ActivityInfo, PresenceStatus } from "@/types/shared.js";
 
 export function RoleBadge({ role }: { role: string }) {
   if (role === "owner") return <Crown size={10} className="role-badge owner" />;

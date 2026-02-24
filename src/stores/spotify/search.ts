@@ -1,8 +1,8 @@
 import type { StoreApi } from "zustand";
 import type { SpotifyState } from "./types.js";
-import type { SpotifyTrack } from "../../types/shared.js";
+import type { SpotifyTrack } from "@/types/shared.js";
 import { yt } from "./types.js";
-import * as api from "../../lib/api/index.js";
+import * as api from "@/lib/api/index.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // Search action creators

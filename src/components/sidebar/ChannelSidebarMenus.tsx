@@ -1,13 +1,13 @@
 import { createPortal } from "react-dom";
-import type { Channel } from "../../types/shared.js";
-import { useChatStore } from "../../stores/chat/index.js";
-import { useVoiceStore } from "../../stores/voice/index.js";
-import { useNotifStore, type ChannelNotifSetting, type CategoryNotifSetting } from "../../stores/notifications.js";
-import ContextMenu, { type ContextMenuEntry } from "../ContextMenu.js";
-import { ChannelSettingsModal, DeleteConfirmDialog } from "../modals/ChannelSettingsModal.js";
-import { CreateChannelModal } from "../modals/CreateChannelModal.js";
-import * as api from "../../lib/api/index.js";
-import { dbg } from "../../lib/debug.js";
+import type { Channel } from "@/types/shared.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
+import { useNotifStore, type ChannelNotifSetting, type CategoryNotifSetting } from "@/stores/notifications.js";
+import ContextMenu, { type ContextMenuEntry } from "@/components/ContextMenu.js";
+import { ChannelSettingsModal, DeleteConfirmDialog } from "@/components/modals/ChannelSettingsModal.js";
+import { CreateChannelModal } from "@/components/modals/CreateChannelModal.js";
+import * as api from "@/lib/api/index.js";
+import { dbg } from "@/lib/debug.js";
 
 /** Build the mute duration submenu entries for channel/category context menus. */
 export function buildMuteSubmenu(
@@ -45,8 +45,8 @@ export interface ChannelSidebarMenusProps {
   collapsed: Set<string>;
   toggleCollapse: (id: string) => void;
   // Modal state
-  createModal: { type: import("../../types/shared.js").ChannelType; parentId?: string } | null;
-  setCreateModal: (v: { type: import("../../types/shared.js").ChannelType; parentId?: string } | null) => void;
+  createModal: { type: import("@/types/shared.js").ChannelType; parentId?: string } | null;
+  setCreateModal: (v: { type: import("@/types/shared.js").ChannelType; parentId?: string } | null) => void;
   settingsChannel: Channel | null;
   setSettingsChannel: (ch: Channel | null) => void;
   channelCtxMenu: { x: number; y: number; channel: Channel } | null;

@@ -1,7 +1,7 @@
-import type { PresenceStatus } from "../../types/shared.js";
+import type { PresenceStatus } from "@/types/shared.js";
 import type { StoreApi, UseBoundStore } from "zustand";
 import type { ChatState } from "./types.js";
-import { useCryptoStore } from "../crypto.js";
+import { useCryptoStore } from "@/stores/crypto.js";
 import type { AuthStoreRef } from "./events.js";
 
 // ── Member / presence / server event handlers ──

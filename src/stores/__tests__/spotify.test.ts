@@ -62,11 +62,11 @@ vi.mock("../voice.js", () => ({
   },
 }));
 
-import { useSpotifyStore } from "../spotify/index.js";
-import { useYouTubeStore } from "../youtube.js";
-import * as api from "../../lib/api/index.js";
-import { gateway } from "../../lib/ws.js";
-import type { QueueItem, SpotifyTrack, ListeningSession } from "../../types/shared.js";
+import { useSpotifyStore } from "@/stores/spotify/index.js";
+import { useYouTubeStore } from "@/stores/youtube.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
+import type { QueueItem, SpotifyTrack, ListeningSession } from "@/types/shared.js";
 
 const mockedApi = vi.mocked(api);
 const mockedGateway = vi.mocked(gateway);
