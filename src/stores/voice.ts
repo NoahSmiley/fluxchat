@@ -68,6 +68,13 @@ import {
   LOBBY_DEFAULT_GAIN,
 } from "../lib/voice-constants.js";
 
+/** Tear down all noise-suppression / gain processors in one call. */
+async function cleanupAudioProcessors() {
+  await destroyNoiseProcessor();
+  setDryWetProcessor(null);
+  setGainTrackProcessor(null);
+}
+
 // Monotonically increasing counter to detect stale joinVoiceChannel calls
 let joinNonce = 0;
 
@@ -424,9 +431,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
       stopAudioLevelPolling();
       stopLobbyMusic();
-      await destroyNoiseProcessor();
-      setDryWetProcessor(null);
-      setGainTrackProcessor(null);
+      await cleanupAudioProcessors();
       destroyAllPipelines();
 
       // Detach all remote tracks
@@ -852,9 +857,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     } catch {}
 
     // Clean up noise suppression processor
-    destroyNoiseProcessor();
-    setDryWetProcessor(null);
-    setGainTrackProcessor(null);
+    cleanupAudioProcessors();
 
     // Destroy all audio pipelines
     destroyAllPipelines();
@@ -1178,9 +1181,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           try {
             if (getNoiseProcessor() || getDryWetProcessor() || getGainTrackProcessor()) {
               await micPub.track!.stopProcessor();
-              await destroyNoiseProcessor();
-              setDryWetProcessor(null);
-              setGainTrackProcessor(null);
+              await cleanupAudioProcessors();
             }
             if (myNonce !== getNoiseSwitchNonce()) return;
             const processor = await getOrCreateNoiseProcessor(model);
