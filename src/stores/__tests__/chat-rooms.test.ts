@@ -75,7 +75,7 @@ vi.mock("../../lib/serverUrl.js", () => ({
   getGatewayUrl: vi.fn(() => "ws://localhost:3001/gateway"),
 }));
 
-vi.mock("../dm.js", () => ({
+vi.mock("../dm/store.js", () => ({
   useDMStore: {
     getState: vi.fn(() => ({
       showingDMs: false,
@@ -92,7 +92,7 @@ vi.mock("../dm.js", () => ({
 const { mockJoinVoiceChannel } = vi.hoisted(() => ({
   mockJoinVoiceChannel: vi.fn(),
 }));
-vi.mock("../voice.js", () => ({
+vi.mock("../voice/store.js", () => ({
   useVoiceStore: {
     getState: vi.fn(() => ({
       joinVoiceChannel: mockJoinVoiceChannel,

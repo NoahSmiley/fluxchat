@@ -28,7 +28,7 @@ vi.mock("../../lib/ws.js", () => ({
   gateway: { send: vi.fn(), on: vi.fn(() => () => {}), connect: vi.fn() },
 }));
 
-vi.mock("../chat.js", () => ({
+vi.mock("../chat/store.js", () => ({
   useChatStore: { getState: () => ({ servers: [] }) },
 }));
 

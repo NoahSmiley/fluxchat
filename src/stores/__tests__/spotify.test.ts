@@ -54,7 +54,7 @@ vi.mock("../auth.js", () => ({
   },
 }));
 
-vi.mock("../voice.js", () => ({
+vi.mock("../voice/store.js", () => ({
   useVoiceStore: {
     getState: vi.fn(() => ({
       stopLobbyMusicAction: vi.fn(),

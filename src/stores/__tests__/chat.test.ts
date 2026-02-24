@@ -73,7 +73,7 @@ vi.mock("../../lib/serverUrl.js", () => ({
   getGatewayUrl: vi.fn(() => "ws://localhost:3001/gateway"),
 }));
 
-vi.mock("../dm.js", () => ({
+vi.mock("../dm/store.js", () => ({
   useDMStore: {
     getState: vi.fn(() => ({
       showingDMs: false,
