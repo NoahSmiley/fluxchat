@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useVoiceStore } from "../../stores/voice.js";
 import { useChatStore } from "../../stores/chat.js";
@@ -7,136 +6,16 @@ import { useSpotifyStore } from "../../stores/spotify.js";
 import { useYouTubeStore } from "../../stores/youtube.js";
 import { MusicPanel } from "../music/MusicPanel.js";
 import { SoundboardPanel } from "../music/SoundboardPanel.js";
+import { StreamTile, DummyStreamTile } from "./StreamTile.js";
+import { ParticipantTile } from "./ParticipantTile.js";
+import { LobbyMusicBar } from "./LobbyMusicBar.js";
 import {
-  ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
-  PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
-  Music, Square, Eye, Radio,
+  Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
+  PhoneOff, Monitor, MonitorOff,
+  Music, Eye, Radio,
 } from "lucide-react";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
 import { useUIStore } from "../../stores/ui.js";
-
-function applyMaxQuality(pub: RemoteTrackPublication) {
-  // Request 1080p — matches the max resolution we actually publish
-  pub.setVideoDimensions({ width: 1920, height: 1080 });
-  pub.setVideoQuality(VideoQuality.HIGH);
-}
-
-// ── Single Stream Tile ──
-// Attaches a LiveKit video track to a <video> element for one screen sharer.
-function StreamTile({ participantId, username, isPinned }: {
-  participantId: string;
-  username: string;
-  isPinned: boolean;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const pubRef = useRef<RemoteTrackPublication | null>(null);
-  const { room, pinScreenShare, unpinScreenShare, toggleTheatreMode, theatreMode } = useVoiceStore();
-
-  useEffect(() => {
-    if (!room || !videoRef.current) return;
-
-    let track: Track | undefined;
-    pubRef.current = null;
-
-    if (participantId === room.localParticipant.identity) {
-      for (const pub of room.localParticipant.videoTrackPublications.values()) {
-        if (pub.source === Track.Source.ScreenShare && pub.track) {
-          track = pub.track;
-          break;
-        }
-      }
-    } else {
-      const participant = room.remoteParticipants.get(participantId);
-      if (participant) {
-        for (const pub of participant.videoTrackPublications.values()) {
-          if (pub.source === Track.Source.ScreenShare && pub.track) {
-            track = pub.track;
-            pubRef.current = pub as RemoteTrackPublication;
-            break;
-          }
-        }
-      }
-    }
-
-    if (track && videoRef.current) {
-      track.attach(videoRef.current);
-      if (pubRef.current) {
-        const pub = pubRef.current;
-        requestAnimationFrame(() => applyMaxQuality(pub));
-      }
-    }
-
-    return () => {
-      if (track && videoRef.current) {
-        track.detach(videoRef.current);
-      }
-      pubRef.current = null;
-    };
-  }, [room, participantId]);
-
-  return (
-    <div className={`stream-tile ${isPinned ? "pinned" : ""}`}>
-      <video ref={videoRef} autoPlay playsInline className="stream-tile-video" />
-
-      {/* Bottom bar — username + hover actions */}
-      <div className="stream-tile-bottom-bar">
-        <span className="stream-tile-label">{username}'s screen</span>
-        <div className="stream-tile-actions">
-          {isPinned ? (
-            <>
-              <button className="stream-tile-btn" onClick={toggleTheatreMode} title={theatreMode ? "Exit Theatre Mode" : "Theatre Mode"}>
-                {theatreMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-              </button>
-              <button className="stream-tile-btn" onClick={() => import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_popout_window", { windowType: "screenshare" })).catch(() => {})} title="Pop out">
-                <ArrowUpRight size={14} />
-              </button>
-              <button className="stream-tile-btn" onClick={unpinScreenShare} title="Unpin">
-                <PinOff size={14} />
-              </button>
-            </>
-          ) : (
-            <button className="stream-tile-btn" onClick={() => pinScreenShare(participantId)} title="Pin as main">
-              <Pin size={14} />
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Dummy Stream Tile (for preview when showDummyUsers is on) ──
-function DummyStreamTile({ participantId, username, isPinned }: {
-  participantId: string;
-  username: string;
-  isPinned: boolean;
-}) {
-  const color = avatarColor(username);
-  const { pinScreenShare, unpinScreenShare } = useVoiceStore();
-
-  return (
-    <div className={`stream-tile ${isPinned ? "pinned" : ""}`}>
-      <div className="dummy-stream-video" style={{ background: `linear-gradient(135deg, ${color}22, ${color}08)` }}>
-        <Monitor size={isPinned ? 64 : 32} style={{ color: `${color}44` }} />
-      </div>
-
-      <div className="stream-tile-bottom-bar">
-        <span className="stream-tile-label">{username}'s screen</span>
-        <div className="stream-tile-actions">
-          {isPinned ? (
-            <button className="stream-tile-btn" onClick={unpinScreenShare} title="Unpin">
-              <PinOff size={14} />
-            </button>
-          ) : (
-            <button className="stream-tile-btn" onClick={() => pinScreenShare(participantId)} title="Pin as main">
-              <Pin size={14} />
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const DUMMY_STREAMERS = [
   { participantId: "__d1", username: "xKira" },
@@ -178,68 +57,6 @@ function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle,
           <Radio size={10} />
         </div>
       )}
-    </div>
-  );
-}
-
-/** Wraps a participant tile so the speaking class updates via store subscription, not parent re-render */
-function ParticipantTile({ userId, username, banner, children }: { userId: string; username: string; banner?: string; children: ReactNode }) {
-  const speaking = useVoiceStore((s) => s.speakingUserIds.has(userId));
-  const color = avatarColor(username);
-  return (
-    <div
-      className={`voice-participant-tile ${speaking ? "speaking" : ""} ${banner ? "has-banner" : ""}`}
-      style={{
-        "--ring-color": color,
-        ...(banner ? { "--tile-banner": banner } : {}),
-      } as React.CSSProperties}
-    >
-      {banner && <div className="voice-tile-banner" />}
-      {children}
-    </div>
-  );
-}
-
-// ── Lobby Music Bar (Easter Egg) ──
-function LobbyMusicBar() {
-  const lobbyMusicPlaying = useVoiceStore((s) => s.lobbyMusicPlaying);
-  const lobbyMusicVolume = useVoiceStore((s) => s.lobbyMusicVolume);
-  const setLobbyMusicVolume = useVoiceStore((s) => s.setLobbyMusicVolume);
-  const stopLobbyMusicAction = useVoiceStore((s) => s.stopLobbyMusicAction);
-
-  if (!lobbyMusicPlaying) return null;
-
-  return (
-    <div className="lobby-music-bar">
-      <div className="lobby-music-info">
-        <Music size={16} className="lobby-music-icon" />
-        <span className="lobby-music-label">Waiting Room Music</span>
-      </div>
-      <div className="lobby-music-controls">
-        <button
-          className="lobby-music-mute-btn"
-          onClick={() => setLobbyMusicVolume(lobbyMusicVolume > 0 ? 0 : 0.15)}
-          title={lobbyMusicVolume === 0 ? "Unmute" : "Mute"}
-        >
-          {lobbyMusicVolume === 0 ? <VolumeX size={16} /> : <Volume1 size={16} />}
-        </button>
-        <input
-          type="range"
-          min="0"
-          max="50"
-          value={Math.round(lobbyMusicVolume * 100)}
-          onChange={(e) => setLobbyMusicVolume(parseInt(e.target.value) / 100)}
-          className="volume-slider lobby-music-slider"
-          title={`Volume: ${Math.round(lobbyMusicVolume * 100)}%`}
-        />
-        <button
-          className="lobby-music-stop-btn"
-          onClick={stopLobbyMusicAction}
-          title="Stop"
-        >
-          <Square size={14} />
-        </button>
-      </div>
     </div>
   );
 }
