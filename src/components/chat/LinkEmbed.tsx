@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import type { LinkPreview } from "../types/shared.js";
-import { getLinkPreview } from "../lib/api.js";
+import type { LinkPreview } from "../../types/shared.js";
+import { getLinkPreview } from "../../lib/api.js";
 
 const previewCache = new Map<string, LinkPreview | null>();
 

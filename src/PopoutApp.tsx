@@ -1,6 +1,6 @@
 import { getPopoutType } from "./lib/broadcast.js";
-import { PopoutChatView } from "./components/PopoutChatView.js";
-import { PopoutScreenShareView } from "./components/PopoutScreenShareView.js";
+import { PopoutChatView } from "./components/popout/PopoutChatView.js";
+import { PopoutScreenShareView } from "./components/popout/PopoutScreenShareView.js";
 
 export function PopoutApp() {
   const type = getPopoutType();

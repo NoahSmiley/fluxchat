@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Play, Plus, X, Upload, Pencil } from "lucide-react";
-import * as api from "../lib/api.js";
-import type { SoundboardSound } from "../types/shared.js";
-import { API_BASE } from "../lib/serverUrl.js";
-import { useChatStore } from "../stores/chat.js";
-import { renderEmoji } from "../lib/emoji.js";
-import EmojiPicker from "./EmojiPicker.js";
+import * as api from "../../lib/api.js";
+import type { SoundboardSound } from "../../types/shared.js";
+import { API_BASE } from "../../lib/serverUrl.js";
+import { useChatStore } from "../../stores/chat.js";
+import { renderEmoji } from "../../lib/emoji.js";
+import EmojiPicker from "../EmojiPicker.js";
 
 // ── WAV encoder ───────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type FormEvent, type ReactNode } from "react";
-import type { Message } from "../types/shared.js";
-import { onStateUpdate, sendCommand, type ChatStateMessage, type StateMessage } from "../lib/broadcast.js";
+import type { Message } from "../../types/shared.js";
+import { onStateUpdate, sendCommand, type ChatStateMessage, type StateMessage } from "../../lib/broadcast.js";
 
 const URL_REGEX = /https?:\/\/[^\s<]+/g;
 

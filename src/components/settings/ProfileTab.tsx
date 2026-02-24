@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useAuthStore } from "../../stores/auth.js";
 import { avatarColor } from "../../lib/avatarColor.js";
-import { AvatarCropModal } from "../AvatarCropModal.js";
+import { AvatarCropModal } from "../modals/AvatarCropModal.js";
 import { ToggleSwitch } from "../SettingsModal.js";
 import type { RingStyle } from "../../types/shared.js";
 

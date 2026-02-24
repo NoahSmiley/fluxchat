@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { AlertTriangle } from "lucide-react";
-import type { Channel } from "../types/shared.js";
-import * as api from "../lib/api.js";
-import { useChatStore } from "../stores/chat.js";
-import { useVoiceStore } from "../stores/voice.js";
+import type { Channel } from "../../types/shared.js";
+import * as api from "../../lib/api.js";
+import { useChatStore } from "../../stores/chat.js";
+import { useVoiceStore } from "../../stores/voice.js";
 
 interface Props {
   channel: Channel;

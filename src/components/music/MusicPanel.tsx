@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
-import { useSpotifyStore } from "../stores/spotify.js";
-import { useYouTubeStore } from "../stores/youtube.js";
-import { useAuthStore } from "../stores/auth.js";
+import { useSpotifyStore } from "../../stores/spotify.js";
+import { useYouTubeStore } from "../../stores/youtube.js";
+import { useAuthStore } from "../../stores/auth.js";
 import { Play, Pause, SkipForward, Plus, Search, X, Music, LogOut, Shuffle, Volume2, VolumeX } from "lucide-react";
-import type { SpotifyTrack, YouTubeTrack } from "../types/shared.js";
-import { dbg } from "../lib/debug.js";
+import type { SpotifyTrack, YouTubeTrack } from "../../types/shared.js";
+import { dbg } from "../../lib/debug.js";
 
 // ── Kaleidoscopic Shader Visualizer (Easter Egg) ──
 

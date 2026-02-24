@@ -1,11 +1,15 @@
-import { useVoiceStore } from "../stores/voice.js";
-import { useChatStore } from "../stores/chat.js";
+import { useShallow } from "zustand/react/shallow";
+import { useVoiceStore } from "../../stores/voice.js";
+import { useChatStore } from "../../stores/chat.js";
 import { Mic, MicOff, Headphones, HeadphoneOff, PhoneOff } from "lucide-react";
 
 export function VoiceStatusBar() {
   const { connectedChannelId, isMuted, isDeafened, leaveVoiceChannel, toggleMute, toggleDeafen } =
-    useVoiceStore();
-  const { channels } = useChatStore();
+    useVoiceStore(useShallow((s) => ({
+      connectedChannelId: s.connectedChannelId, isMuted: s.isMuted, isDeafened: s.isDeafened,
+      leaveVoiceChannel: s.leaveVoiceChannel, toggleMute: s.toggleMute, toggleDeafen: s.toggleDeafen,
+    })));
+  const channels = useChatStore((s) => s.channels);
 
   if (!connectedChannelId) return null;
 

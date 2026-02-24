@@ -1,4 +1,4 @@
-import { useVoiceStore } from "../stores/voice.js";
+import { useVoiceStore } from "../../stores/voice.js";
 
 function qualityColor(value: number, goodBelow: number, warnBelow: number): string {
   if (value <= goodBelow) return "var(--stats-good)";

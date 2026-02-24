@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Trash2, X } from "lucide-react";
 import { useChatStore } from "../stores/chat.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useUIStore } from "../stores/ui.js";
 import * as api from "../lib/api.js";
 import type { WhitelistEntry, MemberWithUser } from "../types/shared.js";
-import { SoundboardTab } from "./SoundboardTab.js";
+import { SoundboardTab } from "./music/SoundboardTab.js";
 import { EmojiTab } from "./EmojiTab.js";
 
 function OverviewTab({
@@ -226,9 +227,12 @@ const TAB_LABELS: Record<Tab, string> = { overview: "Overview", members: "Member
 const TABS: Tab[] = ["overview", "members", "emojis", "soundboard"];
 
 export function ServerSettingsPage() {
-  const { closeServerSettings } = useUIStore();
-  const { servers, activeServerId, updateServer, leaveServer, members } = useChatStore();
-  const { user } = useAuthStore();
+  const closeServerSettings = useUIStore((s) => s.closeServerSettings);
+  const { servers, activeServerId, updateServer, leaveServer, members } = useChatStore(useShallow((s) => ({
+    servers: s.servers, activeServerId: s.activeServerId, updateServer: s.updateServer,
+    leaveServer: s.leaveServer, members: s.members,
+  })));
+  const user = useAuthStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   const server = servers.find((s) => s.id === activeServerId);

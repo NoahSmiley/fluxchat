@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useShallow } from "zustand/react/shallow";
-import { useVoiceStore } from "../stores/voice.js";
-import { useChatStore } from "../stores/chat.js";
-import { useSpotifyStore } from "../stores/spotify.js";
-import { useYouTubeStore } from "../stores/youtube.js";
-import { MusicPanel } from "./MusicPanel.js";
-import { SoundboardPanel } from "./SoundboardPanel.js";
+import { useVoiceStore } from "../../stores/voice.js";
+import { useChatStore } from "../../stores/chat.js";
+import { useSpotifyStore } from "../../stores/spotify.js";
+import { useYouTubeStore } from "../../stores/youtube.js";
+import { MusicPanel } from "../music/MusicPanel.js";
+import { SoundboardPanel } from "../music/SoundboardPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
   Music, Square, Eye, Radio,
 } from "lucide-react";
-import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
-import { useUIStore } from "../stores/ui.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
+import { useUIStore } from "../../stores/ui.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
   // Request 1080p — matches the max resolution we actually publish

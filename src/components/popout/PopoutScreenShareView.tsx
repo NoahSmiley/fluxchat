@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Room, RoomEvent, Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
-import { onStateUpdate, sendCommand, type VoiceStateMessage } from "../lib/broadcast.js";
-import * as api from "../lib/api.js";
-import { dbg } from "../lib/debug.js";
+import { onStateUpdate, sendCommand, type VoiceStateMessage } from "../../lib/broadcast.js";
+import * as api from "../../lib/api.js";
+import { dbg } from "../../lib/debug.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
   // Request 1080p — matches the max resolution we actually publish

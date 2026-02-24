@@ -1,13 +1,13 @@
 import { useState, useMemo, useRef, useEffect, memo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import ContextMenu from "./ContextMenu.js";
-import { useNotifStore } from "../stores/notifications.js";
-import { useChatStore } from "../stores/chat.js";
-import { useDMStore } from "../stores/dm.js";
-import { useAuthStore } from "../stores/auth.js";
-import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
+import ContextMenu from "../ContextMenu.js";
+import { useNotifStore } from "../../stores/notifications.js";
+import { useChatStore } from "../../stores/chat.js";
+import { useDMStore } from "../../stores/dm.js";
+import { useAuthStore } from "../../stores/auth.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
 import { Crown, Shield, MessageSquare, Music, Gamepad2, ChevronDown } from "lucide-react";
-import type { MemberWithUser, ActivityInfo, PresenceStatus } from "../types/shared.js";
+import type { MemberWithUser, ActivityInfo, PresenceStatus } from "../../types/shared.js";
 
 const STATUS_OPTIONS: { value: PresenceStatus; label: string }[] = [
   { value: "online", label: "Online" },

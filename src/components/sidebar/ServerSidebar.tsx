@@ -1,15 +1,15 @@
 import { useState, useMemo, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useChatStore } from "../stores/chat.js";
-import { useDMStore } from "../stores/dm.js";
-import { useAuthStore } from "../stores/auth.js";
-import { FluxLogo } from "./FluxLogo.js";
+import { useChatStore } from "../../stores/chat.js";
+import { useDMStore } from "../../stores/dm.js";
+import { useAuthStore } from "../../stores/auth.js";
+import { FluxLogo } from "../FluxLogo.js";
 import { Settings } from "lucide-react";
-import { useUIStore } from "../stores/ui.js";
-import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
+import { useUIStore } from "../../stores/ui.js";
+import { avatarColor, ringClass, ringGradientStyle } from "../../lib/avatarColor.js";
 import { UserCard } from "./MemberList.js";
-import ContextMenu from "./ContextMenu.js";
-import { useNotifStore } from "../stores/notifications.js";
+import ContextMenu from "../ContextMenu.js";
+import { useNotifStore } from "../../stores/notifications.js";
 
 export function ServerSidebar() {
   const { servers, selectServer, members, onlineUsers, userStatuses, userActivities } = useChatStore(useShallow((s) => ({

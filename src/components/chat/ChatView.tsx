@@ -1,25 +1,25 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type FormEvent, type DragEvent } from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
-import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../stores/chat.js";
-import { useAuthStore } from "../stores/auth.js";
-import { useUIStore } from "../stores/ui.js";
+import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../../stores/chat.js";
+import { useAuthStore } from "../../stores/auth.js";
+import { useUIStore } from "../../stores/ui.js";
 import { Pencil, Trash2, Paperclip, X, Smile } from "lucide-react";
 import { SearchBar } from "./SearchBar.js";
 import { MessageAttachments } from "./MessageAttachments.js";
 import { LinkEmbed } from "./LinkEmbed.js";
-import { avatarColor, ringClass, ringGradientStyle } from "../lib/avatarColor.js";
-import { relativeTime } from "../lib/relativeTime.js";
-import { gateway } from "../lib/ws.js";
+import { avatarColor, ringClass, ringGradientStyle } from "../../lib/avatarColor.js";
+import { relativeTime } from "../../lib/relativeTime.js";
+import { gateway } from "../../lib/ws.js";
 import twemoji from "twemoji";
-import { renderMessageContent, renderEmoji, isEmojiOnly, getEmojiLabel, TWEMOJI_OPTIONS } from "../lib/emoji.js";
-import { API_BASE } from "../lib/serverUrl.js";
-import EmojiPicker from "./EmojiPicker.js";
-import ContextMenu from "./ContextMenu.js";
+import { renderMessageContent, renderEmoji, isEmojiOnly, getEmojiLabel, TWEMOJI_OPTIONS } from "../../lib/emoji.js";
+import { API_BASE } from "../../lib/serverUrl.js";
+import EmojiPicker from "../EmojiPicker.js";
+import ContextMenu from "../ContextMenu.js";
 
-import { getCharOffset, setCursorAtOffset, getDivPlainText, getTextBeforeCursor } from "../lib/contentEditable.js";
-import type { MemberWithUser } from "../types/shared.js";
-import { EVERYONE_MENTION_RE, HERE_MENTION_RE } from "../stores/chat-types.js";
+import { getCharOffset, setCursorAtOffset, getDivPlainText, getTextBeforeCursor } from "../../lib/contentEditable.js";
+import type { MemberWithUser } from "../../types/shared.js";
+import { EVERYONE_MENTION_RE, HERE_MENTION_RE } from "../../stores/chat-types.js";
 type MentionEntry =
   | { kind: "special"; name: string; desc: string }
   | { kind: "user"; member: MemberWithUser };

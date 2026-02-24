@@ -1,20 +1,20 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
-import type { Channel, ChannelType, ReorderItem } from "../types/shared.js";
-import { useChatStore } from "../stores/chat.js";
-import { useVoiceStore } from "../stores/voice.js";
-import { useUIStore } from "../stores/ui.js";
-import { useAuthStore } from "../stores/auth.js";
-import { useNotifStore, type ChannelNotifSetting, type CategoryNotifSetting } from "../stores/notifications.js";
-import { VoiceStatusBar } from "./VoiceStatusBar.js";
+import type { Channel, ChannelType, ReorderItem } from "../../types/shared.js";
+import { useChatStore } from "../../stores/chat.js";
+import { useVoiceStore } from "../../stores/voice.js";
+import { useUIStore } from "../../stores/ui.js";
+import { useAuthStore } from "../../stores/auth.js";
+import { useNotifStore, type ChannelNotifSetting, type CategoryNotifSetting } from "../../stores/notifications.js";
+import { VoiceStatusBar } from "../voice/VoiceStatusBar.js";
 import { Settings, Plus, ChevronRight, Lock, LockOpen } from "lucide-react";
-import { gateway } from "../lib/ws.js";
-import { CreateChannelModal } from "./CreateChannelModal.js";
-import { ChannelSettingsModal, DeleteConfirmDialog } from "./ChannelSettingsModal.js";
-import ContextMenu, { type ContextMenuEntry } from "./ContextMenu.js";
-import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
-import * as api from "../lib/api.js";
+import { gateway } from "../../lib/ws.js";
+import { CreateChannelModal } from "../modals/CreateChannelModal.js";
+import { ChannelSettingsModal, DeleteConfirmDialog } from "../modals/ChannelSettingsModal.js";
+import ContextMenu, { type ContextMenuEntry } from "../ContextMenu.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
+import * as api from "../../lib/api.js";
 import {
   DndContext,
   closestCenter,
@@ -30,11 +30,11 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { dbg } from "../lib/debug.js";
-import { buildTree, flattenTree, loadCollapsed, saveCollapsed } from "../lib/channel-tree.js";
-import { VoiceUserRow } from "./VoiceUserRow.js";
+import { dbg } from "../../lib/debug.js";
+import { buildTree, flattenTree, loadCollapsed, saveCollapsed } from "../../lib/channel-tree.js";
+import { VoiceUserRow } from "../voice/VoiceUserRow.js";
 import { SortableChannelItem, getChannelIcon } from "./SortableChannelItem.js";
-import { AnimatedList } from "./AnimatedList.js";
+import { AnimatedList } from "../AnimatedList.js";
 
 const DROP_INTO_CATEGORY_DWELL_MS = 1000;
 const DRAG_ACTIVATION_DELAY_MS = 500;

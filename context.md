@@ -27,28 +27,44 @@ KEY: files, folders, layout, where-is
 
 ```
 src/                          # React frontend
-  components/                 # UI components (22+)
+  components/                 # UI components (domain-grouped subdirectories)
+    voice/                    # Voice/video domain
+      VoiceChannelView.tsx    # Voice participants, screen share, audio controls
+      VoiceUserRow.tsx        # Per-user row in voice channel (speaking indicator, volume)
+      VoiceStatusBar.tsx      # Voice connection status bar (mute/deafen/disconnect)
+      StatsOverlay.tsx        # WebRTC stats floating overlay
+      RoomToasts.tsx          # Room knock/invite toast notifications
+    chat/                     # Messaging domain
+      ChatView.tsx            # Message list, input, reactions, attachments, search
+      DMChatView.tsx          # Direct message view
+      SearchBar.tsx           # Advanced message search bar with filter tag UI (from/in/has/mentions/dates)
+      LinkEmbed.tsx           # URL link preview embed
+      MessageAttachments.tsx  # File attachment display (images, downloads)
+    sidebar/                  # Navigation sidebars
+      ServerSidebar.tsx       # Server icon list (left rail)
+      ChannelSidebar.tsx      # Channel list, drag-drop reorder, category tree
+      SortableChannelItem.tsx # Drag-sortable channel/category row
+      MemberList.tsx          # Server member list + UserCard popup
+    modals/                   # Modal dialogs
+      AvatarCropModal.tsx     # Avatar upload/crop
+      ChannelSettingsModal.tsx # Edit channel dialog + DeleteConfirmDialog
+      CreateChannelModal.tsx  # New channel dialog
+    music/                    # Music/soundboard domain
+      MusicPanel.tsx          # Spotify playback controls + queue
+      SoundboardPanel.tsx     # Voice channel soundboard grid (play, preview, favorite, master volume)
+      SoundboardTab.tsx       # Server settings soundboard management (upload, waveform trim, delete)
+    popout/                   # Pop-out windows
+      PopoutChatView.tsx      # Pop-out chat window
+      PopoutScreenShareView.tsx # Pop-out screen share window
+    settings/                 # Settings tabs (pre-existing)
     ui/                       # Radix-based primitives (button, dialog, input, tooltip)
-    ChannelSidebar.tsx        # Channel list, drag-drop reorder, category tree
-    ChatView.tsx              # Message list, input, reactions, attachments, search
-    DMChatView.tsx            # Direct message view
-    VoiceChannelView.tsx      # Voice participants, screen share, audio controls
-    GameChannelView.tsx       # Game/activity detection display
-    SettingsModal.tsx         # User settings (audio, keybinds, profile, appearance)
-    ServerSidebar.tsx         # Server icon list (left rail)
-    MemberList.tsx            # Voice channel participant display
-    MusicPanel.tsx            # Spotify playback controls + queue
-    SoundboardPanel.tsx       # Voice channel soundboard grid (play, preview, favorite, master volume)
-    SoundboardTab.tsx         # Server settings soundboard management (upload, waveform trim, delete)
+    AnimatedList.tsx          # Shared animated list component
+    ContextMenu.tsx           # Reusable context menu (portal-based)
     EmojiPicker.tsx           # Full reusable emoji picker (standard Twemoji categories + custom per-server + favorites)
     EmojiTab.tsx              # Server settings emoji management (admin upload/delete custom emoji, list)
-    SearchBar.tsx             # Advanced message search bar with filter tag UI (from/in/has/mentions/dates)
-    PopoutChatView.tsx        # Pop-out chat window
-    PopoutScreenShareView.tsx # Pop-out screen share window
-    CreateChannelModal.tsx    # New channel dialog
-    ChannelSettingsModal.tsx  # Edit channel dialog
-    ServerSettingsModal.tsx   # Edit server dialog
-    AvatarCropModal.tsx       # Avatar upload/crop
+    FluxLogo.tsx              # App logo component
+    SettingsModal.tsx         # User settings (audio, keybinds, profile, appearance)
+    ServerSettingsPage.tsx    # Server settings page (overview, members, soundboard, emoji tabs)
   stores/                     # Zustand state stores
     auth.ts                   # Auth state, login/register/logout
     chat.ts                   # Servers, channels, messages, search
@@ -583,3 +599,4 @@ KEY: changelog, changes, updates, history
 - **2026-02-23**: Extract DM store from chat.ts (Task 1.2). All DM-related state and actions extracted from `stores/chat.ts` into new `stores/dm.ts`. DM store (`useDMStore`) owns: `showingDMs`, `dmChannels`, `activeDMChannelId`, `dmMessages`, `dmHasMore`, `dmCursor`, `dmSearchQuery`, `dmSearchResults`, `dmError`, `loadingDMMessages`, and actions (`showDMs`, `loadDMChannels`, `selectDM`, `openDM`, `sendDM`, `clearDmError`, `retryEncryptionSetup`, `loadMoreDMMessages`, `searchDMMessages`, `clearDMSearch`). Chat store retains `decryptedCache` as shared resource (both DM and channel messages write to it). Cross-store coordination via lazy refs: `dm.ts` has `chatStoreRef` (typed as `UseBoundStore<StoreApi<ChatState>>` to avoid circular type references), `chat.ts` has `dmStoreRef`, `chat-events.ts` has `dmStoreRef`. `loadingDMMessages` is now a separate field from `loadingMessages`. `DMChannel` interface exported from `dm.ts`. `saveDMCache` signature in `chat-types.ts` updated to accept generic shape instead of `ChatState`. Updated consumers: `DMChatView.tsx`, `MainLayout.tsx`, `ServerSidebar.tsx`, `MemberList.tsx`, `VoiceUserRow.tsx`. Updated test mocks in `chat.test.ts` and `chat-rooms.test.ts`. Chat store reduced from ~677 to ~434 lines. All 394 frontend tests pass. Files: `stores/dm.ts` (new), `stores/chat.ts`, `stores/chat-types.ts`, `stores/chat-events.ts`, `components/DMChatView.tsx`, `layouts/MainLayout.tsx`, `components/ServerSidebar.tsx`, `components/MemberList.tsx`, `components/VoiceUserRow.tsx`, `stores/__tests__/chat.test.ts`, `stores/__tests__/chat-rooms.test.ts`.
 - **2026-02-23**: Group audio files into lib/audio/ (Task 2.1). Moved all audio-related files from flat `src/lib/` into new `src/lib/audio/` subdirectory using `git mv` (preserves history). Files moved: `voice-pipeline.ts`, `voice-analysis.ts`, `voice-noise.ts`, `voice-effects.ts`, `voice-constants.ts`, `DryWetTrackProcessor.ts`, `GainTrackProcessor.ts`. Directories moved: `rnnoise/`, `nsnet2/`, `speex/`, `dtln/`, `deepfilter/`. Updated all import paths: `stores/voice.ts` (5 static imports + 5 dynamic `import()` calls), `lib/audio/voice-pipeline.ts` (debug + stores type import), `lib/audio/voice-analysis.ts` (debug import), `lib/audio/voice-noise.ts` (stores type import), `lib/__tests__/noise-suppression.test.ts` (6 imports), `lib/__tests__/gain-track-processor.test.ts` (1 import), `stores/__tests__/voice.test.ts` (1 mock path), `stores/__tests__/audio-settings.test.ts` (1 mock path). Internal relative imports within `audio/` (e.g. `./voice-pipeline.js`) unchanged since files remain co-located. All 394 frontend tests pass. Files: all files in `src/lib/audio/`, `stores/voice.ts`, test files.
 - **2026-02-23**: Voice store section organization (Task 1.3). Analyzed coupling between screen share, audio settings, and core voice domains in `stores/voice.ts`. Determined splitting would create circular dependencies (10+ cross-references per domain to shared `room` state and `set()`). Instead, organized the file into clearly marked sections with `═══` separator headers. Sections: **Types & Constants** (interfaces, presets, default settings), **Audio Settings Persistence** (load/save from localStorage), **Audio Processor Helpers** (cleanup, nonce, adaptive bitrate), **WebRTC Stats Polling** (start/stop interval), **Lobby Music** (check/start/fadeOut/stop/gain), **Store Definition** with internal action groups: *Core Connection* (join/leave/mute/deafen/volume/drink), *Audio Settings & Pipeline Control* (updateAudioSetting/applyBitrate), *Screen Sharing* (toggle/pin/unpin/theatre/quality), *Lobby Music* (volume/stop), *WebRTC Stats* (toggle overlay), *Internal* (participant/screen share tracking), **WebSocket Event Handlers** (voice_state, reconnect), **BroadcastChannel Sync** (popout windows). Also cleaned up import ordering (grouped by category, removed interleaved type export). Pure refactor — no functionality changed. All 394 frontend tests pass. File: `stores/voice.ts`.
+- **2026-02-24**: Reorganize components into domain subdirectories (Tasks 3.1-3.4). Moved 22 component files from flat `src/components/` into 6 domain-grouped subdirectories using `git mv` (preserves history). **voice/**: `VoiceChannelView.tsx`, `VoiceUserRow.tsx`, `VoiceStatusBar.tsx`, `StatsOverlay.tsx`, `RoomToasts.tsx`. **chat/**: `ChatView.tsx`, `DMChatView.tsx`, `SearchBar.tsx`, `LinkEmbed.tsx`, `MessageAttachments.tsx`. **sidebar/**: `ChannelSidebar.tsx`, `ServerSidebar.tsx`, `SortableChannelItem.tsx`, `MemberList.tsx`. **modals/**: `AvatarCropModal.tsx`, `ChannelSettingsModal.tsx`, `CreateChannelModal.tsx`. **music/**: `MusicPanel.tsx`, `SoundboardPanel.tsx`, `SoundboardTab.tsx`. **popout/**: `PopoutChatView.tsx`, `PopoutScreenShareView.tsx`. Files staying at top level (shared/generic): `AnimatedList.tsx`, `ContextMenu.tsx`, `EmojiPicker.tsx`, `EmojiTab.tsx`, `FluxLogo.tsx`, `SettingsModal.tsx`, `ServerSettingsPage.tsx`. Updated all import paths in 18 files: moved files (internal `../stores/` -> `../../stores/`, `../lib/` -> `../../lib/`, `../types/` -> `../../types/`), cross-group references (e.g. VoiceChannelView imports `../music/MusicPanel.js`), consumers (`MainLayout.tsx`, `PopoutApp.tsx`, `settings/ProfileTab.tsx`, `ServerSettingsPage.tsx`). All 394 frontend tests pass. Files: all listed above plus `layouts/MainLayout.tsx`, `PopoutApp.tsx`, `components/settings/ProfileTab.tsx`, `components/ServerSettingsPage.tsx`, `context.md`.

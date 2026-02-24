@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { Heart, Volume2, VolumeX } from "lucide-react";
-import * as api from "../lib/api.js";
-import { gateway } from "../lib/ws.js";
-import type { SoundboardSound } from "../types/shared.js";
-import { API_BASE } from "../lib/serverUrl.js";
-import { useAuthStore } from "../stores/auth.js";
-import { useChatStore } from "../stores/chat.js";
-import { renderEmoji } from "../lib/emoji.js";
+import * as api from "../../lib/api.js";
+import { gateway } from "../../lib/ws.js";
+import type { SoundboardSound } from "../../types/shared.js";
+import { API_BASE } from "../../lib/serverUrl.js";
+import { useAuthStore } from "../../stores/auth.js";
+import { useChatStore } from "../../stores/chat.js";
+import { renderEmoji } from "../../lib/emoji.js";
 
 export function SoundboardPanel({ serverId, channelId }: { serverId: string; channelId: string }) {
   const customEmojis = useChatStore((s) => s.customEmojis);

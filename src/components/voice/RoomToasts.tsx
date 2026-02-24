@@ -1,6 +1,6 @@
-import { useChatStore } from "../stores/chat.js";
-import { useVoiceStore } from "../stores/voice.js";
-import * as api from "../lib/api.js";
+import { useChatStore } from "../../stores/chat.js";
+import { useVoiceStore } from "../../stores/voice.js";
+import * as api from "../../lib/api.js";
 import { X, DoorOpen, UserPlus } from "lucide-react";
 
 export function RoomToasts() {

@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useMemo, type KeyboardEvent } from "react";
 import { Search, User, Hash, Paperclip, AtSign, X, Image, Video, Link, Volume2, FileText, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { useChatStore } from "../stores/chat.js";
-import { avatarColor } from "../lib/avatarColor.js";
+import { useShallow } from "zustand/react/shallow";
+import { useChatStore } from "../../stores/chat.js";
+import { avatarColor } from "../../lib/avatarColor.js";
 
 type DropdownMode = "main" | "from" | "in" | "has" | "mentions" | "before" | "on" | "after";
 
@@ -45,7 +46,11 @@ export function SearchBar() {
     members, channels, userStatuses,
     searchResults, searchFilters,
     searchMessages, searchUserActivity, clearSearch,
-  } = useChatStore();
+  } = useChatStore(useShallow((s) => ({
+    members: s.members, channels: s.channels, userStatuses: s.userStatuses,
+    searchResults: s.searchResults, searchFilters: s.searchFilters,
+    searchMessages: s.searchMessages, searchUserActivity: s.searchUserActivity, clearSearch: s.clearSearch,
+  })));
 
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
