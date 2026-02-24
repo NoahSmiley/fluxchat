@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod ws_helpers;
+
 use axum::Router;
 use flux_server::{config::Config, routes, ws, AppState};
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
