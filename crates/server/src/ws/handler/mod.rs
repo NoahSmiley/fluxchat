@@ -1,4 +1,6 @@
 mod chat;
+mod chat_ext;
+mod lifecycle;
 mod misc;
 mod voice;
 
@@ -124,7 +126,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
             .await;
     }
 
-    send_initial_state(&state, client_id, &user, &user_status).await;
+    lifecycle::send_initial_state(&state, client_id, &user, &user_status).await;
 
     // Task to forward messages from mpsc to WebSocket
     let send_task = tokio::spawn(async move {
@@ -164,123 +166,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, auth_user: Optio
         _ = recv_task => {},
     }
 
-    handle_disconnect(&state, client_id, &user).await;
-}
-
-async fn send_initial_state(
-    state: &AppState,
-    client_id: ClientId,
-    user: &AuthUser,
-    user_status: &str,
-) {
-    // Send current voice states
-    let voice_states = state.gateway.all_voice_states().await;
-    for (channel_id, participants) in voice_states {
-        state
-            .gateway
-            .send_to(client_id, &ServerEvent::VoiceState { channel_id, participants })
-            .await;
-    }
-
-    // Send online users with their statuses
-    let online_statuses = state.gateway.online_user_statuses().await;
-    for (uid, status) in online_statuses {
-        if uid != user.id {
-            state
-                .gateway
-                .send_to(client_id, &ServerEvent::Presence { user_id: uid, status })
-                .await;
-        }
-    }
-
-    // Send own status back to self
-    state
-        .gateway
-        .send_to(
-            client_id,
-            &ServerEvent::Presence {
-                user_id: user.id.clone(),
-                status: user_status.to_string(),
-            },
-        )
-        .await;
-
-    // Send current activities of all online users
-    let activities = state.gateway.get_all_activities().await;
-    for (uid, activity) in activities {
-        state
-            .gateway
-            .send_to(client_id, &ServerEvent::ActivityUpdate { user_id: uid, activity: Some(activity) })
-            .await;
-    }
-}
-
-async fn handle_disconnect(state: &AppState, client_id: ClientId, user: &AuthUser) {
-    let (old_voice, was_invisible) = {
-        let clients = state.gateway.clients.read().await;
-        let client = clients.get(&client_id);
-        (
-            client.and_then(|c| c.voice_channel_id.clone()),
-            client.map(|c| c.status == "invisible").unwrap_or(false),
-        )
-    };
-
-    state.gateway.unregister(client_id).await;
-
-    if let Some(channel_id) = old_voice {
-        let participants = state.gateway.voice_channel_participants(&channel_id).await;
-
-        if participants.is_empty() {
-            let is_room = sqlx::query_scalar::<_, i64>(
-                "SELECT is_room FROM channels WHERE id = ?",
-            )
-            .bind(&channel_id)
-            .fetch_optional(&state.db)
-            .await
-            .ok()
-            .flatten();
-
-            if is_room == Some(1) {
-                state.gateway.schedule_room_cleanup(
-                    channel_id.clone(),
-                    std::time::Duration::from_secs(state.config.room_cleanup_delay_secs),
-                    state.db.clone(),
-                ).await;
-            }
-        }
-
-        state
-            .gateway
-            .broadcast_all(
-                &ServerEvent::VoiceState { channel_id, participants },
-                None,
-            )
-            .await;
-    }
-
-    state
-        .gateway
-        .broadcast_all(
-            &ServerEvent::ActivityUpdate {
-                user_id: user.id.clone(),
-                activity: None,
-            },
-            None,
-        )
-        .await;
-
-    if !was_invisible {
-        state
-            .gateway
-            .broadcast_all(
-                &ServerEvent::Presence {
-                    user_id: user.id.clone(),
-                    status: "offline".into(),
-                },
-                None,
-            )
-            .await;
-    }
+    lifecycle::handle_disconnect(&state, client_id, &user).await;
 }
 
 async fn handle_client_event(
@@ -318,13 +204,13 @@ async fn handle_client_event(
             chat::handle_typing(state, client_id, user, &channel_id, false).await;
         }
         ClientEvent::AddReaction { message_id, emoji } => {
-            chat::handle_add_reaction(state, client_id, user, message_id, emoji).await;
+            chat_ext::handle_add_reaction(state, client_id, user, message_id, emoji).await;
         }
         ClientEvent::RemoveReaction { message_id, emoji } => {
-            chat::handle_remove_reaction(state, user, message_id, emoji).await;
+            chat_ext::handle_remove_reaction(state, user, message_id, emoji).await;
         }
         ClientEvent::SendDm { dm_channel_id, ciphertext, mls_epoch } => {
-            chat::handle_send_dm(state, user, dm_channel_id, ciphertext, mls_epoch).await;
+            chat_ext::handle_send_dm(state, user, dm_channel_id, ciphertext, mls_epoch).await;
         }
         ClientEvent::VoiceStateUpdate { channel_id, action } => {
             voice::handle_voice_state(state, client_id, &channel_id, &action).await;

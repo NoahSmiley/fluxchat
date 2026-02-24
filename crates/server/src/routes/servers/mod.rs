@@ -1,8 +1,10 @@
 mod channels;
+mod channels_manage;
 mod members;
 mod rooms;
 
 pub use channels::*;
+pub use channels_manage::*;
 pub use members::*;
 pub use rooms::*;
 
