@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
+import { useShallow } from "zustand/react/shallow";
 import { useVoiceStore } from "../stores/voice.js";
 import { useChatStore } from "../stores/chat.js";
 import { useSpotifyStore } from "../stores/spotify.js";
+import { useYouTubeStore } from "../stores/youtube.js";
 import { MusicPanel } from "./MusicPanel.js";
 import { SoundboardPanel } from "./SoundboardPanel.js";
 import {
@@ -244,7 +246,9 @@ function LobbyMusicBar() {
 
 // ── Main Export ──
 export function VoiceChannelView() {
-  const { channels, activeChannelId, activeServerId, members } = useChatStore();
+  const { channels, activeChannelId, activeServerId, members } = useChatStore(useShallow((s) => ({
+    channels: s.channels, activeChannelId: s.activeChannelId, activeServerId: s.activeServerId, members: s.members,
+  })));
   const {
     room,
     connectedChannelId,
@@ -266,8 +270,18 @@ export function VoiceChannelView() {
     setParticipantVolume,
     screenShareQuality,
     setScreenShareQuality,
-  } = useVoiceStore();
-  const { loadSession, account, playerState, session, queue, volume, setVolume, youtubeTrack } = useSpotifyStore();
+  } = useVoiceStore(useShallow((s) => ({
+    room: s.room, connectedChannelId: s.connectedChannelId, connecting: s.connecting,
+    connectionError: s.connectionError, participants: s.participants, isMuted: s.isMuted,
+    isDeafened: s.isDeafened, isScreenSharing: s.isScreenSharing, screenSharers: s.screenSharers,
+    pinnedScreenShare: s.pinnedScreenShare, theatreMode: s.theatreMode,
+    participantVolumes: s.participantVolumes, joinVoiceChannel: s.joinVoiceChannel,
+    leaveVoiceChannel: s.leaveVoiceChannel, toggleMute: s.toggleMute, toggleDeafen: s.toggleDeafen,
+    toggleScreenShare: s.toggleScreenShare, setParticipantVolume: s.setParticipantVolume,
+    screenShareQuality: s.screenShareQuality, setScreenShareQuality: s.setScreenShareQuality,
+  })));
+  const { loadSession, account, playerState, session, queue, volume, setVolume } = useSpotifyStore();
+  const { youtubeTrack } = useYouTubeStore();
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
   const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music" | "sounds">("voice");
   const channel = channels.find((c) => c.id === activeChannelId);

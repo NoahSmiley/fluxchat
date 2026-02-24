@@ -2,8 +2,9 @@ import { create } from "zustand";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { API_BASE } from "../lib/serverUrl.js";
-import type { SpotifyAccount, ListeningSession, QueueItem, SpotifyTrack, WSServerEvent, YouTubeTrack } from "../types/shared.js";
+import type { SpotifyAccount, ListeningSession, QueueItem, SpotifyTrack, WSServerEvent } from "../types/shared.js";
 import { dbg } from "../lib/debug.js";
+import { useYouTubeStore } from "./youtube.js";
 
 // PKCE helpers
 function generateRandomString(length: number): string {
@@ -89,16 +90,7 @@ interface SpotifyState {
   searchLoading: boolean;
   polling: boolean;
   oauthError: string | null;
-
-  // YouTube
-  youtubeAudio: HTMLAudioElement | null;
-  youtubeTrack: { id: string; name: string; artist: string; imageUrl: string; durationMs: number } | null;
-  youtubeProgress: number;
-  youtubeDuration: number;
-  youtubePaused: boolean;
   searchSource: "spotify" | "youtube";
-  youtubeSearchResults: YouTubeTrack[];
-  searchError: string | null;
   showSearch: boolean;
   searchInput: string;
 
@@ -124,14 +116,9 @@ interface SpotifyState {
   setVolume: (vol: number) => void;
   handleWSEvent: (event: WSServerEvent) => void;
   cleanup: () => void;
-  stopYouTube: () => void;
   setShowSearch: (show: boolean) => void;
   setSearchInput: (input: string) => void;
   setSearchSource: (source: "spotify" | "youtube") => void;
-  searchYouTube: (query: string) => Promise<void>;
-  addYouTubeToQueue: (track: YouTubeTrack) => Promise<void>;
-  playYouTube: (videoId: string, trackInfo?: { name: string; artist: string; imageUrl: string; durationMs: number }) => void;
-  pauseYouTube: () => void;
 }
 
 let wsUnsub: (() => void) | null = null;
@@ -185,6 +172,11 @@ async function playOnDevice(deviceId: string, uris: string[], positionMs?: numbe
   return false;
 }
 
+/** Helper to get YouTube store state. */
+function yt() {
+  return useYouTubeStore.getState();
+}
+
 export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   account: null,
   sdkReady: false,
@@ -199,14 +191,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   searchLoading: false,
   polling: false,
   oauthError: null,
-  youtubeAudio: null,
-  youtubeTrack: null,
-  youtubeProgress: 0,
-  youtubeDuration: 0,
-  youtubePaused: true,
   searchSource: "spotify" as const,
-  youtubeSearchResults: [],
-  searchError: null,
   showSearch: false,
   searchInput: "",
 
@@ -250,7 +235,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       let redirectUri = backendRedirectUri;
       try {
         const { invoke } = await import("@tauri-apps/api/core");
-        const serverUrl = API_BASE.replace(/\/api$/, "");
+        const serverUrl = API_BASE.startsWith("/") ? "http://127.0.0.1:3001" : API_BASE.replace(/\/api$/, "");
         // Start one-shot local HTTP server BEFORE opening the browser
         invoke("start_oauth_listener", { serverUrl });
         redirectUri = "http://127.0.0.1:29170/callback";
@@ -468,21 +453,12 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   updateActivity: () => {
-    const { playerState, youtubeTrack, youtubePaused, youtubeProgress } = get();
+    const { playerState } = get();
+    const { youtubeTrack, youtubePaused, youtubeProgress } = yt();
 
     // YouTube activity
     if (youtubeTrack && !youtubePaused) {
-      gateway.send({
-        type: "update_activity",
-        activity: {
-          name: youtubeTrack.name,
-          activityType: "listening",
-          artist: youtubeTrack.artist,
-          albumArt: youtubeTrack.imageUrl || undefined,
-          durationMs: youtubeTrack.durationMs,
-          progressMs: Math.round(youtubeProgress),
-        },
-      });
+      yt().updateYouTubeActivity();
       return;
     }
 
@@ -535,8 +511,9 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     import("./voice.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
     const { player } = get();
     player?.pause();
-    get().stopYouTube();
-    set({ playerState: null, queue: [], searchResults: [], youtubeSearchResults: [], searchInput: "", showSearch: false });
+    yt().stopYouTube();
+    set({ playerState: null, queue: [], searchResults: [], searchInput: "", showSearch: false });
+    useYouTubeStore.setState({ youtubeSearchResults: [] });
     await api.createListeningSession(voiceChannelId);
     await get().loadSession(voiceChannelId);
     dbg("spotify", "startSession complete", { sessionId: get().session?.id });
@@ -597,7 +574,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     dbg("spotify", "leaveSession");
     const { player } = get();
     player?.pause();
-    get().stopYouTube();
+    yt().stopYouTube();
     set({ session: null, queue: [], isHost: false, playerState: null });
     gateway.send({ type: "update_activity", activity: null });
   },
@@ -607,7 +584,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     if (!session) return;
     dbg("spotify", `endSession sessionId=${session.id}`);
     player?.pause();
-    get().stopYouTube();
+    yt().stopYouTube();
     try {
       await api.deleteListeningSession(session.id);
     } catch (e) {
@@ -641,7 +618,8 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
   },
 
   play: async (trackUri?: string, source?: string) => {
-    const { session, player, queue, youtubeTrack } = get();
+    const { session, player, queue } = get();
+    const { youtubeTrack } = yt();
     if (!session) return;
 
     // Determine the effective source
@@ -652,16 +630,16 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
       if (youtubeTrack) {
         // Resume YouTube
         dbg("spotify", "play: resuming YouTube");
-        const audio = get().youtubeAudio;
+        const audio = yt().youtubeAudio;
         if (audio) {
           audio.play();
-          set({ youtubePaused: false });
+          useYouTubeStore.setState({ youtubePaused: false });
         }
         gateway.send({
           type: "spotify_playback_control",
           sessionId: session.id,
           action: "play",
-          positionMs: Math.round(get().youtubeProgress),
+          positionMs: Math.round(yt().youtubeProgress),
           source: "youtube",
         });
         get().updateActivity();
@@ -701,37 +679,38 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
     if (effectiveSource === "youtube") {
       // Build track info from queue or search results
-      const searchItem = get().youtubeSearchResults.find(t => t.id === trackUri);
+      const searchItem = yt().youtubeSearchResults.find(t => t.id === trackUri);
       const trackInfo = queueItem
         ? { name: queueItem.trackName, artist: queueItem.trackArtist, imageUrl: queueItem.trackImageUrl ?? "", durationMs: queueItem.trackDurationMs }
         : searchItem
         ? { name: searchItem.title, artist: searchItem.channel, imageUrl: searchItem.thumbnail, durationMs: searchItem.durationMs }
         : undefined;
-      get().playYouTube(trackUri, trackInfo);
+      yt().playYouTube(trackUri, trackInfo);
     } else {
       // Switch to Spotify
-      get().stopYouTube();
+      yt().stopYouTube();
       const deviceId = await get().ensureDeviceId();
       if (deviceId) await playOnDevice(deviceId, [trackUri]);
     }
   },
 
   pause: () => {
-    const { session, player, playerState, youtubeTrack } = get();
+    const { session, player, playerState } = get();
+    const { youtubeTrack, youtubePaused, youtubeProgress, youtubeAudio } = yt();
     if (!session) return;
 
-    const ytActive = youtubeTrack && !get().youtubePaused;
+    const ytActive = youtubeTrack && !youtubePaused;
 
     gateway.send({
       type: "spotify_playback_control",
       sessionId: session.id,
       action: "pause",
-      positionMs: ytActive ? Math.round(get().youtubeProgress) : playerState?.position,
+      positionMs: ytActive ? Math.round(youtubeProgress) : playerState?.position,
       source: ytActive ? "youtube" : "spotify",
     });
 
     if (ytActive) {
-      get().youtubeAudio?.pause();
+      youtubeAudio?.pause();
     } else {
       player?.pause();
     }
@@ -750,7 +729,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     if (!nextTrack) {
       gateway.send({ type: "spotify_playback_control", sessionId: session.id, action: "pause", positionMs: 0, source: "spotify" });
       player?.pause();
-      get().stopYouTube();
+      yt().stopYouTube();
       set({ playerState: null });
       gateway.send({ type: "update_activity", activity: null });
       return;
@@ -768,21 +747,22 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
 
     if (nextSource === "youtube") {
       player?.pause();
-      get().playYouTube(nextTrack, nextItem ? {
+      yt().playYouTube(nextTrack, nextItem ? {
         name: nextItem.trackName,
         artist: nextItem.trackArtist,
         imageUrl: nextItem.trackImageUrl ?? "",
         durationMs: nextItem.trackDurationMs,
       } : undefined);
     } else {
-      get().stopYouTube();
+      yt().stopYouTube();
       const deviceId = await get().ensureDeviceId();
       if (deviceId) await playOnDevice(deviceId, [nextTrack]);
     }
   },
 
   seek: (ms) => {
-    const { session, player, youtubeTrack } = get();
+    const { session, player } = get();
+    const { youtubeTrack, youtubeAudio } = yt();
     if (!session) return;
     dbg("spotify", `seek ms=${ms}`);
 
@@ -797,18 +777,17 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     });
 
     if (ytActive) {
-      const audio = get().youtubeAudio;
-      if (audio) audio.currentTime = ms / 1000;
+      if (youtubeAudio) youtubeAudio.currentTime = ms / 1000;
     } else {
       player?.seek(ms);
     }
   },
 
   setVolume: (vol) => {
-    const { player, youtubeAudio } = get();
+    const { player } = get();
     set({ volume: vol });
     player?.setVolume(vol);
-    if (youtubeAudio) youtubeAudio.volume = vol;
+    yt().setYouTubeVolume(vol);
   },
 
   handleWSEvent: (event) => {
@@ -851,35 +830,35 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
           const findTrackInfo = (videoId: string) => {
             const qi = get().queue.find(i => i.trackUri === videoId);
             if (qi) return { name: qi.trackName, artist: qi.trackArtist, imageUrl: qi.trackImageUrl ?? "", durationMs: qi.trackDurationMs };
-            const si = get().youtubeSearchResults.find(t => t.id === videoId);
+            const si = yt().youtubeSearchResults.find(t => t.id === videoId);
             if (si) return { name: si.title, artist: si.channel, imageUrl: si.thumbnail, durationMs: si.durationMs };
             return undefined;
           };
 
           if (event.action === "play" && event.trackUri) {
             player?.pause();
-            get().playYouTube(event.trackUri, findTrackInfo(event.trackUri));
+            yt().playYouTube(event.trackUri, findTrackInfo(event.trackUri));
           } else if (event.action === "play" && !event.trackUri) {
             // Resume YouTube
-            const audio = get().youtubeAudio;
-            if (audio) { audio.play(); set({ youtubePaused: false }); }
+            const audio = yt().youtubeAudio;
+            if (audio) { audio.play(); useYouTubeStore.setState({ youtubePaused: false }); }
           } else if (event.action === "pause") {
-            get().youtubeAudio?.pause();
+            yt().youtubeAudio?.pause();
           } else if (event.action === "seek" && event.positionMs != null) {
-            const audio = get().youtubeAudio;
+            const audio = yt().youtubeAudio;
             if (audio) audio.currentTime = event.positionMs / 1000;
           } else if (event.action === "skip" && event.trackUri) {
             player?.pause();
             const info = findTrackInfo(event.trackUri);
             set((s) => ({ queue: s.queue.filter((item) => item.trackUri !== event.trackUri) }));
-            get().playYouTube(event.trackUri, info);
+            yt().playYouTube(event.trackUri, info);
           }
           break;
         }
 
         // Spotify sync — stop YouTube first
         if (event.action === "play" || event.action === "skip") {
-          get().stopYouTube();
+          yt().stopYouTube();
         }
 
         // Sync playback from another session member
@@ -919,7 +898,7 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
         dbg("spotify", `WS spotify_session_ended sessionId=${event.sessionId}`, { currentSession: session?.id });
         if (session && session.id === event.sessionId) {
           player?.pause();
-          get().stopYouTube();
+          yt().stopYouTube();
           set({ session: null, queue: [], isHost: false, playerState: null });
           gateway.send({ type: "update_activity", activity: null });
         }
@@ -928,18 +907,9 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     }
   },
 
-  stopYouTube: () => {
-    const { youtubeAudio } = get();
-    if (youtubeAudio) {
-      youtubeAudio.pause();
-      youtubeAudio.src = "";
-    }
-    set({ youtubeTrack: null, youtubePaused: true, youtubeProgress: 0, youtubeDuration: 0 });
-  },
-
   cleanup: () => {
     get().disconnectPlayer();
-    get().stopYouTube();
+    yt().stopYouTube();
     if (wsUnsub) {
       wsUnsub();
       wsUnsub = null;
@@ -952,86 +922,10 @@ export const useSpotifyStore = create<SpotifyState>((set, get) => ({
     set({ searchSource: source });
     const { searchInput } = get();
     if (!searchInput.trim()) return;
-    if (source === "youtube" && get().youtubeSearchResults.length === 0) {
-      get().searchYouTube(searchInput.trim());
+    if (source === "youtube" && yt().youtubeSearchResults.length === 0) {
+      yt().searchYouTube(searchInput.trim());
     } else if (source === "spotify" && get().searchResults.length === 0) {
       get().searchTracks(searchInput.trim());
     }
-  },
-
-  searchYouTube: async (query) => {
-    if (!query.trim()) { set({ youtubeSearchResults: [], searchError: null }); return; }
-    set({ searchLoading: true, searchError: null });
-    dbg("spotify", `searchYouTube query="${query}"`);
-    try {
-      const data = await api.searchYouTubeTracks(query);
-      dbg("spotify", `searchYouTube results=${data.tracks?.length ?? 0}`);
-      set({ youtubeSearchResults: data.tracks ?? [] });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      dbg("spotify", `searchYouTube FAILED: ${msg}`);
-      set({ youtubeSearchResults: [], searchError: msg });
-    } finally { set({ searchLoading: false }); }
-  },
-
-  addYouTubeToQueue: async (track) => {
-    const { session } = get();
-    if (!session) return;
-    await api.addToQueue(session.id, {
-      trackUri: track.id,
-      trackName: track.title,
-      trackArtist: track.channel,
-      trackAlbum: track.channel,
-      trackImageUrl: track.thumbnail,
-      trackDurationMs: track.durationMs,
-      source: "youtube",
-    });
-  },
-
-  playYouTube: (videoId, trackInfo) => {
-    dbg("spotify", `playYouTube videoId=${videoId}`, trackInfo);
-    // Stop lobby music when YouTube plays
-    import("./voice.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
-    const { player } = get();
-    player?.pause();
-
-    // Set track state FIRST so UI renders immediately
-    set({
-      youtubeTrack: trackInfo
-        ? { id: videoId, ...trackInfo }
-        : { id: videoId, name: videoId, artist: "YouTube", imageUrl: "", durationMs: 0 },
-      youtubePaused: false,
-      playerState: null,
-    });
-
-    let audio = get().youtubeAudio;
-    if (!audio) {
-      audio = new Audio();
-      audio.addEventListener("timeupdate", () => {
-        set({ youtubeProgress: audio!.currentTime * 1000 });
-      });
-      audio.addEventListener("loadedmetadata", () => {
-        set({ youtubeDuration: audio!.duration * 1000 });
-      });
-      audio.addEventListener("ended", () => {
-        set({ youtubePaused: true });
-        get().skip();
-      });
-      set({ youtubeAudio: audio });
-    }
-
-    audio.src = api.getYouTubeAudioUrl(videoId);
-    audio.volume = get().volume;
-    audio.play().catch((e) => {
-      dbg("spotify", "playYouTube audio.play() failed", e);
-    });
-
-    get().updateActivity();
-  },
-
-  pauseYouTube: () => {
-    const { youtubeAudio } = get();
-    if (youtubeAudio) youtubeAudio.pause();
-    set({ youtubePaused: true });
   },
 }));

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
 import { useSpotifyStore } from "../stores/spotify.js";
+import { useYouTubeStore } from "../stores/youtube.js";
 import { useAuthStore } from "../stores/auth.js";
 import { Play, Pause, SkipForward, Plus, Search, X, Music, LogOut, Shuffle, Volume2, VolumeX } from "lucide-react";
 import type { SpotifyTrack, YouTubeTrack } from "../types/shared.js";
@@ -283,14 +284,19 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
   const { user } = useAuthStore();
   const {
     account, session, queue, isHost, playerState,
-    searchResults, searchLoading, volume,
-    youtubeTrack, youtubePaused, youtubeProgress, youtubeDuration,
-    searchSource, youtubeSearchResults,
-    searchInput, searchError,
+    searchResults, searchLoading: spotifySearchLoading, volume,
+    searchSource,
+    searchInput,
     startSession, loadSession, endSession, addTrackToQueue, removeFromQueue,
     play, pause, skip, seek, setVolume, searchTracks,
-    setSearchInput, setSearchSource, searchYouTube, addYouTubeToQueue,
+    setSearchInput, setSearchSource,
   } = useSpotifyStore();
+  const {
+    youtubeTrack, youtubePaused, youtubeProgress, youtubeDuration,
+    youtubeSearchResults, searchLoading: youtubeSearchLoading, searchError,
+    searchYouTube, addYouTubeToQueue,
+  } = useYouTubeStore();
+  const searchLoading = spotifySearchLoading || youtubeSearchLoading;
   const [vibeMode, setVibeMode] = useState(false);
   const konamiRef = useRef<string[]>([]);
 
