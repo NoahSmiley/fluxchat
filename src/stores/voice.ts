@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { Room, RoomEvent, Track, VideoQuality, ExternalE2EEKeyProvider } from "livekit-client";
+import type { ScalabilityMode } from "livekit-client";
 import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
@@ -59,12 +60,16 @@ import {
   getLocalMicTrack,
 } from "../lib/voice-analysis.js";
 
+import {
+  DEFAULT_BITRATE,
+  LOBBY_WAIT_MS,
+  LOBBY_FADE_IN_S,
+  LOBBY_FADE_OUT_S,
+  LOBBY_DEFAULT_GAIN,
+} from "../lib/voice-constants.js";
+
 // Monotonically increasing counter to detect stale joinVoiceChannel calls
 let joinNonce = 0;
-
-// ── Bitrate Constants ──
-
-const DEFAULT_BITRATE = 256_000;
 
 // ── Adaptive Bitrate ──
 
@@ -78,17 +83,11 @@ function startStatsPolling() {
   stopStatsPolling();
   resetStatsDelta();
   statsInterval = setInterval(async () => {
-    const { room } = useVoiceStore.getState();
-    if (!room) return;
+    const { room, showStatsOverlay } = useVoiceStore.getState();
+    if (!room || !showStatsOverlay) return;
     try {
       const stats = await collectWebRTCStats(room);
-
-      // Bitrate is constant (no adaptive adjustment)
-
-      // Only update store stats if overlay is visible
-      if (useVoiceStore.getState().showStatsOverlay) {
-        useVoiceStore.setState({ webrtcStats: stats });
-      }
+      useVoiceStore.setState({ webrtcStats: stats });
     } catch (e) {
       dbg("voice", "stats polling error", e);
     }
@@ -123,7 +122,7 @@ function checkLobbyMusic() {
       lobbyMusicTimer = setTimeout(() => {
         lobbyMusicTimer = null;
         startLobbyMusic();
-      }, 30_000);
+      }, LOBBY_WAIT_MS);
     }
   } else {
     if (lobbyMusicTimer) {
@@ -147,7 +146,7 @@ function startLobbyMusic() {
   const source = ctx.createMediaElementSource(audio);
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 3);
+  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + LOBBY_FADE_IN_S);
 
   source.connect(gain);
   gain.connect(ctx.destination);
@@ -171,13 +170,13 @@ function fadeOutLobbyMusic() {
   const audio = lobbyMusicAudio;
 
   gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 2);
+  gain.gain.linearRampToValueAtTime(0, ctx.currentTime + LOBBY_FADE_OUT_S);
 
   setTimeout(() => {
     audio.pause();
     audio.src = "";
     ctx.close().catch(() => {});
-  }, 2200);
+  }, LOBBY_FADE_OUT_S * 1000);
 
   lobbyMusicAudio = null;
   lobbyMusicGain = null;
@@ -236,7 +235,7 @@ interface ScreenSharePreset {
   frameRate: number;
   maxBitrate: number;
   codec: "h264" | "vp9";
-  scalabilityMode: string;
+  scalabilityMode: ScalabilityMode;
   degradationPreference: "balanced" | "maintain-resolution" | "maintain-framerate";
   contentHint: "detail" | "motion" | "text";
 }
@@ -390,7 +389,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   lobbyMusicPlaying: false,
   webrtcStats: null,
   showStatsOverlay: false,
-  lobbyMusicVolume: parseFloat(localStorage.getItem("flux-lobby-music-volume") ?? "0.15"),
+  lobbyMusicVolume: parseFloat(localStorage.getItem("flux-lobby-music-volume") ?? String(LOBBY_DEFAULT_GAIN)),
 
   joinVoiceChannel: async (channelId: string) => {
     const { room: existingRoom, connectedChannelId, audioSettings } = get();
@@ -708,7 +707,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         localName: room.localParticipant.name,
         remoteParticipants: room.remoteParticipants.size,
         roomName: room.name,
-        roomSid: room.sid,
+        roomSid: (room as any).sid,
       });
 
       await room.localParticipant.setMicrophoneEnabled(true);

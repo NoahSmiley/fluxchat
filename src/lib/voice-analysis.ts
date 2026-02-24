@@ -1,6 +1,7 @@
 import { Track } from "livekit-client";
 import { dbg } from "./debug.js";
 import { calculateRms, audioPipelines, getPipelineLevel } from "./voice-pipeline.js";
+import { AUDIO_LEVEL_INTERVAL_MS } from "./voice-constants.js";
 
 // ── Audio Level Polling + Noise Gate ──
 
@@ -17,7 +18,7 @@ const userLastSpokeMap = new Map<string, number>(); // userId → timestamp of l
 let localAnalyserCtx: AudioContext | null = null;
 let localAnalyser: AnalyserNode | null = null;
 let localAnalyserSource: MediaStreamAudioSourceNode | null = null;
-let localAnalyserData: Float32Array | null = null;
+let localAnalyserData: Float32Array<ArrayBuffer> | null = null;
 // Reference to the LiveKit mic MediaStreamTrack for noise gate control.
 // We gate by setting track.enabled = false (sends silence) instead of
 // setMicrophoneEnabled() which changes the publication state visible to others.
@@ -204,7 +205,7 @@ export function startAudioLevelPolling(useVoiceStore: any) {
         if (localMicTrack) localMicTrack.enabled = true;
       }
     }
-  }, 50); // 20fps for smooth visuals
+  }, AUDIO_LEVEL_INTERVAL_MS); // 20fps for smooth visuals
 }
 
 export function stopAudioLevelPolling() {
