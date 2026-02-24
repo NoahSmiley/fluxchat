@@ -1097,7 +1097,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             // Gain is 100% (unity) — remove processor
             micPub.track.stopProcessor().then(() => {
               setGainTrackProcessor(null);
-            }).catch(() => {
+            }).catch((e) => {
+              dbg("voice", "Failed to stop gain processor:", e);
               setGainTrackProcessor(null);
             });
           }
@@ -1173,7 +1174,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
               }
             }
           })
-          .catch(() => {
+          .catch((e) => {
+            dbg("voice", "Failed to stop noise processor during model switch:", e);
             destroyNoiseProcessor();
             setDryWetProcessor(null);
           });

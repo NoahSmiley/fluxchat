@@ -24,6 +24,29 @@ import("../stores/auth.js").then((m) => { authStoreRef = m.useAuthStore; });
 let notifStoreRef: typeof import("../stores/notifications.js").useNotifStore | null = null;
 import("../stores/notifications.js").then((m) => { notifStoreRef = m.useNotifStore; });
 
+/** Check whether a channel (or its parent category) is muted. */
+function isChannelOrCategoryMuted(
+  channelId: string,
+  parentId: string | undefined,
+  notif: { isChannelMuted: (id: string) => boolean; isCategoryMuted: (id: string) => boolean } | null,
+): boolean {
+  if (!notif) return false;
+  if (notif.isChannelMuted(channelId)) return true;
+  if (parentId && notif.isCategoryMuted(parentId)) return true;
+  return false;
+}
+
+/** Check whether @mention notifications are muted for a channel (or its parent category). */
+function isMentionMuted(
+  channelId: string,
+  parentId: string | undefined,
+  notif: { isChannelMentionMuted: (id: string) => boolean; isCategoryMentionMuted: (id: string) => boolean } | null,
+): boolean {
+  if (!notif) return false;
+  return notif.isChannelMentionMuted(channelId) ||
+    (!!parentId && notif.isCategoryMentionMuted(parentId));
+}
+
 // On WS connect/reconnect: clear stale presence, mark self online
 let activityPollInterval: ReturnType<typeof setInterval> | null = null;
 let lastActivityName: string | null = null;
@@ -66,6 +89,9 @@ gateway.onConnect(() => {
 
   async function pollActivity() {
     try {
+      // Skip activity detection when not in a voice channel
+      const voiceMod = await import("./voice.js");
+      if (!voiceMod.useVoiceStore.getState().connectedChannelId) return;
       const { invoke } = await import("@tauri-apps/api/core");
       const result = await invoke<{ name: string; activityType: string } | null>("detect_activity");
       const newName = result?.name ?? null;
@@ -92,60 +118,60 @@ gateway.on((event) => {
       const msg = event.attachments?.length
         ? { ...event.message, attachments: event.attachments }
         : event.message;
-      // Always cache plaintext content for display
-      useChatStore.setState((s) => ({
-        decryptedCache: { ...s.decryptedCache, [msg.id]: msg.content },
-      }));
       const authUser = authStoreRef?.getState()?.user;
       const isFromSelf = authUser && msg.senderId === authUser.id;
       if (msg.channelId === state.activeChannelId) {
+        // Batch: append message + cache decrypted content in one setState
         useChatStore.setState((s) => ({
           messages: [...s.messages, msg],
+          decryptedCache: { ...s.decryptedCache, [msg.id]: msg.content },
         }));
-      } else if (!isFromSelf) {
-        const notif = notifStoreRef?.getState();
-        if (!notif?.isUserMuted(msg.senderId)) {
-          const channel = state.channels.find((c) => c.id === msg.channelId);
-          const isChannelMuted = notif?.isChannelMuted(msg.channelId) ?? false;
-          const isCategoryMuted = channel?.parentId ? (notif?.isCategoryMuted(channel.parentId) ?? false) : false;
-          const isAnyMuted = isChannelMuted || isCategoryMuted;
+      } else {
+        // Single batched setState for all non-active-channel updates
+        useChatStore.setState((s) => {
+          const result: Record<string, unknown> = {
+            decryptedCache: { ...s.decryptedCache, [msg.id]: msg.content },
+          };
 
-          // @mention detection: @everyone, @here, or personal @username
-          const isMention = authUser
-            ? (EVERYONE_MENTION_RE.test(msg.content) ||
-               HERE_MENTION_RE.test(msg.content) ||
-               (() => {
-                 const escaped = authUser.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                 return new RegExp(`(?<![a-zA-Z0-9_])@${escaped}(?![a-zA-Z0-9_])`, "i").test(msg.content);
-               })())
-            : false;
+          if (!isFromSelf) {
+            const notif = notifStoreRef?.getState() ?? null;
+            if (!notif?.isUserMuted(msg.senderId)) {
+              const channel = state.channels.find((c) => c.id === msg.channelId);
+              const parentId = channel?.parentId ?? undefined;
 
-          // Always cache messages for instant loading when channel is opened
-          const cached = channelMessageCache.get(msg.channelId);
-          if (cached) cached.messages = [...cached.messages, msg];
+              // White circle: suppressed by channel/category mute
+              if (!isChannelOrCategoryMuted(msg.channelId, parentId, notif)) {
+                const newUnread = new Set(s.unreadChannels);
+                newUnread.add(msg.channelId);
+                result.unreadChannels = newUnread;
+              }
 
-          // White circle: suppressed by channel/category mute
-          if (!isAnyMuted) {
-            useChatStore.setState((s) => {
-              const newUnread = new Set(s.unreadChannels);
-              newUnread.add(msg.channelId);
-              return { unreadChannels: newUnread };
-            });
-          }
+              // @mention detection: @everyone, @here, or personal @username
+              const isMention = authUser
+                ? (EVERYONE_MENTION_RE.test(msg.content) ||
+                   HERE_MENTION_RE.test(msg.content) ||
+                   (() => {
+                     const escaped = authUser.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                     return new RegExp(`(?<![a-zA-Z0-9_])@${escaped}(?![a-zA-Z0-9_])`, "i").test(msg.content);
+                   })())
+                : false;
 
-          // Red badge: @mentions only, suppressed by mention-mute (independent of channel mute)
-          if (isMention) {
-            const isMentionMuted =
-              (notif?.isChannelMentionMuted(msg.channelId) ?? false) ||
-              (channel?.parentId ? (notif?.isCategoryMentionMuted(channel.parentId) ?? false) : false);
-            if (!isMentionMuted) {
-              useChatStore.setState((s) => {
+              // Red badge: @mentions only, suppressed by mention-mute
+              if (isMention && !isMentionMuted(msg.channelId, parentId, notif)) {
                 const newMentions = { ...s.mentionCounts };
                 newMentions[msg.channelId] = (newMentions[msg.channelId] ?? 0) + 1;
-                return { mentionCounts: newMentions };
-              });
+                result.mentionCounts = newMentions;
+              }
             }
           }
+
+          return result;
+        });
+
+        // Cache messages for instant loading (imperative, outside setState)
+        if (!isFromSelf) {
+          const cached = channelMessageCache.get(msg.channelId);
+          if (cached) cached.messages = [...cached.messages, msg];
         }
       }
       // Notification (respects per-channel settings, mute, and @mention-only default)
@@ -162,12 +188,13 @@ gateway.on((event) => {
 
     case "typing":
       useChatStore.setState((s) => {
-        const channelTypers = new Set(s.typingUsers[event.channelId] ?? []);
-        if (event.active) {
-          channelTypers.add(event.userId);
-        } else {
-          channelTypers.delete(event.userId);
-        }
+        const existing = s.typingUsers[event.channelId];
+        const has = existing?.has(event.userId) ?? false;
+        // Skip if no-op (already in desired state)
+        if (event.active ? has : !has) return s;
+        const channelTypers = new Set(existing ?? []);
+        if (event.active) channelTypers.add(event.userId);
+        else channelTypers.delete(event.userId);
         return { typingUsers: { ...s.typingUsers, [event.channelId]: channelTypers } };
       });
       break;
@@ -180,9 +207,15 @@ gateway.on((event) => {
       // sent directly via send_to) are still accepted.
       if (event.userId === selfId && event.status === "offline") break;
       useChatStore.setState((s) => {
+        const isOffline = event.status === "offline";
+        const wasOnline = s.onlineUsers.has(event.userId);
+        const prevStatus = s.userStatuses[event.userId];
+        // Skip if already in the desired state
+        if (isOffline && !wasOnline) return s;
+        if (!isOffline && wasOnline && prevStatus === event.status) return s;
         const newSet = new Set(s.onlineUsers);
         const newStatuses = { ...s.userStatuses };
-        if (event.status === "offline") {
+        if (isOffline) {
           newSet.delete(event.userId);
           delete newStatuses[event.userId];
         } else {
@@ -207,27 +240,32 @@ gateway.on((event) => {
       break;
 
     case "message_edit": {
-      useChatStore.setState((s) => ({
-        messages: s.messages.map((m) =>
-          m.id === event.messageId
-            ? { ...m, content: event.content, editedAt: event.editedAt }
-            : m
-        ),
-        searchResults: s.searchResults?.map((m) =>
-          m.id === event.messageId
-            ? { ...m, content: event.content, editedAt: event.editedAt }
-            : m
-        ) ?? null,
-        decryptedCache: { ...s.decryptedCache, [event.messageId]: event.content },
-      }));
+      useChatStore.setState((s) => {
+        const hasMsg = s.messages.some((m) => m.id === event.messageId);
+        const hasSearch = s.searchResults?.some((m) => m.id === event.messageId);
+        return {
+          ...(hasMsg ? { messages: s.messages.map((m) =>
+            m.id === event.messageId ? { ...m, content: event.content, editedAt: event.editedAt } : m
+          ) } : {}),
+          ...(hasSearch ? { searchResults: s.searchResults!.map((m) =>
+            m.id === event.messageId ? { ...m, content: event.content, editedAt: event.editedAt } : m
+          ) } : {}),
+          decryptedCache: { ...s.decryptedCache, [event.messageId]: event.content },
+        };
+      });
       break;
     }
 
     case "message_delete": {
-      useChatStore.setState((s) => ({
-        messages: s.messages.filter((m) => m.id !== event.messageId),
-        searchResults: s.searchResults?.filter((m) => m.id !== event.messageId) ?? null,
-      }));
+      useChatStore.setState((s) => {
+        const hasMsg = s.messages.some((m) => m.id === event.messageId);
+        const hasSearch = s.searchResults?.some((m) => m.id === event.messageId);
+        if (!hasMsg && !hasSearch) return s;
+        return {
+          ...(hasMsg ? { messages: s.messages.filter((m) => m.id !== event.messageId) } : {}),
+          ...(hasSearch ? { searchResults: s.searchResults!.filter((m) => m.id !== event.messageId) } : {}),
+        };
+      });
       break;
     }
 
@@ -539,7 +577,11 @@ gateway.on((event) => {
 // ── BroadcastChannel: publish state to popout windows ──
 
 if (!isPopout()) {
-  useChatStore.subscribe((state) => {
+  useChatStore.subscribe((state, prevState) => {
+    // Only broadcast when the fields popout windows care about actually changed
+    if (state.messages === prevState.messages &&
+        state.activeChannelId === prevState.activeChannelId &&
+        state.channels === prevState.channels) return;
     const channel = state.channels.find((c) => c.id === state.activeChannelId);
     broadcastState({
       type: "chat-state",
