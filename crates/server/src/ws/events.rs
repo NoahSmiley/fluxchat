@@ -119,6 +119,12 @@ pub enum ClientEvent {
     UpdateStatus {
         status: String, // "online" | "idle" | "dnd" | "invisible"
     },
+    PlaySound {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "soundId")]
+        sound_id: String,
+    },
     RoomKnock {
         #[serde(rename = "channelId")]
         channel_id: String,
@@ -301,6 +307,22 @@ pub enum ServerEvent {
         session_id: String,
         #[serde(rename = "voiceChannelId")]
         voice_channel_id: String,
+    },
+    SoundboardPlay {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "soundId")]
+        sound_id: String,
+        #[serde(rename = "audioAttachmentId")]
+        audio_attachment_id: String,
+        #[serde(rename = "audioFilename")]
+        audio_filename: String,
+        #[serde(rename = "imageAttachmentId", skip_serializing_if = "Option::is_none")]
+        image_attachment_id: Option<String>,
+        #[serde(rename = "imageFilename", skip_serializing_if = "Option::is_none")]
+        image_filename: Option<String>,
+        volume: f64,
+        username: String,
     },
     // Room events
     RoomCreated {

@@ -1016,6 +1016,57 @@ async fn handle_client_event(
                 },
             ).await;
         }
+        ClientEvent::PlaySound { channel_id, sound_id } => {
+            // Verify sender is in this voice channel
+            let sender_channel = {
+                let clients = state.gateway.clients.read().await;
+                clients.get(&client_id).and_then(|c| c.voice_channel_id.clone())
+            };
+            if sender_channel.as_deref() != Some(&channel_id) {
+                return;
+            }
+
+            // Look up sound + attachment filenames
+            let row = sqlx::query_as::<_, (String, String, Option<String>, Option<String>, f64)>(
+                r#"SELECT
+                    s.audio_attachment_id,
+                    a_audio.filename,
+                    s.image_attachment_id,
+                    a_image.filename,
+                    s.volume
+                   FROM soundboard_sounds s
+                   JOIN attachments a_audio ON a_audio.id = s.audio_attachment_id
+                   LEFT JOIN attachments a_image ON a_image.id = s.image_attachment_id
+                   WHERE s.id = ?"#,
+            )
+            .bind(&sound_id)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten();
+
+            let (audio_attachment_id, audio_filename, image_attachment_id, image_filename, volume) = match row {
+                Some(r) => r,
+                None => return,
+            };
+
+            state
+                .gateway
+                .broadcast_all(
+                    &ServerEvent::SoundboardPlay {
+                        channel_id,
+                        sound_id,
+                        audio_attachment_id,
+                        audio_filename,
+                        image_attachment_id,
+                        image_filename,
+                        volume,
+                        username: user.username.clone(),
+                    },
+                    None,
+                )
+                .await;
+        }
         ClientEvent::RoomKnock { channel_id } => {
             // Look up channel to verify it's locked
             let channel = sqlx::query_as::<_, (Option<String>, i64, String)>(

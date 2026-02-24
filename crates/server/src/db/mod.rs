@@ -187,6 +187,38 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
         .await
         .ok();
 
+    // Soundboard tables
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS "soundboard_sounds" (
+            id TEXT PRIMARY KEY,
+            server_id TEXT NOT NULL REFERENCES "servers"(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            emoji TEXT,
+            audio_attachment_id TEXT NOT NULL REFERENCES "attachments"(id) ON DELETE CASCADE,
+            image_attachment_id TEXT REFERENCES "attachments"(id) ON DELETE SET NULL,
+            volume REAL NOT NULL DEFAULT 1.0,
+            created_by TEXT NOT NULL REFERENCES "user"(id),
+            created_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_soundboard_server ON soundboard_sounds(server_id)"#)
+        .execute(&pool)
+        .await?;
+
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS "soundboard_favorites" (
+            user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+            sound_id TEXT NOT NULL REFERENCES soundboard_sounds(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, sound_id)
+        )"#,
+    )
+    .execute(&pool)
+    .await?;
+
     // Migration: remove legacy persistent lobby rooms (rooms are now all equal)
     sqlx::query("DELETE FROM channels WHERE is_room = 1 AND (is_persistent = 1 OR name = 'Lobby')")
         .execute(&pool)

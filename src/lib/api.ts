@@ -16,6 +16,7 @@ import type {
   ListeningSession,
   QueueItem,
   RingStyle,
+  SoundboardSound,
   CustomEmoji,
   EmojiFavorites,
   WhitelistEntry,
@@ -425,6 +426,54 @@ export async function searchYouTubeTracks(q: string) {
 export function getYouTubeAudioUrl(videoId: string): string {
   const token = getStoredToken();
   return `${API_BASE}/youtube/audio/${videoId}${token ? `?token=${token}` : ""}`;
+}
+
+// ── Soundboard ──
+
+export async function getSoundboardSounds(serverId: string) {
+  return request<SoundboardSound[]>(`/servers/${serverId}/soundboard`);
+}
+
+export async function createSoundboardSound(serverId: string, data: {
+  name: string;
+  emoji?: string;
+  audioAttachmentId: string;
+  imageAttachmentId?: string;
+  volume: number;
+}) {
+  return request<SoundboardSound>(`/servers/${serverId}/soundboard`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateSoundboardSound(
+  serverId: string,
+  soundId: string,
+  data: { name: string; emoji?: string; imageAttachmentId?: string | null; volume: number },
+) {
+  return request<SoundboardSound>(`/servers/${serverId}/soundboard/${soundId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSoundboardSound(serverId: string, soundId: string) {
+  return request<void>(`/servers/${serverId}/soundboard/${soundId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function favoriteSoundboardSound(serverId: string, soundId: string) {
+  return request<void>(`/servers/${serverId}/soundboard/${soundId}/favorite`, {
+    method: "POST",
+  });
+}
+
+export async function unfavoriteSoundboardSound(serverId: string, soundId: string) {
+  return request<void>(`/servers/${serverId}/soundboard/${soundId}/favorite`, {
+    method: "DELETE",
+  });
 }
 
 // ── Custom Emoji ──

@@ -5,6 +5,7 @@ pub mod files;
 pub mod keys;
 pub mod messages;
 pub mod servers;
+pub mod soundboard;
 pub mod spotify;
 pub mod users;
 pub mod voice;
@@ -86,6 +87,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         // YouTube
         .route("/youtube/search", get(youtube::search))
         .route("/youtube/audio/{videoId}", get(youtube::stream_audio))
+        // Soundboard
+        .route("/servers/{serverId}/soundboard", get(soundboard::list_sounds))
+        .route("/servers/{serverId}/soundboard", post(soundboard::create_sound))
+        .route("/servers/{serverId}/soundboard/{soundId}", patch(soundboard::update_sound).delete(soundboard::delete_sound))
+        .route("/servers/{serverId}/soundboard/{soundId}/favorite", post(soundboard::favorite_sound).delete(soundboard::unfavorite_sound))
         // Custom emoji
         .route("/servers/{serverId}/emojis", get(emojis::list_emojis).post(emojis::create_emoji))
         .route("/servers/{serverId}/emojis/{emojiId}", delete(emojis::delete_emoji))

@@ -2,19 +2,16 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useVoiceStore } from "../stores/voice.js";
 import { useChatStore } from "../stores/chat.js";
-import { useAuthStore } from "../stores/auth.js";
 import { useSpotifyStore } from "../stores/spotify.js";
-import * as api from "../lib/api.js";
 import { MusicPanel } from "./MusicPanel.js";
+import { SoundboardPanel } from "./SoundboardPanel.js";
 import {
   ArrowUpRight, Volume2, Volume1, VolumeX, Mic, MicOff, Headphones, HeadphoneOff,
   PhoneOff, Monitor, MonitorOff, Pin, PinOff, Maximize2, Minimize2,
-  Music, Square, Eye, Radio, Plus, Activity,
+  Music, Square, Eye, Radio,
 } from "lucide-react";
-import { StatsOverlay } from "./StatsOverlay.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import { useUIStore } from "../stores/ui.js";
-import { dbg } from "../lib/debug.js";
 
 function applyMaxQuality(pub: RemoteTrackPublication) {
   // Request 1080p — matches the max resolution we actually publish
@@ -22,6 +19,8 @@ function applyMaxQuality(pub: RemoteTrackPublication) {
   pub.setVideoQuality(VideoQuality.HIGH);
 }
 
+// ── Single Stream Tile ──
+// Attaches a LiveKit video track to a <video> element for one screen sharer.
 function StreamTile({ participantId, username, isPinned }: {
   participantId: string;
   username: string;
@@ -57,42 +56,17 @@ function StreamTile({ participantId, username, isPinned }: {
       }
     }
 
-    const videoEl = videoRef.current;
-
-    if (track && videoEl) {
-      track.attach(videoEl);
-      videoEl.play().catch(() => {});
+    if (track && videoRef.current) {
+      track.attach(videoRef.current);
       if (pubRef.current) {
         const pub = pubRef.current;
         requestAnimationFrame(() => applyMaxQuality(pub));
       }
-
-      // If the video is still black after attach (track not yet producing frames),
-      // retry attach when the track's underlying media stream starts
-      const mst = track.mediaStreamTrack;
-      if (mst && mst.readyState === "live" && videoEl.videoWidth === 0) {
-        const retryAttach = () => {
-          if (videoRef.current) {
-            track!.attach(videoRef.current);
-            videoRef.current.play().catch(() => {});
-          }
-        };
-        // Retry on a short interval until we get frames
-        const retryId = setInterval(() => {
-          if (!videoRef.current || videoRef.current.videoWidth > 0) {
-            clearInterval(retryId);
-            return;
-          }
-          retryAttach();
-        }, 200);
-        // Stop retrying after 3s
-        setTimeout(() => clearInterval(retryId), 3000);
-      }
     }
 
     return () => {
-      if (track && videoEl) {
-        track.detach(videoEl);
+      if (track && videoRef.current) {
+        track.detach(videoRef.current);
       }
       pubRef.current = null;
     };
@@ -129,6 +103,7 @@ function StreamTile({ participantId, username, isPinned }: {
   );
 }
 
+// ── Dummy Stream Tile (for preview when showDummyUsers is on) ──
 function DummyStreamTile({ participantId, username, isPinned }: {
   participantId: string;
   username: string;
@@ -174,6 +149,9 @@ const DUMMY_STREAMERS = [
   { participantId: "__d10", username: "Volt" },
 ];
 
+// ── Speaking Avatar ──
+// The glow ring animates via rAF reading audio levels directly from the store (no re-render).
+// Only the binary speaking boolean triggers a React re-render.
 function SpeakingAvatar({ userId, username, image, large, role, memberRingStyle, memberRingSpin, memberRingPatternSeed, isStreaming }: {
   userId: string; username: string; image?: string | null; large?: boolean; role?: string;
   memberRingStyle?: string; memberRingSpin?: boolean; memberRingPatternSeed?: number | null;
@@ -220,6 +198,7 @@ function ParticipantTile({ userId, username, banner, children }: { userId: strin
   );
 }
 
+// ── Lobby Music Bar (Easter Egg) ──
 function LobbyMusicBar() {
   const lobbyMusicPlaying = useVoiceStore((s) => s.lobbyMusicPlaying);
   const lobbyMusicVolume = useVoiceStore((s) => s.lobbyMusicVolume);
@@ -263,97 +242,7 @@ function LobbyMusicBar() {
   );
 }
 
-function RoomSwitcherBar() {
-  const { channels, activeServerId } = useChatStore();
-  const { connectedChannelId, channelParticipants, joinVoiceChannel } = useVoiceStore();
-  const { user } = useAuthStore();
-  const [creating, setCreating] = useState(false);
-
-  const rooms = useMemo(() => channels.filter((c) => c.isRoom), [channels]);
-
-  async function handleCreateRoom() {
-    if (!activeServerId || creating) return;
-    setCreating(true);
-    try {
-      // Only count rooms with active participants (empty stale rooms don't matter)
-      const cp = useVoiceStore.getState().channelParticipants;
-      const activeRoomNames = new Set(rooms.filter((r) => (cp[r.id]?.length ?? 0) > 0 || connectedChannelId === r.id).map((r) => r.name));
-      let n = 1;
-      while (activeRoomNames.has(`Room ${n}`)) n++;
-      const name = `Room ${n}`;
-      const newRoom = await api.createRoom(activeServerId, name);
-      useChatStore.getState().selectChannel(newRoom.id);
-      joinVoiceChannel(newRoom.id);
-    } catch (err) {
-      dbg("voice", "Failed to create room:", err);
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function handleCloseRoom(roomId: string) {
-    if (!activeServerId) return;
-    try {
-      await api.deleteChannel(activeServerId, roomId);
-      // Optimistically remove from store (don't wait for WebSocket room_deleted event)
-      const { channels, activeChannelId, selectChannel } = useChatStore.getState();
-      const remaining = channels.filter((c) => c.id !== roomId);
-      useChatStore.setState({ channels: remaining });
-      if (activeChannelId === roomId && remaining.length > 0) selectChannel(remaining[0].id);
-    } catch (err) {
-      dbg("voice", "Failed to close room:", err);
-    }
-  }
-
-  return (
-    <div className="room-switcher">
-      {rooms.map((room) => {
-        const count = (channelParticipants[room.id] ?? []).length;
-        const isCurrent = connectedChannelId === room.id;
-        const isCreator = room.creatorId === user?.id;
-        const isAdminOrOwner = (() => {
-          const { servers, activeServerId } = useChatStore.getState();
-          const server = servers.find((s) => s.id === activeServerId);
-          return server && (server.role === "owner" || server.role === "admin");
-        })();
-        const canDelete = (isCreator || isAdminOrOwner) && count === 0;
-        return (
-          <button
-            key={room.id}
-            className={`room-switcher-pill ${isCurrent ? "active" : ""}`}
-            onClick={() => {
-              if (!isCurrent) {
-                useChatStore.getState().selectChannel(room.id);
-                joinVoiceChannel(room.id);
-              }
-            }}
-          >
-            {room.name}
-            {count > 0 && <span className="room-switcher-count">{count}</span>}
-            {canDelete && (
-              <span
-                className="room-switcher-close"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCloseRoom(room.id);
-                }}
-                title="Close room"
-              >
-                &times;
-              </span>
-            )}
-          </button>
-        );
-      })}
-      {!(connectedChannelId && (channelParticipants[connectedChannelId]?.length ?? 0) <= 1) && (
-        <button className="room-switcher-create" onClick={handleCreateRoom} disabled={creating}>
-          <Plus size={12} />
-        </button>
-      )}
-    </div>
-  );
-}
-
+// ── Main Export ──
 export function VoiceChannelView() {
   const { channels, activeChannelId, activeServerId, members } = useChatStore();
   const {
@@ -377,24 +266,13 @@ export function VoiceChannelView() {
     setParticipantVolume,
     screenShareQuality,
     setScreenShareQuality,
-    showStatsOverlay,
-    toggleStatsOverlay,
   } = useVoiceStore();
   const { loadSession, account, playerState, session, queue, volume, setVolume, youtubeTrack } = useSpotifyStore();
   const showDummyUsers = useUIStore((s) => s.showDummyUsers);
-  const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music">("voice");
+  const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music" | "sounds">("voice");
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
-  // Track if we're switching rooms (was connected, now reconnecting)
-  const wasInVoice = useRef(false);
-  useEffect(() => {
-    if (isConnected) wasInVoice.current = true;
-    else if (!connecting) wasInVoice.current = false;
-  }, [isConnected, connecting]);
-  // Show voice UI during room switches (keep UI stable instead of flashing "Connecting...")
-  const showVoiceUI = isConnected || (connecting && wasInVoice.current);
-  const rooms = useMemo(() => channels.filter((c) => c.isRoom), [channels]);
-  const allScreenSharers = (showDummyUsers && rooms[0]?.id === channel?.id)
+  const allScreenSharers = showDummyUsers
     ? [...screenSharers, ...DUMMY_STREAMERS]
     : screenSharers;
   const hasScreenShares = allScreenSharers.length > 0;
@@ -430,7 +308,7 @@ export function VoiceChannelView() {
 
   return (
     <div className={`voice-channel-view ${theatreMode ? "theatre" : ""}`}>
-      {showVoiceUI && (
+      {isConnected && (
         <div className="voice-channel-tabs">
           <button
             className={`voice-tab ${activeTab === "voice" ? "active" : ""}`}
@@ -451,6 +329,12 @@ export function VoiceChannelView() {
           >
             <Music size={14} /> Music
           </button>
+          <button
+            className={`voice-tab ${activeTab === "sounds" ? "active" : ""}`}
+            onClick={() => setActiveTab("sounds")}
+          >
+            <Volume2 size={14} /> Sounds
+          </button>
         </div>
       )}
 
@@ -458,48 +342,36 @@ export function VoiceChannelView() {
         <div className="voice-error">{connectionError}</div>
       )}
 
-      {!showVoiceUI && !connecting && (
+      {!isConnected && !connecting && (
         <div className="voice-join-prompt">
           <span className="voice-join-icon"><Volume2 size={48} /></span>
-          <h2>{channel?.name ?? "Voice"}</h2>
-          <p>Create or join a room to talk with others.</p>
+          <h2>{channel?.name ?? "Voice Channel"}</h2>
+          <p>No one is currently in this voice channel.</p>
           <button
             className="btn-primary voice-join-btn"
-            onClick={async () => {
-              // Create a new room and join it
-              if (!activeServerId) return;
-              // Only count rooms with active participants
-              const cp = useVoiceStore.getState().channelParticipants;
-              const activeRoomNames = new Set(rooms.filter((r) => (cp[r.id]?.length ?? 0) > 0 || connectedChannelId === r.id).map((r) => r.name));
-              let n = 1;
-              while (activeRoomNames.has(`Room ${n}`)) n++;
-              const name = `Room ${n}`;
-              try {
-                const newRoom = await api.createRoom(activeServerId, name);
-                useChatStore.getState().selectChannel(newRoom.id);
-                joinVoiceChannel(newRoom.id);
-              } catch (err) {
-                dbg("voice", "Failed to create room:", err);
-              }
-            }}
+            onClick={() => activeChannelId && joinVoiceChannel(activeChannelId)}
           >
-            Create Room
+            Join Voice
           </button>
         </div>
       )}
 
-      {connecting && !showVoiceUI && (
+      {connecting && (
         <div className="voice-connecting">
           <div className="loading-spinner" />
           <p>Connecting...</p>
         </div>
       )}
 
-      {showVoiceUI && activeTab === "music" && activeChannelId && (
+      {isConnected && activeTab === "music" && activeChannelId && (
         <MusicPanel voiceChannelId={activeChannelId} />
       )}
 
-      {showVoiceUI && activeTab === "streams" && (() => {
+      {isConnected && activeTab === "sounds" && activeServerId && activeChannelId && (
+        <SoundboardPanel serverId={activeServerId} channelId={activeChannelId} />
+      )}
+
+      {isConnected && activeTab === "streams" && (() => {
         const localIsSharing = isScreenSharing;
         const viewerCount = participants.length - screenSharers.length;
         const isDummy = (id: string) => id.startsWith("__d");
@@ -580,6 +452,8 @@ export function VoiceChannelView() {
                     </div>
                   )}
                 </div>
+
+                {/* removed viewers sidebar */}
               </div>
             ) : (
               <div className="streams-empty">
@@ -601,12 +475,12 @@ export function VoiceChannelView() {
         );
       })()}
 
-      {showVoiceUI && activeTab === "voice" && (
+      {isConnected && activeTab === "voice" && (
         <>
           {/* Participants */}
           <div className="voice-participants-grid">
-            {/* DEBUG: dummy voice tiles (only in persistent lobby) */}
-            {showDummyUsers && rooms[0]?.id === channel?.id && [
+            {/* DEBUG: dummy voice tiles */}
+            {showDummyUsers && [
               { userId: "__d1", username: "xKira", bannerCss: "aurora", bannerPatternSeed: null, ringStyle: "sapphire", ringSpin: true, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=1" },
               { userId: "__d2", username: "Blaze", bannerCss: "sunset", bannerPatternSeed: null, ringStyle: "ruby", ringSpin: false, ringPatternSeed: null, role: "member", image: "https://i.pravatar.cc/128?img=8" },
               { userId: "__d3", username: "PhaseShift", bannerCss: "doppler", bannerPatternSeed: 42, ringStyle: "chroma", ringSpin: true, ringPatternSeed: null, role: "owner", image: "https://i.pravatar.cc/128?img=12" },
@@ -649,10 +523,10 @@ export function VoiceChannelView() {
                 />
                 <span className="voice-tile-name">
                   {user.username}
-                  {!!(user.isMuted || user.isDeafened) && (
+                  {(user.isMuted || user.isDeafened) && (
                     <span className="voice-tile-status-icons">
-                      {!!user.isMuted && <MicOff size={14} className="voice-tile-status-icon" />}
-                      {!!user.isDeafened && <HeadphoneOff size={14} className="voice-tile-status-icon" />}
+                      {user.isMuted && <MicOff size={14} className="voice-tile-status-icon" />}
+                      {user.isDeafened && <HeadphoneOff size={14} className="voice-tile-status-icon" />}
                     </span>
                   )}
                 </span>
@@ -676,7 +550,6 @@ export function VoiceChannelView() {
 
           {/* Lobby music bar (easter egg) */}
           <LobbyMusicBar />
-
 
           {/* Mini now-playing bar (Spotify or YouTube) */}
           {session && (() => {
@@ -723,9 +596,6 @@ export function VoiceChannelView() {
         </>
       )}
 
-      {/* Stats overlay — floating on top when visible */}
-      {isConnected && <StatsOverlay />}
-
       {/* Controls bar — always visible when connected */}
       {isConnected && (
         <div className="voice-controls-bar">
@@ -749,13 +619,6 @@ export function VoiceChannelView() {
             title={isScreenSharing ? "Stop Sharing" : "Share Screen"}
           >
             {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
-          </button>
-          <button
-            className={`voice-ctrl-btn ${showStatsOverlay ? "active" : ""}`}
-            onClick={toggleStatsOverlay}
-            title={showStatsOverlay ? "Hide Stats" : "Connection Stats"}
-          >
-            <Activity size={20} />
           </button>
           <button
             className="voice-ctrl-btn disconnect"
