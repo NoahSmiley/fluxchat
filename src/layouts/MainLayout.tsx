@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useChatStore } from "@/stores/chat/index.js";
 import { useDMStore } from "@/stores/dm/index.js";
 import { useAuthStore } from "@/stores/auth.js";
@@ -9,12 +9,13 @@ import { ChatView } from "@/components/chat/ChatView.js";
 import { VoiceChannelView } from "@/components/voice/VoiceChannelView.js";
 import { DMChatView } from "@/components/chat/DMChatView.js";
 import { requestNotificationPermission } from "@/lib/notifications.js";
-import { SettingsModal } from "@/components/SettingsModal.js";
 import { ServerSettingsPage } from "@/components/ServerSettingsPage.js";
 import { RoomToasts } from "@/components/voice/RoomToasts.js";
 import { useKeybindListener } from "@/hooks/useKeybindListener.js";
 import { useIdleDetection } from "@/hooks/useIdleDetection.js";
 import { useUIStore } from "@/stores/ui.js";
+
+const SettingsModal = lazy(() => import("@/components/SettingsModal.js").then(m => ({ default: m.SettingsModal })));
 
 function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; side: "left" | "right" }) {
   const dragging = useRef(false);
@@ -178,7 +179,7 @@ export function MainLayout() {
         )}
       </main>
 
-      <SettingsModal />
+      <Suspense fallback={null}><SettingsModal /></Suspense>
       {serverSettingsOpen && <ServerSettingsPage />}
       <RoomToasts />
     </div>

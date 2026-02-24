@@ -4,7 +4,8 @@ import { avatarColor } from "@/lib/avatarColor.js";
 import { gateway } from "@/lib/ws.js";
 import twemoji from "twemoji";
 import { TWEMOJI_OPTIONS } from "@/lib/emoji.js";
-import EmojiPicker from "@/components/EmojiPicker.js";
+import { lazy, Suspense } from "react";
+const EmojiPicker = lazy(() => import("@/components/EmojiPicker.js"));
 import ContextMenu from "@/components/ContextMenu.js";
 import { getCharOffset, setCursorAtOffset, getDivPlainText, getTextBeforeCursor } from "@/lib/contentEditable.js";
 import type { MemberWithUser, Attachment } from "@/types/shared.js";
@@ -253,7 +254,7 @@ export function MessageInput({
           />
           <button type="button" className="btn-attach" onClick={() => setInputEmojiOpen((o) => !o)} title="Emoji"><Smile size={18} /></button>
           {inputEmojiOpen && activeServerId && (
-            <EmojiPicker serverId={activeServerId} onSelect={(emoji) => { insertTextAtCursor(emoji); setInputEmojiOpen(false); }} onClose={() => setInputEmojiOpen(false)} placement="auto" />
+            <Suspense fallback={null}><EmojiPicker serverId={activeServerId} onSelect={(emoji) => { insertTextAtCursor(emoji); setInputEmojiOpen(false); }} onClose={() => setInputEmojiOpen(false)} placement="auto" /></Suspense>
           )}
           {showSendButton && <button type="submit" className="btn-send" disabled={!hasContent && pendingAttachments.length === 0}>Send</button>}
         </form>

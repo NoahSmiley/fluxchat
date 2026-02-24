@@ -4,7 +4,8 @@ import * as api from "@/lib/api/index.js";
 import type { SoundboardSound, CustomEmoji } from "@/types/shared.js";
 import { API_BASE } from "@/lib/serverUrl.js";
 import { renderEmoji } from "@/lib/emoji.js";
-import EmojiPicker from "@/components/EmojiPicker.js";
+import { lazy, Suspense } from "react";
+const EmojiPicker = lazy(() => import("@/components/EmojiPicker.js"));
 
 interface SoundboardEditFormProps {
   serverId: string;
@@ -87,12 +88,14 @@ export function SoundboardEditForm({ serverId, sound, customEmojis, onSave, onCa
               : <span className="emoji-placeholder">🎵</span>}
           </div>
           {showEmojiPicker && (
-            <EmojiPicker
-              serverId={serverId}
-              placement="right"
-              onSelect={(e) => { setEditEmoji(e); setShowEmojiPicker(false); }}
-              onClose={() => setShowEmojiPicker(false)}
-            />
+            <Suspense fallback={null}>
+              <EmojiPicker
+                serverId={serverId}
+                placement="right"
+                onSelect={(e) => { setEditEmoji(e); setShowEmojiPicker(false); }}
+                onClose={() => setShowEmojiPicker(false)}
+              />
+            </Suspense>
           )}
         </div>
       </div>

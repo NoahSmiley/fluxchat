@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { useSpotifyStore } from "@/stores/spotify/index.js";
 import { useYouTubeStore } from "@/stores/youtube.js";
-import { MusicPanel } from "@/components/music/MusicPanel.js";
 import { SoundboardPanel } from "@/components/music/SoundboardPanel.js";
+
+const MusicPanel = lazy(() => import("@/components/music/MusicPanel.js").then(m => ({ default: m.MusicPanel })));
 import { StreamTile, DummyStreamTile } from "./StreamTile.js";
 import { VoiceParticipantGrid } from "./VoiceParticipantGrid.js";
 import { VoiceControlsBar } from "./VoiceControlsBar.js";
@@ -154,7 +155,7 @@ export function VoiceChannelView() {
       )}
 
       {isConnected && activeTab === "music" && activeChannelId && (
-        <MusicPanel voiceChannelId={activeChannelId} />
+        <Suspense fallback={null}><MusicPanel voiceChannelId={activeChannelId} /></Suspense>
       )}
 
       {isConnected && activeTab === "sounds" && activeServerId && activeChannelId && (

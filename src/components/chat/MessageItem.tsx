@@ -5,7 +5,8 @@ import { avatarColor, ringClass, ringGradientStyle } from "@/lib/avatarColor.js"
 import { relativeTime } from "@/lib/relativeTime.js";
 import { renderEmoji, TWEMOJI_OPTIONS } from "@/lib/emoji.js";
 import { API_BASE } from "@/lib/serverUrl.js";
-import EmojiPicker from "@/components/EmojiPicker.js";
+import { lazy, Suspense } from "react";
+const EmojiPicker = lazy(() => import("@/components/EmojiPicker.js"));
 import { getCharOffset, setCursorAtOffset } from "@/lib/contentEditable.js";
 import twemoji from "twemoji";
 import type { Message, CustomEmoji } from "@/types/shared.js";
@@ -171,12 +172,14 @@ export function MessageItem({
               +
             </button>
             {emojiPickerMsgId === msg.id && activeServerId && (
-              <EmojiPicker
-                serverId={activeServerId}
-                placement="auto"
-                onSelect={onReactionPickerSelect}
-                onClose={onReactionPickerClose}
-              />
+              <Suspense fallback={null}>
+                <EmojiPicker
+                  serverId={activeServerId}
+                  placement="auto"
+                  onSelect={onReactionPickerSelect}
+                  onClose={onReactionPickerClose}
+                />
+              </Suspense>
             )}
           </div>
         </div>
