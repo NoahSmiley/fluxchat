@@ -73,6 +73,19 @@ vi.mock("../../lib/serverUrl.js", () => ({
   getGatewayUrl: vi.fn(() => "ws://localhost:3001/gateway"),
 }));
 
+vi.mock("../dm.js", () => ({
+  useDMStore: {
+    getState: vi.fn(() => ({
+      showingDMs: false,
+      activeDMChannelId: null,
+      dmChannels: [],
+      dmMessages: [],
+      loadDMChannels: vi.fn(),
+    })),
+    setState: vi.fn(),
+  },
+}));
+
 import * as api from "../../lib/api.js";
 import { gateway } from "../../lib/ws.js";
 
@@ -103,16 +116,7 @@ describe("useChatStore", () => {
       searchResults: null,
       pendingAttachments: [],
       uploadProgress: {},
-      showingDMs: false,
-      dmChannels: [],
-      activeDMChannelId: null,
-      dmMessages: [],
-      dmHasMore: false,
-      dmCursor: null,
-      dmSearchQuery: "",
-      dmSearchResults: null,
       decryptedCache: {},
-      dmError: null,
       unreadChannels: new Set(),
       mentionCounts: {},
       typingUsers: {},

@@ -24,6 +24,10 @@ import("../stores/auth.js").then((m) => { authStoreRef = m.useAuthStore; });
 let notifStoreRef: typeof import("../stores/notifications.js").useNotifStore | null = null;
 import("../stores/notifications.js").then((m) => { notifStoreRef = m.useNotifStore; });
 
+// Lazy ref to DM store to avoid circular imports
+let dmStoreRef: typeof import("./dm.js").useDMStore | null = null;
+import("./dm.js").then((m) => { dmStoreRef = m.useDMStore; });
+
 /** Check whether a channel (or its parent category) is muted. */
 function isChannelOrCategoryMuted(
   channelId: string,
@@ -62,7 +66,8 @@ gateway.onConnect(() => {
   });
 
   // Re-subscribe to all text channels for unread tracking, plus the active DM
-  const { channels, activeChannelId, activeDMChannelId } = useChatStore.getState();
+  const { channels, activeChannelId } = useChatStore.getState();
+  const activeDMChannelId = dmStoreRef?.getState()?.activeDMChannelId ?? null;
   const textChannels = channels.filter((c) => c.type === "text");
   if (textChannels.length > 0) {
     for (const ch of textChannels) gateway.send({ type: "join_channel", channelId: ch.id });
@@ -76,7 +81,7 @@ gateway.onConnect(() => {
   useCryptoStore.getState().initialize().catch((e) => dbg("chat", "Crypto init failed:", e));
 
   // Pre-fetch DM channels for instant DM switching
-  useChatStore.getState().loadDMChannels();
+  dmStoreRef?.getState().loadDMChannels();
 
   // Initialize Spotify
   import("./spotify.js").then(({ useSpotifyStore }) => {
@@ -424,8 +429,9 @@ gateway.on((event) => {
     }
 
     case "dm_message": {
-      if (event.message.dmChannelId === state.activeDMChannelId) {
-        useChatStore.setState((s) => ({
+      const dmState = dmStoreRef?.getState();
+      if (event.message.dmChannelId === dmState?.activeDMChannelId) {
+        dmStoreRef?.setState((s) => ({
           dmMessages: [...s.dmMessages, event.message],
         }));
       } else {
@@ -443,7 +449,7 @@ gateway.on((event) => {
       }
       // Decrypt and cache + notification
       {
-        let dm = state.dmChannels.find((d) => d.id === event.message.dmChannelId);
+        let dm = dmState?.dmChannels.find((d) => d.id === event.message.dmChannelId);
         const cryptoState = useCryptoStore.getState();
         (async () => {
           // If DM channel not known yet (first message from new conversation),
@@ -451,7 +457,7 @@ gateway.on((event) => {
           if (!dm) {
             try {
               const channels = await api.getDMChannels();
-              useChatStore.setState({ dmChannels: channels });
+              dmStoreRef?.setState({ dmChannels: channels });
               dm = channels.find((d: { id: string }) => d.id === event.message.dmChannelId);
             } catch { /* ignore */ }
           }
@@ -470,7 +476,8 @@ gateway.on((event) => {
           if (dmAuthUser && event.message.senderId !== dmAuthUser.id) {
             const notif = notifStoreRef?.getState();
             if (!notif?.isUserMuted(event.message.senderId)) {
-              if (event.message.dmChannelId !== useChatStore.getState().activeDMChannelId || !document.hasFocus()) {
+              const currentDMId = dmStoreRef?.getState()?.activeDMChannelId;
+              if (event.message.dmChannelId !== currentDMId || !document.hasFocus()) {
                 const senderName = dm?.otherUser?.username ?? "Someone";
                 playMessageSound();
                 showDesktopNotification(senderName, text);

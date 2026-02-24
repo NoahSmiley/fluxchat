@@ -49,16 +49,6 @@ export interface ChatState {
   pendingAttachments: Attachment[];
   uploadProgress: Record<string, number>;
 
-  // DMs
-  showingDMs: boolean;
-  dmChannels: { id: string; otherUser: { id: string; username: string; image: string | null }; createdAt: string }[];
-  activeDMChannelId: string | null;
-  dmMessages: DMMessage[];
-  dmHasMore: boolean;
-  dmCursor: string | null;
-  dmSearchQuery: string;
-  dmSearchResults: DMMessage[] | null;
-
   // E2EE: decrypted message cache (messageId → plaintext)
   decryptedCache: Record<string, string>;
 
@@ -95,17 +85,6 @@ export interface ChatState {
   searchMessages: (query: string, filters?: { fromUserId?: string; fromUsername?: string; inChannelId?: string; inChannelName?: string; has?: string; mentionsUserId?: string; mentionsUsername?: string; before?: string; on?: string; after?: string }) => Promise<void>;
   searchUserActivity: (userId: string, username: string) => Promise<void>;
   clearSearch: () => void;
-  showDMs: () => void;
-  loadDMChannels: () => Promise<void>;
-  selectDM: (dmChannelId: string) => Promise<void>;
-  openDM: (userId: string) => Promise<void>;
-  sendDM: (content: string) => Promise<void>;
-  dmError: string | null;
-  clearDmError: () => void;
-  retryEncryptionSetup: () => Promise<void>;
-  loadMoreDMMessages: () => Promise<void>;
-  searchDMMessages: (query: string) => Promise<void>;
-  clearDMSearch: () => void;
   setMyStatus: (status: PresenceStatus) => void;
   fetchCustomEmojis: (serverId: string) => Promise<void>;
 }
@@ -148,13 +127,13 @@ export function saveServerCache(state: ChatState) {
 
 // DM message cache for instant switching between DMs
 interface DMCache {
-  messages: ChatState["dmMessages"];
+  messages: DMMessage[];
   hasMore: boolean;
   cursor: string | null;
 }
 export const dmMessageCache = new Map<string, DMCache>();
 
-export function saveDMCache(dmChannelId: string, state: ChatState) {
+export function saveDMCache(dmChannelId: string, state: { dmMessages: DMMessage[]; dmHasMore: boolean; dmCursor: string | null }) {
   dmMessageCache.set(dmChannelId, {
     messages: state.dmMessages,
     hasMore: state.dmHasMore,

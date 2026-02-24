@@ -1,8 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
+import { useShallow } from "zustand/react/shallow";
 import type { MemberWithUser } from "../types/shared.js";
 import { useAuthStore } from "../stores/auth.js";
 import { useChatStore } from "../stores/chat.js";
+import { useDMStore } from "../stores/dm.js";
 import { useVoiceStore } from "../stores/voice.js";
 import { UserCard } from "./MemberList.js";
 import { Mic, MicOff, HeadphoneOff, Radio } from "lucide-react";
@@ -21,7 +23,7 @@ function SpeakingMic({ userId, isMuted, isDeafened }: { userId: string; isMuted?
 }
 
 /** Voice user row with hover-to-inspect UserCard */
-export function VoiceUserRow({
+export const VoiceUserRow = memo(function VoiceUserRow({
   userId, username, image, member, banner, ringStyle, ringClassName,
   isMuted, isDeafened, isStreaming, onContextMenu,
 }: {
@@ -40,25 +42,54 @@ export function VoiceUserRow({
   const [showCard, setShowCard] = useState(false);
   const [cardPos, setCardPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const rowRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuthStore();
-  const { onlineUsers, userStatuses, userActivities, openDM, showDMs } = useChatStore();
+  const { onlineUsers, userStatuses, userActivities } = useChatStore(useShallow((s) => ({
+    onlineUsers: s.onlineUsers, userStatuses: s.userStatuses, userActivities: s.userActivities,
+  })));
+  const { openDM, showDMs } = useDMStore(useShallow((s) => ({
+    openDM: s.openDM, showDMs: s.showDMs,
+  })));
+
+  const cancelDismiss = useCallback(() => {
+    if (dismissTimer.current) {
+      clearTimeout(dismissTimer.current);
+      dismissTimer.current = null;
+    }
+  }, []);
+
+  const scheduleDismiss = useCallback(() => {
+    cancelDismiss();
+    dismissTimer.current = setTimeout(() => {
+      setShowCard(false);
+    }, 100);
+  }, [cancelDismiss]);
 
   const handleMouseEnter = () => {
+    cancelDismiss();
     if (!member) return;
     hoverTimer.current = setTimeout(() => {
       if (rowRef.current) {
         const rect = rowRef.current.getBoundingClientRect();
-        // Position card to the right of the row
         setCardPos({ top: rect.top - 40, left: rect.right + 8 });
         setShowCard(true);
       }
-    }, 350); // Short delay to avoid accidental popups
+    }, 350);
   };
 
   const handleMouseLeave = () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    setShowCard(false);
+    scheduleDismiss();
+  };
+
+  const handleCardEnter = () => {
+    cancelDismiss();
+  };
+
+  const handleCardLeave = () => {
+    scheduleDismiss();
   };
 
   return (
@@ -87,7 +118,12 @@ export function VoiceUserRow({
         <SpeakingMic userId={userId} isMuted={isMuted} isDeafened={isDeafened} />
       </div>
       {showCard && member && createPortal(
-        <div className="voice-user-card-overlay" onMouseLeave={handleMouseLeave}>
+        <div
+          ref={cardRef}
+          className="voice-user-card-overlay"
+          onMouseEnter={handleCardEnter}
+          onMouseLeave={handleCardLeave}
+        >
           <UserCard
             member={member}
             activity={userActivities[userId]}
@@ -102,4 +138,4 @@ export function VoiceUserRow({
       )}
     </>
   );
-}
+});

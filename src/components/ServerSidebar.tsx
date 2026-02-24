@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useChatStore } from "../stores/chat.js";
+import { useDMStore } from "../stores/dm.js";
 import { useAuthStore } from "../stores/auth.js";
 import { FluxLogo } from "./FluxLogo.js";
 import { Settings } from "lucide-react";
@@ -10,7 +12,13 @@ import ContextMenu from "./ContextMenu.js";
 import { useNotifStore } from "../stores/notifications.js";
 
 export function ServerSidebar() {
-  const { servers, showDMs, selectServer, members, onlineUsers, userStatuses, userActivities, openDM } = useChatStore();
+  const { servers, selectServer, members, onlineUsers, userStatuses, userActivities } = useChatStore(useShallow((s) => ({
+    servers: s.servers, selectServer: s.selectServer, members: s.members,
+    onlineUsers: s.onlineUsers, userStatuses: s.userStatuses, userActivities: s.userActivities,
+  })));
+  const { showDMs, openDM } = useDMStore(useShallow((s) => ({
+    showDMs: s.showDMs, openDM: s.openDM,
+  })));
   const { user } = useAuthStore();
   const sidebarPosition = useUIStore((s) => s.sidebarPosition);
   const notifStore = useNotifStore();

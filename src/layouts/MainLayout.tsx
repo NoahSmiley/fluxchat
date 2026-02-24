@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useChatStore } from "../stores/chat.js";
+import { useDMStore } from "../stores/dm.js";
 import { useAuthStore } from "../stores/auth.js";
 import { gateway } from "../lib/ws.js";
 import { ServerSidebar } from "../components/ServerSidebar.js";
@@ -48,7 +49,8 @@ function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; s
 export function MainLayout() {
   useKeybindListener();
   useIdleDetection();
-  const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels, showingDMs, activeDMChannelId } = useChatStore();
+  const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels } = useChatStore();
+  const { showingDMs, activeDMChannelId } = useDMStore();
   const { user } = useAuthStore();
   const serverSettingsOpen = useUIStore((s) => s.serverSettingsOpen);
   const [sidebarWidth, setSidebarWidth] = useState(240);

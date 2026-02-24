@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent, type ReactNode } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useChatStore, base64ToUtf8 } from "../stores/chat.js";
+import { useDMStore } from "../stores/dm.js";
 import { useAuthStore } from "../stores/auth.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 
@@ -32,12 +34,23 @@ function renderDMContent(text: string): ReactNode[] {
 
 export function DMChatView() {
   const {
-    dmMessages, sendDM, loadMoreDMMessages, dmHasMore, loadingMessages,
-    dmChannels, activeDMChannelId, onlineUsers, userStatuses,
+    dmMessages, sendDM, loadMoreDMMessages, dmHasMore, loadingDMMessages,
+    dmChannels, activeDMChannelId,
     searchDMMessages, dmSearchResults, dmSearchQuery, clearDMSearch,
-    decryptedCache, members, dmError, clearDmError, retryEncryptionSetup,
-  } = useChatStore();
-  const { user } = useAuthStore();
+    dmError, clearDmError, retryEncryptionSetup,
+  } = useDMStore(useShallow((s) => ({
+    dmMessages: s.dmMessages, sendDM: s.sendDM, loadMoreDMMessages: s.loadMoreDMMessages,
+    dmHasMore: s.dmHasMore, loadingDMMessages: s.loadingDMMessages, dmChannels: s.dmChannels,
+    activeDMChannelId: s.activeDMChannelId,
+    searchDMMessages: s.searchDMMessages, dmSearchResults: s.dmSearchResults,
+    dmSearchQuery: s.dmSearchQuery, clearDMSearch: s.clearDMSearch,
+    dmError: s.dmError, clearDmError: s.clearDmError, retryEncryptionSetup: s.retryEncryptionSetup,
+  })));
+  const { onlineUsers, userStatuses, decryptedCache, members } = useChatStore(useShallow((s) => ({
+    onlineUsers: s.onlineUsers, userStatuses: s.userStatuses,
+    decryptedCache: s.decryptedCache, members: s.members,
+  })));
+  const user = useAuthStore((s) => s.user);
   const [input, setInput] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -53,14 +66,14 @@ export function DMChatView() {
     e.preventDefault();
     if (!input.trim()) return;
     await sendDM(input);
-    if (!useChatStore.getState().dmError) {
+    if (!useDMStore.getState().dmError) {
       setInput("");
     }
   }
 
   function handleScroll() {
     if (!containerRef.current) return;
-    if (containerRef.current.scrollTop === 0 && dmHasMore && !loadingMessages) {
+    if (containerRef.current.scrollTop === 0 && dmHasMore && !loadingDMMessages) {
       loadMoreDMMessages();
     }
   }
@@ -126,7 +139,7 @@ export function DMChatView() {
       )}
 
       <div className="messages-container" ref={containerRef} onScroll={handleScroll}>
-        {loadingMessages && <div className="loading-messages">Loading...</div>}
+        {loadingDMMessages && <div className="loading-messages">Loading...</div>}
 
         {displayMessages.map((msg) => {
           const isOwn = msg.senderId === user?.id;

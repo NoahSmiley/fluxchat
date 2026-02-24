@@ -1,7 +1,9 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, memo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import ContextMenu from "./ContextMenu.js";
 import { useNotifStore } from "../stores/notifications.js";
 import { useChatStore } from "../stores/chat.js";
+import { useDMStore } from "../stores/dm.js";
 import { useAuthStore } from "../stores/auth.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import { Crown, Shield, MessageSquare, Music, Gamepad2, ChevronDown } from "lucide-react";
@@ -38,7 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
   offline: "Offline",
 };
 
-export function UserCard({
+export const UserCard = memo(function UserCard({
   member,
   activity,
   isOnline,
@@ -58,7 +60,7 @@ export function UserCard({
   const color = avatarColor(member.username);
   const effectiveStatus = status ?? (isOnline ? "online" : "offline");
   const [showStatusPicker, setShowStatusPicker] = useState(false);
-  const { setMyStatus } = useChatStore();
+  const setMyStatus = useChatStore((s) => s.setMyStatus);
 
   return (
     <div
@@ -151,10 +153,16 @@ export function UserCard({
       </div>
     </div>
   );
-}
+});
 
 function MemberList() {
-  const { members, onlineUsers, userStatuses, userActivities, openDM, showDMs } = useChatStore();
+  const { members, onlineUsers, userStatuses, userActivities } = useChatStore(useShallow((s) => ({
+    members: s.members, onlineUsers: s.onlineUsers, userStatuses: s.userStatuses,
+    userActivities: s.userActivities,
+  })));
+  const { openDM, showDMs } = useDMStore(useShallow((s) => ({
+    openDM: s.openDM, showDMs: s.showDMs,
+  })));
   const { user } = useAuthStore();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [cardPos, setCardPos] = useState({ top: 0, right: 0 });

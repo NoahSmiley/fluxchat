@@ -75,6 +75,19 @@ vi.mock("../../lib/serverUrl.js", () => ({
   getGatewayUrl: vi.fn(() => "ws://localhost:3001/gateway"),
 }));
 
+vi.mock("../dm.js", () => ({
+  useDMStore: {
+    getState: vi.fn(() => ({
+      showingDMs: false,
+      activeDMChannelId: null,
+      dmChannels: [],
+      dmMessages: [],
+      loadDMChannels: vi.fn(),
+    })),
+    setState: vi.fn(),
+  },
+}));
+
 // Mock the voice store dynamic import used by room_knock_accepted and room_force_move
 const { mockJoinVoiceChannel } = vi.hoisted(() => ({
   mockJoinVoiceChannel: vi.fn(),
@@ -129,16 +142,7 @@ describe("chat store room event handlers", () => {
       searchResults: null,
       pendingAttachments: [],
       uploadProgress: {},
-      showingDMs: false,
-      dmChannels: [],
-      activeDMChannelId: null,
-      dmMessages: [],
-      dmHasMore: false,
-      dmCursor: null,
-      dmSearchQuery: "",
-      dmSearchResults: null,
       decryptedCache: {},
-      dmError: null,
       unreadChannels: new Set(),
       typingUsers: {},
       roomKnocks: [],
