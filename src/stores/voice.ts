@@ -5,16 +5,12 @@ import type { VoiceParticipant } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "../lib/broadcast.js";
-
-// ── Noise Suppression Model Selection ──
-export type NoiseSuppressionModel = "off" | "speex" | "rnnoise" | "dtln" | "deepfilter" | "nsnet2";
 import { useKeybindsStore } from "./keybinds.js";
 import { useCryptoStore } from "./crypto.js";
 import { exportKeyAsBase64 } from "../lib/crypto.js";
 import { dbg } from "../lib/debug.js";
 import { collectWebRTCStats, resetStatsDelta, type WebRTCQualityStats } from "../lib/webrtcStats.js";
 
-// ── Extracted modules ──
 import {
   playJoinSound,
   playLeaveSound,
@@ -68,6 +64,177 @@ import {
   LOBBY_DEFAULT_GAIN,
 } from "../lib/voice-constants.js";
 
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: Types & Constants
+// ═══════════════════════════════════════════════════════════════════
+
+export type NoiseSuppressionModel = "off" | "speex" | "rnnoise" | "dtln" | "deepfilter" | "nsnet2";
+
+interface VoiceUser {
+  userId: string;
+  username: string;
+  speaking: boolean;
+  isMuted: boolean;
+  isDeafened: boolean;
+}
+
+interface ScreenShareInfo {
+  participantId: string;
+  username: string;
+}
+
+type ScreenShareQuality = "1080p60" | "1080p30" | "720p60" | "720p30" | "480p30" | "Lossless";
+
+interface ScreenSharePreset {
+  width: number;
+  height: number;
+  frameRate: number;
+  maxBitrate: number;
+  codec: "h264" | "vp9";
+  scalabilityMode: ScalabilityMode;
+  degradationPreference: "balanced" | "maintain-resolution" | "maintain-framerate";
+  contentHint: "detail" | "motion" | "text";
+}
+
+const SCREEN_SHARE_PRESETS: Record<ScreenShareQuality, ScreenSharePreset> = {
+  // Discord-like defaults: H.264 (hardware-accelerated), balanced degradation
+  // H.264 uses L1T1 (no SVC layering) — browsers don't support H.264 temporal layers well
+  "1080p60": { width: 1920, height: 1080, frameRate: 60, maxBitrate: 6_000_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "motion" },
+  "1080p30": { width: 1920, height: 1080, frameRate: 30, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "detail" },
+  "720p60":  { width: 1280, height: 720,  frameRate: 60, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "motion" },
+  "720p30":  { width: 1280, height: 720,  frameRate: 30, maxBitrate: 2_500_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "detail" },
+  "480p30":  { width: 854,  height: 480,  frameRate: 30, maxBitrate: 1_500_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "detail" },
+  // Lossless: VP9 + maintain-resolution for maximum quality (CPU-heavy)
+  "Lossless":{ width: 1920, height: 1080, frameRate: 60, maxBitrate: 20_000_000, codec: "vp9",  scalabilityMode: "L1T3", degradationPreference: "maintain-resolution", contentHint: "detail" },
+};
+
+const DEFAULT_SETTINGS: AudioSettings = {
+  noiseSuppression: true,
+  echoCancellation: true,
+  autoGainControl: true,
+  dtx: false,
+  highPassFrequency: 0,
+  lowPassFrequency: 0,
+  inputSensitivity: 40,
+  inputSensitivityEnabled: true,
+  noiseSuppressionModel: "dtln",
+  suppressionStrength: 100,
+  vadThreshold: 85,
+  micInputGain: 100,
+  noiseGateHoldTime: 200,
+  compressorEnabled: false,
+  compressorThreshold: -24,
+  compressorRatio: 12,
+  compressorAttack: 0.003,
+  compressorRelease: 0.25,
+  deEsserEnabled: false,
+  deEsserStrength: 50,
+};
+
+interface VoiceState {
+  // ── Connection state ──
+  room: Room | null;
+  connectedChannelId: string | null;
+  connecting: boolean;
+  connectionError: string | null;
+
+  // ── Local user controls ──
+  isMuted: boolean;
+  isDeafened: boolean;
+
+  // ── Audio settings ──
+  audioSettings: AudioSettings;
+
+  // ── Per-user volume ──
+  participantVolumes: Record<string, number>;
+  participantTrackMap: Record<string, string>;
+
+  // ── Audio levels (0-1 per participant, updated at 20fps) ──
+  audioLevels: Record<string, number>;
+  // Debounced speaking state — instant on, 200ms hold off (no flicker)
+  speakingUserIds: Set<string>;
+
+  // ── Screen share ──
+  isScreenSharing: boolean;
+  screenSharers: ScreenShareInfo[];
+  pinnedScreenShare: string | null;
+  theatreMode: boolean;
+  screenShareQuality: ScreenShareQuality;
+
+  // ── Participants ──
+  participants: VoiceUser[];
+  channelParticipants: Record<string, VoiceParticipant[]>;
+
+  // ── Idle detection ──
+  lastSpokeAt: number;
+
+  // ── WebRTC stats overlay ──
+  webrtcStats: WebRTCQualityStats | null;
+  showStatsOverlay: boolean;
+
+  // ── Lobby music (easter egg) ──
+  lobbyMusicPlaying: boolean;
+  lobbyMusicVolume: number;
+
+  // ── Actions: Core Connection ──
+  joinVoiceChannel: (channelId: string) => Promise<void>;
+  leaveVoiceChannel: () => void;
+  toggleMute: () => void;
+  toggleDeafen: () => void;
+  setMuted: (muted: boolean) => void;
+  setParticipantVolume: (participantId: string, volume: number) => void;
+  incrementDrinkCount: () => void;
+
+  // ── Actions: Audio Settings ──
+  updateAudioSetting: (key: keyof AudioSettings, value: boolean | number | string) => void;
+  applyBitrate: (bitrate: number) => void;
+
+  // ── Actions: Screen Sharing ──
+  toggleScreenShare: (displaySurface?: "monitor" | "window") => Promise<void>;
+  pinScreenShare: (participantId: string) => void;
+  unpinScreenShare: () => void;
+  toggleTheatreMode: () => void;
+  setScreenShareQuality: (quality: ScreenShareQuality) => void;
+
+  // ── Actions: Lobby Music ──
+  setLobbyMusicVolume: (volume: number) => void;
+  stopLobbyMusicAction: () => void;
+
+  // ── Actions: Stats ──
+  toggleStatsOverlay: () => void;
+
+  // ── Internal ──
+  _updateParticipants: () => void;
+  _updateScreenSharers: () => void;
+  _setChannelParticipants: (channelId: string, participants: VoiceParticipant[]) => void;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: Audio Settings Persistence
+// ═══════════════════════════════════════════════════════════════════
+
+const SETTINGS_STORAGE_KEY = "flux-audio-settings";
+
+function loadAudioSettings(): AudioSettings {
+  try {
+    const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (saved) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+    }
+  } catch (e) { dbg("voice", "Failed to load audio settings from localStorage", e); }
+  return { ...DEFAULT_SETTINGS };
+}
+
+function saveAudioSettings(settings: AudioSettings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch (e) { dbg("voice", "Failed to save audio settings to localStorage", e); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: Audio Processor Helpers
+// ═══════════════════════════════════════════════════════════════════
+
 /** Tear down all noise-suppression / gain processors in one call. */
 async function cleanupAudioProcessors() {
   await destroyNoiseProcessor();
@@ -78,11 +245,12 @@ async function cleanupAudioProcessors() {
 // Monotonically increasing counter to detect stale joinVoiceChannel calls
 let joinNonce = 0;
 
-// ── Adaptive Bitrate ──
-
+// Adaptive bitrate ceiling
 let adaptiveTargetBitrate = DEFAULT_BITRATE;
 
-// ── WebRTC Stats Polling ──
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: WebRTC Stats Polling
+// ═══════════════════════════════════════════════════════════════════
 
 let statsInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -109,7 +277,9 @@ function stopStatsPolling() {
   resetStatsDelta();
 }
 
-// ── Lobby Music (Easter Egg) ──
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: Lobby Music (Easter Egg)
+// ═══════════════════════════════════════════════════════════════════
 
 const lobbyMusicState = {
   timer: null as ReturnType<typeof setTimeout> | null,
@@ -222,161 +392,12 @@ function setLobbyMusicGain(volume: number) {
   }
 }
 
-// ── Types ──
-
-interface VoiceUser {
-  userId: string;
-  username: string;
-  speaking: boolean;
-  isMuted: boolean;
-  isDeafened: boolean;
-}
-
-interface ScreenShareInfo {
-  participantId: string;
-  username: string;
-}
-
-type ScreenShareQuality = "1080p60" | "1080p30" | "720p60" | "720p30" | "480p30" | "Lossless";
-
-interface ScreenSharePreset {
-  width: number;
-  height: number;
-  frameRate: number;
-  maxBitrate: number;
-  codec: "h264" | "vp9";
-  scalabilityMode: ScalabilityMode;
-  degradationPreference: "balanced" | "maintain-resolution" | "maintain-framerate";
-  contentHint: "detail" | "motion" | "text";
-}
-
-const SCREEN_SHARE_PRESETS: Record<ScreenShareQuality, ScreenSharePreset> = {
-  // Discord-like defaults: H.264 (hardware-accelerated), balanced degradation
-  // H.264 uses L1T1 (no SVC layering) — browsers don't support H.264 temporal layers well
-  "1080p60": { width: 1920, height: 1080, frameRate: 60, maxBitrate: 6_000_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "motion" },
-  "1080p30": { width: 1920, height: 1080, frameRate: 30, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "detail" },
-  "720p60":  { width: 1280, height: 720,  frameRate: 60, maxBitrate: 4_000_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "motion" },
-  "720p30":  { width: 1280, height: 720,  frameRate: 30, maxBitrate: 2_500_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "detail" },
-  "480p30":  { width: 854,  height: 480,  frameRate: 30, maxBitrate: 1_500_000,  codec: "h264", scalabilityMode: "L1T1", degradationPreference: "balanced", contentHint: "detail" },
-  // Lossless: VP9 + maintain-resolution for maximum quality (CPU-heavy)
-  "Lossless":{ width: 1920, height: 1080, frameRate: 60, maxBitrate: 20_000_000, codec: "vp9",  scalabilityMode: "L1T3", degradationPreference: "maintain-resolution", contentHint: "detail" },
-};
-
-interface VoiceState {
-  // Connection state
-  room: Room | null;
-  connectedChannelId: string | null;
-  connecting: boolean;
-  connectionError: string | null;
-
-  // Local user controls
-  isMuted: boolean;
-  isDeafened: boolean;
-
-  // Audio settings
-  audioSettings: AudioSettings;
-
-  // Per-user volume
-  participantVolumes: Record<string, number>;
-  participantTrackMap: Record<string, string>;
-
-  // Audio levels (0-1 per participant, updated at 20fps)
-  audioLevels: Record<string, number>;
-  // Debounced speaking state — instant on, 200ms hold off (no flicker)
-  speakingUserIds: Set<string>;
-
-  // Screen share
-  isScreenSharing: boolean;
-  screenSharers: ScreenShareInfo[];
-  pinnedScreenShare: string | null;
-  theatreMode: boolean;
-  screenShareQuality: ScreenShareQuality;
-
-  // Participants in the current room (from LiveKit)
-  participants: VoiceUser[];
-
-  // Voice channel occupancy (from WebSocket, for sidebar)
-  channelParticipants: Record<string, VoiceParticipant[]>;
-
-  // Timestamp of last non-silence mic transmission (ms, 0 if never) — used by idle detection
-  lastSpokeAt: number;
-
-  // WebRTC stats overlay
-  webrtcStats: WebRTCQualityStats | null;
-  showStatsOverlay: boolean;
-
-  // Lobby music (easter egg)
-  lobbyMusicPlaying: boolean;
-  lobbyMusicVolume: number;
-
-  // Actions
-  joinVoiceChannel: (channelId: string) => Promise<void>;
-  leaveVoiceChannel: () => void;
-  toggleMute: () => void;
-  toggleDeafen: () => void;
-  setMuted: (muted: boolean) => void;
-  updateAudioSetting: (key: keyof AudioSettings, value: boolean | number | string) => void;
-  applyBitrate: (bitrate: number) => void;
-  toggleScreenShare: (displaySurface?: "monitor" | "window") => Promise<void>;
-  setParticipantVolume: (participantId: string, volume: number) => void;
-  pinScreenShare: (participantId: string) => void;
-  unpinScreenShare: () => void;
-  toggleTheatreMode: () => void;
-  setScreenShareQuality: (quality: ScreenShareQuality) => void;
-  incrementDrinkCount: () => void;
-  setLobbyMusicVolume: (volume: number) => void;
-  stopLobbyMusicAction: () => void;
-  toggleStatsOverlay: () => void;
-
-  // Internal
-  _updateParticipants: () => void;
-  _updateScreenSharers: () => void;
-  _setChannelParticipants: (channelId: string, participants: VoiceParticipant[]) => void;
-}
-
-const DEFAULT_SETTINGS: AudioSettings = {
-  noiseSuppression: true,
-  echoCancellation: true,
-  autoGainControl: true,
-  dtx: false,
-  highPassFrequency: 0,
-  lowPassFrequency: 0,
-  inputSensitivity: 40,
-  inputSensitivityEnabled: true,
-  noiseSuppressionModel: "dtln",
-  suppressionStrength: 100,
-  vadThreshold: 85,
-  micInputGain: 100,
-  noiseGateHoldTime: 200,
-  compressorEnabled: false,
-  compressorThreshold: -24,
-  compressorRatio: 12,
-  compressorAttack: 0.003,
-  compressorRelease: 0.25,
-  deEsserEnabled: false,
-  deEsserStrength: 50,
-};
-
-// ── Audio Settings Persistence ──
-const SETTINGS_STORAGE_KEY = "flux-audio-settings";
-
-function loadAudioSettings(): AudioSettings {
-  try {
-    const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (saved) {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
-    }
-  } catch (e) { dbg("voice", "Failed to load audio settings from localStorage", e); }
-  return { ...DEFAULT_SETTINGS };
-}
-
-function saveAudioSettings(settings: AudioSettings) {
-  try {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  } catch (e) { dbg("voice", "Failed to save audio settings to localStorage", e); }
-}
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: Store Definition
+// ═══════════════════════════════════════════════════════════════════
 
 export const useVoiceStore = create<VoiceState>((set, get) => ({
+  // ── Initial State ──
   room: null,
   connectedChannelId: null,
   connecting: false,
@@ -400,6 +421,10 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   webrtcStats: null,
   showStatsOverlay: false,
   lobbyMusicVolume: parseFloat(localStorage.getItem("flux-lobby-music-volume") ?? String(LOBBY_DEFAULT_GAIN)),
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACTIONS: Core Connection (join, leave, mute, deafen, volume)
+  // ═══════════════════════════════════════════════════════════════
 
   joinVoiceChannel: async (channelId: string) => {
     const { room: existingRoom, connectedChannelId, audioSettings } = get();
@@ -556,6 +581,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         ...(e2eeOptions ? { e2ee: e2eeOptions } : {}),
       });
 
+      // ── Room Event Handlers ──
+
       room.on(RoomEvent.ParticipantConnected, (p) => {
         dbg("voice", `ParticipantConnected identity=${p.identity} name=${p.name}`);
         playJoinSound();
@@ -699,6 +726,8 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
           pinnedScreenShare: null,
         });
       });
+
+      // ── Connect & Post-Connect Setup ──
 
       dbg("voice", "joinVoiceChannel connecting to LiveKit...");
       await room.connect(url, token);
@@ -1021,6 +1050,19 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     }
   },
 
+  incrementDrinkCount: () => {
+    const { room, connectedChannelId, channelParticipants } = get();
+    if (!room || !connectedChannelId) return;
+    const me = room.localParticipant.identity;
+    const participants = channelParticipants[connectedChannelId] || [];
+    const current = participants.find((p) => p.userId === me)?.drinkCount ?? 0;
+    gateway.send({ type: "voice_drink_update", channelId: connectedChannelId, drinkCount: current + 1 });
+  },
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACTIONS: Audio Settings & Pipeline Control
+  // ═══════════════════════════════════════════════════════════════
+
   updateAudioSetting: (key: keyof AudioSettings, value: boolean | number | string) => {
     dbg("voice", `updateAudioSetting ${key}=${value}`);
     const { room, audioSettings } = get();
@@ -1274,6 +1316,10 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     }
   },
 
+  // ═══════════════════════════════════════════════════════════════
+  // ACTIONS: Screen Sharing
+  // ═══════════════════════════════════════════════════════════════
+
   toggleScreenShare: async (displaySurface?: "monitor" | "window") => {
     const { room, isScreenSharing, screenShareQuality } = get();
     if (!room) return;
@@ -1367,7 +1413,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     const preset = SCREEN_SHARE_PRESETS[quality];
     const prevPreset = SCREEN_SHARE_PRESETS[prevQuality];
 
-    // Codec change (h264 ↔ vp9) requires republishing the track
+    // Codec change (h264 <-> vp9) requires republishing the track
     if (preset.codec !== prevPreset.codec) {
       dbg("voice", `setScreenShareQuality codec change ${prevPreset.codec} → ${preset.codec}, republishing`);
       (async () => {
@@ -1431,14 +1477,9 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     }
   },
 
-  incrementDrinkCount: () => {
-    const { room, connectedChannelId, channelParticipants } = get();
-    if (!room || !connectedChannelId) return;
-    const me = room.localParticipant.identity;
-    const participants = channelParticipants[connectedChannelId] || [];
-    const current = participants.find((p) => p.userId === me)?.drinkCount ?? 0;
-    gateway.send({ type: "voice_drink_update", channelId: connectedChannelId, drinkCount: current + 1 });
-  },
+  // ═══════════════════════════════════════════════════════════════
+  // ACTIONS: Lobby Music
+  // ═══════════════════════════════════════════════════════════════
 
   setLobbyMusicVolume: (volume: number) => {
     localStorage.setItem("flux-lobby-music-volume", String(volume));
@@ -1450,11 +1491,19 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     stopLobbyMusic();
   },
 
+  // ═══════════════════════════════════════════════════════════════
+  // ACTIONS: WebRTC Stats
+  // ═══════════════════════════════════════════════════════════════
+
   toggleStatsOverlay: () => {
     const { showStatsOverlay } = get();
     const newVal = !showStatsOverlay;
     set({ showStatsOverlay: newVal, webrtcStats: newVal ? get().webrtcStats : null });
   },
+
+  // ═══════════════════════════════════════════════════════════════
+  // INTERNAL: Participant & Screen Share Tracking
+  // ═══════════════════════════════════════════════════════════════
 
   _updateParticipants: () => {
     const { room } = get();
@@ -1571,6 +1620,10 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 }));
 
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: WebSocket Event Handlers
+// ═══════════════════════════════════════════════════════════════════
+
 // Lazy ref to auth store (avoids circular import)
 let _authStore: { getState: () => { user?: { id: string } | null } } | null = null;
 import("./auth.js").then((m) => { _authStore = m.useAuthStore; });
@@ -1614,7 +1667,9 @@ gateway.onConnect(() => {
   }
 });
 
-// ── BroadcastChannel: publish voice/screen share state to popout windows ──
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: BroadcastChannel Sync (Popout Windows)
+// ═══════════════════════════════════════════════════════════════════
 
 function broadcastVoiceState() {
   const state = useVoiceStore.getState();
