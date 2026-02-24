@@ -183,8 +183,6 @@ interface VoiceState {
   toggleDeafen: () => void;
   setMuted: (muted: boolean) => void;
   setParticipantVolume: (participantId: string, volume: number) => void;
-  incrementDrinkCount: () => void;
-
   // ── Actions: Audio Settings ──
   updateAudioSetting: (key: keyof AudioSettings, value: boolean | number | string) => void;
   applyBitrate: (bitrate: number) => void;
@@ -1048,15 +1046,6 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     } else {
       dbg("voice", `setParticipantVolume NO PIPELINE for ${participantId} trackSid=${trackSid} mapKeys=[${Object.keys(participantTrackMap)}] pipelineKeys=[${[...audioPipelines.keys()]}]`);
     }
-  },
-
-  incrementDrinkCount: () => {
-    const { room, connectedChannelId, channelParticipants } = get();
-    if (!room || !connectedChannelId) return;
-    const me = room.localParticipant.identity;
-    const participants = channelParticipants[connectedChannelId] || [];
-    const current = participants.find((p) => p.userId === me)?.drinkCount ?? 0;
-    gateway.send({ type: "voice_drink_update", channelId: connectedChannelId, drinkCount: current + 1 });
   },
 
   // ═══════════════════════════════════════════════════════════════
