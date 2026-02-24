@@ -1,36 +1,17 @@
 import { create } from "zustand";
-import type { StoreApi, UseBoundStore } from "zustand";
 import type { DMMessage } from "../types/shared.js";
 import * as api from "../lib/api.js";
 import { gateway } from "../lib/ws.js";
 import { useCryptoStore } from "./crypto.js";
 import { dbg } from "../lib/debug.js";
-import type { ChatState } from "./chat-types.js";
+import { dmMessageCache, saveDMCache } from "./chat-types.js";
 import {
-  dmMessageCache,
-  saveDMCache,
-  saveChannelCache,
-  saveServerCache,
-} from "./chat-types.js";
-
-// Lazy ref to chat store to avoid circular imports
-let chatStoreRef: UseBoundStore<StoreApi<ChatState>> | null = null;
-import("./chat.js").then((m) => { chatStoreRef = m.useChatStore; });
-
-// Bulk-decrypt DM messages into the decrypted cache (DMs remain E2EE)
-async function decryptDMMessages(messages: DMMessage[], key: CryptoKey | null) {
-  const cryptoState = useCryptoStore.getState();
-  const cache: Record<string, string> = {};
-  await Promise.all(
-    messages.map(async (msg) => {
-      cache[msg.id] = await cryptoState.decryptMessage(msg.ciphertext, key);
-    }),
-  );
-  // Update decryptedCache on the chat store (shared cache for both contexts)
-  chatStoreRef?.setState((s) => ({
-    decryptedCache: { ...s.decryptedCache, ...cache },
-  }));
-}
+  getChatStoreRef,
+  savePreviousChannelState,
+  clearChatStoreForDM,
+  decryptDMBatch,
+  decryptAndFilterSearchResults,
+} from "./dm-helpers.js";
 
 export interface DMChannel {
   id: string;
@@ -76,22 +57,15 @@ export const useDMStore = create<DMState>((set, get) => ({
 
   showDMs: () => {
     // Save current channel/server state in chat store before switching
-    const chatState = chatStoreRef?.getState();
-    if (chatState) {
-      const prevChannel = chatState.activeChannelId;
-      if (prevChannel) {
-        saveChannelCache(prevChannel, chatState);
-        gateway.send({ type: "leave_channel", channelId: prevChannel });
-      }
-      saveServerCache(chatState);
-      chatStoreRef!.setState({
-        activeServerId: null,
-        activeChannelId: null,
-        searchQuery: "",
-        searchFilters: {},
-        searchResults: null,
-      });
-    }
+    savePreviousChannelState();
+    const chatStoreRef = getChatStoreRef();
+    chatStoreRef?.setState({
+      activeServerId: null,
+      activeChannelId: null,
+      searchQuery: "",
+      searchFilters: {},
+      searchResults: null,
+    });
     set({
       showingDMs: true,
     });
@@ -112,15 +86,7 @@ export const useDMStore = create<DMState>((set, get) => ({
     if (get().activeDMChannelId === dmChannelId && get().showingDMs) return;
 
     // Save current channel/server state in chat store before switching
-    const chatState = chatStoreRef?.getState();
-    if (chatState) {
-      const prevChannel = chatState.activeChannelId;
-      if (prevChannel) {
-        saveChannelCache(prevChannel, chatState);
-        gateway.send({ type: "leave_channel", channelId: prevChannel });
-      }
-      saveServerCache(chatState);
-    }
+    savePreviousChannelState();
 
     const prevDM = get().activeDMChannelId;
     if (prevDM && prevDM !== dmChannelId) {
@@ -132,16 +98,7 @@ export const useDMStore = create<DMState>((set, get) => ({
     const cachedDM = dmMessageCache.get(dmChannelId);
 
     // Clear chat store's server/channel state
-    chatStoreRef?.setState({
-      activeServerId: null,
-      activeChannelId: null,
-      channels: [],
-      messages: [],
-      reactions: {},
-      searchQuery: "",
-      searchFilters: {},
-      searchResults: null,
-    });
+    clearChatStoreForDM();
 
     set({
       showingDMs: true,
@@ -170,13 +127,7 @@ export const useDMStore = create<DMState>((set, get) => ({
       // Decrypt DM messages
       const dm = get().dmChannels.find((d) => d.id === dmChannelId);
       if (dm) {
-        const cryptoState = useCryptoStore.getState();
-        try {
-          const key = cryptoState.keyPair ? await cryptoState.getDMKey(dmChannelId, dm.otherUser.id) : null;
-          decryptDMMessages(result.items, key);
-        } catch {
-          decryptDMMessages(result.items, null);
-        }
+        await decryptDMBatch(dmChannelId, dm.otherUser.id, result.items);
       }
     } catch {
       if (get().activeDMChannelId === dmChannelId) {
@@ -262,13 +213,7 @@ export const useDMStore = create<DMState>((set, get) => ({
       // Decrypt loaded DM messages
       const dm = get().dmChannels.find((d) => d.id === activeDMChannelId);
       if (dm) {
-        const cryptoState = useCryptoStore.getState();
-        try {
-          const key = cryptoState.keyPair ? await cryptoState.getDMKey(activeDMChannelId, dm.otherUser.id) : null;
-          decryptDMMessages(result.items, key);
-        } catch {
-          decryptDMMessages(result.items, null);
-        }
+        await decryptDMBatch(activeDMChannelId, dm.otherUser.id, result.items);
       }
     } catch {
       set({ loadingDMMessages: false });
@@ -281,30 +226,15 @@ export const useDMStore = create<DMState>((set, get) => ({
     set({ dmSearchQuery: query });
     try {
       const result = await api.searchDMMessages(activeDMChannelId, query);
-      // Client-side decryption and filtering for E2EE
-      const cryptoState = useCryptoStore.getState();
       const dm = dmChannels.find((d) => d.id === activeDMChannelId);
-      let key: CryptoKey | null = null;
-      try {
-        if (dm && cryptoState.keyPair) {
-          key = await cryptoState.getDMKey(activeDMChannelId, dm.otherUser.id);
-        }
-      } catch { /* no key available */ }
-
-      const lowerQuery = query.toLowerCase();
-      const matched: DMMessage[] = [];
-      // Update decryptedCache on the chat store
-      const chatStore = chatStoreRef;
-      for (const msg of result.items) {
-        const text = await cryptoState.decryptMessage(msg.ciphertext, key);
-        if (text.toLowerCase().includes(lowerQuery)) {
-          matched.push(msg);
-          chatStore?.setState((s) => ({
-            decryptedCache: { ...s.decryptedCache, [msg.id]: text },
-          }));
-        }
-        if (matched.length >= 50) break;
-      }
+      const matched = dm
+        ? await decryptAndFilterSearchResults(
+            activeDMChannelId,
+            dm.otherUser.id,
+            result.items,
+            query,
+          )
+        : [];
       set({ dmSearchResults: matched });
     } catch {
       set({ dmSearchResults: [] });
