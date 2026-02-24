@@ -66,21 +66,60 @@ src/                          # React frontend
     FluxLogo.tsx              # App logo component
     SettingsModal.tsx         # User settings (audio, keybinds, profile, appearance)
     ServerSettingsPage.tsx    # Server settings page (overview, members, soundboard, emoji tabs)
-  stores/                     # Zustand state stores
+  stores/                     # Zustand state stores (domain-grouped subdirectories)
     auth.ts                   # Auth state, login/register/logout
-    chat.ts                   # Servers, channels, messages, search
-    dm.ts                     # DM state and actions (extracted from chat.ts)
-    voice.ts                  # Voice connection, audio pipeline, screen share (~46KB, organized with section separators)
-    spotify.ts                # Spotify OAuth, SDK, playback, sessions
-    youtube.ts                # YouTube audio playback, search, queue (extracted from spotify.ts)
+    chat/                     # Chat domain
+      index.ts                # Barrel export (useChatStore + helpers)
+      store.ts                # Zustand store definition
+      types.ts                # ChatState interface, cache helpers, mention regexes
+      helpers.ts              # Action creators (selectServer, selectChannel, search)
+      events.ts               # Gateway event handler setup
+      events-messages.ts      # Message-specific WS event handlers
+    dm/                       # DM domain
+      index.ts                # Barrel export (useDMStore, types)
+      store.ts                # Zustand store definition
+      helpers.ts              # DM encryption, key resolution, state helpers
+    voice/                    # Voice domain
+      index.ts                # Barrel export (useVoiceStore, types)
+      store.ts                # Zustand store definition
+      types.ts                # VoiceState, AudioSettings, presets, defaults
+      connection.ts           # Join/leave voice channel actions
+      controls.ts             # Mute/deafen/volume/bitrate actions
+      audio-settings.ts       # AudioSettings persistence (localStorage)
+      audio-update.ts         # updateAudioSetting routing logic
+      noise-setup.ts          # Noise suppression processor setup
+      helpers.ts              # Audio processor cleanup helpers
+      screen-share.ts         # Screen share toggle/quality actions
+      participants.ts         # Participant/screen sharer tracking
+      room-events.ts          # LiveKit room event handlers
+      events.ts               # Gateway voice event handlers
+      stats.ts                # WebRTC stats polling
+      lobby.ts                # Lobby music easter egg
+    spotify/                  # Spotify domain
+      index.ts                # Barrel export (useSpotifyStore, types)
+      store.ts                # Zustand store definition
+      types.ts                # SpotifyState, PKCE helpers, HMR persistence
+      playback.ts             # Play/pause/skip/seek/volume actions
+      queue.ts                # Queue management actions
+      search.ts               # Track search actions
+      session.ts              # Session start/load/end actions
+      lifecycle.ts            # OAuth, SDK init, player connect/disconnect
+      events.ts               # WS event handlers for spotify
+    youtube.ts                # YouTube audio playback, search, queue
     crypto.ts                 # E2EE key management, encrypt/decrypt
     notifications.ts          # Per-channel/category/global notification settings, mute state (persisted)
     keybinds.ts               # Keyboard shortcut bindings
     ui.ts                     # UI preferences (sidebar position)
-    chat-events.ts            # WebSocket event dispatching into chat/DM stores
-    chat-types.ts             # ChatState interface, cache helpers, mention regexes
   lib/                        # Utilities
-    api.ts                    # REST client (auto-injects auth token)
+    api/                      # REST client (domain-grouped)
+      index.ts                # Barrel re-export of all API functions
+      base.ts                 # Core request helper, token management
+      auth.ts                 # Auth API calls
+      messages.ts             # Message/DM/reaction/file API calls
+      servers.ts              # Server/channel/member/emoji API calls
+      voice.ts                # Voice token API call
+      spotify.ts              # Spotify/YouTube API calls
+      soundboard.ts           # Soundboard CRUD API calls
     ws.ts                     # WebSocket client (connect, reconnect, event routing)
     crypto.ts                 # Web Crypto API wrappers (ECDH, AES-GCM, HKDF)
     serverUrl.ts              # Resolves API base URL
@@ -463,7 +502,7 @@ KEY: components, layout, ui, react, rendering
 
 KEY: css, tailwind, theme, styles, animations, avatar-ring
 
-Tailwind CSS for utility classes. Custom CSS split into 13 files in `src/styles/` (base, layout, sidebar, chat, search, modals, voice, screen-share, settings, emoji, dm, music, soundboard). Imported in order from `main.tsx`.
+Tailwind CSS for utility classes. Custom CSS co-located with component subdirectories (e.g. `components/chat/styles/`, `components/voice/styles/`) plus 3 global files in `src/styles/` (base, layout-main, layout-grid). All imported from `main.tsx`.
 
 **Avatar ring styles**: default, chroma (RGB shifting), pulse (glow), wave, ember (red), frost (blue), neon, galaxy (gradient), none. Configured per-user via ring_style + ring_spin fields.
 

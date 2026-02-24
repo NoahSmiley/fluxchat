@@ -18,7 +18,7 @@ text channels and messages should be able to be copied then pasted in a message 
 
 maybe add another section to music (in voice channel) that can play uploaded mp3s
 
-break up huge files like global.css
+~~break up huge files like global.css~~ DONE — global.css split into 13 co-located style files, all component files under 300 lines
 
 improve app sounds (join, leave, clicky sounds) (notification sounds are good) (some sounds seem questionably reliable, they don't always play when they should)
 
