@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useShallow } from "zustand/react/shallow";
 import type { Channel, ChannelType, ReorderItem } from "../types/shared.js";
 import { useChatStore } from "../stores/chat.js";
 import { useVoiceStore } from "../stores/voice.js";
@@ -11,7 +12,7 @@ import { Settings, Plus, ChevronRight, Lock, LockOpen } from "lucide-react";
 import { gateway } from "../lib/ws.js";
 import { CreateChannelModal } from "./CreateChannelModal.js";
 import { ChannelSettingsModal, DeleteConfirmDialog } from "./ChannelSettingsModal.js";
-import ContextMenu from "./ContextMenu.js";
+import ContextMenu, { type ContextMenuEntry } from "./ContextMenu.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../lib/avatarColor.js";
 import * as api from "../lib/api.js";
 import {
@@ -36,11 +37,51 @@ import { SortableChannelItem, getChannelIcon } from "./SortableChannelItem.js";
 import { AnimatedList } from "./AnimatedList.js";
 
 const DROP_INTO_CATEGORY_DWELL_MS = 1000;
+const DRAG_ACTIVATION_DELAY_MS = 500;
+const DRAG_ACTIVATION_TOLERANCE_PX = 5;
+const LOCK_TOGGLE_DEBOUNCE_MS = 400;
+const ANIMATED_LIST_DURATION_MS = 500;
+
+/** Build the mute duration submenu entries for channel/category context menus. */
+function buildMuteSubmenu(
+  isMuted: boolean,
+  isMentionMuted: boolean,
+  onMute: (ms: number) => void,
+  onUnmute: () => void,
+  onToggleMentionMute: () => void,
+  onClose: () => void,
+): ContextMenuEntry[] {
+  function muteMs(minutes: number) { return minutes === -1 ? -1 : Date.now() + minutes * 60_000; }
+
+  const opts: [number, string][] = [
+    [15, "15 minutes"], [60, "1 hour"], [480, "8 hours"], [1440, "24 hours"], [-1, "Until I turn it back on"],
+  ];
+  const entries: ContextMenuEntry[] = opts.map(([m, label]) => ({
+    label,
+    onClick: () => { onMute(muteMs(m)); onClose(); },
+  }));
+  entries.push({ type: "separator" });
+  entries.push({ label: "Mute @mentions", checked: isMentionMuted, onClick: onToggleMentionMute });
+  if (isMuted) {
+    entries.push({ type: "separator" });
+    entries.push({ label: "Unmute", onClick: () => { onUnmute(); onClose(); } });
+  }
+  return entries;
+}
 
 export function ChannelSidebar() {
-  const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels, mentionCounts, markChannelRead } = useChatStore();
-  const { channelParticipants, connectedChannelId, connecting, screenSharers, participants: voiceParticipants } = useVoiceStore();
-  const { openServerSettings, showDummyUsers } = useUIStore();
+  const { channels, activeChannelId, selectChannel, servers, activeServerId, members, unreadChannels, mentionCounts, markChannelRead } = useChatStore(useShallow((s) => ({
+    channels: s.channels, activeChannelId: s.activeChannelId, selectChannel: s.selectChannel,
+    servers: s.servers, activeServerId: s.activeServerId, members: s.members,
+    unreadChannels: s.unreadChannels, mentionCounts: s.mentionCounts, markChannelRead: s.markChannelRead,
+  })));
+  const { channelParticipants, connectedChannelId, connecting, screenSharers, participants: voiceParticipants } = useVoiceStore(useShallow((s) => ({
+    channelParticipants: s.channelParticipants, connectedChannelId: s.connectedChannelId,
+    connecting: s.connecting, screenSharers: s.screenSharers, participants: s.participants,
+  })));
+  const { openServerSettings, showDummyUsers } = useUIStore(useShallow((s) => ({
+    openServerSettings: s.openServerSettings, showDummyUsers: s.showDummyUsers,
+  })));
   const notifStore = useNotifStore();
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = server && (server.role === "owner" || server.role === "admin");
@@ -82,7 +123,7 @@ export function ChannelSidebar() {
   }, []);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 500, tolerance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { delay: DRAG_ACTIVATION_DELAY_MS, tolerance: DRAG_ACTIVATION_TOLERANCE_PX } })
   );
 
   function clearDwell() {
@@ -423,7 +464,7 @@ export function ChannelSidebar() {
             <div className="voice-room-users-list">
                 <AnimatedList
                   items={voiceWithUsers.map(({ channel: vc, participants }) => ({ key: vc.id, channel: vc, participants }))}
-                  duration={500}
+                  duration={ANIMATED_LIST_DURATION_MS}
                   renderItem={({ channel: vc, participants }, state) => {
                   const isRoomCollapsed = collapsedRooms.has(vc.id);
                   const isCurrent = connectedChannelId === vc.id;
@@ -526,7 +567,7 @@ export function ChannelSidebar() {
                               // Debounce: skip if toggled within last 1s
                               const now = Date.now();
                               const key = `_lockTs_${vc.id}`;
-                              if ((window as any)[key] && now - (window as any)[key] < 1000) return;
+                              if ((window as any)[key] && now - (window as any)[key] < LOCK_TOGGLE_DEBOUNCE_MS) return;
                               (window as any)[key] = now;
                               const newLocked = !current.isLocked;
                               dbg("ui", `[lock] toggling room ${vc.id} lock: ${current.isLocked} → ${newLocked}`);
@@ -732,72 +773,49 @@ export function ChannelSidebar() {
         const categorySetting: CategoryNotifSetting = notifStore.categorySettings[ch.id] ?? "all";
         const isUnread = unreadChannels.has(ch.id);
 
-        function muteMs(minutes: number) { return minutes === -1 ? -1 : Date.now() + minutes * 60_000; }
+        const closeCtxMenu = () => setChannelCtxMenu(null);
 
-        function buildMuteSubmenu(
-          isMuted: boolean,
-          isMentionMuted: boolean,
-          onMute: (ms: number) => void,
-          onUnmute: () => void,
-          onToggleMentionMute: () => void,
-        ): import("./ContextMenu.js").ContextMenuEntry[] {
-          const opts: [number, string][] = [
-            [15, "15 minutes"], [60, "1 hour"], [480, "8 hours"], [1440, "24 hours"], [-1, "Until I turn it back on"],
-          ];
-          const entries: import("./ContextMenu.js").ContextMenuEntry[] = opts.map(([m, label]) => ({
-            label,
-            onClick: () => { onMute(muteMs(m)); setChannelCtxMenu(null); },
-          }));
-          entries.push({ type: "separator" });
-          entries.push({ label: "Mute @mentions", checked: isMentionMuted, onClick: onToggleMentionMute });
-          if (isMuted) {
-            entries.push({ type: "separator" });
-            entries.push({ label: "Unmute", onClick: () => { onUnmute(); setChannelCtxMenu(null); } });
-          }
-          return entries;
-        }
-
-        function buildChannelNotifSubmenu(current: ChannelNotifSetting): import("./ContextMenu.js").ContextMenuEntry[] {
+        function buildChannelNotifSubmenu(current: ChannelNotifSetting): ContextMenuEntry[] {
           const opts: [ChannelNotifSetting, string][] = [
             ["all", "All messages"], ["only_mentions", "Only @mentions"], ["none", "Nothing"], ["default", "Default (category)"],
           ];
           return opts.map(([val, label]) => ({
             label, checked: current === val,
-            onClick: () => { notifStore.setChannelSetting(ch.id, val); setChannelCtxMenu(null); },
+            onClick: () => { notifStore.setChannelSetting(ch.id, val); closeCtxMenu(); },
           }));
         }
 
-        function buildCategoryNotifSubmenu(current: CategoryNotifSetting): import("./ContextMenu.js").ContextMenuEntry[] {
+        function buildCategoryNotifSubmenu(current: CategoryNotifSetting): ContextMenuEntry[] {
           const opts: [CategoryNotifSetting, string][] = [
             ["all", "All messages"], ["only_mentions", "Only @mentions"], ["none", "Nothing"],
           ];
           return opts.map(([val, label]) => ({
             label, checked: current === val,
-            onClick: () => { notifStore.setCategorySetting(ch.id, val); setChannelCtxMenu(null); },
+            onClick: () => { notifStore.setCategorySetting(ch.id, val); closeCtxMenu(); },
           }));
         }
 
-        const items: import("./ContextMenu.js").ContextMenuEntry[] = isCategory
+        const items: ContextMenuEntry[] = isCategory
           ? [
-              { label: collapsed.has(ch.id) ? "Expand" : "Collapse", onClick: () => { toggleCollapse(ch.id); setChannelCtxMenu(null); } },
+              { label: collapsed.has(ch.id) ? "Expand" : "Collapse", onClick: () => { toggleCollapse(ch.id); closeCtxMenu(); } },
               { type: "separator" },
               { label: "Notification settings", submenu: buildCategoryNotifSubmenu(categorySetting) },
-              { label: categoryMuted ? "Muted" : "Mute category", onClick: categoryMuted ? () => { notifStore.unmuteCategory(ch.id); setChannelCtxMenu(null); } : () => { notifStore.muteCategory(ch.id, -1); setChannelCtxMenu(null); }, submenu: buildMuteSubmenu(categoryMuted, notifStore.isCategoryMentionMuted(ch.id), (ms) => notifStore.muteCategory(ch.id, ms), () => notifStore.unmuteCategory(ch.id), () => notifStore.setMuteCategoryMentions(ch.id, !notifStore.isCategoryMentionMuted(ch.id))) },
+              { label: categoryMuted ? "Muted" : "Mute category", onClick: categoryMuted ? () => { notifStore.unmuteCategory(ch.id); closeCtxMenu(); } : () => { notifStore.muteCategory(ch.id, -1); closeCtxMenu(); }, submenu: buildMuteSubmenu(categoryMuted, notifStore.isCategoryMentionMuted(ch.id), (ms) => notifStore.muteCategory(ch.id, ms), () => notifStore.unmuteCategory(ch.id), () => notifStore.setMuteCategoryMentions(ch.id, !notifStore.isCategoryMentionMuted(ch.id)), closeCtxMenu) },
               ...(isOwnerOrAdmin ? [
                 { type: "separator" as const },
-                { label: "Create channel", onClick: () => { setCreateModal({ type: "text", parentId: ch.id }); setChannelCtxMenu(null); } },
-                { label: "Edit category", onClick: () => { setSettingsChannel(ch); setChannelCtxMenu(null); } },
-                { label: "Delete category", danger: true, onClick: () => { setDeletingChannel(ch); setChannelCtxMenu(null); } },
+                { label: "Create channel", onClick: () => { setCreateModal({ type: "text", parentId: ch.id }); closeCtxMenu(); } },
+                { label: "Edit category", onClick: () => { setSettingsChannel(ch); closeCtxMenu(); } },
+                { label: "Delete category", danger: true, onClick: () => { setDeletingChannel(ch); closeCtxMenu(); } },
               ] : []),
             ]
           : [
-              ...(isUnread ? [{ label: "Mark as read", onClick: () => { markChannelRead(ch.id); setChannelCtxMenu(null); } } as import("./ContextMenu.js").ContextMenuEntry, { type: "separator" as const }] : []),
+              ...(isUnread ? [{ label: "Mark as read", onClick: () => { markChannelRead(ch.id); closeCtxMenu(); } } as ContextMenuEntry, { type: "separator" as const }] : []),
               { label: "Notification settings", submenu: buildChannelNotifSubmenu(channelSetting) },
-              { label: channelMuted ? "Muted" : "Mute channel", onClick: channelMuted ? () => { notifStore.unmuteChannel(ch.id); setChannelCtxMenu(null); } : () => { notifStore.muteChannel(ch.id, -1); setChannelCtxMenu(null); }, submenu: buildMuteSubmenu(channelMuted, notifStore.isChannelMentionMuted(ch.id), (ms) => notifStore.muteChannel(ch.id, ms), () => notifStore.unmuteChannel(ch.id), () => notifStore.setMuteChannelMentions(ch.id, !notifStore.isChannelMentionMuted(ch.id))) },
+              { label: channelMuted ? "Muted" : "Mute channel", onClick: channelMuted ? () => { notifStore.unmuteChannel(ch.id); closeCtxMenu(); } : () => { notifStore.muteChannel(ch.id, -1); closeCtxMenu(); }, submenu: buildMuteSubmenu(channelMuted, notifStore.isChannelMentionMuted(ch.id), (ms) => notifStore.muteChannel(ch.id, ms), () => notifStore.unmuteChannel(ch.id), () => notifStore.setMuteChannelMentions(ch.id, !notifStore.isChannelMentionMuted(ch.id)), closeCtxMenu) },
               ...(isOwnerOrAdmin ? [
                 { type: "separator" as const },
-                { label: "Edit channel", onClick: () => { setSettingsChannel(ch); setChannelCtxMenu(null); } },
-                { label: "Delete channel", danger: true, onClick: () => { setDeletingChannel(ch); setChannelCtxMenu(null); } },
+                { label: "Edit channel", onClick: () => { setSettingsChannel(ch); closeCtxMenu(); } },
+                { label: "Delete channel", danger: true, onClick: () => { setDeletingChannel(ch); closeCtxMenu(); } },
               ] : []),
             ];
         return (
@@ -824,7 +842,7 @@ export function ChannelSidebar() {
       {roomCtxMenu && (() => {
         const room = roomCtxMenu.room;
         const canManage = room.creatorId === user?.id || isOwnerOrAdmin;
-        const items: import("./ContextMenu.js").ContextMenuEntry[] = [
+        const items: ContextMenuEntry[] = [
           ...(canManage ? [
             { label: "Rename room", onClick: () => { setRenamingRoomId(room.id); setRoomCtxMenu(null); } },
             { label: room.isLocked ? "Unlock room" : "Lock room", onClick: () => {
