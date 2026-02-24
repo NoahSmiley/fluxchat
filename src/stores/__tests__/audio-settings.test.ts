@@ -82,7 +82,7 @@ vi.mock("../auth.js", () => ({
   },
 }));
 
-vi.mock("../../lib/dtln/DtlnTrackProcessor.js", () => ({
+vi.mock("../../lib/audio/dtln/DtlnTrackProcessor.js", () => ({
   DtlnTrackProcessor: vi.fn(),
 }));
 

@@ -1,4 +1,4 @@
-import { dbg } from "./debug.js";
+import { dbg } from "../debug.js";
 
 // ── Audio Pipeline (Web Audio API) ──
 
@@ -12,7 +12,7 @@ interface AudioPipeline {
   compressor: DynamicsCompressorNode | null;
   gain: GainNode;
   analyser: AnalyserNode;
-  analyserData: Float32Array;
+  analyserData: Float32Array<ArrayBuffer>;
 }
 
 export interface AudioSettings {
@@ -24,7 +24,7 @@ export interface AudioSettings {
   lowPassFrequency: number;
   inputSensitivity: number;
   inputSensitivityEnabled: boolean;
-  noiseSuppressionModel: import("../stores/voice.js").NoiseSuppressionModel;
+  noiseSuppressionModel: import("../../stores/voice.js").NoiseSuppressionModel;
   suppressionStrength: number;
   vadThreshold: number;
   micInputGain: number;
@@ -40,7 +40,7 @@ export interface AudioSettings {
 
 export const audioPipelines = new Map<string, AudioPipeline>();
 
-export function calculateRms(data: Float32Array): number {
+export function calculateRms(data: Float32Array<ArrayBuffer>): number {
   let sum = 0;
   for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
   return Math.sqrt(sum / data.length);

@@ -42,7 +42,7 @@ vi.mock("../../lib/crypto.js", () => ({
   exportKeyAsBase64: vi.fn(),
 }));
 
-vi.mock("../../lib/dtln/DtlnTrackProcessor.js", () => ({
+vi.mock("../../lib/audio/dtln/DtlnTrackProcessor.js", () => ({
   DtlnTrackProcessor: vi.fn(),
 }));
 
@@ -164,8 +164,8 @@ describe("useVoiceStore", () => {
   describe("_setChannelParticipants", () => {
     it("adds participants for a channel", () => {
       const participants = [
-        { userId: "u1", username: "alice", image: null, drinkCount: 0 },
-        { userId: "u2", username: "bob", image: null, drinkCount: 0 },
+        { userId: "u1", username: "alice", drinkCount: 0 },
+        { userId: "u2", username: "bob", drinkCount: 0 },
       ];
 
       useVoiceStore.getState()._setChannelParticipants("ch1", participants);
@@ -176,12 +176,12 @@ describe("useVoiceStore", () => {
     it("replaces existing participants", () => {
       useVoiceStore.setState({
         channelParticipants: {
-          ch1: [{ userId: "u1", username: "alice", image: null, drinkCount: 0 }],
+          ch1: [{ userId: "u1", username: "alice", drinkCount: 0 }],
         },
       });
 
       const newParticipants = [
-        { userId: "u2", username: "bob", image: null, drinkCount: 0 },
+        { userId: "u2", username: "bob", drinkCount: 0 },
       ];
       useVoiceStore.getState()._setChannelParticipants("ch1", newParticipants);
 
@@ -191,12 +191,12 @@ describe("useVoiceStore", () => {
     it("preserves other channels", () => {
       useVoiceStore.setState({
         channelParticipants: {
-          ch1: [{ userId: "u1", username: "alice", image: null, drinkCount: 0 }],
+          ch1: [{ userId: "u1", username: "alice", drinkCount: 0 }],
         },
       });
 
       const ch2Participants = [
-        { userId: "u2", username: "bob", image: null, drinkCount: 0 },
+        { userId: "u2", username: "bob", drinkCount: 0 },
       ];
       useVoiceStore.getState()._setChannelParticipants("ch2", ch2Participants);
 
@@ -210,7 +210,7 @@ describe("useVoiceStore", () => {
   describe("voice_state event handler", () => {
     it("updates channelParticipants from event", () => {
       const participants = [
-        { userId: "u1", username: "alice", image: null, drinkCount: 0 },
+        { userId: "u1", username: "alice", drinkCount: 0 },
       ];
 
       // Set connected so our userId isn't filtered
@@ -237,8 +237,8 @@ describe("useVoiceStore", () => {
         type: "voice_state",
         channelId: "ch1",
         participants: [
-          { userId: "my-user-id", username: "me", image: null, drinkCount: 0 },
-          { userId: "u2", username: "bob", image: null, drinkCount: 0 },
+          { userId: "my-user-id", username: "me", drinkCount: 0 },
+          { userId: "u2", username: "bob", drinkCount: 0 },
         ],
       });
 
@@ -256,8 +256,8 @@ describe("useVoiceStore", () => {
         type: "voice_state",
         channelId: "ch1",
         participants: [
-          { userId: "my-user-id", username: "me", image: null, drinkCount: 0 },
-          { userId: "u2", username: "bob", image: null, drinkCount: 0 },
+          { userId: "my-user-id", username: "me", drinkCount: 0 },
+          { userId: "u2", username: "bob", drinkCount: 0 },
         ],
       });
 
@@ -269,7 +269,7 @@ describe("useVoiceStore", () => {
     it("empty participants clears channel", () => {
       useVoiceStore.setState({
         channelParticipants: {
-          ch1: [{ userId: "u1", username: "alice", image: null, drinkCount: 0 }],
+          ch1: [{ userId: "u1", username: "alice", drinkCount: 0 }],
         },
       });
 
@@ -304,8 +304,8 @@ describe("useVoiceStore", () => {
         connectedChannelId: "ch1",
         channelParticipants: {
           ch1: [
-            { userId: "my-user-id", username: "me", image: null, drinkCount: 0 },
-            { userId: "u2", username: "bob", image: null, drinkCount: 0 },
+            { userId: "my-user-id", username: "me", drinkCount: 0 },
+            { userId: "u2", username: "bob", drinkCount: 0 },
           ],
         },
       });
@@ -335,12 +335,12 @@ describe("useVoiceStore", () => {
         connectedChannelId: "ch1",
         channelParticipants: {
           ch1: [
-            { userId: "my-user-id", username: "me", image: null, drinkCount: 0 },
-            { userId: "u2", username: "bob", image: null, drinkCount: 0 },
-            { userId: "u3", username: "charlie", image: null, drinkCount: 0 },
+            { userId: "my-user-id", username: "me", drinkCount: 0 },
+            { userId: "u2", username: "bob", drinkCount: 0 },
+            { userId: "u3", username: "charlie", drinkCount: 0 },
           ],
           ch2: [
-            { userId: "u4", username: "dave", image: null, drinkCount: 0 },
+            { userId: "u4", username: "dave", drinkCount: 0 },
           ],
         },
       });

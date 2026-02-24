@@ -1,5 +1,5 @@
 import { Track } from "livekit-client";
-import { dbg } from "./debug.js";
+import { dbg } from "../debug.js";
 import { calculateRms, audioPipelines, getPipelineLevel } from "./voice-pipeline.js";
 import { AUDIO_LEVEL_INTERVAL_MS } from "./voice-constants.js";
 

@@ -1,6 +1,6 @@
 import { Track } from "livekit-client";
 import type { TrackProcessor, AudioProcessorOptions } from "livekit-client";
-import type { NoiseSuppressionModel } from "../stores/voice.js";
+import type { NoiseSuppressionModel } from "../../stores/voice.js";
 
 // ── AI Noise Suppression (multiple models) ──
 

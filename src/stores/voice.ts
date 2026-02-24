@@ -20,7 +20,7 @@ import {
   playUnmuteSound,
   playDeafenSound,
   playUndeafenSound,
-} from "../lib/voice-effects.js";
+} from "../lib/audio/voice-effects.js";
 
 import {
   audioPipelines,
@@ -30,8 +30,8 @@ import {
   destroyAudioPipeline,
   rebuildAllPipelines,
   destroyAllPipelines,
-} from "../lib/voice-pipeline.js";
-import type { AudioSettings } from "../lib/voice-pipeline.js";
+} from "../lib/audio/voice-pipeline.js";
+import type { AudioSettings } from "../lib/audio/voice-pipeline.js";
 
 import {
   getOrCreateNoiseProcessor,
@@ -44,7 +44,7 @@ import {
   setDryWetProcessor,
   getGainTrackProcessor,
   setGainTrackProcessor,
-} from "../lib/voice-noise.js";
+} from "../lib/audio/voice-noise.js";
 
 import {
   setupLocalAnalyser,
@@ -54,7 +54,7 @@ import {
   startAudioLevelPolling,
   stopAudioLevelPolling,
   getLocalMicTrack,
-} from "../lib/voice-analysis.js";
+} from "../lib/audio/voice-analysis.js";
 
 import {
   DEFAULT_BITRATE,
@@ -62,7 +62,7 @@ import {
   LOBBY_FADE_IN_S,
   LOBBY_FADE_OUT_S,
   LOBBY_DEFAULT_GAIN,
-} from "../lib/voice-constants.js";
+} from "../lib/audio/voice-constants.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // SECTION: Types & Constants
@@ -762,7 +762,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
             // Always wrap with DryWetTrackProcessor so micInputGain works at any suppression strength
             const strength = audioSettings.suppressionStrength / 100;
-            const { DryWetTrackProcessor } = await import("../lib/DryWetTrackProcessor.js");
+            const { DryWetTrackProcessor } = await import("../lib/audio/DryWetTrackProcessor.js");
             const dwp = new DryWetTrackProcessor(processor, strength);
             dwp.setPreGain(audioSettings.micInputGain / 100);
             setDryWetProcessor(dwp);
@@ -782,7 +782,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         try {
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
           if (micPub?.track) {
-            const { GainTrackProcessor } = await import("../lib/GainTrackProcessor.js");
+            const { GainTrackProcessor } = await import("../lib/audio/GainTrackProcessor.js");
             const gtp = new GainTrackProcessor(audioSettings.micInputGain / 100);
             setGainTrackProcessor(gtp);
             await micPub.track.setProcessor(gtp as any);
@@ -1113,7 +1113,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             } else {
               const setupGain = async () => {
                 try {
-                  const { GainTrackProcessor } = await import("../lib/GainTrackProcessor.js");
+                  const { GainTrackProcessor } = await import("../lib/audio/GainTrackProcessor.js");
                   const newGtp = new GainTrackProcessor((value as number) / 100);
                   setGainTrackProcessor(newGtp);
                   await micPub.track!.setProcessor(newGtp as any);
@@ -1195,7 +1195,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
             // If mic gain is non-unity, set up GainTrackProcessor
             if (currentGain !== 100 && micPub.track) {
               try {
-                const { GainTrackProcessor } = await import("../lib/GainTrackProcessor.js");
+                const { GainTrackProcessor } = await import("../lib/audio/GainTrackProcessor.js");
                 const gtp = new GainTrackProcessor(currentGain / 100);
                 setGainTrackProcessor(gtp);
                 await micPub.track.setProcessor(gtp as any);
@@ -1232,7 +1232,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
               }
 
               // Always wrap with DryWetTrackProcessor so micInputGain works at any suppression strength
-              const { DryWetTrackProcessor } = await import("../lib/DryWetTrackProcessor.js");
+              const { DryWetTrackProcessor } = await import("../lib/audio/DryWetTrackProcessor.js");
               const dwp = new DryWetTrackProcessor(processor, strength);
               dwp.setPreGain(currentSettings.micInputGain / 100);
               setDryWetProcessor(dwp);
