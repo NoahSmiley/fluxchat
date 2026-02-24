@@ -906,10 +906,10 @@ pub async fn reorder_channels(
 
         // Non-category channels cannot be parents
         let ch = channel_map[item.id.as_str()];
-        if ch.channel_type != "category" {
-            if body.items.iter().any(|other| other.parent_id.as_deref() == Some(item.id.as_str())) {
-                return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Only categories can have children"}))).into_response();
-            }
+        if ch.channel_type != "category"
+            && body.items.iter().any(|other| other.parent_id.as_deref() == Some(item.id.as_str()))
+        {
+            return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Only categories can have children"}))).into_response();
         }
     }
 

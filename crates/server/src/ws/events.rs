@@ -119,12 +119,6 @@ pub enum ClientEvent {
     UpdateStatus {
         status: String, // "online" | "idle" | "dnd" | "invisible"
     },
-    PlaySound {
-        #[serde(rename = "channelId")]
-        channel_id: String,
-        #[serde(rename = "soundId")]
-        sound_id: String,
-    },
     RoomKnock {
         #[serde(rename = "channelId")]
         channel_id: String,
@@ -308,22 +302,6 @@ pub enum ServerEvent {
         #[serde(rename = "voiceChannelId")]
         voice_channel_id: String,
     },
-    SoundboardPlay {
-        #[serde(rename = "channelId")]
-        channel_id: String,
-        #[serde(rename = "soundId")]
-        sound_id: String,
-        #[serde(rename = "audioAttachmentId")]
-        audio_attachment_id: String,
-        #[serde(rename = "audioFilename")]
-        audio_filename: String,
-        #[serde(rename = "imageAttachmentId", skip_serializing_if = "Option::is_none")]
-        image_attachment_id: Option<String>,
-        #[serde(rename = "imageFilename", skip_serializing_if = "Option::is_none")]
-        image_filename: Option<String>,
-        volume: f64,
-        username: String,
-    },
     // Room events
     RoomCreated {
         channel: Channel,
@@ -370,39 +348,6 @@ pub enum ServerEvent {
         target_channel_id: String,
         #[serde(rename = "targetChannelName")]
         target_channel_name: String,
-    },
-    // Economy events
-    CaseOpened {
-        #[serde(rename = "userId")]
-        user_id: String,
-        username: String,
-        #[serde(rename = "itemName")]
-        item_name: String,
-        #[serde(rename = "itemRarity")]
-        item_rarity: String,
-        #[serde(rename = "caseName")]
-        case_name: String,
-    },
-    TradeOfferReceived {
-        #[serde(rename = "tradeId")]
-        trade_id: String,
-        #[serde(rename = "senderId")]
-        sender_id: String,
-        #[serde(rename = "senderUsername")]
-        sender_username: String,
-    },
-    TradeResolved {
-        #[serde(rename = "tradeId")]
-        trade_id: String,
-        status: String,
-    },
-    CoinsEarned {
-        #[serde(rename = "userId")]
-        user_id: String,
-        amount: i64,
-        reason: String,
-        #[serde(rename = "newBalance")]
-        new_balance: i64,
     },
     Error {
         message: String,

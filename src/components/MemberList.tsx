@@ -153,7 +153,7 @@ export function UserCard({
   );
 }
 
-export function MemberList() {
+function MemberList() {
   const { members, onlineUsers, userStatuses, userActivities, openDM, showDMs } = useChatStore();
   const { user } = useAuthStore();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);

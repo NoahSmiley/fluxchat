@@ -228,7 +228,7 @@ interface ScreenShareInfo {
   username: string;
 }
 
-export type ScreenShareQuality = "1080p60" | "1080p30" | "720p60" | "720p30" | "480p30" | "Lossless";
+type ScreenShareQuality = "1080p60" | "1080p30" | "720p60" | "720p30" | "480p30" | "Lossless";
 
 interface ScreenSharePreset {
   width: number;

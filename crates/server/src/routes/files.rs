@@ -74,7 +74,7 @@ pub async fn upload(
     let file_path = std::path::Path::new(&state.config.upload_dir).join(&stored_filename);
 
     // Write file to disk
-    if let Err(_) = tokio::fs::write(&file_path, &data).await {
+    if tokio::fs::write(&file_path, &data).await.is_err() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": "Failed to save file"})),

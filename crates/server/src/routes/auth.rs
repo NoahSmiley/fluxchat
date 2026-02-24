@@ -184,7 +184,7 @@ pub async fn sign_up(
         sqlx::query(
             "INSERT INTO channels (id, server_id, name, type, parent_id, position, created_at) VALUES (?, ?, 'general', 'text', NULL, 0, ?)",
         )
-        .bind(&uuid::Uuid::new_v4().to_string())
+        .bind(uuid::Uuid::new_v4().to_string())
         .bind(&sid)
         .bind(&now)
         .execute(&state.db)
@@ -194,7 +194,7 @@ pub async fn sign_up(
         sqlx::query(
             "INSERT INTO channels (id, server_id, name, type, parent_id, position, is_room, is_persistent, created_at) VALUES (?, ?, 'Lobby', 'voice', NULL, 1, 1, 1, ?)",
         )
-        .bind(&uuid::Uuid::new_v4().to_string())
+        .bind(uuid::Uuid::new_v4().to_string())
         .bind(&sid)
         .bind(&now)
         .execute(&state.db)

@@ -298,14 +298,6 @@ export async function whitelistEmailViaAPI(page: Page, email: string) {
 }
 
 /**
- * Open the economy/shop view by clicking the FluxFloat button.
- */
-export async function openEconomy(page: Page) {
-  await page.locator('button[title="FluxFloat"]').click();
-  await page.waitForTimeout(500);
-}
-
-/**
  * Navigate to a settings tab within the settings modal.
  * Assumes settings modal is already open.
  */

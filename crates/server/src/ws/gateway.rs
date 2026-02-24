@@ -7,6 +7,9 @@ use crate::ws::events::{ActivityInfo, ServerEvent};
 
 pub type ClientId = u64;
 
+/// channel_id -> user_id -> (username, drink_count)
+type VoiceParticipantMap = HashMap<String, HashMap<String, (String, i32)>>;
+
 pub struct ConnectedClient {
     pub user_id: String,
     pub username: String,
@@ -23,10 +26,15 @@ pub struct GatewayState {
     pub clients: RwLock<HashMap<ClientId, ConnectedClient>>,
     pub channel_subs: RwLock<HashMap<String, HashSet<ClientId>>>,
     pub dm_subs: RwLock<HashMap<String, HashSet<ClientId>>>,
-    // channel_id → user_id → (username, drink_count)
-    pub voice_participants: RwLock<HashMap<String, HashMap<String, (String, i32)>>>,
+    pub voice_participants: RwLock<VoiceParticipantMap>,
     // Room cleanup timers: channel_id → JoinHandle for delayed deletion
     pub cleanup_timers: RwLock<HashMap<String, tokio::task::JoinHandle<()>>>,
+}
+
+impl Default for GatewayState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GatewayState {
@@ -275,10 +283,10 @@ impl GatewayState {
         let mut seen = HashSet::new();
         let mut result = Vec::new();
         for client in clients.values() {
-            if seen.insert(client.user_id.clone()) {
-                if client.status != "invisible" {
-                    result.push((client.user_id.clone(), client.status.clone()));
-                }
+            if seen.insert(client.user_id.clone())
+                && client.status != "invisible"
+            {
+                result.push((client.user_id.clone(), client.status.clone()));
             }
         }
         result

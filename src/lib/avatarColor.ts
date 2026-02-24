@@ -83,7 +83,7 @@ const BANNER_GRADIENTS: Record<string, string> = {
 };
 
 /** Image-based banners: previewCss → image URL served from /banners/ */
-export const BANNER_IMAGES: Record<string, string> = {
+const BANNER_IMAGES: Record<string, string> = {
   wyrm_manuscript: "/banners/wyrm_manuscript.jpg",
 };
 
