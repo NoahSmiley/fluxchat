@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import type { Channel } from "../../types/shared.js";
-import { useChatStore } from "../../stores/chat.js";
-import { useVoiceStore } from "../../stores/voice.js";
+import { useChatStore } from "../../stores/chat/index.js";
+import { useVoiceStore } from "../../stores/voice/index.js";
 import { useNotifStore, type ChannelNotifSetting, type CategoryNotifSetting } from "../../stores/notifications.js";
 import ContextMenu, { type ContextMenuEntry } from "../ContextMenu.js";
 import { ChannelSettingsModal, DeleteConfirmDialog } from "../modals/ChannelSettingsModal.js";

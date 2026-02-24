@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useChatStore } from "../stores/chat.js";
-import { useDMStore } from "../stores/dm.js";
+import { useChatStore } from "../stores/chat/index.js";
+import { useDMStore } from "../stores/dm/index.js";
 import { useAuthStore } from "../stores/auth.js";
 import { gateway } from "../lib/ws.js";
 import { ServerSidebar } from "../components/sidebar/ServerSidebar.js";

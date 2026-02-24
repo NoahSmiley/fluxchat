@@ -1,6 +1,6 @@
 import type { Channel, ChannelType } from "../../types/shared.js";
-import { useChatStore } from "../../stores/chat.js";
-import { useVoiceStore } from "../../stores/voice.js";
+import { useChatStore } from "../../stores/chat/index.js";
+import { useVoiceStore } from "../../stores/voice/index.js";
 import { useUIStore } from "../../stores/ui.js";
 import { MessageSquareText, Volume2, Settings, ChevronRight, Folder, Radio, Lock, LockOpen } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";

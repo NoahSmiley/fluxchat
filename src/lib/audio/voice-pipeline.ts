@@ -24,7 +24,7 @@ export interface AudioSettings {
   lowPassFrequency: number;
   inputSensitivity: number;
   inputSensitivityEnabled: boolean;
-  noiseSuppressionModel: import("../../stores/voice.js").NoiseSuppressionModel;
+  noiseSuppressionModel: import("../../stores/voice/index.js").NoiseSuppressionModel;
   suppressionStrength: number;
   vadThreshold: number;
   micInputGain: number;

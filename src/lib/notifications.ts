@@ -1,4 +1,4 @@
-import { useChatStore } from "../stores/chat.js";
+import { useChatStore } from "../stores/chat/index.js";
 import { useAuthStore } from "../stores/auth.js";
 import type { useNotifStore as NotifStoreType } from "../stores/notifications.js";
 import { dbg } from "./debug.js";

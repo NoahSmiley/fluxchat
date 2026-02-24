@@ -1,12 +1,12 @@
 import { Volume2, Volume1, VolumeX, MicOff, HeadphoneOff, Radio } from "lucide-react";
-import { useVoiceStore } from "../../stores/voice.js";
+import { useVoiceStore } from "../../stores/voice/index.js";
 import { ParticipantTile } from "./ParticipantTile.js";
 import { LobbyMusicBar } from "./LobbyMusicBar.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "../../lib/avatarColor.js";
-import type { SpotifyPlayerState } from "../../stores/spotify-types.js";
+import type { SpotifyPlayerState } from "../../stores/spotify/types.js";
 import type { ListeningSession, QueueItem } from "../../types/user.js";
 import type { MemberWithUser } from "../../types/shared.js";
-import type { VoiceUser } from "../../stores/voice-types.js";
+import type { VoiceUser } from "../../stores/voice/types.js";
 
 // ── Types ──
 

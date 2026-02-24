@@ -49,7 +49,7 @@ export const useYouTubeStore = create<YouTubeState>((set, get) => ({
   },
 
   addYouTubeToQueue: async (track) => {
-    const { useSpotifyStore } = await import("./spotify.js");
+    const { useSpotifyStore } = await import("./spotify/store.js");
     const session = useSpotifyStore.getState().session;
     if (!session) return;
     await api.addToQueue(session.id, {
@@ -66,10 +66,10 @@ export const useYouTubeStore = create<YouTubeState>((set, get) => ({
   playYouTube: (videoId, trackInfo) => {
     dbg("youtube", `playYouTube videoId=${videoId}`, trackInfo);
     // Stop lobby music when YouTube plays
-    import("./voice.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
+    import("./voice/store.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
 
     // Pause Spotify player if active
-    import("./spotify.js").then((mod) => {
+    import("./spotify/store.js").then((mod) => {
       const player = mod.useSpotifyStore.getState().player;
       player?.pause();
       mod.useSpotifyStore.setState({ playerState: null });
@@ -95,14 +95,14 @@ export const useYouTubeStore = create<YouTubeState>((set, get) => ({
       audio.addEventListener("ended", () => {
         set({ youtubePaused: true });
         // Trigger skip in the spotify store (session queue management)
-        import("./spotify.js").then((mod) => mod.useSpotifyStore.getState().skip());
+        import("./spotify/store.js").then((mod) => mod.useSpotifyStore.getState().skip());
       });
       set({ youtubeAudio: audio });
     }
 
     audio.src = api.getYouTubeAudioUrl(videoId);
     // Read volume from spotify store for consistency
-    import("./spotify.js").then((mod) => {
+    import("./spotify/store.js").then((mod) => {
       audio!.volume = mod.useSpotifyStore.getState().volume;
     });
     audio.play().catch((e) => {

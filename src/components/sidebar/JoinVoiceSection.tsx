@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Channel, MemberWithUser } from "../../types/shared.js";
-import { useVoiceStore } from "../../stores/voice.js";
+import { useVoiceStore } from "../../stores/voice/index.js";
 import { useUIStore } from "../../stores/ui.js";
 import { useAuthStore } from "../../stores/auth.js";
 import { ChevronRight, Plus } from "lucide-react";
@@ -10,7 +10,7 @@ import * as api from "../../lib/api.js";
 import { dbg } from "../../lib/debug.js";
 import { VoiceUserRow } from "../voice/VoiceUserRow.js";
 import { AnimatedList } from "../AnimatedList.js";
-import type { VoiceUser } from "../../stores/voice-types.js";
+import type { VoiceUser } from "../../stores/voice/types.js";
 import {
   ANIMATED_LIST_DURATION_MS,
   DUMMY_VOICE_USERS,

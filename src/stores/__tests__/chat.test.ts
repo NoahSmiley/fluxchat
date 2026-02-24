@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap } from "../chat.js";
+import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap } from "../chat/index.js";
 
 // Mock dependencies
 vi.mock("../../lib/api.js", () => ({

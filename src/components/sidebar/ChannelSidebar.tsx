@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { Channel, ChannelType } from "../../types/shared.js";
-import { useChatStore } from "../../stores/chat.js";
-import { useVoiceStore } from "../../stores/voice.js";
+import { useChatStore } from "../../stores/chat/index.js";
+import { useVoiceStore } from "../../stores/voice/index.js";
 import { useUIStore } from "../../stores/ui.js";
 import { useAuthStore } from "../../stores/auth.js";
 import { VoiceStatusBar } from "../voice/VoiceStatusBar.js";

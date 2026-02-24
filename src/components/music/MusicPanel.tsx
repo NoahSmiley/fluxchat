@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
-import { useSpotifyStore } from "../../stores/spotify.js";
+import { useSpotifyStore } from "../../stores/spotify/index.js";
 import { useYouTubeStore } from "../../stores/youtube.js";
 import { useAuthStore } from "../../stores/auth.js";
 import { Music, LogOut } from "lucide-react";

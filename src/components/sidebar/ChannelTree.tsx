@@ -17,7 +17,7 @@ import {
 import { buildTree, flattenTree } from "../../lib/channel-tree.js";
 import { SortableChannelItem, getChannelIcon } from "./SortableChannelItem.js";
 import type { MemberWithUser } from "../../types/shared.js";
-import type { VoiceUser } from "../../stores/voice-types.js";
+import type { VoiceUser } from "../../stores/voice/types.js";
 import {
   clearDwell,
   handleDragStart as dndDragStart,

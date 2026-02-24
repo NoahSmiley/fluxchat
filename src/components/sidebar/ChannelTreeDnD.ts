@@ -1,6 +1,6 @@
 import type { DragEndEvent, DragStartEvent, DragOverEvent } from "@dnd-kit/core";
 import type { Channel, ReorderItem } from "../../types/shared.js";
-import { useChatStore } from "../../stores/chat.js";
+import { useChatStore } from "../../stores/chat/index.js";
 import * as api from "../../lib/api.js";
 
 export interface DnDState {

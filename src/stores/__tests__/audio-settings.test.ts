@@ -123,7 +123,7 @@ vi.mock("livekit-client", () => ({
 // ---------------------------------------------------------------------------
 // Import the store AFTER all mocks are registered
 // ---------------------------------------------------------------------------
-import { useVoiceStore } from "../voice.js";
+import { useVoiceStore } from "../voice/index.js";
 
 // ---------------------------------------------------------------------------
 // Convenience — the key used to persist settings in localStorage

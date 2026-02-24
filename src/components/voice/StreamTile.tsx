@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
-import { useVoiceStore } from "../../stores/voice.js";
+import { useVoiceStore } from "../../stores/voice/index.js";
 import {
   ArrowUpRight, Pin, PinOff, Maximize2, Minimize2, Monitor,
 } from "lucide-react";

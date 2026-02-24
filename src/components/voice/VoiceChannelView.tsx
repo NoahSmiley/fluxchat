@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useVoiceStore } from "../../stores/voice.js";
-import { useChatStore } from "../../stores/chat.js";
-import { useSpotifyStore } from "../../stores/spotify.js";
+import { useVoiceStore } from "../../stores/voice/index.js";
+import { useChatStore } from "../../stores/chat/index.js";
+import { useSpotifyStore } from "../../stores/spotify/index.js";
 import { useYouTubeStore } from "../../stores/youtube.js";
 import { MusicPanel } from "../music/MusicPanel.js";
 import { SoundboardPanel } from "../music/SoundboardPanel.js";

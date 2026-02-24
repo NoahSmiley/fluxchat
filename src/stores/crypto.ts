@@ -53,7 +53,7 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
     }
 
     // Load server keys for all joined servers
-    const { useChatStore } = await import("./chat.js");
+    const { useChatStore } = await import("./chat/store.js");
     const servers = useChatStore.getState().servers;
     for (const server of servers) {
       try {

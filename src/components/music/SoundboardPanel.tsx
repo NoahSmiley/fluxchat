@@ -5,7 +5,7 @@ import { gateway } from "../../lib/ws.js";
 import type { SoundboardSound } from "../../types/shared.js";
 import { API_BASE } from "../../lib/serverUrl.js";
 import { useAuthStore } from "../../stores/auth.js";
-import { useChatStore } from "../../stores/chat.js";
+import { useChatStore } from "../../stores/chat/index.js";
 import { renderEmoji } from "../../lib/emoji.js";
 
 export function SoundboardPanel({ serverId, channelId }: { serverId: string; channelId: string }) {

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import type { ChannelType } from "../../types/shared.js";
 import * as api from "../../lib/api.js";
-import { useChatStore } from "../../stores/chat.js";
+import { useChatStore } from "../../stores/chat/index.js";
 import { Folder } from "lucide-react";
 
 interface Props {

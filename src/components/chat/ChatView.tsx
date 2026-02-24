@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type DragEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../../stores/chat.js";
+import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "../../stores/chat/index.js";
 import { useAuthStore } from "../../stores/auth.js";
 import { useUIStore } from "../../stores/ui.js";
 import { renderMessageContent, isEmojiOnly } from "../../lib/emoji.js";
 import { API_BASE } from "../../lib/serverUrl.js";
-import { EVERYONE_MENTION_RE, HERE_MENTION_RE } from "../../stores/chat-types.js";
+import { EVERYONE_MENTION_RE, HERE_MENTION_RE } from "../../stores/chat/types.js";
 
 import { ChatHeader } from "./ChatHeader.js";
 import { MessageList } from "./MessageList.js";

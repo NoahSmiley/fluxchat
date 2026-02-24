@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useChatStore } from "../../stores/chat.js";
-import { useDMStore } from "../../stores/dm.js";
+import { useChatStore } from "../../stores/chat/index.js";
+import { useDMStore } from "../../stores/dm/index.js";
 import { useAuthStore } from "../../stores/auth.js";
 import { FluxLogo } from "../FluxLogo.js";
 import { Settings } from "lucide-react";

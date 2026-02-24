@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useVoiceStore } from "../../stores/voice.js";
+import { useVoiceStore } from "../../stores/voice/index.js";
 import { avatarColor } from "../../lib/avatarColor.js";
 
 export interface ParticipantTileProps {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Channel, MemberWithUser } from "../../types/shared.js";
-import { useChatStore } from "../../stores/chat.js";
+import { useChatStore } from "../../stores/chat/index.js";
 import { Lock, LockOpen } from "lucide-react";
 import * as api from "../../lib/api.js";
 import { dbg } from "../../lib/debug.js";

@@ -62,7 +62,7 @@ vi.mock("../voice.js", () => ({
   },
 }));
 
-import { useSpotifyStore } from "../spotify.js";
+import { useSpotifyStore } from "../spotify/index.js";
 import { useYouTubeStore } from "../youtube.js";
 import * as api from "../../lib/api.js";
 import { gateway } from "../../lib/ws.js";

@@ -6,7 +6,7 @@ vi.mock("../../stores/auth.js", () => ({
   },
 }));
 
-vi.mock("../../stores/chat.js", () => ({
+vi.mock("../../stores/chat/index.js", () => ({
   useChatStore: {
     getState: vi.fn(() => ({ userStatuses: {} })),
   },
@@ -53,7 +53,7 @@ import {
   requestNotificationPermission,
 } from "../notifications.js";
 import { useAuthStore } from "../../stores/auth.js";
-import { useChatStore } from "../../stores/chat.js";
+import { useChatStore } from "../../stores/chat/index.js";
 
 const mockedAuthStore = vi.mocked(useAuthStore);
 const mockedChatStore = vi.mocked(useChatStore);
