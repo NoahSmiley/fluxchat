@@ -149,7 +149,10 @@ export function SettingsModal() {
     account: s.account, startOAuthFlow: s.startOAuthFlow, unlinkAccount: s.unlinkAccount,
     polling: s.polling, oauthError: s.oauthError,
   })));
-  const updater = useUpdater();
+  const { betaUpdates, setBetaUpdates } = useUIStore(useShallow((s) => ({
+    betaUpdates: s.betaUpdates, setBetaUpdates: s.setBetaUpdates,
+  })));
+  const updater = useUpdater(betaUpdates);
 
   const [debugMode, setDebugMode] = useState(getDebugEnabled);
   const [logsCopied, setLogsCopied] = useState(false);
@@ -214,7 +217,14 @@ export function SettingsModal() {
         {activeTab === "updates" && (
           <div className="settings-card">
             <h3 className="settings-card-title">App Version</h3>
-            <p className="settings-card-desc">v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev"}</p>
+            <p className="settings-card-desc">v{typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "dev"}{betaUpdates ? " (Beta Channel)" : ""}</p>
+            <div className="settings-row">
+              <div className="settings-row-info">
+                <span className="settings-row-label">Beta Updates</span>
+                <span className="settings-row-desc">Receive early access builds (may be less stable)</span>
+              </div>
+              <ToggleSwitch checked={betaUpdates} onChange={setBetaUpdates} />
+            </div>
             <div className="settings-row">
               <div className="settings-row-info">
                 <span className="settings-row-label">

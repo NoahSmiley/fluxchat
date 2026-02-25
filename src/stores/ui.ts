@@ -12,6 +12,7 @@ interface UIState {
   highlightOwnMessages: boolean;
   spellcheck: boolean;
   showSendButton: boolean;
+  betaUpdates: boolean;
   openSettings: () => void;
   closeSettings: () => void;
   openServerSettings: () => void;
@@ -21,6 +22,7 @@ interface UIState {
   setHighlightOwnMessages: (val: boolean) => void;
   setSpellcheck: (val: boolean) => void;
   setShowSendButton: (val: boolean) => void;
+  setBetaUpdates: (val: boolean) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -33,6 +35,7 @@ export const useUIStore = create<UIState>()(
       highlightOwnMessages: true,
       spellcheck: true,
       showSendButton: true,
+      betaUpdates: false,
       openSettings: () => set({ settingsOpen: true }),
       closeSettings: () => set({ settingsOpen: false }),
       openServerSettings: () => set({ serverSettingsOpen: true }),
@@ -42,6 +45,7 @@ export const useUIStore = create<UIState>()(
       setHighlightOwnMessages: (val) => set({ highlightOwnMessages: val }),
       setSpellcheck: (val) => set({ spellcheck: val }),
       setShowSendButton: (val) => set({ showSendButton: val }),
+      setBetaUpdates: (val) => set({ betaUpdates: val }),
     }),
     {
       name: "flux-ui",
@@ -51,6 +55,7 @@ export const useUIStore = create<UIState>()(
         highlightOwnMessages: state.highlightOwnMessages,
         spellcheck: state.spellcheck,
         showSendButton: state.showSendButton,
+        betaUpdates: state.betaUpdates,
       }),
     }
   )

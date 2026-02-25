@@ -192,7 +192,8 @@ function ZoomControls() {
 }
 
 function UpdateToast() {
-  const { status, version, progress, checkForUpdate, downloadAndInstall, relaunch } = useUpdater();
+  const betaUpdates = useUIStore((s) => s.betaUpdates);
+  const { status, version, progress, checkForUpdate, downloadAndInstall, relaunch } = useUpdater(betaUpdates);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
