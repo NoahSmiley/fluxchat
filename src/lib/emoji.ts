@@ -1,8 +1,6 @@
 import twemoji from "twemoji";
 import data from "@emoji-mart/data";
-import type { CustomEmoji } from "../types/shared.js";
-
-// ── Reverse map: native emoji char → :id: ─────────────────────────────────
+import type { CustomEmoji } from "@/types/shared.js";
 
 interface EmojiSkin { native: string; }
 interface EmojiEntry { skins: EmojiSkin[]; }
@@ -11,8 +9,6 @@ const _nativeToId = new Map<string, string>();
 for (const [id, entry] of Object.entries(_emojiData.emojis)) {
   _nativeToId.set(entry.skins[0].native, id);
 }
-
-// ── Twemoji options ────────────────────────────────────────────────────────
 
 export const TWEMOJI_OPTIONS = {
   folder: "svg",
@@ -24,8 +20,6 @@ export const TWEMOJI_OPTIONS = {
     return id ? { "data-emoji-id": `:${id}:` } : {};
   },
 };
-
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 /**
  * Returns a `:name:` label for an emoji. Custom/standard-by-id pass through;
@@ -62,7 +56,6 @@ export function isEmojiOnly(text: string, customEmojis: CustomEmoji[], maxCount 
   });
   EMOJI_SEQ_RE.lastIndex = 0;
   const stdCount = (s.match(EMOJI_SEQ_RE) ?? []).length;
-  EMOJI_SEQ_RE.lastIndex = 0;
   s = s.replace(EMOJI_SEQ_RE, "");
   if (s.replace(/\s/g, "").length !== 0) return false;
   const total = customCount + stdCount;

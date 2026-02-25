@@ -27,10 +27,6 @@ final class ChatState {
 
     var reactions: [String: [(emoji: String, userIds: [String])]] = [:]
 
-    // MARK: - Decrypted Message Cache: messageId -> plaintext
-
-    var decryptedCache: [String: String] = [:]
-
     // MARK: - Typing
 
     var typingUsers: [String: Set<String>] = [:]  // channelId -> userIds
@@ -244,62 +240,29 @@ final class ChatState {
         await loadMessages(channelId: channelId, cursor: messageCursor)
     }
 
-    /// Encrypt and send a message via WebSocket.
-    func sendMessage(
-        _ plaintext: String,
-        channelId: String,
-        key: SymmetricKey,
-        attachmentIds: [String] = []
-    ) async {
-        do {
-            let textToEncrypt = plaintext.isEmpty && !attachmentIds.isEmpty ? " " : plaintext
-            let ciphertext = try MessageCrypto.encrypt(textToEncrypt, key: key)
-            ws?.send(.sendMessage(
-                channelId: channelId,
-                ciphertext: ciphertext,
-                mlsEpoch: 1,
-                attachmentIds: attachmentIds.isEmpty ? nil : attachmentIds
-            ))
-        } catch {
-            print("[ChatState] sendMessage encrypt error: \(error.localizedDescription)")
-        }
-    }
-
-    /// Send a plaintext message (mlsEpoch 0) as base64 — fallback when no E2EE key.
-    func sendPlaintext(_ plaintext: String, channelId: String, attachmentIds: [String] = []) async {
-        // For attachment-only messages with no text, send a space as placeholder
-        let textToSend = plaintext.isEmpty && !attachmentIds.isEmpty ? " " : plaintext
-        let b64 = Data(textToSend.utf8).base64EncodedString()
-        guard !b64.isEmpty else { return }
+    /// Send a plaintext message via WebSocket.
+    func sendMessage(_ text: String, channelId: String, attachmentIds: [String] = []) async {
+        let content = text.isEmpty && !attachmentIds.isEmpty ? " " : text
+        guard !content.isEmpty else { return }
         ws?.send(.sendMessage(
             channelId: channelId,
-            ciphertext: b64,
-            mlsEpoch: 0,
+            content: content,
             attachmentIds: attachmentIds.isEmpty ? nil : attachmentIds
         ))
     }
 
-    func editMessage(_ messageId: String, newText: String, key: SymmetricKey) async {
-        do {
-            let ciphertext = try MessageCrypto.encrypt(newText, key: key)
-            ws?.send(.editMessage(messageId: messageId, ciphertext: ciphertext))
-        } catch {
-            print("[ChatState] editMessage encrypt error: \(error.localizedDescription)")
-        }
+    func editMessage(_ messageId: String, newText: String) async {
+        guard !newText.isEmpty else { return }
+        ws?.send(.editMessage(messageId: messageId, content: newText))
     }
 
     func deleteMessage(_ messageId: String) {
         ws?.send(.deleteMessage(messageId: messageId))
     }
 
-    /// Decrypt a message and cache the result.
-    func decryptedText(for message: Message, key: SymmetricKey?) -> String {
-        if let cached = decryptedCache[message.id] {
-            return cached
-        }
-        let plain = MessageCrypto.decryptMessage(message.ciphertext, key: key, mlsEpoch: message.mlsEpoch)
-        decryptedCache[message.id] = plain
-        return plain
+    /// Return the plaintext content for a channel message.
+    func decryptedText(for message: Message) -> String {
+        return message.content
     }
 
     // MARK: - Typing
@@ -385,8 +348,7 @@ final class ChatState {
                 id: payload.message.id,
                 channelId: payload.message.channelId,
                 senderId: payload.message.senderId,
-                ciphertext: payload.message.ciphertext,
-                mlsEpoch: payload.message.mlsEpoch,
+                content: payload.message.content,
                 createdAt: payload.message.createdAt,
                 editedAt: payload.message.editedAt,
                 attachments: attachments
@@ -413,21 +375,17 @@ final class ChatState {
                 id: old.id,
                 channelId: old.channelId,
                 senderId: old.senderId,
-                ciphertext: edit.ciphertext,
-                mlsEpoch: old.mlsEpoch,
+                content: edit.content,
                 createdAt: old.createdAt,
                 editedAt: edit.editedAt,
                 attachments: old.attachments
             )
             messages[idx] = updated
-            // Invalidate decrypted cache
-            decryptedCache.removeValue(forKey: edit.messageId)
         }
     }
 
     func handleMessageDelete(_ del: MessageDelete) {
         messages.removeAll { $0.id == del.messageId }
-        decryptedCache.removeValue(forKey: del.messageId)
         reactions.removeValue(forKey: del.messageId)
     }
 

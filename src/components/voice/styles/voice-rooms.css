@@ -1,0 +1,98 @@
+/* ── Room Features: Lock, Knock, Invite, Quick-Move ── */
+
+.voice-room-locked {
+  border: 1px solid rgba(248, 113, 113, 0.6) !important;
+  background: rgba(248, 113, 113, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(248, 113, 113, 0.25), inset 0 1px 0 rgba(248, 113, 113, 0.12) !important;
+}
+
+.voice-room-locked:hover {
+  border-color: rgba(248, 113, 113, 0.6);
+  background: rgba(248, 113, 113, 0.14);
+  box-shadow: 0 4px 12px rgba(248, 113, 113, 0.2), inset 0 1px 0 rgba(248, 113, 113, 0.15);
+}
+
+.voice-room-locked .voice-room-group-label { color: #fca5a5; }
+.voice-room-locked .voice-room-group-count { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+.voice-room-locked .room-lock-toggle { color: #f87171; }
+
+.room-lock-toggle {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+  width: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.room-lock-toggle:hover { opacity: 1; color: var(--text-primary); }
+
+.voice-room-locked .room-lock-toggle { opacity: 1; color: #f87171; }
+
+/* Drop target highlight for drag-to-invite */
+.voice-room-drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background: rgba(88, 101, 242, 0.1) !important;
+}
+
+/* Room toasts */
+.room-toasts {
+  position: fixed;
+  bottom: 60px;
+  right: 20px;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 340px;
+}
+
+.room-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-secondary, #2b2d31);
+  border: 1px solid var(--border, #3f4147);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: toast-slide-in 0.25s ease;
+}
+
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.room-toast-icon { color: var(--text-secondary); flex-shrink: 0; }
+.room-toast-content { flex: 1; min-width: 0; }
+
+.room-toast-title {
+  font-size: 13px;
+  color: var(--text-primary, #dbdee1);
+  line-height: 1.3;
+}
+.room-toast-title strong { color: #fff; }
+
+.room-toast-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.room-toast-btn {
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.room-toast-btn.accept { background: var(--accent, #5865f2); color: #fff; }
+.room-toast-btn.accept:hover { background: #4752c4; }
+.room-toast-btn.dismiss { background: transparent; color: var(--text-secondary); padding: 4px; }
+.room-toast-btn.dismiss:hover { color: var(--text-primary); }

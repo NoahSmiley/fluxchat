@@ -1,4 +1,3 @@
-import CryptoKit
 import SwiftUI
 
 /// Displays a single message matching the desktop Flux layout:
@@ -14,7 +13,6 @@ struct MessageRow: View {
     @Environment(AuthState.self) private var authState
 
     let message: Message
-    let serverKey: SymmetricKey?
     let showHeader: Bool
 
     /// Binding to trigger the message action sheet in the parent view.
@@ -77,6 +75,13 @@ struct MessageRow: View {
                     Text(senderName)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AvatarColor.color(for: senderName))
+
+                    // Online status dot
+                    if chatState.onlineUsers.contains(message.senderId) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 6, height: 6)
+                    }
 
                     Text(formattedTime)
                         .font(.system(size: 11))
@@ -152,23 +157,7 @@ struct MessageRow: View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(attachments) { attachment in
                 if attachment.contentType.hasPrefix("image/") {
-                    AsyncImage(url: URL(string: attachment.fileURL)) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: 300, maxHeight: 300)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        case .failure:
-                            attachmentFileRow(attachment)
-                        default:
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.white.opacity(0.04))
-                                .frame(width: 200, height: 120)
-                                .overlay(ProgressView().tint(textMuted))
-                        }
-                    }
+                    MessageImageView(attachment: attachment)
                 } else {
                     attachmentFileRow(attachment)
                 }
@@ -244,7 +233,7 @@ struct MessageRow: View {
     // MARK: - Helpers
 
     private var decryptedText: String {
-        chatState.decryptedText(for: message, key: serverKey)
+        message.content
     }
 
     private var senderName: String {
@@ -290,6 +279,207 @@ struct MessageRow: View {
         if bytes < 1024 { return "\(bytes) B" }
         if bytes < 1024 * 1024 { return "\(bytes / 1024) KB" }
         return String(format: "%.1f MB", Double(bytes) / (1024 * 1024))
+    }
+}
+
+// MARK: - Message Image View
+
+/// Displays an image attachment with proper server URL loading, placeholder,
+/// tap-to-fullscreen, and max 280pt width while maintaining aspect ratio.
+private struct MessageImageView: View {
+    let attachment: Attachment
+
+    @State private var showFullScreen = false
+    @State private var loadedImage: UIImage?
+    @State private var isLoading = true
+    @State private var hasFailed = false
+
+    private let maxImageWidth: CGFloat = 280
+    private let placeholderHeight: CGFloat = 160
+    private let bgCard = Color.white.opacity(0.04)
+    private let textMuted = Color(red: 0.333, green: 0.333, blue: 0.333)
+
+    var body: some View {
+        Group {
+            if let image = loadedImage {
+                let aspectRatio = image.size.width / max(image.size.height, 1)
+                let displayWidth = min(image.size.width, maxImageWidth)
+                let displayHeight = displayWidth / aspectRatio
+
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: displayWidth, height: displayHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        showFullScreen = true
+                    }
+            } else if hasFailed {
+                VStack(spacing: 6) {
+                    Image(systemName: "photo")
+                        .font(.system(size: 24))
+                        .foregroundStyle(textMuted)
+                    Text("Failed to load image")
+                        .font(.system(size: 12))
+                        .foregroundStyle(textMuted)
+                }
+                .frame(width: 200, height: 100)
+                .background(bgCard)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else {
+                // Loading placeholder
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(bgCard)
+                    .frame(width: 200, height: placeholderHeight)
+                    .overlay(
+                        VStack(spacing: 8) {
+                            ProgressView()
+                                .tint(textMuted)
+                            Text(attachment.filename)
+                                .font(.system(size: 11))
+                                .foregroundStyle(textMuted)
+                                .lineLimit(1)
+                        }
+                    )
+            }
+        }
+        .task {
+            await loadImage()
+        }
+        .fullScreenCover(isPresented: $showFullScreen) {
+            FullScreenMessageImageView(
+                image: loadedImage,
+                filename: attachment.filename,
+                isPresented: $showFullScreen
+            )
+        }
+    }
+
+    private func loadImage() async {
+        guard let url = URL(string: attachment.fileURL) else {
+            hasFailed = true
+            isLoading = false
+            return
+        }
+
+        var request = URLRequest(url: url)
+        // Add auth header for local server
+        if let token = KeychainHelper.get(Config.sessionTokenKey) {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode),
+                  let image = UIImage(data: data) else {
+                await MainActor.run {
+                    hasFailed = true
+                    isLoading = false
+                }
+                return
+            }
+            await MainActor.run {
+                loadedImage = image
+                isLoading = false
+            }
+        } catch {
+            await MainActor.run {
+                hasFailed = true
+                isLoading = false
+            }
+        }
+    }
+}
+
+// MARK: - Full Screen Message Image View
+
+/// Full-screen image viewer with pinch-to-zoom and drag-to-dismiss.
+private struct FullScreenMessageImageView: View {
+    let image: UIImage?
+    let filename: String
+    @Binding var isPresented: Bool
+
+    @State private var scale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .scaleEffect(scale)
+                    .offset(offset)
+                    .gesture(
+                        MagnifyGesture()
+                            .onChanged { value in
+                                scale = lastScale * value.magnification
+                            }
+                            .onEnded { _ in
+                                lastScale = scale
+                                if scale < 1.0 {
+                                    withAnimation {
+                                        scale = 1.0
+                                        lastScale = 1.0
+                                    }
+                                }
+                            }
+                    )
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                offset = value.translation
+                            }
+                            .onEnded { value in
+                                if abs(value.translation.height) > 100 && scale <= 1.0 {
+                                    isPresented = false
+                                } else {
+                                    withAnimation {
+                                        offset = .zero
+                                    }
+                                }
+                            }
+                    )
+            }
+
+            // Top bar
+            VStack {
+                HStack {
+                    Button {
+                        isPresented = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.15))
+                            .clipShape(Circle())
+                    }
+
+                    Spacer()
+
+                    Text(filename)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Color.clear.frame(width: 36, height: 36)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                Spacer()
+            }
+        }
+        .preferredColorScheme(.dark)
+        .statusBarHidden()
     }
 }
 

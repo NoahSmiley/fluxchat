@@ -25,7 +25,7 @@ import {
   onCommand,
   getPopoutType,
   isPopout,
-} from "../broadcast.js";
+} from "@/lib/broadcast.js";
 
 describe("broadcast", () => {
   beforeEach(() => {

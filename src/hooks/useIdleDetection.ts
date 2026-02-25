@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
-import { useChatStore } from "../stores/chat.js";
-import { useAuthStore } from "../stores/auth.js";
-import { useVoiceStore } from "../stores/voice.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useAuthStore } from "@/stores/auth.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
 
 // How long without any system-wide input (keyboard/mouse or voice) before marking idle
 const IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes

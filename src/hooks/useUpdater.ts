@@ -1,37 +1,54 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
-export type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "ready" | "error" | "up-to-date";
+const STABLE_ENDPOINT = "https://github.com/NoahSmiley/fluxchat/releases/latest/download/latest.json";
+const BETA_ENDPOINT = "https://github.com/NoahSmiley/fluxchat/releases/download/latest-beta/latest.json";
+
+type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "ready" | "error" | "up-to-date";
 
 interface UpdateState {
   status: UpdateStatus;
   version: string | null;
+  body: string | null;
   error: string | null;
   progress: number;
 }
 
-export function useUpdater() {
+export function useUpdater(beta = false) {
   const [state, setState] = useState<UpdateState>({
     status: "idle",
     version: null,
+    body: null,
     error: null,
     progress: 0,
   });
 
+  const endpoint = beta ? BETA_ENDPOINT : STABLE_ENDPOINT;
+  const unlistenRef = useRef<(() => void) | null>(null);
+
+  // Clean up event listener on unmount
+  useEffect(() => {
+    return () => {
+      unlistenRef.current?.();
+    };
+  }, []);
+
   const checkForUpdate = useCallback(async () => {
     setState((s) => ({ ...s, status: "checking", error: null }));
     try {
-      const { check } = await import("@tauri-apps/plugin-updater");
-      const update = await check();
-      if (update) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const result = await invoke<{ version: string; body?: string } | null>(
+        "check_for_update",
+        { endpoint }
+      );
+      if (result) {
         setState((s) => ({
           ...s,
           status: "available",
-          version: update.version,
+          version: result.version,
+          body: result.body ?? null,
         }));
-        return update;
       } else {
         setState((s) => ({ ...s, status: "up-to-date" }));
-        return null;
       }
     } catch (e: any) {
       setState((s) => ({
@@ -39,41 +56,42 @@ export function useUpdater() {
         status: "error",
         error: e?.message || String(e),
       }));
-      return null;
     }
-  }, []);
+  }, [endpoint]);
 
   const downloadAndInstall = useCallback(async () => {
     setState((s) => ({ ...s, status: "downloading", progress: 0 }));
     try {
-      const { check } = await import("@tauri-apps/plugin-updater");
-      const update = await check();
-      if (!update) {
-        setState((s) => ({ ...s, status: "up-to-date" }));
-        return;
-      }
-      let downloaded = 0;
-      let contentLength = 0;
-      await update.downloadAndInstall((event) => {
-        if (event.event === "Started") {
-          contentLength = (event.data as any).contentLength ?? 0;
-        } else if (event.event === "Progress") {
-          downloaded += event.data.chunkLength;
-          const pct = contentLength > 0 ? Math.round((downloaded / contentLength) * 100) : 0;
+      const { invoke } = await import("@tauri-apps/api/core");
+      const { listen } = await import("@tauri-apps/api/event");
+
+      // Listen for progress events from Rust
+      unlistenRef.current?.();
+      const unlisten = await listen<{ downloaded: number; total: number | null }>(
+        "update-progress",
+        (event) => {
+          const { downloaded, total } = event.payload;
+          const pct = total && total > 0 ? Math.round((downloaded / total) * 100) : 0;
           setState((s) => ({ ...s, progress: pct }));
-        } else if (event.event === "Finished") {
-          setState((s) => ({ ...s, status: "ready", progress: 100 }));
         }
-      });
+      );
+      unlistenRef.current = unlisten;
+
+      await invoke("download_and_install_update", { endpoint });
+
+      unlistenRef.current?.();
+      unlistenRef.current = null;
       setState((s) => ({ ...s, status: "ready", progress: 100 }));
     } catch (e: any) {
+      unlistenRef.current?.();
+      unlistenRef.current = null;
       setState((s) => ({
         ...s,
         status: "error",
         error: e?.message || String(e),
       }));
     }
-  }, []);
+  }, [endpoint]);
 
   const relaunch = useCallback(async () => {
     try {

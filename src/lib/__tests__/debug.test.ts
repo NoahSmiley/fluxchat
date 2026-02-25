@@ -1,19 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 describe("debug", () => {
-  let dbg: typeof import("../debug.js").dbg;
-  let dumpLogs: typeof import("../debug.js").dumpLogs;
-  let getLogs: typeof import("../debug.js").getLogs;
-  let setDebugEnabled: typeof import("../debug.js").setDebugEnabled;
-  let getDebugEnabled: typeof import("../debug.js").getDebugEnabled;
+  let dbg: typeof import("@/lib/debug.js").dbg;
+  let dumpLogs: typeof import("@/lib/debug.js").dumpLogs;
+  let setDebugEnabled: typeof import("@/lib/debug.js").setDebugEnabled;
+  let getDebugEnabled: typeof import("@/lib/debug.js").getDebugEnabled;
 
   beforeEach(async () => {
     vi.resetModules();
     localStorage.clear();
-    const mod = await import("../debug.js");
+    const mod = await import("@/lib/debug.js");
     dbg = mod.dbg;
     dumpLogs = mod.dumpLogs;
-    getLogs = mod.getLogs;
     setDebugEnabled = mod.setDebugEnabled;
     getDebugEnabled = mod.getDebugEnabled;
   });
@@ -21,10 +19,9 @@ describe("debug", () => {
   it("dbg pushes entry to buffer", () => {
     dbg("test-scope", "test message");
 
-    const logs = getLogs();
-    expect(logs.length).toBe(1);
-    expect(logs[0].scope).toBe("test-scope");
-    expect(logs[0].msg).toBe("test message");
+    const dump = dumpLogs();
+    expect(dump).toContain("[test-scope]");
+    expect(dump).toContain("test message");
   });
 
   it("buffer respects MAX_LOG_ENTRIES of 2000", () => {
@@ -32,11 +29,12 @@ describe("debug", () => {
       dbg("scope", `msg-${i}`);
     }
 
-    const logs = getLogs();
-    expect(logs.length).toBe(2000);
+    const dump = dumpLogs();
+    const lines = dump.split("\n");
+    expect(lines.length).toBe(2000);
     // The first entry should have been evicted
-    expect(logs[0].msg).toBe("msg-1");
-    expect(logs[logs.length - 1].msg).toBe("msg-2000");
+    expect(lines[0]).toContain("msg-1");
+    expect(lines[lines.length - 1]).toContain("msg-2000");
   });
 
   it("dbg calls console.log when debug is enabled", () => {
@@ -97,13 +95,5 @@ describe("debug", () => {
 
     const dump = dumpLogs();
     expect(dump).toContain("[unserializable]");
-  });
-
-  it("getLogs returns readonly array", () => {
-    dbg("scope", "msg");
-    const logs = getLogs();
-    // The return type is readonly LogEntry[], verify it returns an array
-    expect(Array.isArray(logs)).toBe(true);
-    expect(logs.length).toBe(1);
   });
 });

@@ -1,14 +1,14 @@
 import { create } from "zustand";
-import * as crypto from "../lib/crypto.js";
-import * as api from "../lib/api.js";
-import { gateway } from "../lib/ws.js";
+import * as crypto from "@/lib/crypto.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
+import { dbg } from "@/lib/debug.js";
 
 interface CryptoState {
   keyPair: CryptoKeyPair | null;
   publicKeyBase64: string | null;
   serverKeys: Record<string, CryptoKey>;   // serverId → group key
   dmKeys: Record<string, CryptoKey>;       // dmChannelId → derived key
-  pendingServers: Set<string>;             // servers waiting for key
   initialized: boolean;
 
   initialize: () => Promise<void>;
@@ -28,7 +28,6 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
   publicKeyBase64: null,
   serverKeys: {},
   dmKeys: {},
-  pendingServers: new Set(),
   initialized: false,
 
   initialize: async () => {
@@ -48,11 +47,11 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
     try {
       await api.setPublicKey(publicKeyBase64);
     } catch (e) {
-      console.error("Failed to upload public key:", e);
+      dbg("crypto", "Failed to upload public key:", e);
     }
 
     // Load server keys for all joined servers
-    const { useChatStore } = await import("./chat.js");
+    const { useChatStore } = await import("./chat/store.js");
     const servers = useChatStore.getState().servers;
     for (const server of servers) {
       try {
@@ -76,7 +75,7 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
           get().requestServerKey(server.id);
         }
       } catch (e) {
-        console.error(`Failed to load key for server ${server.id}:`, e);
+        dbg("crypto", `Failed to load key for server ${server.id}:`, e);
         get().requestServerKey(server.id);
       }
     }
@@ -87,14 +86,9 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
   },
 
   setServerKey: (serverId, key) => {
-    set((s) => {
-      const pending = new Set(s.pendingServers);
-      pending.delete(serverId);
-      return {
-        serverKeys: { ...s.serverKeys, [serverId]: key },
-        pendingServers: pending,
-      };
-    });
+    set((s) => ({
+      serverKeys: { ...s.serverKeys, [serverId]: key },
+    }));
   },
 
   getDMKey: async (dmChannelId, otherUserId) => {
@@ -138,7 +132,7 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
       const groupKey = await crypto.unwrapGroupKey(encryptedKey, senderPub, keyPair.privateKey);
       get().setServerKey(serverId, groupKey);
     } catch (e) {
-      console.error(`Failed to unwrap server key for ${serverId}:`, e);
+      dbg("crypto", `Failed to unwrap server key for ${serverId}:`, e);
     }
   },
 
@@ -167,7 +161,7 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
       const publicKeyBase64 = get().publicKeyBase64!;
       await api.shareServerKeyWith(serverId, requesterId, wrapped, publicKeyBase64).catch(() => {});
     } catch (e) {
-      console.error(`Failed to share key for server ${serverId}:`, e);
+      dbg("crypto", `Failed to share key for server ${serverId}:`, e);
     }
   },
 
@@ -184,11 +178,6 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
   },
 
   requestServerKey: (serverId) => {
-    set((s) => {
-      const pending = new Set(s.pendingServers);
-      pending.add(serverId);
-      return { pendingServers: pending };
-    });
     gateway.send({ type: "request_server_key", serverId });
   },
 }));

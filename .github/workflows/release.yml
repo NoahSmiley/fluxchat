@@ -30,7 +30,22 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build and release
+      - name: Detect release channel
+        id: channel
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" == *"-beta"* || "$TAG" == *"-rc"* ]]; then
+            echo "is_beta=true" >> $GITHUB_OUTPUT
+            echo "Detected BETA release: $TAG"
+          else
+            echo "is_beta=false" >> $GITHUB_OUTPUT
+            echo "Detected STABLE release: $TAG"
+          fi
+
+      # Stable release — same as before
+      - name: Build and release (stable)
+        if: steps.channel.outputs.is_beta == 'false'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -44,3 +59,43 @@ jobs:
           releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
+
+      # Beta release — tagged as prerelease
+      - name: Build and release (beta)
+        if: steps.channel.outputs.is_beta == 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tauriScript: npx tauri
+          tagName: ${{ github.ref_name }}
+          releaseName: "Flux ${{ github.ref_name }} (Beta)"
+          releaseBody: "Beta release — early access build. May be less stable."
+          releaseDraft: false
+          prerelease: true
+          updaterJsonPreferNsis: true
+
+      # Update the rolling "latest-beta" release so beta clients always find the newest build
+      - name: Update latest-beta release
+        if: steps.channel.outputs.is_beta == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+
+          # Copy latest.json from the just-created beta release
+          gh release download "$TAG" --pattern "latest.json" --dir ./beta-assets --clobber
+
+          # Delete old latest-beta release if it exists
+          gh release delete latest-beta --yes 2>/dev/null || true
+          git push origin :refs/tags/latest-beta 2>/dev/null || true
+
+          # Create new latest-beta release with the updated latest.json
+          gh release create latest-beta \
+            --title "Flux Beta (latest)" \
+            --prerelease \
+            --notes "Rolling beta release — always points to the latest beta build. Updated from $TAG." \
+            ./beta-assets/latest.json

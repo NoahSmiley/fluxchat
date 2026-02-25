@@ -11,6 +11,7 @@ pub struct Config {
     pub livekit_url: String,
     pub upload_dir: String,
     pub max_upload_bytes: u64,
+    pub room_cleanup_delay_secs: u64,
 }
 
 impl Config {
@@ -33,6 +34,10 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(1_073_741_824), // 1GB
+            room_cleanup_delay_secs: env::var("ROOM_CLEANUP_DELAY_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(120),
         }
     }
 }

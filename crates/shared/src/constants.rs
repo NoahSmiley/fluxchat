@@ -8,8 +8,6 @@ pub const MAX_USERNAME_LENGTH: usize = 32;
 pub const MIN_USERNAME_LENGTH: usize = 2;
 pub const MIN_PASSWORD_LENGTH: usize = 8;
 
-// Files
-pub const MAX_FILE_SIZE: usize = 50 * 1024 * 1024; // 50 MB
 pub const MESSAGE_PAGE_SIZE: i64 = 50;
 
 // WebSocket

@@ -2,13 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock dependencies before importing ws module
 vi.mock("../serverUrl.js", () => ({
-  API_BASE: "/api",
   getGatewayUrl: vi.fn(() => "ws://localhost:3001/gateway"),
 }));
 
 vi.mock("../api.js", () => ({
   getStoredToken: vi.fn(() => null),
-  setStoredToken: vi.fn(),
 }));
 
 vi.mock("../debug.js", () => ({
@@ -95,18 +93,16 @@ describe("FluxWebSocket (gateway)", () => {
 
     // Re-apply mocks after resetModules
     vi.doMock("../serverUrl.js", () => ({
-      API_BASE: "/api",
       getGatewayUrl: vi.fn(() => "ws://localhost:3001/gateway"),
     }));
     vi.doMock("../api.js", () => ({
       getStoredToken: vi.fn(() => null),
-      setStoredToken: vi.fn(),
     }));
     vi.doMock("../debug.js", () => ({
       dbg: vi.fn(),
     }));
 
-    const mod = await import("../ws.js");
+    const mod = await import("@/lib/ws.js");
     gateway = mod.gateway;
   });
 

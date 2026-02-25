@@ -1,15 +1,13 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useUIStore } from "../ui.js";
+import { useUIStore } from "@/stores/ui.js";
 
 describe("useUIStore", () => {
   beforeEach(() => {
     useUIStore.setState({
       settingsOpen: false,
       serverSettingsOpen: false,
-      showingEconomy: false,
       sidebarPosition: "left",
       appBorderStyle: "none",
-      showDummyUsers: true,
     });
   });
 
@@ -17,10 +15,8 @@ describe("useUIStore", () => {
     const state = useUIStore.getState();
     expect(state.settingsOpen).toBe(false);
     expect(state.serverSettingsOpen).toBe(false);
-    expect(state.showingEconomy).toBe(false);
     expect(state.sidebarPosition).toBe("left");
     expect(state.appBorderStyle).toBe("none");
-    expect(state.showDummyUsers).toBe(true);
   });
 
   it("openSettings sets settingsOpen to true", () => {
@@ -45,23 +41,6 @@ describe("useUIStore", () => {
     expect(useUIStore.getState().serverSettingsOpen).toBe(false);
   });
 
-  it("showEconomy sets showingEconomy to true", () => {
-    useUIStore.getState().showEconomy();
-    expect(useUIStore.getState().showingEconomy).toBe(true);
-  });
-
-  it("hideEconomy sets showingEconomy to false", () => {
-    useUIStore.setState({ showingEconomy: true });
-    useUIStore.getState().hideEconomy();
-    expect(useUIStore.getState().showingEconomy).toBe(false);
-  });
-
-  it("toggleEconomy toggles showingEconomy", () => {
-    expect(useUIStore.getState().showingEconomy).toBe(false);
-    useUIStore.getState().toggleEconomy();
-    expect(useUIStore.getState().showingEconomy).toBe(true);
-  });
-
   it("setSidebarPosition changes position", () => {
     useUIStore.getState().setSidebarPosition("right");
     expect(useUIStore.getState().sidebarPosition).toBe("right");
@@ -81,23 +60,4 @@ describe("useUIStore", () => {
     expect(useUIStore.getState().appBorderStyle).toBe("neon");
   });
 
-  it("toggleDummyUsers toggles showDummyUsers", () => {
-    expect(useUIStore.getState().showDummyUsers).toBe(true);
-    useUIStore.getState().toggleDummyUsers();
-    expect(useUIStore.getState().showDummyUsers).toBe(false);
-  });
-
-  it("multiple toggles work correctly", () => {
-    expect(useUIStore.getState().showingEconomy).toBe(false);
-    useUIStore.getState().toggleEconomy();
-    expect(useUIStore.getState().showingEconomy).toBe(true);
-    useUIStore.getState().toggleEconomy();
-    expect(useUIStore.getState().showingEconomy).toBe(false);
-
-    expect(useUIStore.getState().showDummyUsers).toBe(true);
-    useUIStore.getState().toggleDummyUsers();
-    expect(useUIStore.getState().showDummyUsers).toBe(false);
-    useUIStore.getState().toggleDummyUsers();
-    expect(useUIStore.getState().showDummyUsers).toBe(true);
-  });
 });

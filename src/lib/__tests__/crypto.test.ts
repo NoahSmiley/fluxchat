@@ -10,7 +10,7 @@ import {
   generateGroupKey,
   wrapGroupKey,
   unwrapGroupKey,
-} from "../crypto.js";
+} from "@/lib/crypto.js";
 
 describe("crypto", () => {
   it("generateKeyPair returns a valid ECDH P-256 key pair", async () => {

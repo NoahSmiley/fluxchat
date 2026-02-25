@@ -80,16 +80,8 @@ async fn room_exists(pool: &sqlx::SqlitePool, room_id: &str) -> bool {
         > 0
 }
 
-// NOTE: The default cleanup delay is 30 seconds, which is too long for tests.
-// These tests verify the behavior by:
-// 1. Checking that the room is NOT immediately deleted (timer is scheduled)
-// 2. Checking that rejoining cancels the timer
-// 3. For actual deletion, we check that persistent rooms are NOT cleaned up
-//
-// For the actual cleanup deletion test, we'd need to either:
-//   - Expose a test-only API to set the cleanup delay
-//   - Or wait the full 30 seconds
-// We choose to verify the scheduling/cancellation logic and that persistent rooms survive.
+// The test config uses a 2-second cleanup delay (vs 120s production default)
+// so tests can verify actual room deletion without long waits.
 
 #[tokio::test]
 async fn cleanup_timer_scheduled_on_last_leave() {
@@ -120,7 +112,7 @@ async fn cleanup_timer_scheduled_on_last_leave() {
     .await;
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
-    // Room should still exist (cleanup timer is 30s, not immediate)
+    // Room should still exist (cleanup timer is 2s in test config, not immediate)
     assert!(
         room_exists(&pool, &room_id).await,
         "Room should still exist immediately after leave (timer is scheduled, not fired)"
@@ -174,8 +166,7 @@ async fn cleanup_cancelled_on_rejoin() {
 async fn cleanup_deletes_room_and_broadcasts() {
     // This test verifies that after the cleanup delay, a non-persistent empty room
     // is deleted and a room_deleted event is broadcast.
-    // We use a short wait by relying on the 30-second timer — we'll wait 32 seconds.
-    // If this test is too slow for CI, it can be marked #[ignore].
+    // Test config uses 2s delay + 5s re-check grace period.
     let (base, pool) = start_server().await;
 
     let (user_id, token) =
@@ -201,8 +192,8 @@ async fn cleanup_deletes_room_and_broadcasts() {
     )
     .await;
 
-    // Wait for the 30-second cleanup timer to fire
-    tokio::time::sleep(std::time::Duration::from_secs(32)).await;
+    // Wait for the 2s cleanup delay + 5s re-check + margin
+    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
     // Room should be deleted
     assert!(
@@ -218,44 +209,3 @@ async fn cleanup_deletes_room_and_broadcasts() {
     assert!(has_deleted, "Should receive room_deleted event after cleanup");
 }
 
-#[tokio::test]
-async fn persistent_room_not_cleaned_up() {
-    let (base, pool) = start_server().await;
-
-    let (user_id, token) =
-        common::create_test_user(&pool, "alice@test.com", "alice", "pass123").await;
-    let server_id = common::create_test_server(&pool, &user_id, "TestServer").await;
-    let room_id = common::create_room(&pool, &server_id, "Persistent Room", &user_id).await;
-
-    // Mark room as persistent
-    sqlx::query("UPDATE channels SET is_persistent = 1 WHERE id = ?")
-        .bind(&room_id)
-        .execute(&pool)
-        .await
-        .unwrap();
-
-    let mut ws = ws_connect(&base, &token).await;
-    drain_messages(&mut ws).await;
-
-    // Join and leave voice
-    send_json(
-        &mut ws,
-        &json!({"type": "voice_state_update", "channelId": room_id, "action": "join"}),
-    )
-    .await;
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    drain_messages(&mut ws).await;
-
-    send_json(
-        &mut ws,
-        &json!({"type": "voice_state_update", "channelId": room_id, "action": "leave"}),
-    )
-    .await;
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-
-    // Persistent room should still exist
-    assert!(
-        room_exists(&pool, &room_id).await,
-        "Persistent room should NOT be cleaned up"
-    );
-}

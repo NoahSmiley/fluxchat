@@ -14,7 +14,7 @@ vi.mock("../../lib/crypto.js", () => ({
   deriveDMKey: vi.fn(),
 }));
 
-vi.mock("../../lib/api.js", () => ({
+vi.mock("../../lib/api/index.js", () => ({
   setPublicKey: vi.fn(),
   getPublicKey: vi.fn(),
   getMyServerKey: vi.fn(),
@@ -28,14 +28,14 @@ vi.mock("../../lib/ws.js", () => ({
   gateway: { send: vi.fn(), on: vi.fn(() => () => {}), connect: vi.fn() },
 }));
 
-vi.mock("../chat.js", () => ({
+vi.mock("../chat/store.js", () => ({
   useChatStore: { getState: () => ({ servers: [] }) },
 }));
 
-import { useCryptoStore } from "../crypto.js";
-import * as cryptoLib from "../../lib/crypto.js";
-import * as api from "../../lib/api.js";
-import { gateway } from "../../lib/ws.js";
+import { useCryptoStore } from "@/stores/crypto.js";
+import * as cryptoLib from "@/lib/crypto.js";
+import * as api from "@/lib/api/index.js";
+import { gateway } from "@/lib/ws.js";
 
 const mockedCrypto = vi.mocked(cryptoLib);
 const mockedApi = vi.mocked(api);
@@ -49,7 +49,6 @@ describe("useCryptoStore", () => {
       publicKeyBase64: null,
       serverKeys: {},
       dmKeys: {},
-      pendingServers: new Set(),
       initialized: false,
     });
   });
@@ -60,7 +59,6 @@ describe("useCryptoStore", () => {
     expect(state.publicKeyBase64).toBeNull();
     expect(state.serverKeys).toEqual({});
     expect(state.dmKeys).toEqual({});
-    expect(state.pendingServers.size).toBe(0);
     expect(state.initialized).toBe(false);
   });
 
@@ -69,21 +67,18 @@ describe("useCryptoStore", () => {
     expect(key).toBeNull();
   });
 
-  it("setServerKey stores key and removes from pending", () => {
+  it("setServerKey stores key", () => {
     const mockKey = {} as CryptoKey;
-    useCryptoStore.setState({ pendingServers: new Set(["server-1"]) });
 
     useCryptoStore.getState().setServerKey("server-1", mockKey);
 
     const state = useCryptoStore.getState();
     expect(state.serverKeys["server-1"]).toBe(mockKey);
-    expect(state.pendingServers.has("server-1")).toBe(false);
   });
 
-  it("requestServerKey adds to pending and sends WS message", () => {
+  it("requestServerKey sends WS message", () => {
     useCryptoStore.getState().requestServerKey("server-1");
 
-    expect(useCryptoStore.getState().pendingServers.has("server-1")).toBe(true);
     expect(mockedGateway.send).toHaveBeenCalledWith({
       type: "request_server_key",
       serverId: "server-1",
@@ -174,7 +169,6 @@ describe("useCryptoStore", () => {
     };
     useCryptoStore.setState({
       keyPair: mockKeyPair,
-      pendingServers: new Set(["server-1"]),
     });
 
     const senderPub = {} as CryptoKey;
@@ -195,6 +189,5 @@ describe("useCryptoStore", () => {
       mockKeyPair.privateKey,
     );
     expect(useCryptoStore.getState().serverKeys["server-1"]).toBe(groupKey);
-    expect(useCryptoStore.getState().pendingServers.has("server-1")).toBe(false);
   });
 });

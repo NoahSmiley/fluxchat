@@ -14,8 +14,8 @@ struct ActivityInfo: Codable {
 // MARK: - Client -> Server Events
 
 enum WSClientEvent {
-    case sendMessage(channelId: String, ciphertext: String, mlsEpoch: Int, attachmentIds: [String]?)
-    case editMessage(messageId: String, ciphertext: String)
+    case sendMessage(channelId: String, content: String, attachmentIds: [String]?)
+    case editMessage(messageId: String, content: String)
     case deleteMessage(messageId: String)
     case typingStart(channelId: String)
     case typingStop(channelId: String)
@@ -39,6 +39,7 @@ extension WSClientEvent: Encodable {
     private enum CodingKeys: String, CodingKey {
         case type
         case channelId
+        case content
         case ciphertext
         case mlsEpoch
         case attachmentIds
@@ -57,17 +58,16 @@ extension WSClientEvent: Encodable {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         switch self {
-        case .sendMessage(let channelId, let ciphertext, let mlsEpoch, let attachmentIds):
+        case .sendMessage(let channelId, let content, let attachmentIds):
             try container.encode("send_message", forKey: .type)
             try container.encode(channelId, forKey: .channelId)
-            try container.encode(ciphertext, forKey: .ciphertext)
-            try container.encode(mlsEpoch, forKey: .mlsEpoch)
+            try container.encode(content, forKey: .content)
             try container.encodeIfPresent(attachmentIds, forKey: .attachmentIds)
 
-        case .editMessage(let messageId, let ciphertext):
+        case .editMessage(let messageId, let content):
             try container.encode("edit_message", forKey: .type)
             try container.encode(messageId, forKey: .messageId)
-            try container.encode(ciphertext, forKey: .ciphertext)
+            try container.encode(content, forKey: .content)
 
         case .deleteMessage(let messageId):
             try container.encode("delete_message", forKey: .type)
@@ -152,7 +152,7 @@ struct ServerMessage: Codable {
 
 struct MessageEdit: Codable {
     let messageId: String
-    let ciphertext: String
+    let content: String
     let editedAt: String
 }
 

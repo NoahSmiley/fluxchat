@@ -5,8 +5,74 @@ mod global_keys;
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
+use tauri_plugin_updater::UpdaterExt;
 
+/// Check for updates from a specific endpoint URL.
+/// Returns update metadata if available, or null if already up to date.
+#[tauri::command]
+async fn check_for_update(
+    app: tauri::AppHandle,
+    endpoint: String,
+) -> Result<Option<serde_json::Value>, String> {
+    let url: url::Url = endpoint.parse().map_err(|e| format!("invalid endpoint: {e}"))?;
+    let updater = app
+        .updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    match updater.check().await {
+        Ok(Some(update)) => Ok(Some(serde_json::json!({
+            "version": update.version,
+            "body": update.body,
+        }))),
+        Ok(None) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Download and install an update from a specific endpoint URL.
+/// Emits `update-progress` events with { chunk, total } during download.
+#[tauri::command]
+async fn download_and_install_update(
+    app: tauri::AppHandle,
+    endpoint: String,
+) -> Result<(), String> {
+    let url: url::Url = endpoint.parse().map_err(|e| format!("invalid endpoint: {e}"))?;
+    let updater = app
+        .updater_builder()
+        .endpoints(vec![url])
+        .map_err(|e| e.to_string())?
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "No update available".to_string())?;
+
+    let handle = app.clone();
+    let mut downloaded: usize = 0;
+
+    update
+        .download_and_install(
+            move |chunk_len, total| {
+                downloaded += chunk_len;
+                let _ = handle.emit(
+                    "update-progress",
+                    serde_json::json!({ "downloaded": downloaded, "total": total }),
+                );
+            },
+            || {},
+        )
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// TODO: implement
 #[tauri::command]
 fn set_titlebar_color(window: tauri::Window, color: String) {
     let _ = (window, color);
@@ -222,6 +288,8 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
+            check_for_update,
+            download_and_install_update,
             set_titlebar_color,
             open_popout_window,
             close_popout_window,

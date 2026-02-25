@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Trash2, X } from "lucide-react";
-import { useChatStore } from "../stores/chat.js";
-import { useAuthStore } from "../stores/auth.js";
-import { useUIStore } from "../stores/ui.js";
-import * as api from "../lib/api.js";
-import type { WhitelistEntry, MemberWithUser } from "../types/shared.js";
-import { SoundboardTab } from "./SoundboardTab.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useAuthStore } from "@/stores/auth.js";
+import { useUIStore } from "@/stores/ui.js";
+import * as api from "@/lib/api/index.js";
+import type { WhitelistEntry, MemberWithUser } from "@/types/shared.js";
+import { SoundboardTab } from "./music/SoundboardTab.js";
 import { EmojiTab } from "./EmojiTab.js";
 
 function OverviewTab({
@@ -28,6 +29,14 @@ function OverviewTab({
   const [serverNameSaving, setServerNameSaving] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
+
+  function handleServerNameSave() {
+    if (!serverNameInput.trim()) return;
+    setServerNameSaving(true);
+    updateServer(server.id, serverNameInput.trim())
+      .then(() => { setEditingServerName(false); setServerNameSaving(false); })
+      .catch(() => setServerNameSaving(false));
+  }
 
   async function handleLeave() {
     setLeaving(true);
@@ -62,12 +71,7 @@ function OverviewTab({
               value={serverNameInput}
               onChange={(e) => setServerNameInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && serverNameInput.trim()) {
-                  setServerNameSaving(true);
-                  updateServer(server.id, serverNameInput.trim())
-                    .then(() => { setEditingServerName(false); setServerNameSaving(false); })
-                    .catch(() => setServerNameSaving(false));
-                }
+                if (e.key === "Enter") handleServerNameSave();
                 if (e.key === "Escape") setEditingServerName(false);
               }}
               autoFocus
@@ -76,13 +80,7 @@ function OverviewTab({
             <button
               className="btn-small btn-primary"
               disabled={serverNameSaving}
-              onClick={() => {
-                if (!serverNameInput.trim()) return;
-                setServerNameSaving(true);
-                updateServer(server.id, serverNameInput.trim())
-                  .then(() => { setEditingServerName(false); setServerNameSaving(false); })
-                  .catch(() => setServerNameSaving(false));
-              }}
+              onClick={handleServerNameSave}
             >Save</button>
             <button className="btn-small" onClick={() => setEditingServerName(false)}>Cancel</button>
           </div>
@@ -226,9 +224,12 @@ const TAB_LABELS: Record<Tab, string> = { overview: "Overview", members: "Member
 const TABS: Tab[] = ["overview", "members", "emojis", "soundboard"];
 
 export function ServerSettingsPage() {
-  const { closeServerSettings } = useUIStore();
-  const { servers, activeServerId, updateServer, leaveServer, members } = useChatStore();
-  const { user } = useAuthStore();
+  const closeServerSettings = useUIStore((s) => s.closeServerSettings);
+  const { servers, activeServerId, updateServer, leaveServer, members } = useChatStore(useShallow((s) => ({
+    servers: s.servers, activeServerId: s.activeServerId, updateServer: s.updateServer,
+    leaveServer: s.leaveServer, members: s.members,
+  })));
+  const user = useAuthStore((s) => s.user);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   const server = servers.find((s) => s.id === activeServerId);

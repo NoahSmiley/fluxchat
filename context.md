@@ -12,7 +12,7 @@ KEY: app-type, tech-stack, description
 
 Flux is a real-time encrypted chat application (similar to Discord) built as a desktop app.
 
-- **Frontend**: React 19 + TypeScript, Vite 6, Tailwind CSS 3, Zustand 5 (state)
+- **Frontend**: React 19 + TypeScript, Vite 6, Zustand 5 (state)
 - **Desktop**: Tauri 2 (Rust-based native shell, custom titlebar, auto-updater)
 - **Backend**: Rust, Axum 0.8, Tokio async runtime, SQLite via SQLx
 - **Voice/Video**: LiveKit (WebRTC), Web Audio API for processing
@@ -26,39 +26,139 @@ Flux is a real-time encrypted chat application (similar to Discord) built as a d
 KEY: files, folders, layout, where-is
 
 ```
-src/                          # React frontend
-  components/                 # UI components (22+)
-    ui/                       # Radix-based primitives (button, dialog, input, tooltip)
-    ChannelSidebar.tsx        # Channel list, drag-drop reorder, category tree
-    ChatView.tsx              # Message list, input, reactions, attachments, search
-    DMChatView.tsx            # Direct message view
-    VoiceChannelView.tsx      # Voice participants, screen share, audio controls
-    GameChannelView.tsx       # Game/activity detection display
-    SettingsModal.tsx         # User settings (audio, keybinds, profile, appearance)
-    ServerSidebar.tsx         # Server icon list (left rail)
-    MemberList.tsx            # Voice channel participant display
-    MusicPanel.tsx            # Spotify playback controls + queue
-    SoundboardPanel.tsx       # Voice channel soundboard grid (play, preview, favorite, master volume)
-    SoundboardTab.tsx         # Server settings soundboard management (upload, waveform trim, delete)
+src/                          # React frontend (all imports use @/ path aliases)
+  components/                 # UI components (domain-grouped subdirectories)
+    voice/                    # Voice/video domain
+      VoiceChannelView.tsx    # Voice participants, screen share, audio controls
+      VoiceParticipantGrid.tsx # Participant grid with speaking indicators
+      VoiceUserRow.tsx        # Per-user row in voice channel (speaking indicator, volume)
+      VoiceStatusBar.tsx      # Voice connection status bar (mute/deafen/disconnect)
+      VoiceControlsBar.tsx    # Voice control buttons bar
+      VoiceJoinPrompt.tsx     # Join voice prompt
+      StreamTile.tsx          # Video track tile (pin/unpin/theatre/popout)
+      ParticipantTile.tsx     # Speaking-aware participant wrapper
+      LobbyMusicBar.tsx       # Lobby music progress bar + controls
+      RoomToasts.tsx          # Room knock/invite toast notifications
+      styles/                 # Co-located CSS for voice components
+    chat/                     # Messaging domain
+      ChatView.tsx            # Message list wrapper
+      ChatHeader.tsx          # Chat header bar
+      MessageList.tsx         # Virtualized message list with scroll pagination
+      MessageItem.tsx         # Single message row (avatar, content, reactions, edit/delete)
+      MessageInput.tsx        # Message input (contentEditable, @mentions, emoji, file drop)
+      DMChatView.tsx          # Direct message view
+      SearchBar.tsx           # Advanced message search bar with filter tag UI
+      SearchDatePicker.tsx    # Date picker for search filters
+      SearchFilterDropdown.tsx # Filter dropdown for search
+      SearchFilterTag.tsx     # Removable filter tag
+      LinkEmbed.tsx           # URL link preview embed
+      MessageAttachments.tsx  # File attachment display (images, downloads)
+      styles/                 # Co-located CSS for chat components
+    sidebar/                  # Navigation sidebars
+      ServerSidebar.tsx       # Server icon list (left rail)
+      ChannelSidebar.tsx      # Channel list, drag-drop reorder, category tree
+      ChannelSidebarHeader.tsx # Sidebar header
+      ChannelSidebarMenus.tsx # Context menus for channels/categories
+      ChannelTree.tsx         # Channel tree rendering
+      ChannelTreeDnD.ts       # Drag-and-drop logic for channel tree
+      SortableChannelItem.tsx # Drag-sortable channel/category row
+      JoinVoiceSection.tsx    # Voice channel join section in sidebar
+      JoinVoiceHelpers.tsx    # Helper components for voice join UI
+      MemberList.tsx          # Server member list + UserCard popup
+      MemberListItem.tsx      # Single member row
+      styles/                 # Co-located CSS for sidebar components
+    modals/                   # Modal dialogs
+      AvatarCropModal.tsx     # Avatar upload/crop
+      ChannelSettingsModal.tsx # Edit channel dialog + DeleteConfirmDialog
+      CreateChannelModal.tsx  # New channel dialog
+      styles/                 # Co-located CSS for modals
+    music/                    # Music/soundboard domain
+      MusicPanel.tsx          # Spotify playback controls + queue
+      MusicNowPlaying.tsx     # Now playing display
+      MusicQueue.tsx          # Queue list
+      MusicSearch.tsx         # Track search
+      MusicVisualizer.tsx     # WebGL kaleidoscopic shader visualizer (easter egg)
+      SoundboardPanel.tsx     # Voice channel soundboard grid (play, preview, favorite, master volume)
+      SoundboardTab.tsx       # Server settings soundboard management
+      SoundboardAddForm.tsx   # Add sound form with waveform trim
+      SoundboardEditForm.tsx  # Edit sound form
+      SoundboardListItem.tsx  # Sound list row
+      SoundboardWaveform.tsx  # Waveform display + trim UI
+      styles/                 # Co-located CSS for music/soundboard
+    popout/                   # Pop-out windows
+      PopoutChatView.tsx      # Pop-out chat window
+      PopoutScreenShareView.tsx # Pop-out screen share window
+    settings/                 # Settings tabs
+      AppearanceTab.tsx       # Appearance settings
+      NotificationsTab.tsx    # Notification settings
+      ProfileTab.tsx          # Profile settings
+      styles/                 # Co-located CSS for settings
+    styles/                   # Shared component CSS (emoji-grid.css, emoji-picker.css)
+    AnimatedList.tsx          # Shared animated list component
+    ContextMenu.tsx           # Reusable context menu (portal-based)
     EmojiPicker.tsx           # Full reusable emoji picker (standard Twemoji categories + custom per-server + favorites)
+    EmojiGrid.tsx             # Emoji grid rendering
+    EmojiPickerTabs.tsx       # Emoji category tab bar
+    EmojiSearch.tsx           # Emoji search within picker
+    emojiPickerData.ts        # Emoji picker data utilities
     EmojiTab.tsx              # Server settings emoji management (admin upload/delete custom emoji, list)
-    SearchBar.tsx             # Advanced message search bar with filter tag UI (from/in/has/mentions/dates)
-    PopoutChatView.tsx        # Pop-out chat window
-    PopoutScreenShareView.tsx # Pop-out screen share window
-    CreateChannelModal.tsx    # New channel dialog
-    ChannelSettingsModal.tsx  # Edit channel dialog
-    ServerSettingsModal.tsx   # Edit server dialog
-    AvatarCropModal.tsx       # Avatar upload/crop
-  stores/                     # Zustand state stores
+    FluxLogo.tsx              # App logo component
+    SettingsModal.tsx         # User settings (audio, keybinds, profile, appearance)
+    ServerSettingsPage.tsx    # Server settings page (overview, members, soundboard, emoji tabs)
+  stores/                     # Zustand state stores (domain-grouped subdirectories)
     auth.ts                   # Auth state, login/register/logout
-    chat.ts                   # Servers, channels, messages, DMs, search (~38KB, largest)
-    voice.ts                  # Voice connection, audio pipeline, screen share (~46KB)
-    spotify.ts                # Spotify OAuth, SDK, playback, sessions (~27KB)
+    chat/                     # Chat domain
+      index.ts                # Barrel export (useChatStore + helpers)
+      store.ts                # Zustand store definition
+      types.ts                # ChatState interface, cache helpers, mention regexes
+      helpers.ts              # Action creators (selectServer, selectChannel, search)
+      events.ts               # Gateway event handler setup
+      events-messages.ts      # Message-specific WS event handlers
+      events-channels.ts      # Channel-specific WS event handlers
+      events-members.ts       # Member-specific WS event handlers
+      events-voice.ts         # Voice-related WS event handlers in chat context
+    dm/                       # DM domain
+      index.ts                # Barrel export (useDMStore, types)
+      store.ts                # Zustand store definition
+      helpers.ts              # DM encryption, key resolution, state helpers
+    voice/                    # Voice domain
+      index.ts                # Barrel export (useVoiceStore, types)
+      store.ts                # Zustand store definition
+      types.ts                # VoiceState, AudioSettings, presets, defaults
+      connection.ts           # Join/leave voice channel actions
+      controls.ts             # Mute/deafen/volume/bitrate actions
+      helpers.ts              # Audio processor cleanup helpers
+      screen-share.ts         # Screen share toggle/quality actions
+      participants.ts         # Participant/screen sharer tracking
+      room-events.ts          # LiveKit room event handlers
+      events.ts               # Gateway voice event handlers
+      stats.ts                # WebRTC stats polling
+      lobby.ts                # Lobby music easter egg
+    spotify/                  # Spotify domain
+      index.ts                # Barrel export (useSpotifyStore, types)
+      store.ts                # Zustand store definition
+      types.ts                # SpotifyState, PKCE helpers, HMR persistence
+      playback.ts             # Play/pause/skip/seek/volume actions
+      queue.ts                # Queue management actions
+      search.ts               # Track search actions
+      session.ts              # Session start/load/end actions
+      lifecycle.ts            # OAuth, SDK init, player connect/disconnect
+      events.ts               # WS event handlers for spotify
+    youtube.ts                # YouTube audio playback, search, queue
     crypto.ts                 # E2EE key management, encrypt/decrypt
+    notifications.ts          # Per-channel/category/global notification settings, mute state (persisted)
     keybinds.ts               # Keyboard shortcut bindings
     ui.ts                     # UI preferences (sidebar position)
   lib/                        # Utilities
-    api.ts                    # REST client (auto-injects auth token)
+    api/                      # REST client (domain-grouped)
+      index.ts                # Barrel re-export of all API functions
+      base.ts                 # Core request helper, token management
+      auth.ts                 # Auth API calls
+      messages.ts             # Message/DM/reaction/file API calls
+      servers.ts              # Server/channel/member/emoji API calls
+      voice.ts                # Voice token API call
+      spotify.ts              # Spotify/YouTube API calls
+      soundboard.ts           # Soundboard CRUD API calls
     ws.ts                     # WebSocket client (connect, reconnect, event routing)
     crypto.ts                 # Web Crypto API wrappers (ECDH, AES-GCM, HKDF)
     serverUrl.ts              # Resolves API base URL
@@ -67,9 +167,11 @@ src/                          # React frontend
     relativeTime.ts           # "5 minutes ago" formatting
     broadcast.ts              # BroadcastChannel API for popout window sync
     debug.ts                  # dbg(category, message, data) logging
-    dtln/                     # DTLN noise filter (WASM-based)
-    rnnoise/                  # RNNoise noise filter (WASM-based, 48kHz native)
-    deepfilter/               # DeepFilterNet3 noise filter (Worker+Worklet, WASM)
+    emoji.ts                  # Emoji rendering (Twemoji, custom, message content)
+    emojiCache.ts             # Emoji data caching
+    contentEditable.ts        # ContentEditable helper functions
+    channel-tree.ts           # Channel tree build/flatten/collapse helpers
+    dopplerPattern.ts         # Doppler pattern utility
     webrtcStats.ts            # WebRTC quality stats collection (bitrate, codec, loss, jitter, RTT)
   layouts/
     MainLayout.tsx            # App shell: server sidebar + channel sidebar + content area
@@ -80,11 +182,16 @@ src/                          # React frontend
   hooks/
     useKeybindListener.ts     # Global keyboard shortcut listener
     useUpdater.ts             # Tauri auto-update checker
-  types/
-    shared.ts                 # TypeScript interfaces (~251 lines)
-  styles/
-    global.css                # All custom CSS (~120KB)
-    tailwind.css              # Tailwind base import
+  types/                      # TypeScript types (decomposed)
+    user.ts                   # User-related interfaces
+    server.ts                 # Server-related interfaces
+    channel.ts                # Channel-related interfaces
+    message.ts                # Message-related interfaces
+    shared.ts                 # Shared/cross-cutting interfaces
+  styles/                     # Global CSS (3 files)
+    base.css                  # Reset, CSS vars, scrollbar
+    layout-main.css           # App shell, titlebar, auth, forms, buttons
+    layout-grid.css           # Grid layout, resizable panes
   App.tsx                     # Root component, routing, window controls
   PopoutApp.tsx               # Root for pop-out windows
   main.tsx                    # React DOM entry point
@@ -93,32 +200,39 @@ crates/server/                # Rust backend
   src/
     main.rs                   # Axum server setup, route mounting, CORS
     config.rs                 # Env var config (HOST, PORT, DB, LiveKit, Spotify)
-    models.rs                 # API response structs
+    models/                   # API response structs (decomposed)
+      mod.rs                  # Re-exports
+      message.rs              # Message models
+      server.rs               # Server/channel models
+      user.rs                 # User models
     db/
       mod.rs                  # SQLite pool init, schema execution, WAL mode
       schema.sql              # All CREATE TABLE statements
     middleware/
       auth.rs                 # Bearer token extraction + validation
-    routes/
-      auth.rs                 # Sign up, sign in, sessions (Argon2 hashing)
-      servers.rs              # Server CRUD, channel CRUD, member management
-      messages.rs             # Message CRUD, search, reactions
-      dms.rs                  # DM channel creation, DM messages
+    routes/                   # Route handlers (decomposed into subdirectories)
+      auth/                   # Sign up, sign in, sessions (Argon2 hashing)
+      servers/                # Server CRUD, channel CRUD, rooms, member management
+      messages/               # Message CRUD, search, reactions
+      dms/                    # DM channel creation, DM messages
+      emojis/                 # Custom emoji CRUD, favorites
+      files/                  # File upload (multipart, 10MB limit) + serving, link preview
+      soundboard/             # Soundboard CRUD, favorites
+      spotify/                # Spotify OAuth, token refresh, sessions, queue
       voice.rs                # LiveKit token generation
       users.rs                # Profile CRUD, public key storage
       keys.rs                 # E2EE key wrapping/sharing
-      files.rs                # File upload (multipart, 10MB limit) + serving
-      spotify.rs              # Spotify OAuth, token refresh, sessions, queue
       whitelist.rs            # Email whitelist (admin feature)
-    ws/
-      gateway.rs              # WebSocket state: clients, subscriptions, voice participants
-      handler.rs              # WS message routing (client→server events)
-      events.rs               # Event type definitions (client + server events)
+      youtube.rs              # YouTube proxy
+    ws/                       # WebSocket (decomposed into subdirectories)
+      events/                 # Event type definitions (client + server events)
+      gateway/                # WebSocket state: clients, subscriptions, voice participants, broadcast
+      handler/                # WS message routing (chat, voice, misc, lifecycle)
 
 crates/shared/                # Shared Rust types (between server and Tauri)
 
 src-tauri/                    # Tauri desktop config
-  src/                        # Tauri Rust commands (game detection, global keys, etc.)
+  src/                        # Tauri Rust commands (global keys, etc.)
     global_keys.rs            # Win32 low-level keyboard hook for global PTT/PTM
   tauri.conf.json             # Window config, updater, app metadata
 
@@ -139,7 +253,7 @@ Schema file: `crates/server/src/db/schema.sql`
 
 **server** — id (TEXT PK), name, owner_id (FK user), invite_code, created_at
 
-**channel** — id (TEXT PK), server_id (FK), name, type (text|voice|game|category), bitrate, parent_id (FK channel, for categories), position, created_at
+**channel** — id (TEXT PK), server_id (FK), name, type (text|voice|category), bitrate, parent_id (FK channel, for categories), position, created_at
 
 **message** — id (TEXT PK), channel_id (FK), sender_id (FK user), content (plaintext), created_at, edited_at
 
@@ -161,7 +275,7 @@ Schema file: `crates/server/src/db/schema.sql`
 
 **attachment** — id, message_id (FK), filename, content_type, size, url, created_at
 
-**soundboard_sounds** — id (TEXT PK), server_id (FK server), name, emoji, audio_attachment_id (FK attachment), audio_filename, image_attachment_id (FK attachment, nullable), image_filename, volume (REAL, 0.0–1.0), creator_id (FK user), creator_username, created_at
+**soundboard_sounds** — id (TEXT PK), server_id (FK server), name, emoji, audio_attachment_id (FK attachment), volume (REAL, 0.0–1.0), created_by (FK user), created_at
 
 **soundboard_favorites** — user_id (FK user) + sound_id (FK soundboard_sounds) composite PK, created_at. Stores per-user favorited sounds; ON DELETE CASCADE on both FKs.
 
@@ -198,7 +312,7 @@ KEY: rest, api, routes, endpoints, http
 
 Base URL: `/api` (Vite proxies to localhost:3001 in dev; `VITE_SERVER_URL` in prod)
 
-Auth token auto-injected by `lib/api.ts` from localStorage.
+Auth token auto-injected by `lib/api/base.ts` from localStorage.
 
 ```
 AUTH
@@ -338,14 +452,14 @@ Implementation: `lib/crypto.ts` (Web Crypto API), `stores/crypto.ts` (Zustand)
 
 KEY: voice, audio, livekit, webrtc, screen-share, microphone, speaker
 
-Implementation: `stores/voice.ts` (~46KB), LiveKit React Components
+Implementation: `stores/voice/` (decomposed store), LiveKit React Components
 
 **Connection**: LiveKit WebRTC. Token generated via `POST /api/voice/token`, connects to LiveKit server specified by `LIVEKIT_URL`.
 
 **Audio pipeline** (Web Audio API):
 MediaStreamSource → ChannelSplitter/Merger (mono→stereo) → BiquadFilter (high-pass) → BiquadFilter (low-pass) → AnalyserNode (level metering) → GainNode (per-user volume) → AudioDestination
 
-**Processing options**: Echo cancellation, noise suppression, auto gain control, high/low-pass filters, noise gate (input sensitivity 0-100), DTLN WASM noise filter, DTX (discontinuous transmission).
+**Processing options**: Echo cancellation, browser noise suppression, auto gain control, high/low-pass filters, noise gate (input sensitivity 0-100), DTX (discontinuous transmission), compressor, de-esser.
 
 **Audio levels**: Polled at 20fps for smooth UI animation.
 
@@ -359,7 +473,7 @@ MediaStreamSource → ChannelSplitter/Merger (mono→stereo) → BiquadFilter (h
 
 KEY: spotify, music, playback, queue, listening-session, oauth
 
-Implementation: `stores/spotify.ts` (~27KB), `routes/spotify.rs`, `MusicPanel.tsx`
+Implementation: `stores/spotify/` (decomposed store), `routes/spotify/`, `components/music/MusicPanel.tsx`
 
 **OAuth**: PKCE flow. Client generates code_verifier → server initiates auth → Spotify consent → callback with code → server exchanges for tokens.
 
@@ -379,11 +493,15 @@ All stores in `src/stores/`. Zustand with no middleware except persist (for ui.t
 
 **useAuthStore** (auth.ts) — user object, loading, error. Auto-initializes on load.
 
-**useChatStore** (chat.ts, ~38KB) — Largest store. Servers, channels, messages, DMs, search, file uploads, typing indicators, online users, activities. 3-level message cache: per-channel, per-server, per-DM for instant switching.
+**useChatStore** (chat/) — Servers, channels, messages, search, file uploads, typing indicators, online users, activities. 3-level message cache: per-channel, per-server, per-DM for instant switching.
 
-**useVoiceStore** (voice.ts, ~46KB) — Most complex store. LiveKit room, connection state, mute/deafen, audio settings (all processing options), per-user volumes, audio levels (20fps), screen sharing state, participants.
+**useDMStore** (dm/) — DM channels, DM messages, DM search. Extracted from chat store.
 
-**useSpotifyStore** (spotify.ts, ~27KB) — Spotify account, SDK state, player, playback state, sessions, queue, search.
+**useVoiceStore** (voice/) — LiveKit room, connection state, mute/deafen, audio settings, per-user volumes, audio levels (20fps), screen sharing state, participants, lobby music.
+
+**useSpotifyStore** (spotify/) — Spotify account, SDK state, player, playback state, sessions, queue, search. Coordinates with YouTube store for mixed-source sessions.
+
+**useYouTubeStore** (youtube.ts) — YouTube audio playback state (audio element, track info, progress, search results), YouTube search and queue actions. Extracted from spotify.ts.
 
 **useCryptoStore** (crypto.ts) — Key pair, public key, server keys, DM keys. Encrypt/decrypt actions.
 
@@ -399,7 +517,7 @@ KEY: components, layout, ui, react, rendering
 
 **MainLayout.tsx**: App shell with resizable panes. ServerSidebar (64px, left rail) + ChannelSidebar (240px, resizable) + content area (flex-grow).
 
-**Content area routing**: Based on active channel type — ChatView (text), VoiceChannelView (voice), GameChannelView (game), DMChatView (DMs).
+**Content area routing**: Based on active channel type — ChatView (text), VoiceChannelView (voice), DMChatView (DMs).
 
 **ChatView**: Message list with scroll pagination (50/page), per-message UI (avatar, content, reactions, edit/delete), typing indicators, unread dividers, file drop zone, @mention autocomplete, emoji picker.
 
@@ -409,15 +527,15 @@ KEY: components, layout, ui, react, rendering
 
 **Popout windows**: BroadcastChannel API syncs state between main window and pop-outs (chat, screen share, music). See `lib/broadcast.ts`, `PopoutApp.tsx`.
 
-**Modals**: Radix UI Dialog-based. Settings, create channel, channel settings, server settings, avatar crop.
+**Modals**: Portal-based (createPortal to document.body). Settings, create channel, channel settings, server settings, avatar crop.
 
 ---
 
 ## SECTION: Styling
 
-KEY: css, tailwind, theme, styles, animations, avatar-ring
+KEY: css, theme, styles, animations, avatar-ring
 
-Tailwind CSS for utility classes. Custom CSS in `styles/global.css` (~120KB).
+Custom CSS co-located with component subdirectories (e.g. `components/chat/styles/`, `components/voice/styles/`, `components/sidebar/styles/`, `components/modals/styles/`, `components/music/styles/`, `components/settings/styles/`) plus 3 global files in `src/styles/` (base.css, layout-main.css, layout-grid.css). All imported from `main.tsx`.
 
 **Avatar ring styles**: default, chroma (RGB shifting), pulse (glow), wave, ember (red), frost (blue), neon, galaxy (gradient), none. Configured per-user via ring_style + ring_spin fields.
 
@@ -478,9 +596,9 @@ KEY: patterns, conventions, architecture, decisions
 - **Encryption**: Text channel messages are plaintext on the server (not E2EE). DMs are E2EE. Voice/video are E2EE via server group key.
 - **SQLite WAL mode**: Write-ahead logging for concurrent reads during writes.
 - **Idempotent schema**: All CREATE TABLE use IF NOT EXISTS. Migrations via ALTER TABLE.
-- **Path alias**: `@/*` maps to `./src/*` in TypeScript imports.
-- **Component style**: Tailwind utility classes + global.css for complex animations.
-- **IDs**: UUID v4 for most entities, Nanoid for some (invite codes).
+- **Path alias**: `@/*` maps to `./src/*` in TypeScript imports. All imports use `@/` path aliases.
+- **Component style**: Custom CSS co-located in component `styles/` subdirectories.
+- **IDs**: UUID v4 for all entities.
 
 ---
 
@@ -488,9 +606,8 @@ KEY: patterns, conventions, architecture, decisions
 
 KEY: quirks, gotchas, bugs, watch-out, traps
 
-- `global.css` is ~120KB — large file, changes here affect many things.
-- `chat.ts` and `voice.ts` stores are very large (38KB and 46KB) — read carefully before modifying.
-- Game channels use fake IDs starting with `__game_` — not persisted in DB.
+- CSS is co-located in component `styles/` subdirectories plus 3 global files in `src/styles/`. Import order in `main.tsx` matters — later files override earlier ones. Many CSS classes are generated dynamically via template literals (e.g. `ring-style-${style}`, `app-border-${style}`, `sidebar-${position}`) — check for these patterns before removing CSS that appears unused.
+- Chat and voice stores are decomposed into subdirectories (`stores/chat/`, `stores/voice/`) — read the barrel `index.ts` first to understand the module structure.
 - CORS mirrors request origin (permissive) — fine for desktop app, would need tightening for web deployment.
 - WebSocket auth uses token in query string (visible in logs) — acceptable for desktop, less ideal for web.
 - Spotify integration requires both client ID/secret AND a linked user account to function.
@@ -547,3 +664,19 @@ KEY: changelog, changes, updates, history
 - **2026-02-21**: Channel sidebar drag, indent, context menu, mute/notification logic overhaul. **Drag-to-reorder**: removed `GripVertical` drag handle from channels and categories; `{...listeners}` moved to outer DnD div (gated on `isOwnerOrAdmin`, `!isPinned` for categories); `PointerSensor` activation changed from `distance: 5` to `delay: 500, tolerance: 5` — hold 500ms without moving to start drag, quick clicks still work. Nesting indent changed from `depth * 16px` to `depth * 12px`. **Channel sidebar background context menu**: right-clicking empty sidebar background (owner/admin only) shows a "Create channel" context menu item that opens `CreateChannelModal` at root. Category right-click (owner/admin) also gets "Create channel" that pre-fills `parentId`. `e.stopPropagation()` added to channel and category `onContextMenu` handlers to prevent bubbling to background handler. **Muted channel visual indicator**: `isMuted` prop added to `SortableChannelItem`; channels/categories with active mute render with `opacity: 0.45` via `.channel-muted` class; mute is inherited (child channel dims if its parent category is muted). **Notification/mute logic overhaul**: Notification settings now strictly control push notifications only. Muting prevents white unread circle + push notifications; @mention badge still shows unless "Mute @mentions" is also enabled. Specifically: `"message"` WS handler now gates the white circle on `!isAnyMuted` (channel or category muted), gates the red badge on `isMention && !isMentionMuted` (independent of channel mute), and always caches messages for instant channel loading. `stores/notifications.ts`: added `mutedMentionChannels` and `mutedMentionCategories` (persisted `Record<string, boolean>`) plus `setMuteChannelMentions`, `setMuteCategoryMentions`, `isChannelMentionMuted`, `isCategoryMentionMuted` actions/selectors. **"Mute @mentions" checkbox** added to the mute submenu in `ChannelSidebar` (always visible, persists independently of mute duration). **Mute channel/category items now directly clickable**: clicking "Mute channel"/"Muted" at the top level of the context menu mutes indefinitely / unmutes respectively (close menu); hovering still opens the time-duration submenu. `ContextMenu.tsx`: removed `hasSub` from the `onClick` guard so items can have both `onClick` and `submenu` simultaneously. Files: `components/ChannelSidebar.tsx`, `components/ContextMenu.tsx`, `stores/notifications.ts`, `stores/chat.ts`, `styles/global.css`.
 - **2026-02-21**: Notification system overhaul + message indicators. **New `stores/notifications.ts`** — Zustand store persisted to `flux-notif-prefs`; manages per-channel notification settings (`all`/`only_mentions`/`none`/`default`), per-category settings (`all`/`only_mentions`/`none`), time-based channel/category mutes (unix ms timestamp, `-1`=indefinite), and muted user IDs. `getEffectiveChannelSetting(channelId, categoryId)` resolves channel→category→global default (`only_mentions`). **`lib/notifications.ts`**: Added `shouldNotifyChannel(channelId, senderId, content, categoryId?, authUsername?)` — checks DND, muted user, muted channel, muted category, effective setting, and @mention via word-boundary regex. **`stores/chat.ts`**: Added `mentionCounts: Record<string, number>` state; `markChannelRead(channelId)` action; updated `selectChannel` to also clear `mentionCounts` for channel; rewrote `"message"` WS handler to: skip unread tracking for muted senders, detect @mention, increment `mentionCounts`, call `shouldNotifyChannel` instead of unconditionally notifying (text channels now only notify for @mentions by default); updated `"dm_message"` WS handler to check if sender is muted before notifying; added lazy `notifStoreRef` alongside `authStoreRef`. **`components/ContextMenu.tsx`**: Added `submenu?: ContextMenuEntry[]` to `ContextMenuItem` (`onClick` now optional); submenu renders as second `createPortal` panel positioned adjacent to hovered item via `useLayoutEffect`; 150ms delay before closing so mouse can travel from item to submenu; dismiss handler updated to include submenu panel. **`components/ChannelSidebar.tsx`**: Text channel right-click now available to ALL users (was admin/owner only); new items: "Mark as read" (if unread), "Notification settings" submenu (4 radio options), "Mute channel" submenu (5 durations + unmute); category right-click: "Notification settings" submenu (3 options), "Mute category" submenu; admin/owner items still gated; replaced `channel-unread-dot` span with `channel-mention-badge` (red pill number badge); added `channel-item-has-unread` and `channel-item-has-mention` classes to `channel-item-wrapper` div for CSS-driven semicircle and badge. **`components/ServerSidebar.tsx`** and **`components/MemberList.tsx`**: Added "Mute user"/"Unmute user" to avatar/member context menus via `notifStore.muteUser/unmuteUser`. **`styles/global.css`**: Removed `.channel-unread-dot`; added `.channel-item-has-unread::before` (left-edge semicircle pill: `left: -8px; width: 3px; height: 8px; border-radius: 0 3px 3px 0`); added `.channel-mention-badge` (red pill, `background: #ed4245`); added `.context-menu-item.has-submenu::after` (`▶` arrow). Files: `stores/notifications.ts` (new), `lib/notifications.ts`, `stores/chat.ts`, `components/ContextMenu.tsx`, `components/ChannelSidebar.tsx`, `components/ServerSidebar.tsx`, `components/MemberList.tsx`, `styles/global.css`.
 - **2026-02-21**: Room features — auto-cleanup, locked rooms, drag-to-invite, quick-move. Four enhancements to the room system: (1) **Auto-cleanup**: Rooms no longer delete instantly when the last person leaves. A 30s grace period (`schedule_room_cleanup` on `GatewayState`) uses `tokio::spawn` + `tokio::time::sleep`; rejoining within 30s cancels the timer (`cancel_room_cleanup`). `cleanup_timers: RwLock<HashMap<String, JoinHandle<()>>>` tracks pending deletions. (2) **Locked rooms**: `is_locked` column added to channels (INTEGER DEFAULT 0). Room creators can toggle lock via padlock icon in ChannelSidebar. Clicking a locked room (non-creator/non-admin) sends `room_knock` WS event instead of joining; creator/admins see a toast notification with Accept/Dismiss buttons. Accept calls `POST /servers/:serverId/rooms/:channelId/accept-knock` which sends `room_knock_accepted` to the knocker, triggering auto-join. `RoomLockToggled` event broadcasts lock state changes. (3) **Drag-to-invite**: Member list items (`MemberList.tsx`) are now `draggable` with `application/flux-member` dataTransfer. Room groups in ChannelSidebar accept drops — `onDragOver`/`onDrop` handlers call `POST /servers/:serverId/rooms/:channelId/invite`, which sends `room_invite` WS event to the target user. Target sees a toast with Join/Dismiss. (4) **Quick-move**: Admin/owner can right-click a user in a room's expanded participant list to open a context menu (portal to `document.body`) listing other rooms. Selecting one calls `POST /servers/:serverId/rooms/:channelId/move`, which sends `room_force_move` to the target user, auto-joining them to the new room. New file: `RoomToasts.tsx` (knock + invite toast notifications, auto-dismiss 15s). Backend: 3 new routes in `routes/mod.rs`, 6 new event variants in `events.rs`. Frontend: `roomKnocks`/`roomInvites` arrays in chat store. Test setup (`tests/common/mod.rs`) updated with channel room column migrations. Files: `gateway.rs`, `handler.rs`, `events.rs`, `models.rs`, `db/mod.rs`, `routes/servers.rs`, `routes/mod.rs`, `shared.ts`, `api.ts`, `chat.ts`, `ChannelSidebar.tsx`, `MemberList.tsx`, `RoomToasts.tsx` (new), `MainLayout.tsx`, `global.css`, `tests/common/mod.rs`.
+- **2026-02-23**: Voice store cleanup (Tasks 2.1-2.4). (1) Extracted magic numbers (lobby music timings, default bitrate, audio level polling interval) from `stores/voice.ts` and `lib/voice-analysis.ts` into new `lib/voice-constants.ts`. (2) Deduplicated the `destroyNoiseProcessor() + setDryWetProcessor(null) + setGainTrackProcessor(null)` pattern (3 occurrences) into a single `cleanupAudioProcessors()` async helper. (3) Added `dbg()` logging to all 8 silent `catch {}` / `.catch(() => {})` blocks in voice.ts (localStorage, AudioContext close, mic track stop, Spotify leave, screen share constraints). (4) Encapsulated 4 module-level lobby music variables (`lobbyMusicTimer`, `lobbyMusicAudio`, `lobbyMusicGain`, `lobbyMusicCtx`) into a single `lobbyMusicState` object. All 16 voice tests pass. Files: `stores/voice.ts`, `lib/voice-analysis.ts`, `lib/voice-constants.ts` (new).
+- **2026-02-23**: Chat system cleanup (Tasks 3.1-3.3). (1) Extracted 4 contentEditable helper functions (`getCharOffset`, `setCursorAtOffset`, `getDivPlainText`, `getTextBeforeCursor`) from `ChatView.tsx` into new `lib/contentEditable.ts`. (2) Replaced `any` types in `lib/api.ts`: auth functions now use `AuthResponse` interface, Spotify search uses `SpotifySearchResponse` (references `SpotifyTrack` from shared types); added TODO comment on JSON parse error catch. (3) Extracted inline mute-checking logic in `stores/chat-events.ts` into `isChannelOrCategoryMuted()` and `isMentionMuted()` helper functions. All 342 frontend tests pass. Files: `lib/contentEditable.ts` (new), `components/ChatView.tsx`, `lib/api.ts`, `stores/chat-events.ts`.
+- **2026-02-23**: Dead code cleanup — removed dead migrations, vestigial columns. (1) Removed silently-failing ALTER TABLE RENAME COLUMN migrations in `db/mod.rs` (`messages.ciphertext→content`, `dm_messages.plaintext→ciphertext`) — columns already have the correct names in `schema.sql`. (2) Removed `is_persistent` column from channels table (`schema.sql`, `models.rs`, `shared.ts`), all INSERT/SELECT queries referencing it (`servers.rs`, `auth.rs`, `handler.rs`, `gateway.rs`, `main.rs`), the migration that added it (`db/mod.rs`), and the lobby cleanup migration. All rooms are now equal — no persistent/temporary distinction. (3) Removed soundboard `image_attachment_id` and `image_filename` columns from `schema.sql`, `soundboard.rs` (struct + all SQL queries), `events.rs` (SoundboardPlay event), `handler.rs` (play_sound WS handler), `shared.ts`, `api.ts`, and `SoundboardTab.tsx` (image cleanup logic). Soundboard images were replaced by emoji rendering. (4) Removed `persistent_room_not_cleaned_up` test from `room_cleanup_test.rs`. All 197 backend tests and 342 frontend tests pass.
+- **2026-02-23**: Dead CSS selector audit (Task 5.1). Audited all 13 CSS files in `src/styles/` against TSX/TS source for unreferenced selectors. Removed: (1) `.voice-ctrl-btn.drink-btn` (drink button removed from voice controls) in `voice.css`. (2) `.voice-status-label.lobby-music-unlocked` and `@keyframes lobby-unlock-flash` (easter egg trigger removed from VoiceStatusBar) in `voice.css`. (3) `.room-lock-icon` (unused — `.room-lock-toggle` is the live class) in `voice.css`. (4) `.music-search-header` selector from compound vibe-mode rule in `music.css`. (5) `.room-switcher` and 10 related selectors (RoomSwitcherBar component removed from VoiceChannelView) in `sidebar.css`. (6) `.server-sidebar-user`, `.server-user-avatar-ring`, `.server-user-avatar`, `.server-user-avatar-img`, `.server-user-logout` and related selectors (server sidebar user section removed) in `sidebar.css`. Confirmed dynamically-generated classes (e.g. `app-border-${style}`, `ring-style-${style}`, `sidebar-${position}`, `sidebar-pos-${value}`) are alive via template literals. All 342 frontend tests pass. Files: `styles/voice.css`, `styles/music.css`, `styles/sidebar.css`.
+- **2026-02-23**: Test gap coverage (Task 6.1). Added 52 new unit tests across 3 new test files for previously untested modules: (1) `lib/__tests__/contentEditable.test.ts` — 12 tests for `getDivPlainText` (empty div, text nodes, img alt text, nested elements) and `getCharOffset` (single node, multiple nodes, img counted as 1 char). `setCursorAtOffset` and `getTextBeforeCursor` skipped (require real browser Selection API). (2) `lib/__tests__/emoji.test.ts` — 24 tests for `getEmojiLabel` (passthrough :name:, native lookup, unknown chars), `renderEmoji` (custom img tags, unknown custom, native passthrough), `isEmojiOnly` (empty, standard, custom, mixed, maxCount), `renderMessageContent` (empty, HTML escaping, URLs, @mentions, @everyone/@here, custom emoji, combined). twemoji mocked. (3) `lib/__tests__/channel-tree.test.ts` — 16 tests for `buildTree` (empty, root-level, nesting, sort order, non-category parents, multiple categories), `flattenTree` (expanded, collapsed, active path pinning, deep pinned path, nonexistent active), `loadCollapsed`/`saveCollapsed` (empty, round-trip, corrupted JSON). Total frontend tests: 394 (up from 342). Files: `lib/__tests__/contentEditable.test.ts` (new), `lib/__tests__/emoji.test.ts` (new), `lib/__tests__/channel-tree.test.ts` (new).
+- **2026-02-23**: Dependency audit (Tasks 7.1-7.2). **npm**: All 18 dependencies verified as actively used (including `@dnd-kit/utilities` via CSS import in SortableChannelItem, `@sapphi-red/web-noise-suppressor` via SpeexTrackProcessor, `@emoji-mart/data` via EmojiPicker+emoji.ts). `npm audit` reports 0 vulnerabilities. **Cargo**: Removed 2 unused dependencies from `crates/server/Cargo.toml`: `axum-extra` (typed-header + cookie features, not imported anywhere) and `nanoid` (not imported anywhere). All 197 backend tests pass after removal. Files: `crates/server/Cargo.toml`, `Cargo.lock`.
+- **2026-02-23**: Extract YouTube store from spotify.ts (Task 1.1). All YouTube-related state and actions extracted from `stores/spotify.ts` into new `stores/youtube.ts`. YouTube store (`useYouTubeStore`) owns: audio element, track info, progress/duration, paused state, search results, searchLoading, searchError, and actions (searchYouTube, addYouTubeToQueue, playYouTube, pauseYouTube, stopYouTube, setYouTubeVolume, updateYouTubeActivity). Spotify store retains session/queue coordination and calls into YouTube store via `yt()` helper for cross-store operations (play/pause/skip/seek/volume/WS sync). Updated consumers: `MusicPanel.tsx` and `VoiceChannelView.tsx` now import YouTube state from `useYouTubeStore`. All 394 frontend tests pass. Files: `stores/youtube.ts` (new), `stores/spotify.ts`, `components/MusicPanel.tsx`, `components/VoiceChannelView.tsx`.
+- **2026-02-23**: Extract DM store from chat.ts (Task 1.2). All DM-related state and actions extracted from `stores/chat.ts` into new `stores/dm.ts`. DM store (`useDMStore`) owns: `showingDMs`, `dmChannels`, `activeDMChannelId`, `dmMessages`, `dmHasMore`, `dmCursor`, `dmSearchQuery`, `dmSearchResults`, `dmError`, `loadingDMMessages`, and actions (`showDMs`, `loadDMChannels`, `selectDM`, `openDM`, `sendDM`, `clearDmError`, `retryEncryptionSetup`, `loadMoreDMMessages`, `searchDMMessages`, `clearDMSearch`). Chat store retains `decryptedCache` as shared resource (both DM and channel messages write to it). Cross-store coordination via lazy refs: `dm.ts` has `chatStoreRef` (typed as `UseBoundStore<StoreApi<ChatState>>` to avoid circular type references), `chat.ts` has `dmStoreRef`, `chat-events.ts` has `dmStoreRef`. `loadingDMMessages` is now a separate field from `loadingMessages`. `DMChannel` interface exported from `dm.ts`. `saveDMCache` signature in `chat-types.ts` updated to accept generic shape instead of `ChatState`. Updated consumers: `DMChatView.tsx`, `MainLayout.tsx`, `ServerSidebar.tsx`, `MemberList.tsx`, `VoiceUserRow.tsx`. Updated test mocks in `chat.test.ts` and `chat-rooms.test.ts`. Chat store reduced from ~677 to ~434 lines. All 394 frontend tests pass. Files: `stores/dm.ts` (new), `stores/chat.ts`, `stores/chat-types.ts`, `stores/chat-events.ts`, `components/DMChatView.tsx`, `layouts/MainLayout.tsx`, `components/ServerSidebar.tsx`, `components/MemberList.tsx`, `components/VoiceUserRow.tsx`, `stores/__tests__/chat.test.ts`, `stores/__tests__/chat-rooms.test.ts`.
+- **2026-02-23**: Group audio files into lib/audio/ (Task 2.1). Moved all audio-related files from flat `src/lib/` into new `src/lib/audio/` subdirectory using `git mv` (preserves history). Files moved: `voice-pipeline.ts`, `voice-analysis.ts`, `voice-noise.ts`, `voice-effects.ts`, `voice-constants.ts`, `DryWetTrackProcessor.ts`, `GainTrackProcessor.ts`. Directories moved: `rnnoise/`, `nsnet2/`, `speex/`, `dtln/`, `deepfilter/`. Updated all import paths: `stores/voice.ts` (5 static imports + 5 dynamic `import()` calls), `lib/audio/voice-pipeline.ts` (debug + stores type import), `lib/audio/voice-analysis.ts` (debug import), `lib/audio/voice-noise.ts` (stores type import), `lib/__tests__/noise-suppression.test.ts` (6 imports), `lib/__tests__/gain-track-processor.test.ts` (1 import), `stores/__tests__/voice.test.ts` (1 mock path), `stores/__tests__/audio-settings.test.ts` (1 mock path). Internal relative imports within `audio/` (e.g. `./voice-pipeline.js`) unchanged since files remain co-located. All 394 frontend tests pass. Files: all files in `src/lib/audio/`, `stores/voice.ts`, test files.
+- **2026-02-23**: Voice store section organization (Task 1.3). Analyzed coupling between screen share, audio settings, and core voice domains in `stores/voice.ts`. Determined splitting would create circular dependencies (10+ cross-references per domain to shared `room` state and `set()`). Instead, organized the file into clearly marked sections with `═══` separator headers. Sections: **Types & Constants** (interfaces, presets, default settings), **Audio Settings Persistence** (load/save from localStorage), **Audio Processor Helpers** (cleanup, nonce, adaptive bitrate), **WebRTC Stats Polling** (start/stop interval), **Lobby Music** (check/start/fadeOut/stop/gain), **Store Definition** with internal action groups: *Core Connection* (join/leave/mute/deafen/volume/drink), *Audio Settings & Pipeline Control* (updateAudioSetting/applyBitrate), *Screen Sharing* (toggle/pin/unpin/theatre/quality), *Lobby Music* (volume/stop), *WebRTC Stats* (toggle overlay), *Internal* (participant/screen share tracking), **WebSocket Event Handlers** (voice_state, reconnect), **BroadcastChannel Sync** (popout windows). Also cleaned up import ordering (grouped by category, removed interleaved type export). Pure refactor — no functionality changed. All 394 frontend tests pass. File: `stores/voice.ts`.
+- **2026-02-24**: Extract MusicVisualizer component (Task 4.2). Extracted the inline `MusicVisualizer` sub-component from `MusicPanel.tsx` into its own file `src/components/music/MusicVisualizer.tsx`. Extracted code includes: WebGL shader source strings (VERT_SRC, FRAG_SRC with kaleidoscopic Julia fractal), `VisualizerParams` interface, 3 presets, `randomParams()` helper, and the full `MusicVisualizer` component with canvas rendering, WebGL2 init/cleanup, animation frame loop, and controls overlay (preset buttons, parameter sliders). Added `MusicVisualizerProps` exported interface. MusicPanel.tsx reduced from 660 to 385 lines. Cleaned up unused imports (`Shuffle`, `dbg`, `SpotifyTrack`, `YouTubeTrack` types). All 394 frontend tests pass. Files: `components/music/MusicVisualizer.tsx` (new, 258 lines), `components/music/MusicPanel.tsx`.
+- **2026-02-24**: Reorganize components into domain subdirectories (Tasks 3.1-3.4). Moved 22 component files from flat `src/components/` into 6 domain-grouped subdirectories using `git mv` (preserves history). **voice/**: `VoiceChannelView.tsx`, `VoiceUserRow.tsx`, `VoiceStatusBar.tsx`, `StatsOverlay.tsx`, `RoomToasts.tsx`. **chat/**: `ChatView.tsx`, `DMChatView.tsx`, `SearchBar.tsx`, `LinkEmbed.tsx`, `MessageAttachments.tsx`. **sidebar/**: `ChannelSidebar.tsx`, `ServerSidebar.tsx`, `SortableChannelItem.tsx`, `MemberList.tsx`. **modals/**: `AvatarCropModal.tsx`, `ChannelSettingsModal.tsx`, `CreateChannelModal.tsx`. **music/**: `MusicPanel.tsx`, `SoundboardPanel.tsx`, `SoundboardTab.tsx`. **popout/**: `PopoutChatView.tsx`, `PopoutScreenShareView.tsx`. Files staying at top level (shared/generic): `AnimatedList.tsx`, `ContextMenu.tsx`, `EmojiPicker.tsx`, `EmojiTab.tsx`, `FluxLogo.tsx`, `SettingsModal.tsx`, `ServerSettingsPage.tsx`. Updated all import paths in 18 files: moved files (internal `../stores/` -> `../../stores/`, `../lib/` -> `../../lib/`, `../types/` -> `../../types/`), cross-group references (e.g. VoiceChannelView imports `../music/MusicPanel.js`), consumers (`MainLayout.tsx`, `PopoutApp.tsx`, `settings/ProfileTab.tsx`, `ServerSettingsPage.tsx`). All 394 frontend tests pass. Files: all listed above plus `layouts/MainLayout.tsx`, `PopoutApp.tsx`, `components/settings/ProfileTab.tsx`, `components/ServerSettingsPage.tsx`, `context.md`.
+- **2026-02-24**: Extract VoiceChannelView sub-components (Task 4.1). Extracted 3 sub-component groups from `VoiceChannelView.tsx` into their own files under `src/components/voice/`: (1) `StreamTile.tsx` (130 lines) — `StreamTile` (attaches LiveKit video track to `<video>` element, pin/unpin/theatre/popout actions) and `DummyStreamTile` (placeholder tile for showDummyUsers mode), plus `applyMaxQuality` helper and exported `StreamTileProps`/`DummyStreamTileProps` interfaces. (2) `ParticipantTile.tsx` (30 lines) — wrapper div that subscribes to `speakingUserIds` for speaking class updates without parent re-render, with exported `ParticipantTileProps` interface. (3) `LobbyMusicBar.tsx` (46 lines) — lobby music easter egg progress bar with volume slider and stop button. `SpeakingAvatar` (27 lines) kept inline in VoiceChannelView.tsx. VoiceChannelView.tsx reduced from 649 to 466 lines. Cleaned up imports: removed `livekit-client` types, removed unused lucide icons (`ArrowUpRight`, `Pin`, `PinOff`, `Maximize2`, `Minimize2`, `Square`), removed `ReactNode` type. Pure refactor — no behavior changes. All 394 frontend tests pass, TypeScript compiles clean. Files: `components/voice/StreamTile.tsx` (new), `components/voice/ParticipantTile.tsx` (new), `components/voice/LobbyMusicBar.tsx` (new), `components/voice/VoiceChannelView.tsx`.
+- **2026-02-24**: Remove dead incrementDrinkCount (Task 1.4). Removed the never-called `incrementDrinkCount` action from `stores/voice.ts` — it sent `voice_drink_update` WS event but was never invoked from any component. The `drinkCount` field on `VoiceUser` stays (part of WS protocol). All 394 frontend tests pass. File: `stores/voice.ts`.
+- **2026-02-24**: Add Spotify store tests (Task 5.1). Created `stores/__tests__/spotify.test.ts` with 71 tests covering: initial state, volume control (5 tests), search state (10), searchTracks (6), queue management (9), session state transitions (12), WS event handling (10), playback controls (12), player lifecycle (3), activity updates (4). Mocks: `lib/api.js`, `lib/ws.js`, `lib/debug.js`, `lib/serverUrl.js`, cross-store deps (`auth.js`, `voice.js`). Total frontend tests: 519. File: `stores/__tests__/spotify.test.ts` (new).
+- **2026-02-24**: Add notifications store tests (Task 5.2). Created `stores/__tests__/notifications.test.ts` with 53 tests covering: default values (8), setChannelSetting (4), setCategorySetting (3), setDefaultChannelSetting (2), channel muting (6), category muting (6), user muting (5), channel mention muting (4), category mention muting (3), getEffectiveChannelSetting cascade resolution (10), persistence via localStorage (2). Total frontend tests: 519. File: `stores/__tests__/notifications.test.ts` (new, 393 lines).

@@ -1,0 +1,127 @@
+/* ── Music Queue ── */
+
+.music-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.music-queue-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.music-queue-empty {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 2px 0;
+}
+
+.music-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.music-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.music-queue-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.music-queue-item-art {
+  width: 32px;
+  height: 32px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.music-queue-item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.music-queue-item-name {
+  font-size: 12px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-queue-item-artist {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-queue-item-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+}
+
+.music-queue-item-play:hover {
+  background: #1db954;
+  color: #fff;
+}
+
+.music-queue-item-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.music-queue-item-remove:hover {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+/* Queue source badges */
+.music-queue-source-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.music-queue-source-badge.spotify {
+  background: rgba(29, 185, 84, 0.2);
+  color: #1db954;
+}
+
+.music-queue-source-badge.youtube {
+  background: rgba(255, 0, 0, 0.15);
+  color: #ff4444;
+}

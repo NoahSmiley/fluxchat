@@ -82,8 +82,6 @@ test.describe("Settings UI", () => {
     await expect(page.locator("text=Diagnostics").first()).toBeVisible({ timeout: 3000 });
     await expect(page.locator("text=Debug Mode").first()).toBeVisible({ timeout: 3000 });
     await expect(page.locator("text=Export Logs").first()).toBeVisible({ timeout: 3000 });
-    await expect(page.locator("text=Dummy Users").first()).toBeVisible({ timeout: 3000 });
-
     // Copy Logs button should be present
     await expect(page.locator('button:has-text("Copy Logs")').first()).toBeVisible({ timeout: 3000 });
   });

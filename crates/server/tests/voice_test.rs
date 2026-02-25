@@ -131,6 +131,7 @@ async fn voice_token_with_livekit_configured() {
             livekit_url: "ws://localhost:7880".into(),
             upload_dir: "/tmp/flux-test-uploads".into(),
             max_upload_bytes: 10_485_760,
+            room_cleanup_delay_secs: 2,
         },
         gateway: Arc::new(ws::gateway::GatewayState::new()),
         spotify_auth_pending: tokio::sync::RwLock::new(std::collections::HashMap::new()),

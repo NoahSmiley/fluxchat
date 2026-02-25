@@ -1,22 +1,22 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { useChatStore } from "../stores/chat.js";
-import { useAuthStore } from "../stores/auth.js";
-import { gateway } from "../lib/ws.js";
-import { ServerSidebar } from "../components/ServerSidebar.js";
-import { ChannelSidebar } from "../components/ChannelSidebar.js";
-import { ChatView } from "../components/ChatView.js";
-import { VoiceChannelView } from "../components/VoiceChannelView.js";
-import { DMChatView } from "../components/DMChatView.js";
-import { GameChannelView } from "../components/GameChannelView.js";
-import { requestNotificationPermission } from "../lib/notifications.js";
-import { SettingsModal } from "../components/SettingsModal.js";
-import { ServerSettingsPage } from "../components/ServerSettingsPage.js";
-import { EconomyView } from "../components/CaseOpeningModal.js";
-import { EconomyToasts } from "../components/EconomyToasts.js";
-import { RoomToasts } from "../components/RoomToasts.js";
-import { useKeybindListener } from "../hooks/useKeybindListener.js";
-import { useIdleDetection } from "../hooks/useIdleDetection.js";
-import { useUIStore } from "../stores/ui.js";
+import { lazy, Suspense, useEffect, useRef, useState, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { useChatStore, teardownChatEvents } from "@/stores/chat/index.js";
+import { useDMStore } from "@/stores/dm/index.js";
+import { useAuthStore } from "@/stores/auth.js";
+import { gateway } from "@/lib/ws.js";
+import { ServerSidebar } from "@/components/sidebar/ServerSidebar.js";
+import { ChannelSidebar } from "@/components/sidebar/ChannelSidebar.js";
+import { ChatView } from "@/components/chat/ChatView.js";
+import { VoiceChannelView } from "@/components/voice/VoiceChannelView.js";
+import { DMChatView } from "@/components/chat/DMChatView.js";
+import { requestNotificationPermission } from "@/lib/notifications.js";
+import { ServerSettingsPage } from "@/components/ServerSettingsPage.js";
+import { RoomToasts } from "@/components/voice/RoomToasts.js";
+import { useKeybindListener } from "@/hooks/useKeybindListener.js";
+import { useIdleDetection } from "@/hooks/useIdleDetection.js";
+import { useUIStore } from "@/stores/ui.js";
+
+const SettingsModal = lazy(() => import("@/components/SettingsModal.js").then(m => ({ default: m.SettingsModal })));
 
 function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; side: "left" | "right" }) {
   const dragging = useRef(false);
@@ -51,9 +51,14 @@ function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; s
 export function MainLayout() {
   useKeybindListener();
   useIdleDetection();
-  const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels, showingDMs, activeDMChannelId } = useChatStore();
+  const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels } = useChatStore(useShallow((s) => ({
+    loadServers: s.loadServers, selectServer: s.selectServer, servers: s.servers,
+    activeServerId: s.activeServerId, activeChannelId: s.activeChannelId, channels: s.channels,
+  })));
+  const { showingDMs, activeDMChannelId } = useDMStore(useShallow((s) => ({
+    showingDMs: s.showingDMs, activeDMChannelId: s.activeDMChannelId,
+  })));
   const { user } = useAuthStore();
-  const showingEconomy = useUIStore((s) => s.showingEconomy);
   const serverSettingsOpen = useUIStore((s) => s.serverSettingsOpen);
   const [sidebarWidth, setSidebarWidth] = useState(240);
 
@@ -61,7 +66,7 @@ export function MainLayout() {
     gateway.connect();
     loadServers();
     requestNotificationPermission();
-    return () => gateway.disconnect();
+    return () => { teardownChatEvents(); gateway.disconnect(); };
   }, [loadServers]);
 
   // Auto-select the single server when available
@@ -154,9 +159,7 @@ export function MainLayout() {
       {channelSidebarEl}
 
       <main className="main-content" style={mainStyle}>
-        {showingEconomy ? (
-          <EconomyView />
-        ) : showingDMs ? (
+        {showingDMs ? (
           activeDMChannelId ? (
             <DMChatView />
           ) : (
@@ -168,8 +171,6 @@ export function MainLayout() {
         ) : activeChannelId ? (
           activeChannel?.type === "voice" ? (
             <VoiceChannelView />
-          ) : activeChannel?.type === "game" || activeChannelId.startsWith("__game_") ? (
-            <GameChannelView />
           ) : (
             <ChatView />
           )
@@ -184,9 +185,8 @@ export function MainLayout() {
         )}
       </main>
 
-      <SettingsModal />
+      <Suspense fallback={null}><SettingsModal /></Suspense>
       {serverSettingsOpen && <ServerSettingsPage />}
-      <EconomyToasts />
       <RoomToasts />
     </div>
   );

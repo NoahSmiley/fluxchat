@@ -1,19 +1,20 @@
 import { useState, useEffect, useRef } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Trash2, Upload } from "lucide-react";
-import * as api from "../lib/api.js";
-import type { CustomEmoji } from "../types/shared.js";
-import { API_BASE } from "../lib/serverUrl.js";
-import { useChatStore } from "../stores/chat.js";
-import { useAuthStore } from "../stores/auth.js";
+import * as api from "@/lib/api/index.js";
+import type { CustomEmoji } from "@/types/shared.js";
+import { API_BASE } from "@/lib/serverUrl.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useAuthStore } from "@/stores/auth.js";
 
 const MAX_EMOJI_SIZE = 256 * 1024; // 256 KB
 const NAME_REGEX = /^[a-zA-Z0-9_]{1,32}$/;
 
 export function EmojiTab({ serverId }: { serverId: string }) {
-  const fetchCustomEmojis = useChatStore((s) => s.fetchCustomEmojis);
+  const { fetchCustomEmojis, servers, members } = useChatStore(useShallow((s) => ({
+    fetchCustomEmojis: s.fetchCustomEmojis, servers: s.servers, members: s.members,
+  })));
   const user = useAuthStore((s) => s.user);
-  const servers = useChatStore((s) => s.servers);
-  const members = useChatStore((s) => s.members);
 
   const [emojis, setEmojis] = useState<CustomEmoji[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +50,11 @@ export function EmojiTab({ serverId }: { serverId: string }) {
     loadEmojis();
   }, [serverId]);
 
+  // Revoke object URL on unmount to prevent memory leak
+  useEffect(() => {
+    return () => { if (preview) URL.revokeObjectURL(preview); };
+  }, [preview]);
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -62,6 +68,7 @@ export function EmojiTab({ serverId }: { serverId: string }) {
       return;
     }
     setFile(f);
+    if (preview) URL.revokeObjectURL(preview);
     setPreview(URL.createObjectURL(f));
   }
 
@@ -80,9 +87,9 @@ export function EmojiTab({ serverId }: { serverId: string }) {
       setEmojis((prev) => [...prev, emoji]);
       // Update the chat store so the picker sees the new emoji immediately
       fetchCustomEmojis(serverId).catch(() => {});
-      // Reset form
       setName("");
       setFile(null);
+      if (preview) URL.revokeObjectURL(preview);
       setPreview(null);
       setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = "";
