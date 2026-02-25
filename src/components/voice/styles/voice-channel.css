@@ -142,15 +142,6 @@
   opacity: 0.8;
 }
 
-.voice-tile-volume {
-  width: 100%;
-  padding: 0 4px;
-}
-
-.voice-tile-volume .volume-slider {
-  width: 100%;
-}
-
 /* ── Speaking Avatar ── */
 .voice-avatar-wrapper {
   position: relative;

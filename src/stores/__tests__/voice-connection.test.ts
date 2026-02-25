@@ -131,7 +131,6 @@ describe("useVoiceStore", () => {
       screenSharers: [],
       pinnedScreenShare: null,
       theatreMode: false,
-      participantVolumes: {},
       speakingUserIds: new Set(),
       lastSpokeAt: 0,
     });

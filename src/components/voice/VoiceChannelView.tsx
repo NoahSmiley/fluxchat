@@ -31,13 +31,11 @@ export function VoiceChannelView() {
     screenSharers,
     pinnedScreenShare,
     theatreMode,
-    participantVolumes,
     joinVoiceChannel,
     leaveVoiceChannel,
     toggleMute,
     toggleDeafen,
     toggleScreenShare,
-    setParticipantVolume,
     screenShareQuality,
     setScreenShareQuality,
   } = useVoiceStore(useShallow((s) => ({
@@ -45,9 +43,9 @@ export function VoiceChannelView() {
     connectionError: s.connectionError, participants: s.participants, isMuted: s.isMuted,
     isDeafened: s.isDeafened, isScreenSharing: s.isScreenSharing, screenSharers: s.screenSharers,
     pinnedScreenShare: s.pinnedScreenShare, theatreMode: s.theatreMode,
-    participantVolumes: s.participantVolumes, joinVoiceChannel: s.joinVoiceChannel,
+    joinVoiceChannel: s.joinVoiceChannel,
     leaveVoiceChannel: s.leaveVoiceChannel, toggleMute: s.toggleMute, toggleDeafen: s.toggleDeafen,
-    toggleScreenShare: s.toggleScreenShare, setParticipantVolume: s.setParticipantVolume,
+    toggleScreenShare: s.toggleScreenShare,
     screenShareQuality: s.screenShareQuality, setScreenShareQuality: s.setScreenShareQuality,
   })));
   const { loadSession, playerState, session, queue, volume, setVolume } = useSpotifyStore(useShallow((s) => ({
@@ -241,8 +239,6 @@ export function VoiceChannelView() {
           participants={participants}
           members={members}
           localParticipantIdentity={room?.localParticipant?.identity}
-          participantVolumes={participantVolumes}
-          setParticipantVolume={setParticipantVolume}
           screenSharerIds={screenSharerIds}
           session={session}
           playerState={playerState}
