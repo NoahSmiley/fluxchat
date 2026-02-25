@@ -94,10 +94,10 @@
 
 @keyframes create-btn-enter {
   from { height: 0; opacity: 0; }
-  to   { height: 38px; opacity: 1; }
+  to   { height: 46px; opacity: 1; }
 }
 @keyframes create-btn-exit {
-  from { height: 38px; opacity: 1; }
+  from { height: 46px; opacity: 1; }
   to   { height: 0; opacity: 0; }
 }
 .create-room-btn-enter {
@@ -113,9 +113,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 100%;
-  margin-top: 6px;
-  padding: 6px 10px;
+  width: 90%;
+  margin: 6px auto 0;
+  padding: 10px 10px;
   border: none;
   border-radius: 6px;
   background: none;

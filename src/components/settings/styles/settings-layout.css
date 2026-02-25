@@ -212,6 +212,29 @@
   color: var(--text-primary);
 }
 
+/* ── Voice Device Selection ── */
+.voice-device-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.voice-device-row:last-child {
+  border-bottom: none;
+}
+.voice-device-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.voice-device-select {
+  width: 100%;
+  min-width: unset;
+}
+
 .settings-radio-row {
   display: flex;
   align-items: flex-start;

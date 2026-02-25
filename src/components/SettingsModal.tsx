@@ -30,13 +30,10 @@ function VoiceSettingsTab() {
   return (
     <div className="settings-card">
       <h3 className="settings-card-title">Voice & Audio</h3>
-      <div className="settings-row">
-        <div className="settings-row-info">
-          <span className="settings-row-label">Input Device</span>
-          <span className="settings-row-desc">Microphone used for voice chat</span>
-        </div>
+      <div className="voice-device-row">
+        <label className="voice-device-label">Input Device</label>
         <select
-          className="settings-select"
+          className="settings-select voice-device-select"
           value={audioSettings.audioInputDeviceId}
           onChange={(e) => updateAudioSetting("audioInputDeviceId", e.target.value)}
         >
@@ -46,13 +43,10 @@ function VoiceSettingsTab() {
           ))}
         </select>
       </div>
-      <div className="settings-row">
-        <div className="settings-row-info">
-          <span className="settings-row-label">Output Device</span>
-          <span className="settings-row-desc">Speaker or headphones for audio playback</span>
-        </div>
+      <div className="voice-device-row">
+        <label className="voice-device-label">Output Device</label>
         <select
-          className="settings-select"
+          className="settings-select voice-device-select"
           value={audioSettings.audioOutputDeviceId}
           onChange={(e) => updateAudioSetting("audioOutputDeviceId", e.target.value)}
         >

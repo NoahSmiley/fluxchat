@@ -9,23 +9,7 @@ import type { VoiceParticipant } from "@/types/shared.js";
 export interface AudioSettings {
   audioInputDeviceId: string;
   audioOutputDeviceId: string;
-  noiseSuppression: boolean;
-  echoCancellation: boolean;
-  autoGainControl: boolean;
   dtx: boolean;
-  highPassFrequency: number;
-  lowPassFrequency: number;
-  inputSensitivity: number;
-  inputSensitivityEnabled: boolean;
-  micInputGain: number;
-  noiseGateHoldTime: number;
-  compressorEnabled: boolean;
-  compressorThreshold: number;
-  compressorRatio: number;
-  compressorAttack: number;
-  compressorRelease: number;
-  deEsserEnabled: boolean;
-  deEsserStrength: number;
 }
 
 export interface VoiceUser {
@@ -68,23 +52,7 @@ export const SCREEN_SHARE_PRESETS: Record<ScreenShareQuality, ScreenSharePreset>
 export const DEFAULT_SETTINGS: AudioSettings = {
   audioInputDeviceId: "",
   audioOutputDeviceId: "",
-  noiseSuppression: true,
-  echoCancellation: true,
-  autoGainControl: true,
   dtx: false,
-  highPassFrequency: 0,
-  lowPassFrequency: 0,
-  inputSensitivity: 40,
-  inputSensitivityEnabled: true,
-  micInputGain: 100,
-  noiseGateHoldTime: 200,
-  compressorEnabled: false,
-  compressorThreshold: -24,
-  compressorRatio: 12,
-  compressorAttack: 0.003,
-  compressorRelease: 0.25,
-  deEsserEnabled: false,
-  deEsserStrength: 50,
 };
 
 export interface VoiceState {

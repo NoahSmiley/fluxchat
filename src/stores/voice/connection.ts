@@ -112,9 +112,9 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         adaptiveStream: false,
         dynacast: true,
         audioCaptureDefaults: {
-          echoCancellation: audioSettings.echoCancellation,
-          noiseSuppression: audioSettings.noiseSuppression,
-          autoGainControl: audioSettings.autoGainControl,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
           sampleRate: 48000,
           channelCount: 2,
         },

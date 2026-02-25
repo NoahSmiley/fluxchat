@@ -11,9 +11,9 @@ describe("Streaming Quality Config", () => {
 
   it("audioCaptureDefaults has sampleRate 48000", () => {
     const audioCaptureDefaults = {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
       sampleRate: 48000,
       channelCount: 2,
     };
