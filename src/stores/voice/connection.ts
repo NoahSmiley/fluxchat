@@ -14,6 +14,9 @@ import type { StoreApi } from "zustand";
 
 const DEFAULT_BITRATE = 128_000;
 
+// Cached chat store ref (populated on first joinVoiceChannel, avoids async gap on leave)
+let cachedChatStore: any = null;
+
 // Monotonically increasing counter to detect stale joinVoiceChannel calls
 let joinNonce = 0;
 
@@ -86,6 +89,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       }
 
       const { useChatStore } = await import("@/stores/chat/store.js");
+      cachedChatStore = useChatStore;
       const chatState = useChatStore.getState();
       const channel = chatState.channels.find((c) => c.id === channelId);
       const channelBitrate = channel?.bitrate ?? DEFAULT_BITRATE;
@@ -255,20 +259,18 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
     });
 
     // If we left a room (ephemeral voice channel), switch to a text channel
-    // since the room will be cleaned up shortly
-    if (connectedChannelId) {
-      import("@/stores/chat/store.js").then(({ useChatStore }) => {
-        const chatState = useChatStore.getState();
-        const channel = chatState.channels.find((c) => c.id === connectedChannelId);
-        if (channel?.isRoom && chatState.activeChannelId === connectedChannelId) {
-          const fallback = chatState.channels.find(
-            (c) => c.type === "text" && c.serverId === channel.serverId,
-          );
-          if (fallback) {
-            useChatStore.getState().selectChannel(fallback.id);
-          }
+    // immediately (synchronous) to prevent a flash of the "Join Room" UI
+    if (connectedChannelId && cachedChatStore) {
+      const chatState = cachedChatStore.getState();
+      const channel = chatState.channels.find((c: any) => c.id === connectedChannelId);
+      if (channel?.isRoom && chatState.activeChannelId === connectedChannelId) {
+        const fallback = chatState.channels.find(
+          (c: any) => c.type === "text" && c.serverId === channel.serverId,
+        );
+        if (fallback) {
+          cachedChatStore.getState().selectChannel(fallback.id);
         }
-      });
+      }
     }
   };
 }
