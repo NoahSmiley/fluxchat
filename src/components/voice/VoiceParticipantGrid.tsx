@@ -1,4 +1,4 @@
-import { Volume2, Volume1, VolumeX, MicOff, HeadphoneOff, Radio } from "lucide-react";
+import { Volume1, VolumeX, MicOff, HeadphoneOff, Radio } from "lucide-react";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import { ParticipantTile } from "./ParticipantTile.js";
 import { LobbyMusicBar } from "./LobbyMusicBar.js";
@@ -20,8 +20,6 @@ interface VoiceParticipantGridProps {
   participants: VoiceUser[];
   members: MemberWithUser[];
   localParticipantIdentity: string | undefined;
-  participantVolumes: Record<string, number>;
-  setParticipantVolume: (userId: string, volume: number) => void;
   screenSharerIds: Set<string>;
   // Now-playing props
   session: ListeningSession | null;
@@ -121,8 +119,6 @@ export function VoiceParticipantGrid({
   participants,
   members,
   localParticipantIdentity,
-  participantVolumes,
-  setParticipantVolume,
   screenSharerIds,
   session,
   playerState,
@@ -160,19 +156,6 @@ export function VoiceParticipantGrid({
                   </span>
                 )}
               </span>
-              {user.userId !== localParticipantIdentity && (
-                <div className="voice-tile-volume">
-                  <input
-                    type="range"
-                    min="0"
-                    max="200"
-                    value={Math.round((participantVolumes[user.userId] ?? 1.0) * 100)}
-                    onChange={(e) => setParticipantVolume(user.userId, parseInt(e.target.value) / 100)}
-                    className="volume-slider"
-                    title={`Volume: ${Math.round((participantVolumes[user.userId] ?? 1.0) * 100)}%`}
-                  />
-                </div>
-              )}
             </ParticipantTile>
           );
         })}

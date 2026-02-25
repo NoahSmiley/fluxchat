@@ -46,18 +46,6 @@ export function createToggleDeafen(storeRef: StoreApi<VoiceState>) {
   };
 }
 
-export function createSetParticipantVolume(storeRef: StoreApi<VoiceState>) {
-  return (participantId: string, volume: number) => {
-    storeRef.setState((state) => ({
-      participantVolumes: {
-        ...state.participantVolumes,
-        [participantId]: volume,
-      },
-    }));
-    dbg("voice", `setParticipantVolume stored vol=${volume} participant=${participantId}`);
-  };
-}
-
 export function createApplyBitrate(storeRef: StoreApi<VoiceState>) {
   return (bitrate: number) => {
     const { room } = storeRef.getState();

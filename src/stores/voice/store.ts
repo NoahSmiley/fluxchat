@@ -8,7 +8,7 @@ import { initLobbyMusic, setLobbyMusicGain, stopLobbyMusic } from "./lobby.js";
 import { initStatsPolling } from "./stats.js";
 import { initVoiceEvents } from "./events.js";
 import { createJoinVoiceChannel, createLeaveVoiceChannel } from "./connection.js";
-import { createToggleMute, createSetMuted, createToggleDeafen, createSetParticipantVolume, createApplyBitrate } from "./controls.js";
+import { createToggleMute, createSetMuted, createToggleDeafen, createApplyBitrate } from "./controls.js";
 import { createToggleScreenShare, createSetScreenShareQuality } from "./screen-share.js";
 import { createUpdateParticipants, createUpdateScreenSharers, createSetChannelParticipants } from "./participants.js";
 
@@ -37,7 +37,6 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
   const toggleMute = createToggleMute(storeApi);
   const setMuted = createSetMuted(storeApi);
   const toggleDeafen = createToggleDeafen(storeApi);
-  const setParticipantVolume = createSetParticipantVolume(storeApi);
   const updateAudioSetting = (key: keyof AudioSettings, value: boolean | number | string) => {
     const current = storeApi.getState().audioSettings;
     const updated = { ...current, [key]: value };
@@ -69,7 +68,6 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
     isMuted: false,
     isDeafened: false,
     audioSettings: loadAudioSettings(),
-    participantVolumes: {},
     speakingUserIds: new Set<string>(),
     isScreenSharing: false,
     screenSharers: [],
@@ -88,7 +86,6 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
     toggleMute,
     setMuted,
     toggleDeafen,
-    setParticipantVolume,
     updateAudioSetting,
     applyBitrate,
     toggleScreenShare,

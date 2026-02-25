@@ -13,19 +13,6 @@ export interface AudioSettings {
   echoCancellation: boolean;
   autoGainControl: boolean;
   dtx: boolean;
-  highPassFrequency: number;
-  lowPassFrequency: number;
-  inputSensitivity: number;
-  inputSensitivityEnabled: boolean;
-  micInputGain: number;
-  noiseGateHoldTime: number;
-  compressorEnabled: boolean;
-  compressorThreshold: number;
-  compressorRatio: number;
-  compressorAttack: number;
-  compressorRelease: number;
-  deEsserEnabled: boolean;
-  deEsserStrength: number;
 }
 
 export interface VoiceUser {
@@ -72,19 +59,6 @@ export const DEFAULT_SETTINGS: AudioSettings = {
   echoCancellation: true,
   autoGainControl: true,
   dtx: false,
-  highPassFrequency: 0,
-  lowPassFrequency: 0,
-  inputSensitivity: 40,
-  inputSensitivityEnabled: true,
-  micInputGain: 100,
-  noiseGateHoldTime: 200,
-  compressorEnabled: false,
-  compressorThreshold: -24,
-  compressorRatio: 12,
-  compressorAttack: 0.003,
-  compressorRelease: 0.25,
-  deEsserEnabled: false,
-  deEsserStrength: 50,
 };
 
 export interface VoiceState {
@@ -100,9 +74,6 @@ export interface VoiceState {
 
   // ── Audio settings ──
   audioSettings: AudioSettings;
-
-  // ── Per-user volume ──
-  participantVolumes: Record<string, number>;
 
   // Debounced speaking state — instant on, 200ms hold off (no flicker)
   speakingUserIds: Set<string>;
@@ -131,7 +102,6 @@ export interface VoiceState {
   toggleMute: () => void;
   toggleDeafen: () => void;
   setMuted: (muted: boolean) => void;
-  setParticipantVolume: (participantId: string, volume: number) => void;
   // ── Actions: Audio Settings ──
   updateAudioSetting: (key: keyof AudioSettings, value: boolean | number | string) => void;
   applyBitrate: (bitrate: number) => void;
