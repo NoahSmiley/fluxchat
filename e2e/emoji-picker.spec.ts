@@ -60,10 +60,10 @@ test.describe("Emoji Picker", () => {
     await emojiBtn.click();
     await page.waitForTimeout(500);
 
-    // Message input should contain something (the emoji)
+    // Message input should contain something (the emoji, rendered as <img> by twemoji)
     const input = page.locator('[data-testid="message-input"]');
-    const content = await input.textContent() ?? "";
-    expect(content.length).toBeGreaterThan(0);
+    const html = await input.innerHTML();
+    expect(html.length).toBeGreaterThan(0);
   });
 
   test("picker closes after selecting an emoji", async ({ page }) => {

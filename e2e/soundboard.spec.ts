@@ -27,7 +27,8 @@ test.describe("Soundboard", () => {
     await expect(page.locator('.soundboard-panel')).not.toBeVisible({ timeout: 2000 });
   });
 
-  test("soundboard panel is not visible on voice channel without connection", async ({ page }) => {
+  // Voice channels no longer exist as standalone sidebar items — only rooms.
+  test.skip("soundboard panel is not visible on voice channel without connection", async ({ page }) => {
     await createChannel(page, "sb-voice", "voice");
     await selectChannel(page, "sb-voice");
     await expect(page.locator('.soundboard-panel')).not.toBeVisible({ timeout: 2000 });

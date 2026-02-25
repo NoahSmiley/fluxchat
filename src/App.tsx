@@ -276,7 +276,7 @@ export function App() {
           <Route path="/spotify-callback" element={<SpotifyCallback />} />
           <Route path="/*" element={user ? <MainLayout /> : <Navigate to="/login" />} />
         </Routes>
-        <UpdateToast />
+        {(window as any).__TAURI_INTERNALS__ && <UpdateToast />}
       </div>
     </div>
   );

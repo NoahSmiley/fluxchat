@@ -139,6 +139,13 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
     };
   }, [onClose]);
 
+  // Dismiss on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
   const uploaderGroups = useMemo(() => {
     if (!customEmojis.length) return [];
     const groups: { uploaderId: string; uploaderUsername: string; uploaderImage: string | null; emojis: CustomEmoji[] }[] = [];

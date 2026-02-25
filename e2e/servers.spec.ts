@@ -37,7 +37,8 @@ test.describe("Server and Channel Management", () => {
     await expect(page.locator(`.channel-item:has-text("${channelName}")`).first()).toBeVisible({ timeout: 5000 });
   });
 
-  test("create a voice channel via the UI", async ({ page }) => {
+  // Voice channels no longer exist as standalone sidebar items — only rooms.
+  test.skip("create a voice channel via the UI", async ({ page }) => {
     const channelName = "voice-room";
     await createChannel(page, channelName, "voice");
 

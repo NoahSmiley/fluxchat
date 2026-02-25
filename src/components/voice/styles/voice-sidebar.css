@@ -18,6 +18,37 @@
   background: var(--bg-hover);
 }
 
+.voice-room-locked .voice-channel-user:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* Animated user row wrappers inside voice rooms */
+@keyframes user-row-enter {
+  0%   { grid-template-rows: 0fr; opacity: 0; }
+  100% { grid-template-rows: 1fr; opacity: 1; }
+}
+
+@keyframes user-row-exit {
+  0%   { grid-template-rows: 1fr; opacity: 1; }
+  100% { grid-template-rows: 0fr; opacity: 0; }
+}
+
+.voice-user-animated {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.voice-user-animated > * {
+  overflow: hidden;
+  min-height: 0;
+}
+.voice-user-enter {
+  animation: user-row-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.voice-user-exit {
+  animation: user-row-exit 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  pointer-events: none;
+}
+
 /* Hover-to-inspect card overlay */
 .voice-user-card-overlay {
   position: fixed;
@@ -145,6 +176,28 @@
 .channel-item.voice-connected { color: #43b581; }
 
 /* ── Voice Status Bar ── */
+.voice-status-bar-wrapper {
+  overflow: hidden;
+  margin-top: auto;
+  flex-shrink: 0;
+  height: 56px;
+}
+
+@keyframes status-bar-enter {
+  from { height: 0; opacity: 0; }
+  to   { height: 56px; opacity: 1; }
+}
+@keyframes status-bar-exit {
+  from { height: 56px; opacity: 1; }
+  to   { height: 0; opacity: 0; }
+}
+.voice-status-bar-enter {
+  animation: status-bar-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.voice-status-bar-exit {
+  animation: status-bar-exit 0.3s cubic-bezier(0.4, 0, 1, 1) both;
+}
+
 .voice-status-bar {
   display: flex;
   align-items: center;
@@ -155,7 +208,6 @@
   gap: 8px;
   background: var(--bg-secondary);
   border-top: 1px solid var(--border);
-  margin-top: auto;
   flex-shrink: 0;
 }
 

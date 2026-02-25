@@ -128,7 +128,7 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
   );
 
   return (
-    <div className={`music-panel ${vibeMode ? "vibe-mode" : ""}`}>
+    <div className={`music-panel ${vibeMode ? "vibe-mode" : ""} ${albumArtUrl && !vibeMode ? "has-backdrop" : ""}`}>
       {/* Fullscreen shader visualizer */}
       {vibeMode && hasTrack && (
         <MusicVisualizer isPaused={isPaused} albumArtUrl={albumArtUrl} onClose={() => setVibeMode(false)} />

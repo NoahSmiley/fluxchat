@@ -88,13 +88,33 @@
   flex-direction: column;
   justify-content: center;
 }
+.create-room-btn-wrapper {
+  overflow: hidden;
+}
+
+@keyframes create-btn-enter {
+  from { height: 0; opacity: 0; }
+  to   { height: 38px; opacity: 1; }
+}
+@keyframes create-btn-exit {
+  from { height: 38px; opacity: 1; }
+  to   { height: 0; opacity: 0; }
+}
+.create-room-btn-enter {
+  animation: create-btn-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.create-room-btn-exit {
+  animation: create-btn-exit 0.3s cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}
+
 .create-room-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   width: 100%;
-  margin-top: 0;
+  margin-top: 6px;
   padding: 6px 10px;
   border: none;
   border-radius: 6px;
@@ -116,36 +136,39 @@
   flex-direction: column;
 }
 
-/* Wrapper for each room group — uses CSS grid for smooth height collapse.
-   margin-top replaces parent gap so it can transition to 0 during exit. */
+/* Wrapper for each room group — grid for enter, height for exit */
 .voice-room-group-wrapper {
   display: grid;
   grid-template-rows: 1fr;
   margin-top: 4px;
-  opacity: 1;
-  transition: grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-              opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-              margin-top 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .voice-room-group-wrapper:first-child { margin-top: 0; }
-
-/* Enter: start collapsed + invisible */
-.voice-room-group-wrapper.voice-room-enter {
-  grid-template-rows: 0fr;
-  margin-top: 0;
-  opacity: 0;
-}
-/* Exit: collapse + fade + close margin */
-.voice-room-group-wrapper.voice-room-exit {
-  grid-template-rows: 0fr;
-  margin-top: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-/* Grid child: overflow hidden so content is clipped during collapse */
 .voice-room-group-wrapper > .voice-room-group {
   overflow: hidden;
   min-height: 0;
+}
+
+@keyframes room-enter {
+  0%   { grid-template-rows: 0fr; opacity: 0; margin-top: 0; }
+  100% { grid-template-rows: 1fr; opacity: 1; }
+}
+
+@keyframes room-exit-h {
+  to { height: 0; opacity: 0; margin-top: 0; }
+}
+
+/* Enter: expand via grid (works well for expanding) */
+.voice-room-group-wrapper.voice-room-enter {
+  animation: room-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Exit: collapse via measured height (smooth pixel interpolation) */
+.voice-room-group-wrapper.voice-room-exit {
+  display: block;
+  overflow: hidden;
+  height: var(--room-h);
+  animation: room-exit-h 0.35s cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
 }
 .voice-room-group {
   border-radius: 10px;

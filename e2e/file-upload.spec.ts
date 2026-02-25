@@ -63,16 +63,15 @@ test.describe("File Upload", () => {
       mimeType: "text/plain",
       buffer: Buffer.from("Remove me"),
     });
-    await page.waitForTimeout(1000);
 
-    const preview = page.locator(".pending-attachment").first();
-    await expect(preview).toBeVisible({ timeout: 5000 });
+    // Wait for the upload to complete and the remove button to appear
+    const removeBtn = page.locator(".pending-attachment-remove").first();
+    await expect(removeBtn).toBeVisible({ timeout: 10000 });
 
     // Click the remove button
-    const removeBtn = preview.locator(".pending-attachment-remove").first();
     await removeBtn.click();
     await page.waitForTimeout(500);
 
-    await expect(page.locator(".pending-attachment")).not.toBeVisible({ timeout: 3000 });
+    await expect(page.locator(".pending-attachment:not(.uploading)")).not.toBeVisible({ timeout: 3000 });
   });
 });

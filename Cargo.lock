@@ -1290,6 +1290,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
+ "url",
  "windows 0.58.0",
 ]
 

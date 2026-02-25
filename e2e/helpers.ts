@@ -1,6 +1,6 @@
 import { type Page, type Locator } from "@playwright/test";
 
-const API_BASE = "http://127.0.0.1:3001";
+const API_BASE = `http://127.0.0.1:${process.env.CI ? "3001" : "3002"}`;
 
 // Cached admin token for whitelisting test users.
 // The admin is the "first user" who bypasses the whitelist gate.
@@ -206,14 +206,12 @@ export async function waitForAppReady(page: Page, timeout = 10000) {
 /**
  * Click the Create Channel button (+) in the channel sidebar and fill out the modal.
  */
-export async function createChannel(page: Page, channelName: string, type: "text" | "voice" | "category" = "text") {
+export async function createChannel(page: Page, channelName: string, type: "text" | "category" = "text") {
   const addBtn = page.locator('button[title="Create Channel"]').first();
   await addBtn.click();
   await page.waitForTimeout(500);
 
-  if (type === "voice") {
-    await page.locator('button.channel-type-option:has-text("Voice")').click();
-  } else if (type === "category") {
+  if (type === "category") {
     await page.locator('button.channel-type-option:has-text("Category")').click();
   }
 

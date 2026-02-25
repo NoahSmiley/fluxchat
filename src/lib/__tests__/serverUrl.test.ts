@@ -32,9 +32,16 @@ describe("serverUrl", () => {
     expect(mod.API_BASE).toBe("http://1.2.3.4:3001/api");
   });
 
-  it("getGatewayUrl returns dev URL in dev mode", async () => {
+  it("getGatewayUrl returns hardcoded dev URL in Tauri mode", async () => {
+    (window as any).__TAURI_INTERNALS__ = {};
     const mod = await import("@/lib/serverUrl.js");
     expect(mod.getGatewayUrl()).toBe("ws://127.0.0.1:3001/gateway");
+    delete (window as any).__TAURI_INTERNALS__;
+  });
+
+  it("getGatewayUrl derives from window.location in dev mode without Tauri", async () => {
+    const mod = await import("@/lib/serverUrl.js");
+    expect(mod.getGatewayUrl()).toBe("wss://example.com/gateway");
   });
 
   it("getGatewayUrl uses VITE_SERVER_URL when set", async () => {

@@ -14,6 +14,7 @@ export function AnimatedList<T extends { key: string }>({
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const enteringRef = useRef<Set<string>>(new Set());
   const prevKeysRef = useRef<string>(items.map((i) => i.key).join(","));
+  const isFirstRenderRef = useRef(true);
   const [, forceRender] = useState(0);
 
   // Cancel all pending exit timers on unmount
@@ -25,11 +26,15 @@ export function AnimatedList<T extends { key: string }>({
     };
   }, []);
 
+  // Clear first render flag after mount
+  useEffect(() => {
+    isFirstRenderRef.current = false;
+  }, []);
+
   const currentKeyStr = items.map((i) => i.key).join(",");
   if (currentKeyStr !== prevKeysRef.current) {
     const oldPrevKeys = new Set(prevKeysRef.current.split(",").filter(Boolean));
     prevKeysRef.current = currentKeyStr;
-    const currentKeys = new Set(items.map((i) => i.key));
 
     // Cancel timers for items that came back
     for (const item of items) {
@@ -46,7 +51,6 @@ export function AnimatedList<T extends { key: string }>({
     // Keep items in their previous positions — exiting items stay in place
     const result: (T & { _exiting?: boolean })[] = [];
     const newlyExitingKeys: string[] = [];
-    const newlyEnteringKeys: string[] = [];
     for (const prev of renderedRef.current) {
       if (currentMap.has(prev.key)) {
         result.push({ ...currentMap.get(prev.key)!, _exiting: false });
@@ -59,24 +63,18 @@ export function AnimatedList<T extends { key: string }>({
     // Append any brand-new items at the end
     for (const item of items) {
       if (!prevKeys.has(item.key)) {
-        // Only animate if it wasn't in the very first render
-        if (oldPrevKeys.size > 0) newlyEnteringKeys.push(item.key);
+        // Animate enter unless this is the very first render (component just mounted)
+        if (!isFirstRenderRef.current) enteringRef.current.add(item.key);
         result.push({ ...item, _exiting: false });
       }
     }
     renderedRef.current = result;
 
-    // Mark entering items — they render collapsed first, then expand next frame
-    for (const key of newlyEnteringKeys) {
-      enteringRef.current.add(key);
-    }
-    if (newlyEnteringKeys.length > 0) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          enteringRef.current.clear();
-          forceRender((n) => n + 1);
-        });
-      });
+    // Auto-clear entering state after animation completes
+    if (enteringRef.current.size > 0) {
+      setTimeout(() => {
+        enteringRef.current.clear();
+      }, duration);
     }
 
     // Schedule DOM removal for newly exiting items

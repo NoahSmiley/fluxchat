@@ -9,11 +9,11 @@ import {
 
 test.describe("Rooms", () => {
   test.describe.configure({ mode: "serial" });
-  // Rooms are cleaned up on server restart and have complex WebSocket state.
-  // These tests need the voice infrastructure running to work correctly.
-  test.skip();
 
   test.describe("Room CRUD", () => {
+    // Skip: Rooms only appear in the sidebar when participants are present.
+    // These tests require LiveKit voice infrastructure to join rooms.
+    test.skip();
     test("room appears in sidebar after API creation", async ({ page }) => {
       const user = uniqueUser("room");
       await registerUser(page, user.email, user.username, user.password);
@@ -132,6 +132,8 @@ test.describe("Rooms", () => {
   });
 
   test.describe("Room via Create Room button", () => {
+    // Skip: Create Room button auto-joins via LiveKit, requires voice infrastructure
+    test.skip();
     test("Create Room button creates a room when voice channel is selected", async ({ page }) => {
       const user = uniqueUser("roomcr");
       await registerUser(page, user.email, user.username, user.password);
@@ -148,10 +150,81 @@ test.describe("Rooms", () => {
         await page.waitForTimeout(1500);
 
         // A new room should appear
-        const rooms = page.locator('.room-item, .voice-room');
+        const rooms = page.locator('.room-item, .voice-room-group');
         const count = await rooms.count();
         expect(count).toBeGreaterThanOrEqual(1);
       }
+    });
+  });
+
+  test.describe("Room join/leave behavior", () => {
+    // Skip: These tests require LiveKit voice infrastructure to be running.
+    test.skip();
+    test("joining a room shows user avatar in the room card", async ({ page }) => {
+      const user = uniqueUser("roomjoin");
+      await registerUser(page, user.email, user.username, user.password);
+
+      await createChannelViaAPI(page, "Room Join Test", "voice", { isRoom: true });
+      await page.waitForTimeout(1500);
+
+      // Click the room card to join
+      const roomCard = page.locator('.voice-room-group:has-text("Room Join Test")').first();
+      await expect(roomCard).toBeVisible({ timeout: 5000 });
+      await roomCard.click();
+      await page.waitForTimeout(2000);
+
+      // User avatar should appear inside the room card
+      const avatar = roomCard.locator('.voice-room-avatar, .voice-user-row').first();
+      await expect(avatar).toBeVisible({ timeout: 5000 });
+    });
+
+    test("disconnecting from a room removes the room card from sidebar", async ({ page }) => {
+      const user = uniqueUser("roomleave");
+      await registerUser(page, user.email, user.username, user.password);
+
+      await createChannelViaAPI(page, "Room Leave Test", "voice", { isRoom: true });
+      await page.waitForTimeout(1500);
+
+      // Join the room
+      const roomCard = page.locator('.voice-room-group:has-text("Room Leave Test")').first();
+      await expect(roomCard).toBeVisible({ timeout: 5000 });
+      await roomCard.click();
+      await page.waitForTimeout(2000);
+
+      // Click the disconnect button
+      const disconnectBtn = page.locator('button[title="Disconnect"]').first();
+      await expect(disconnectBtn).toBeVisible({ timeout: 5000 });
+      await disconnectBtn.click();
+      await page.waitForTimeout(1500);
+
+      // Room card should disappear (no participants, not connected)
+      await expect(page.locator('.voice-room-group:has-text("Room Leave Test")')).not.toBeVisible({ timeout: 5000 });
+    });
+
+    test("user avatar is not shown in the room after leaving", async ({ page }) => {
+      const user = uniqueUser("roomavatar");
+      await registerUser(page, user.email, user.username, user.password);
+
+      await createChannelViaAPI(page, "Room Avatar Test", "voice", { isRoom: true });
+      await page.waitForTimeout(1500);
+
+      // Join the room
+      const roomCard = page.locator('.voice-room-group:has-text("Room Avatar Test")').first();
+      await expect(roomCard).toBeVisible({ timeout: 5000 });
+      await roomCard.click();
+      await page.waitForTimeout(2000);
+
+      // Verify avatar is visible while connected
+      const avatarInRoom = roomCard.locator('.voice-room-avatar, .voice-user-row').first();
+      await expect(avatarInRoom).toBeVisible({ timeout: 5000 });
+
+      // Disconnect
+      const disconnectBtn = page.locator('button[title="Disconnect"]').first();
+      await disconnectBtn.click();
+      await page.waitForTimeout(1500);
+
+      // The room card itself should be gone, so no avatars are visible for this room
+      await expect(page.locator('.voice-room-group:has-text("Room Avatar Test")')).not.toBeVisible({ timeout: 5000 });
     });
   });
 });

@@ -122,6 +122,7 @@
   gap: 16px;
   position: relative;
   isolation: isolate;
+  background: var(--bg-primary);
 }
 
 .music-backdrop {
@@ -136,8 +137,8 @@
   transition: background-image 0.8s ease;
 }
 
-/* Dark scrim over backdrop for readability */
-.music-panel::before {
+/* Dark scrim over backdrop for readability — only when album art is showing */
+.music-panel.has-backdrop::before {
   content: "";
   position: absolute;
   inset: 0;

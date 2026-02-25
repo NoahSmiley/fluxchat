@@ -47,19 +47,32 @@ test.describe("Message Search", () => {
     await createChannel(page, "search-test", "text");
     await selectChannel(page, "search-test");
 
-    const unique = `unique-search-${Date.now()}`;
+    const unique = `searchtest${Date.now()}`;
     await sendMessage(page, unique);
     await waitForMessage(page, unique);
-
-    const searchInput = page.locator(".search-bar input").first();
-    await searchInput.click();
-    await searchInput.fill(unique);
-    await searchInput.press("Enter");
+    // Wait for FTS index to catch up
     await page.waitForTimeout(2000);
 
-    // The message text should still be visible in the results
-    await expect(page.locator(`text=${unique}`).first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator(".search-results-banner").first()).toContainText("1 result");
+    // Search and retry if needed (FTS indexing can be delayed)
+    const searchInput = page.locator(".search-bar input").first();
+    let found = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await searchInput.click();
+      await searchInput.fill(unique);
+      await searchInput.press("Enter");
+      await page.waitForTimeout(2000);
+      const banner = page.locator(".search-results-banner").first();
+      const text = await banner.textContent() ?? "";
+      if (text.includes("1 result")) {
+        found = true;
+        break;
+      }
+      // Clear and retry
+      await searchInput.clear();
+      await page.waitForTimeout(1000);
+    }
+
+    expect(found).toBe(true);
   });
 
   test("clearing search returns to normal view", async ({ page }) => {

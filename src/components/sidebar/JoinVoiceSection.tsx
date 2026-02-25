@@ -1,13 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import type { Channel, MemberWithUser } from "@/types/shared.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { ChevronRight, Plus } from "lucide-react";
 import { gateway } from "@/lib/ws.js";
-import { ringClass, ringGradientStyle, bannerBackground } from "@/lib/avatarColor.js";
 import * as api from "@/lib/api/index.js";
 import { dbg } from "@/lib/debug.js";
-import { VoiceUserRow } from "@/components/voice/VoiceUserRow.js";
 import { AnimatedList } from "@/components/AnimatedList.js";
 import type { VoiceUser } from "@/stores/voice/types.js";
 import {
@@ -15,7 +13,34 @@ import {
   CollapsedAvatars,
   RoomRenameInput,
   LockToggleButton,
+  AnimatedUserRows,
 } from "./JoinVoiceHelpers.js";
+
+/** Keeps measured height up-to-date so exit animation has a smooth start value */
+function RoomWrapper({ className, isExiting, children }: {
+  className: string;
+  isExiting: boolean;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const lastHeightRef = useRef(0);
+
+  // Continuously measure height while visible (not exiting)
+  useLayoutEffect(() => {
+    if (!isExiting && ref.current) {
+      lastHeightRef.current = ref.current.offsetHeight;
+    }
+  });
+
+  // When exiting starts, apply the last known height
+  useLayoutEffect(() => {
+    if (isExiting && ref.current) {
+      ref.current.style.setProperty("--room-h", `${lastHeightRef.current}px`);
+    }
+  }, [isExiting]);
+
+  return <div ref={ref} className={className}>{children}</div>;
+}
 
 interface JoinVoiceSectionProps {
   channels: Channel[];
@@ -68,6 +93,33 @@ export function JoinVoiceSection({
 
   const screenSharerIds = useMemo(() => new Set(screenSharers.map((s) => s.participantId)), [screenSharers]);
 
+  // Animate the Create Room button in/out
+  const showCreateBtn = !(connectedChannelId && (channelParticipants[connectedChannelId]?.length ?? 0) <= 1);
+  const [createBtnVisible, setCreateBtnVisible] = useState(showCreateBtn);
+  const [createBtnAnim, setCreateBtnAnim] = useState("");
+  const createBtnTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const prevShowCreateBtn = useRef(showCreateBtn);
+
+  useEffect(() => {
+    if (showCreateBtn && !prevShowCreateBtn.current) {
+      clearTimeout(createBtnTimerRef.current);
+      setCreateBtnVisible(true);
+      setCreateBtnAnim("create-room-btn-enter");
+    } else if (!showCreateBtn && prevShowCreateBtn.current) {
+      clearTimeout(createBtnTimerRef.current);
+      setCreateBtnAnim("create-room-btn-exit");
+      createBtnTimerRef.current = setTimeout(() => {
+        setCreateBtnVisible(false);
+        setCreateBtnAnim("");
+      }, 350);
+    }
+    prevShowCreateBtn.current = showCreateBtn;
+  }, [showCreateBtn]);
+
+  useEffect(() => {
+    return () => clearTimeout(createBtnTimerRef.current);
+  }, []);
+
   return (
     <div className="join-voice-section">
       <div className="voice-room-users-list">
@@ -80,7 +132,7 @@ export function JoinVoiceSection({
             const isLocked = !!vc.isLocked;
             const wrapperClass = state === "exiting" ? "voice-room-exit" : state === "entering" ? "voice-room-enter" : "";
             return (
-              <div key={vc.id} className={`voice-room-group-wrapper ${wrapperClass}`}>
+              <RoomWrapper key={vc.id} className={`voice-room-group-wrapper ${wrapperClass}`} isExiting={state === "exiting"}>
                 <div
                   className={`voice-room-group ${isCurrent ? "voice-room-current" : ""}${dragHighlightRoom === vc.id ? " voice-room-drop-target" : ""}${isLocked ? " voice-room-locked" : ""}`}
                   onClick={() => {
@@ -145,63 +197,53 @@ export function JoinVoiceSection({
                       <CollapsedAvatars participants={participants} members={members} />
                     ) : isInVoice ? (
                       <div className="voice-room-detailed">
-                        {participants.map((p) => {
-                          const member = members.find((m) => m.userId === p.userId);
-                          const voiceUser = connectedChannelId === vc.id ? voiceParticipants.find((v) => v.userId === p.userId) : null;
-                          return (
-                            <VoiceUserRow
-                              key={p.userId}
-                              userId={p.userId}
-                              username={p.username}
-                              image={member?.image}
-                              member={member}
-                              banner={bannerBackground(member?.bannerCss, member?.bannerPatternSeed)}
-                              ringStyle={{ ...ringGradientStyle(member?.ringPatternSeed, member?.ringStyle) } as React.CSSProperties}
-                              ringClassName={ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}
-                              isMuted={voiceUser?.isMuted}
-                              isDeafened={voiceUser?.isDeafened}
-                              isStreaming={screenSharerIds.has(p.userId)}
-                              onContextMenu={isOwnerOrAdmin ? (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onUserContextMenu(e, p.userId, p.username, vc.id);
-                              } : undefined}
-                            />
-                          );
-                        })}
+                        <AnimatedUserRows
+                          participants={participants}
+                          members={members}
+                          connectedChannelId={connectedChannelId}
+                          channelId={vc.id}
+                          voiceParticipants={voiceParticipants}
+                          screenSharerIds={screenSharerIds}
+                          isOwnerOrAdmin={isOwnerOrAdmin}
+                          onUserContextMenu={onUserContextMenu}
+                        />
                       </div>
                     ) : (
                       <CollapsedAvatars participants={participants} members={members} />
                     )}
                   </div>
                 </div>
-              </div>
+              </RoomWrapper>
             );
           }}
         />
       </div>
 
-      {!(connectedChannelId && (channelParticipants[connectedChannelId]?.length ?? 0) <= 1) && <button
-        className="create-room-btn"
-        onClick={async () => {
-          if (!activeServerId) return;
-          const cp = useVoiceStore.getState().channelParticipants;
-          const activeRoomNames = new Set(rooms.filter((r) => (cp[r.id]?.length ?? 0) > 0 || connectedChannelId === r.id).map((r) => r.name));
-          let n = 1;
-          while (activeRoomNames.has(`Room ${n}`)) n++;
-          const name = `Room ${n}`;
-          try {
-            const newRoom = await api.createRoom(activeServerId, name);
-            selectChannel(newRoom.id);
-            useVoiceStore.getState().joinVoiceChannel(newRoom.id);
-          } catch (err) {
-            dbg("ui", "Failed to create room:", err);
-          }
-        }}
-      >
-        <Plus size={14} />
-        <span>Create Room</span>
-      </button>}
+      {createBtnVisible && (
+        <div className={`create-room-btn-wrapper ${createBtnAnim}`}>
+          <button
+            className="create-room-btn"
+            onClick={async () => {
+              if (!activeServerId) return;
+              const cp = useVoiceStore.getState().channelParticipants;
+              const activeRoomNames = new Set(rooms.filter((r) => (cp[r.id]?.length ?? 0) > 0 || connectedChannelId === r.id).map((r) => r.name));
+              let n = 1;
+              while (activeRoomNames.has(`Room ${n}`)) n++;
+              const name = `Room ${n}`;
+              try {
+                const newRoom = await api.createRoom(activeServerId, name);
+                selectChannel(newRoom.id);
+                useVoiceStore.getState().joinVoiceChannel(newRoom.id);
+              } catch (err) {
+                dbg("ui", "Failed to create room:", err);
+              }
+            }}
+          >
+            <Plus size={14} />
+            <span>Create Room</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

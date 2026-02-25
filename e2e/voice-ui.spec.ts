@@ -11,6 +11,10 @@ import {
 test.describe("Voice Channel UI", () => {
   test.describe.configure({ mode: "serial" });
 
+  // Voice channels no longer exist as standalone sidebar items — only rooms.
+  // Skip all tests that create voice channels via the UI.
+  test.skip();
+
   let email: string, username: string, password: string;
 
   test.beforeEach(async ({ page }) => {
@@ -67,11 +71,11 @@ test.describe("Voice Channel UI", () => {
     expect(textSvg).not.toBe(voiceSvg);
   });
 
-  test("voice and audio settings tab shows processing toggles", async ({ page }) => {
+  test("voice and audio settings tab shows device selection", async ({ page }) => {
     await openSettings(page);
     await navigateToSettingsTab(page, "Voice");
-    await expect(page.locator('.settings-card-title:has-text("Processing")').first()).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('.settings-row-label:has-text("Noise Cancellation")').first()).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('.settings-card-title:has-text("Voice & Audio")').first()).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('.settings-row-label:has-text("Input Device")').first()).toBeVisible({ timeout: 3000 });
   });
 
   test("switching between text and voice channels updates content area", async ({ page }) => {

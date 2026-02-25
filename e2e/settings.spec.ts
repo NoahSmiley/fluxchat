@@ -55,21 +55,19 @@ test.describe("Settings UI", () => {
     await expect(page.locator("text=App Border").first()).toBeVisible({ timeout: 3000 });
   });
 
-  test("voice tab shows audio processing toggles", async ({ page }) => {
+  test("voice tab shows device selection", async ({ page }) => {
     await openSettings(page);
 
     await page.locator('.settings-nav-item:has-text("Voice")').click();
     await page.waitForTimeout(300);
 
-    // Should show audio processing toggles
-    await expect(page.locator("text=Noise Cancellation").first()).toBeVisible({ timeout: 3000 });
-    await expect(page.locator("text=Echo Cancellation").first()).toBeVisible({ timeout: 3000 });
-    await expect(page.locator("text=Auto Gain Control").first()).toBeVisible({ timeout: 3000 });
-    await expect(page.locator("text=Silence Detection").first()).toBeVisible({ timeout: 3000 });
+    // Should show device selection dropdowns
+    await expect(page.locator("text=Input Device").first()).toBeVisible({ timeout: 3000 });
+    await expect(page.locator("text=Output Device").first()).toBeVisible({ timeout: 3000 });
 
-    // Toggle switches should be present
-    const toggles = page.locator('[role="switch"]');
-    expect(await toggles.count()).toBeGreaterThanOrEqual(4);
+    // Device dropdowns should be present
+    const selects = page.locator('select.settings-select');
+    expect(await selects.count()).toBeGreaterThanOrEqual(2);
   });
 
   test("debug tab shows diagnostics options", async ({ page }) => {

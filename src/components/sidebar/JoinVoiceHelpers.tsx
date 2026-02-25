@@ -1,9 +1,13 @@
+import { memo } from "react";
 import type { Channel, MemberWithUser } from "@/types/shared.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { Lock, LockOpen } from "lucide-react";
 import * as api from "@/lib/api/index.js";
 import { dbg } from "@/lib/debug.js";
-import { avatarColor } from "@/lib/avatarColor.js";
+import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "@/lib/avatarColor.js";
+import { AnimatedList } from "@/components/AnimatedList.js";
+import { VoiceUserRow } from "@/components/voice/VoiceUserRow.js";
+import type { VoiceUser } from "@/stores/voice/types.js";
 
 const LOCK_TOGGLE_DEBOUNCE_MS = 400;
 const lockTimestamps = new Map<string, number>();
@@ -106,7 +110,59 @@ export function LockToggleButton({ channel, activeServerId }: {
         if (activeServerId) toggleRoomLock(channel.id, activeServerId);
       }}
     >
-      {channel.isLocked ? <Lock size={10} /> : <LockOpen size={10} />}
+      {channel.isLocked ? <Lock size={14} /> : <LockOpen size={14} />}
     </button>
   );
 }
+
+const USER_ANIM_DURATION = 450;
+
+/** Memoized component so the inner AnimatedList keeps its ref state across parent re-renders */
+export const AnimatedUserRows = memo(function AnimatedUserRows({
+  participants, members, connectedChannelId, channelId, voiceParticipants, screenSharerIds,
+  isOwnerOrAdmin, onUserContextMenu,
+}: {
+  participants: { userId: string; username: string }[];
+  members: MemberWithUser[];
+  connectedChannelId: string | null;
+  channelId: string;
+  voiceParticipants: VoiceUser[];
+  screenSharerIds: Set<string>;
+  isOwnerOrAdmin: boolean;
+  onUserContextMenu?: (e: React.MouseEvent, userId: string, username: string, channelId: string) => void;
+}) {
+  return (
+    <AnimatedList
+      items={participants.map((p) => ({ key: p.userId, ...p }))}
+      duration={USER_ANIM_DURATION}
+      renderItem={(p, animState) => {
+        const member = members.find((m) => m.userId === p.userId);
+        const voiceUser = connectedChannelId === channelId ? voiceParticipants.find((v) => v.userId === p.userId) : null;
+        return (
+          <div
+            key={p.userId}
+            className={`voice-user-animated ${animState === "exiting" ? "voice-user-exit" : animState === "entering" ? "voice-user-enter" : ""}`}
+          >
+            <VoiceUserRow
+              userId={p.userId}
+              username={p.username}
+              image={member?.image}
+              member={member}
+              banner={bannerBackground(member?.bannerCss, member?.bannerPatternSeed)}
+              ringStyle={{ ...ringGradientStyle(member?.ringPatternSeed, member?.ringStyle) } as React.CSSProperties}
+              ringClassName={ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed)}
+              isMuted={voiceUser?.isMuted}
+              isDeafened={voiceUser?.isDeafened}
+              isStreaming={screenSharerIds.has(p.userId)}
+              onContextMenu={isOwnerOrAdmin && onUserContextMenu ? (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onUserContextMenu(e, p.userId, p.username, channelId);
+              } : undefined}
+            />
+          </div>
+        );
+      }}
+    />
+  );
+});

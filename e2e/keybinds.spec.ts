@@ -43,13 +43,13 @@ test.describe("Keybinds Settings", () => {
     await openSettings(page);
     await navigateToSettingsTab(page, "Keybinds");
 
-    // Click the Record/Edit button on the first keybind
-    const recordBtn = page.locator('button:has-text("Record"), button:has-text("Edit"), .keybind-record-btn').first();
+    // Click the first keybind button ("Not set") to enter recording mode
+    const recordBtn = page.locator('.keybind-button').first();
     await recordBtn.click();
     await page.waitForTimeout(300);
 
-    // Should show a recording indicator
-    await expect(page.locator('.keybind-recording, text=Press a key, .recording').first()).toBeVisible({ timeout: 3000 });
+    // Should show recording state with "Press a key..." text
+    await expect(page.locator('.keybind-button.recording').first()).toBeVisible({ timeout: 3000 });
   });
 
   test("pressing Escape cancels recording", async ({ page }) => {
@@ -59,7 +59,7 @@ test.describe("Keybinds Settings", () => {
     await openSettings(page);
     await navigateToSettingsTab(page, "Keybinds");
 
-    const recordBtn = page.locator('button:has-text("Record"), button:has-text("Edit"), .keybind-record-btn').first();
+    const recordBtn = page.locator('.keybind-button').first();
     await recordBtn.click();
     await page.waitForTimeout(300);
 
@@ -67,7 +67,7 @@ test.describe("Keybinds Settings", () => {
     await page.waitForTimeout(300);
 
     // Recording mode should exit
-    await expect(page.locator('.keybind-recording, .recording')).not.toBeVisible({ timeout: 2000 });
+    await expect(page.locator('.keybind-button.recording')).not.toBeVisible({ timeout: 2000 });
   });
 
   test("pressing a key sets the keybind", async ({ page }) => {
@@ -77,7 +77,7 @@ test.describe("Keybinds Settings", () => {
     await openSettings(page);
     await navigateToSettingsTab(page, "Keybinds");
 
-    const recordBtn = page.locator('button:has-text("Record"), button:has-text("Edit"), .keybind-record-btn').first();
+    const recordBtn = page.locator('.keybind-button').first();
     await recordBtn.click();
     await page.waitForTimeout(300);
 

@@ -19,8 +19,7 @@
 .room-lock-toggle {
   background: none;
   border: none;
-  padding: 4px 6px;
-  margin: -4px -6px;
+  padding: 0;
   cursor: pointer;
   color: var(--text-muted);
   opacity: 0.5;

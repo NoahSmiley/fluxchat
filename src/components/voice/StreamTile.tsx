@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
+import { Track, RoomEvent, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import {
   ArrowUpRight, Pin, PinOff, Maximize2, Minimize2,
@@ -28,7 +28,8 @@ export function StreamTile({ participantId, username, isPinned }: StreamTileProp
     toggleTheatreMode: s.toggleTheatreMode, theatreMode: s.theatreMode,
   })));
 
-  useEffect(() => {
+  /** Find and attach the screen share track for this participant */
+  const attachTrack = useCallback(() => {
     if (!room || !videoRef.current) return;
 
     let track: Track | undefined;
@@ -61,14 +62,46 @@ export function StreamTile({ participantId, username, isPinned }: StreamTileProp
         requestAnimationFrame(() => applyMaxQuality(pub));
       }
     }
+  }, [room, participantId]);
+
+  useEffect(() => {
+    if (!room) return;
+
+    // Try to attach immediately (track may already be subscribed)
+    attachTrack();
+
+    // Listen for late track subscriptions so we attach when the track arrives
+    const onTrackSubscribed = (track: Track, _pub: RemoteTrackPublication, participant: { identity: string }) => {
+      if (participant.identity === participantId && track.kind === Track.Kind.Video) {
+        attachTrack();
+      }
+    };
+    room.on(RoomEvent.TrackSubscribed, onTrackSubscribed);
 
     return () => {
-      if (track && videoRef.current) {
-        track.detach(videoRef.current);
+      room.off(RoomEvent.TrackSubscribed, onTrackSubscribed);
+      // Detach any currently attached track
+      if (room && videoRef.current) {
+        const findTrack = (): Track | undefined => {
+          if (participantId === room.localParticipant.identity) {
+            for (const pub of room.localParticipant.videoTrackPublications.values()) {
+              if (pub.source === Track.Source.ScreenShare && pub.track) return pub.track;
+            }
+          } else {
+            const p = room.remoteParticipants.get(participantId);
+            if (p) {
+              for (const pub of p.videoTrackPublications.values()) {
+                if (pub.source === Track.Source.ScreenShare && pub.track) return pub.track;
+              }
+            }
+          }
+        };
+        const t = findTrack();
+        if (t) t.detach(videoRef.current);
       }
       pubRef.current = null;
     };
-  }, [room, participantId]);
+  }, [room, participantId, attachTrack]);
 
   return (
     <div className={`stream-tile ${isPinned ? "pinned" : ""}`}>

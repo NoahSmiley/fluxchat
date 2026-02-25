@@ -51,7 +51,7 @@ test.describe("Server Settings Page", () => {
     await page.waitForTimeout(500);
 
     // Should show emoji upload area or emoji list
-    await expect(page.locator('.emoji-upload-drop, input[type="file"], text=Upload').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.emoji-upload-drop').first()).toBeVisible({ timeout: 5000 });
   });
 
   test("close button returns to main view", async ({ page }) => {

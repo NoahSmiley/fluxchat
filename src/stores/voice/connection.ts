@@ -251,6 +251,7 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
     set({
       channelParticipants: updatedParticipants,
       connecting: false,
+      connectedChannelId: null,
     });
 
     // If we left a room (ephemeral voice channel), switch to a text channel
