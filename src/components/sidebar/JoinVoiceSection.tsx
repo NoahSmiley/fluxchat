@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Channel, MemberWithUser } from "@/types/shared.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import { useAuthStore } from "@/stores/auth.js";
@@ -23,7 +23,7 @@ interface JoinVoiceSectionProps {
   activeServerId: string;
   isOwnerOrAdmin: boolean;
   members: MemberWithUser[];
-  channelParticipants: Record<string, { userId: string; username: string; drinkCount: number }[]>;
+  channelParticipants: Record<string, { userId: string; username: string }[]>;
   connectedChannelId: string | null;
   connecting: boolean;
   screenSharers: { participantId: string }[];
@@ -57,16 +57,16 @@ export function JoinVoiceSection({
   const [dragHighlightRoom, setDragHighlightRoom] = useState<string | null>(null);
 
   const isInVoice = !!connectedChannelId || connecting;
-  const voiceChannels = channels.filter((c) => c.type === "voice");
+  const voiceChannels = useMemo(() => channels.filter((c) => c.type === "voice"), [channels]);
 
-  const voiceWithUsers = voiceChannels
+  const voiceWithUsers = useMemo(() => voiceChannels
     .map((c) => {
       const participants = channelParticipants[c.id] ?? [];
       return { channel: c, participants };
     })
-    .filter((r) => r.participants.length > 0 || connectedChannelId === r.channel.id);
+    .filter((r) => r.participants.length > 0 || connectedChannelId === r.channel.id), [voiceChannels, channelParticipants, connectedChannelId]);
 
-  const screenSharerIds = new Set(screenSharers.map((s) => s.participantId));
+  const screenSharerIds = useMemo(() => new Set(screenSharers.map((s) => s.participantId)), [screenSharers]);
 
   return (
     <div className="join-voice-section">

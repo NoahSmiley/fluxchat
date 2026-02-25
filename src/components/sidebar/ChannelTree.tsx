@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import { useShallow } from "zustand/react/shallow";
 import type { Channel, ChannelType } from "@/types/shared.js";
 import { useNotifStore } from "@/stores/notifications.js";
 import { Plus } from "lucide-react";
@@ -37,7 +38,7 @@ interface ChannelTreeProps {
   members: MemberWithUser[];
   unreadChannels: Set<string>;
   mentionCounts: Record<string, number>;
-  channelParticipants: Record<string, { userId: string; username: string; drinkCount: number }[]>;
+  channelParticipants: Record<string, { userId: string; username: string }[]>;
   connectedChannelId: string | null;
   screenSharers: { participantId: string }[];
   voiceParticipants: VoiceUser[];
@@ -70,7 +71,9 @@ export function ChannelTree({
   onChannelContextMenu,
   onSidebarContextMenu,
 }: ChannelTreeProps) {
-  const notifStore = useNotifStore();
+  const notifStore = useNotifStore(useShallow((s) => ({
+    isChannelMuted: s.isChannelMuted, isCategoryMuted: s.isCategoryMuted,
+  })));
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [dropTargetCategoryId, setDropTargetCategoryId] = useState<string | null>(null);
@@ -93,6 +96,8 @@ export function ChannelTree({
   };
 
   const draggedNode = activeId ? flatList.find((n) => n.channel.id === activeId) : null;
+  const screenSharerIds = useMemo(() => new Set(screenSharers.map((s) => s.participantId)), [screenSharers]);
+  const emptySet = useMemo(() => new Set<string>(), []);
 
   return (
     <div
@@ -117,9 +122,6 @@ export function ChannelTree({
             const isMuted = ch.type === "category"
               ? notifStore.isCategoryMuted(ch.id)
               : notifStore.isChannelMuted(ch.id) || (!!ch.parentId && notifStore.isCategoryMuted(ch.parentId));
-            const screenSharerIds = isConnected
-              ? new Set(screenSharers.map((s) => s.participantId))
-              : new Set<string>();
 
             return (
               <SortableChannelItem
@@ -141,7 +143,7 @@ export function ChannelTree({
                   participants,
                   isConnected,
                   hasScreenShare,
-                  screenSharerIds,
+                  screenSharerIds: isConnected ? screenSharerIds : emptySet,
                   members,
                   voiceParticipants,
                 } : undefined}

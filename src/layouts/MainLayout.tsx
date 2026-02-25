@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, useCallback } from "react";
-import { useChatStore } from "@/stores/chat/index.js";
+import { useShallow } from "zustand/react/shallow";
+import { useChatStore, teardownChatEvents } from "@/stores/chat/index.js";
 import { useDMStore } from "@/stores/dm/index.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { gateway } from "@/lib/ws.js";
@@ -50,8 +51,13 @@ function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; s
 export function MainLayout() {
   useKeybindListener();
   useIdleDetection();
-  const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels } = useChatStore();
-  const { showingDMs, activeDMChannelId } = useDMStore();
+  const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels } = useChatStore(useShallow((s) => ({
+    loadServers: s.loadServers, selectServer: s.selectServer, servers: s.servers,
+    activeServerId: s.activeServerId, activeChannelId: s.activeChannelId, channels: s.channels,
+  })));
+  const { showingDMs, activeDMChannelId } = useDMStore(useShallow((s) => ({
+    showingDMs: s.showingDMs, activeDMChannelId: s.activeDMChannelId,
+  })));
   const { user } = useAuthStore();
   const serverSettingsOpen = useUIStore((s) => s.serverSettingsOpen);
   const [sidebarWidth, setSidebarWidth] = useState(240);
@@ -60,7 +66,7 @@ export function MainLayout() {
     gateway.connect();
     loadServers();
     requestNotificationPermission();
-    return () => gateway.disconnect();
+    return () => { teardownChatEvents(); gateway.disconnect(); };
   }, [loadServers]);
 
   // Auto-select the single server when available

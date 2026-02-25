@@ -1,12 +1,13 @@
+import { useShallow } from "zustand/react/shallow";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import { Music, Square, Volume1, VolumeX } from "lucide-react";
 
 // ── Lobby Music Bar (Easter Egg) ──
 export function LobbyMusicBar() {
-  const lobbyMusicPlaying = useVoiceStore((s) => s.lobbyMusicPlaying);
-  const lobbyMusicVolume = useVoiceStore((s) => s.lobbyMusicVolume);
-  const setLobbyMusicVolume = useVoiceStore((s) => s.setLobbyMusicVolume);
-  const stopLobbyMusicAction = useVoiceStore((s) => s.stopLobbyMusicAction);
+  const { lobbyMusicPlaying, lobbyMusicVolume, setLobbyMusicVolume, stopLobbyMusicAction } = useVoiceStore(useShallow((s) => ({
+    lobbyMusicPlaying: s.lobbyMusicPlaying, lobbyMusicVolume: s.lobbyMusicVolume,
+    setLobbyMusicVolume: s.setLobbyMusicVolume, stopLobbyMusicAction: s.stopLobbyMusicAction,
+  })));
 
   if (!lobbyMusicPlaying) return null;
 

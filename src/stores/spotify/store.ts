@@ -11,7 +11,7 @@ import { persistPlayer, yt } from "./types.js";
 // Action creators
 import { createEnsureDeviceId, createUpdateActivity, createPlay, createPause, createSkip, createSeek, createSetVolume } from "./playback.js";
 import { createAddTrackToQueue, createRemoveFromQueue } from "./queue.js";
-import { createSearchTracks, createSetShowSearch, createSetSearchInput, createSetSearchSource } from "./search.js";
+import { createSearchTracks, createSetSearchInput, createSetSearchSource } from "./search.js";
 import { createStartSession, createLoadSession, createLeaveSession, createEndSession } from "./session.js";
 import { createHandleWSEvent } from "./events.js";
 import { createStartOAuthFlow, createConnectPlayer } from "./lifecycle.js";
@@ -21,6 +21,7 @@ import { createStartOAuthFlow, createConnectPlayer } from "./lifecycle.js";
 // ═══════════════════════════════════════════════════════════════════
 
 let wsUnsub: (() => void) | null = null;
+let sdkReady = false;
 
 // ═══════════════════════════════════════════════════════════════════
 // Store Definition
@@ -38,7 +39,6 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
   const addTrackToQueue = createAddTrackToQueue(storeApi);
   const removeFromQueue = createRemoveFromQueue(storeApi);
   const searchTracks = createSearchTracks(storeApi);
-  const setShowSearch = createSetShowSearch(storeApi);
   const setSearchInput = createSetSearchInput(storeApi);
   const setSearchSource = createSetSearchSource(storeApi);
   const startSession = createStartSession(storeApi);
@@ -52,7 +52,6 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
   return {
     // ── Initial State ──
     account: null,
-    sdkReady: false,
     player: null,
     deviceId: null,
     playerState: null,
@@ -65,7 +64,6 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
     polling: false,
     oauthError: null,
     searchSource: "spotify" as const,
-    showSearch: false,
     searchInput: "",
 
     // ── Extracted Actions ──
@@ -79,7 +77,6 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
     addTrackToQueue,
     removeFromQueue,
     searchTracks,
-    setShowSearch,
     setSearchInput,
     setSearchSource,
     startSession,
@@ -119,28 +116,28 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
     },
 
     initializeSDK: () => {
-      if (get().sdkReady && get().player && get().deviceId) {
+      if (sdkReady && get().player && get().deviceId) {
         dbg("spotify", "initializeSDK skipped — already ready", { deviceId: get().deviceId });
         return;
       }
-      dbg("spotify", "initializeSDK", { sdkReady: get().sdkReady, hasPlayer: !!get().player, hasSpotifyGlobal: !!window.Spotify });
+      dbg("spotify", "initializeSDK", { sdkReady, hasPlayer: !!get().player, hasSpotifyGlobal: !!window.Spotify });
 
       if (window.Spotify) {
-        set({ sdkReady: true });
+        sdkReady = true;
         get().connectPlayer();
         return;
       }
 
       if (document.getElementById("spotify-sdk-script")) {
         window.onSpotifyWebPlaybackSDKReady = () => {
-          set({ sdkReady: true });
+          sdkReady = true;
           get().connectPlayer();
         };
         return;
       }
 
       window.onSpotifyWebPlaybackSDKReady = () => {
-        set({ sdkReady: true });
+        sdkReady = true;
         get().connectPlayer();
       };
 
@@ -155,7 +152,8 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
       const { player } = get();
       if (player) {
         player.disconnect();
-        set({ player: null, deviceId: null, playerState: null, sdkReady: false });
+        sdkReady = false;
+        set({ player: null, deviceId: null, playerState: null });
         persistPlayer(null, null);
       }
     },

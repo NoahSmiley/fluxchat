@@ -51,14 +51,16 @@ export function VoiceChannelView() {
     toggleScreenShare: s.toggleScreenShare, setParticipantVolume: s.setParticipantVolume,
     screenShareQuality: s.screenShareQuality, setScreenShareQuality: s.setScreenShareQuality,
   })));
-  const { loadSession, playerState, session, queue, volume, setVolume } = useSpotifyStore();
+  const { loadSession, playerState, session, queue, volume, setVolume } = useSpotifyStore(useShallow((s) => ({
+    loadSession: s.loadSession, playerState: s.playerState, session: s.session,
+    queue: s.queue, volume: s.volume, setVolume: s.setVolume,
+  })));
   const { youtubeTrack } = useYouTubeStore();
   const [activeTab, setActiveTab] = useState<"voice" | "streams" | "music" | "sounds">("voice");
   const channel = channels.find((c) => c.id === activeChannelId);
   const isConnected = connectedChannelId === activeChannelId;
-  const allScreenSharers = screenSharers;
-  const hasScreenShares = allScreenSharers.length > 0;
-  const screenSharerIds = useMemo(() => new Set(allScreenSharers.map(s => s.participantId)), [allScreenSharers]);
+  const hasScreenShares = screenSharers.length > 0;
+  const screenSharerIds = useMemo(() => new Set(screenSharers.map(s => s.participantId)), [screenSharers]);
 
   // Load session when connecting to voice channel or switching to music tab
   useEffect(() => {
@@ -68,10 +70,10 @@ export function VoiceChannelView() {
   }, [isConnected, activeChannelId]);
 
   useEffect(() => {
-    if (activeTab === "music" && activeChannelId) {
+    if (isConnected && activeTab === "music" && activeChannelId) {
       loadSession(activeChannelId);
     }
-  }, [activeTab, activeChannelId]);
+  }, [activeTab, isConnected, activeChannelId]);
 
   // Auto-switch to streams tab when a screen share starts
   const prevShareCount = useRef(0);
@@ -84,9 +86,9 @@ export function VoiceChannelView() {
 
   // Separate pinned vs unpinned streams
   // Auto-pin the first sharer if nothing is pinned
-  const effectivePinned = pinnedScreenShare ?? (allScreenSharers.length > 0 ? allScreenSharers[0].participantId : null);
-  const pinnedSharer = allScreenSharers.find((s) => s.participantId === effectivePinned);
-  const otherSharers = allScreenSharers.filter((s) => s.participantId !== effectivePinned);
+  const effectivePinned = useMemo(() => pinnedScreenShare ?? (screenSharers.length > 0 ? screenSharers[0].participantId : null), [pinnedScreenShare, screenSharers]);
+  const pinnedSharer = useMemo(() => screenSharers.find((s) => s.participantId === effectivePinned), [screenSharers, effectivePinned]);
+  const otherSharers = useMemo(() => screenSharers.filter((s) => s.participantId !== effectivePinned), [screenSharers, effectivePinned]);
 
   return (
     <div className={`voice-channel-view ${theatreMode ? "theatre" : ""}`}>
@@ -103,7 +105,7 @@ export function VoiceChannelView() {
             onClick={() => setActiveTab("streams")}
           >
             <Monitor size={14} /> Streams
-            {hasScreenShares && <span className="voice-tab-badge">{allScreenSharers.length}</span>}
+            {hasScreenShares && <span className="voice-tab-badge">{screenSharers.length}</span>}
           </button>
           <button
             className={`voice-tab ${activeTab === "music" ? "active" : ""}`}

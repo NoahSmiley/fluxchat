@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Heart, Volume2, VolumeX } from "lucide-react";
 import * as api from "@/lib/api/index.js";
 import { gateway } from "@/lib/ws.js";
@@ -7,6 +7,13 @@ import { API_BASE } from "@/lib/serverUrl.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { renderEmoji } from "@/lib/emoji.js";
+
+/** Fire-and-forget audio preview at a given volume. */
+export function previewSoundAudio(url: string, volume: number) {
+  const audio = new Audio(url);
+  audio.volume = Math.min(1, Math.max(0, volume));
+  audio.play().catch(() => {});
+}
 
 export function SoundboardPanel({ serverId, channelId }: { serverId: string; channelId: string }) {
   const customEmojis = useChatStore((s) => s.customEmojis);
@@ -36,10 +43,7 @@ export function SoundboardPanel({ serverId, channelId }: { serverId: string; cha
 
   function handlePreview(e: React.MouseEvent, sound: SoundboardSound) {
     e.stopPropagation();
-    const audioUrl = `${API_BASE}/files/${sound.audioAttachmentId}/${sound.audioFilename}`;
-    const audio = new Audio(audioUrl);
-    audio.volume = Math.min(1, sound.volume * masterVolume);
-    audio.play().catch(() => {});
+    previewSoundAudio(`${API_BASE}/files/${sound.audioAttachmentId}/${sound.audioFilename}`, sound.volume * masterVolume);
   }
 
   function handleToggleFavorite(e: React.MouseEvent, sound: SoundboardSound) {
@@ -101,26 +105,25 @@ export function SoundboardPanel({ serverId, channelId }: { serverId: string; cha
     );
   }
 
-  const byName = (a: SoundboardSound, b: SoundboardSound) => a.name.localeCompare(b.name);
-  const sorted = [...sounds].sort(byName);
-
-  const favorites = sorted.filter(s => s.favorited);
-
   const myUsername = user?.username;
-  const ownSounds = myUsername ? sorted.filter(s => s.creatorUsername === myUsername) : [];
 
-  // Build other-user groups sorted alphabetically by username
-  const groupMap = new Map<string, SoundboardSound[]>();
-  for (const sound of sorted) {
-    if (sound.creatorUsername === myUsername) continue;
-    if (!groupMap.has(sound.creatorUsername)) groupMap.set(sound.creatorUsername, []);
-    groupMap.get(sound.creatorUsername)!.push(sound);
-  }
-  const otherGroups = [...groupMap.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([username, snds]) => ({ username, snds }));
+  const { favorites, ownSounds, otherGroups, hasTopSection } = useMemo(() => {
+    const s = [...sounds].sort((a, b) => a.name.localeCompare(b.name));
+    const favs = s.filter(x => x.favorited);
+    const own = myUsername ? s.filter(x => x.creatorUsername === myUsername) : [];
 
-  const hasTopSection = favorites.length > 0 || ownSounds.length > 0;
+    const groupMap = new Map<string, SoundboardSound[]>();
+    for (const sound of s) {
+      if (sound.creatorUsername === myUsername) continue;
+      if (!groupMap.has(sound.creatorUsername)) groupMap.set(sound.creatorUsername, []);
+      groupMap.get(sound.creatorUsername)!.push(sound);
+    }
+    const groups = [...groupMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([username, snds]) => ({ username, snds }));
+
+    return { favorites: favs, ownSounds: own, otherGroups: groups, hasTopSection: favs.length > 0 || own.length > 0 };
+  }, [sounds, myUsername]);
 
   return (
     <div className="soundboard-panel">

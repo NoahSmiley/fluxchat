@@ -148,8 +148,6 @@ describe("useVoiceStore", () => {
       pinnedScreenShare: null,
       theatreMode: false,
       participantVolumes: {},
-      participantTrackMap: {},
-      audioLevels: {},
       speakingUserIds: new Set(),
       lastSpokeAt: 0,
     });
@@ -160,8 +158,8 @@ describe("useVoiceStore", () => {
   describe("_setChannelParticipants", () => {
     it("adds participants for a channel", () => {
       const participants = [
-        { userId: "u1", username: "alice", drinkCount: 0 },
-        { userId: "u2", username: "bob", drinkCount: 0 },
+        { userId: "u1", username: "alice" },
+        { userId: "u2", username: "bob" },
       ];
 
       useVoiceStore.getState()._setChannelParticipants("ch1", participants);
@@ -172,12 +170,12 @@ describe("useVoiceStore", () => {
     it("replaces existing participants", () => {
       useVoiceStore.setState({
         channelParticipants: {
-          ch1: [{ userId: "u1", username: "alice", drinkCount: 0 }],
+          ch1: [{ userId: "u1", username: "alice" }],
         },
       });
 
       const newParticipants = [
-        { userId: "u2", username: "bob", drinkCount: 0 },
+        { userId: "u2", username: "bob" },
       ];
       useVoiceStore.getState()._setChannelParticipants("ch1", newParticipants);
 
@@ -187,12 +185,12 @@ describe("useVoiceStore", () => {
     it("preserves other channels", () => {
       useVoiceStore.setState({
         channelParticipants: {
-          ch1: [{ userId: "u1", username: "alice", drinkCount: 0 }],
+          ch1: [{ userId: "u1", username: "alice" }],
         },
       });
 
       const ch2Participants = [
-        { userId: "u2", username: "bob", drinkCount: 0 },
+        { userId: "u2", username: "bob" },
       ];
       useVoiceStore.getState()._setChannelParticipants("ch2", ch2Participants);
 
@@ -206,7 +204,7 @@ describe("useVoiceStore", () => {
   describe("voice_state event handler", () => {
     it("updates channelParticipants from event", () => {
       const participants = [
-        { userId: "u1", username: "alice", drinkCount: 0 },
+        { userId: "u1", username: "alice" },
       ];
 
       // Set connected so our userId isn't filtered
@@ -233,8 +231,8 @@ describe("useVoiceStore", () => {
         type: "voice_state",
         channelId: "ch1",
         participants: [
-          { userId: "my-user-id", username: "me", drinkCount: 0 },
-          { userId: "u2", username: "bob", drinkCount: 0 },
+          { userId: "my-user-id", username: "me" },
+          { userId: "u2", username: "bob" },
         ],
       });
 
@@ -252,8 +250,8 @@ describe("useVoiceStore", () => {
         type: "voice_state",
         channelId: "ch1",
         participants: [
-          { userId: "my-user-id", username: "me", drinkCount: 0 },
-          { userId: "u2", username: "bob", drinkCount: 0 },
+          { userId: "my-user-id", username: "me" },
+          { userId: "u2", username: "bob" },
         ],
       });
 
@@ -265,7 +263,7 @@ describe("useVoiceStore", () => {
     it("empty participants clears channel", () => {
       useVoiceStore.setState({
         channelParticipants: {
-          ch1: [{ userId: "u1", username: "alice", drinkCount: 0 }],
+          ch1: [{ userId: "u1", username: "alice" }],
         },
       });
 

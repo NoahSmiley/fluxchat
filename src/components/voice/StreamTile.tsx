@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { Track, VideoQuality, type RemoteTrackPublication } from "livekit-client";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import {
@@ -22,7 +23,10 @@ interface StreamTileProps {
 export function StreamTile({ participantId, username, isPinned }: StreamTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pubRef = useRef<RemoteTrackPublication | null>(null);
-  const { room, pinScreenShare, unpinScreenShare, toggleTheatreMode, theatreMode } = useVoiceStore();
+  const { room, pinScreenShare, unpinScreenShare, toggleTheatreMode, theatreMode } = useVoiceStore(useShallow((s) => ({
+    room: s.room, pinScreenShare: s.pinScreenShare, unpinScreenShare: s.unpinScreenShare,
+    toggleTheatreMode: s.toggleTheatreMode, theatreMode: s.theatreMode,
+  })));
 
   useEffect(() => {
     if (!room || !videoRef.current) return;

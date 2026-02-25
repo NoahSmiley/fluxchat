@@ -9,11 +9,6 @@ import { gateway } from "@/lib/ws.js";
 let chatStoreRef: UseBoundStore<StoreApi<ChatState>> | null = null;
 import("@/stores/chat/store.js").then((m) => { chatStoreRef = m.useChatStore; });
 
-/** Accessor for the lazily-loaded chat store reference. */
-export function getChatStoreRef() {
-  return chatStoreRef;
-}
-
 /**
  * Bulk-decrypt DM messages into the shared decrypted cache.
  * DMs remain E2EE — decrypted plaintext is held only in memory.
@@ -56,13 +51,26 @@ async function getDMKey(
  * Decrypt DM messages and store results in the shared decrypted cache.
  * Combines key resolution + bulk decryption into a single call.
  */
-export async function decryptDMBatch(
+async function decryptDMBatch(
   dmChannelId: string,
   otherUserId: string,
   messages: DMMessage[],
 ) {
   const key = await getDMKey(dmChannelId, otherUserId);
   await decryptDMMessages(messages, key);
+}
+
+/**
+ * Look up the DM channel and decrypt a batch of messages.
+ * Convenience wrapper used after fetching / loading more messages.
+ */
+export async function decryptForChannel(
+  dmChannels: { id: string; otherUser: { id: string } }[],
+  dmChannelId: string,
+  messages: DMMessage[],
+) {
+  const dm = dmChannels.find((d) => d.id === dmChannelId);
+  if (dm) await decryptDMBatch(dmChannelId, dm.otherUser.id, messages);
 }
 
 /**
@@ -113,17 +121,22 @@ export async function decryptAndFilterSearchResults(
   const key = await getDMKey(dmChannelId, otherUserId);
   const lowerQuery = query.toLowerCase();
   const matched: DMMessage[] = [];
-  const chatStore = chatStoreRef;
+  const decryptedBatch: Record<string, string> = {};
 
   for (const msg of messages) {
     const text = await cryptoState.decryptMessage(msg.ciphertext, key);
     if (text.toLowerCase().includes(lowerQuery)) {
       matched.push(msg);
-      chatStore?.setState((s) => ({
-        decryptedCache: { ...s.decryptedCache, [msg.id]: text },
-      }));
+      decryptedBatch[msg.id] = text;
     }
     if (matched.length >= 50) break;
+  }
+
+  // Single batched update instead of per-message setState
+  if (Object.keys(decryptedBatch).length > 0) {
+    chatStoreRef?.setState((s) => ({
+      decryptedCache: { ...s.decryptedCache, ...decryptedBatch },
+    }));
   }
 
   return matched;

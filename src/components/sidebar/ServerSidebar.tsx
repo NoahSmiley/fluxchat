@@ -21,7 +21,9 @@ export function ServerSidebar() {
   })));
   const { user } = useAuthStore();
   const sidebarPosition = useUIStore((s) => s.sidebarPosition);
-  const notifStore = useNotifStore();
+  const notifStore = useNotifStore(useShallow((s) => ({
+    isUserMuted: s.isUserMuted, muteUser: s.muteUser, unmuteUser: s.unmuteUser,
+  })));
 
   const [activeCardUserId, setActiveCardUserId] = useState<string | null>(null);
   const [cardPos, setCardPos] = useState<{ top?: number; right?: number; left?: number; bottom?: number }>({ top: 0 });

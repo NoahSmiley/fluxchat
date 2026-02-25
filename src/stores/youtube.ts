@@ -4,8 +4,10 @@ import { gateway } from "@/lib/ws.js";
 import type { YouTubeTrack } from "@/types/shared.js";
 import { dbg } from "@/lib/debug.js";
 
+// Module-level audio element — not in Zustand since no component reads it
+let youtubeAudio: HTMLAudioElement | null = null;
+
 interface YouTubeState {
-  youtubeAudio: HTMLAudioElement | null;
   youtubeTrack: { id: string; name: string; artist: string; imageUrl: string; durationMs: number } | null;
   youtubeProgress: number;
   youtubeDuration: number;
@@ -24,7 +26,6 @@ interface YouTubeState {
 }
 
 export const useYouTubeStore = create<YouTubeState>((set, get) => ({
-  youtubeAudio: null,
   youtubeTrack: null,
   youtubeProgress: 0,
   youtubeDuration: 0,
@@ -68,11 +69,12 @@ export const useYouTubeStore = create<YouTubeState>((set, get) => ({
     // Stop lobby music when YouTube plays
     import("./voice/store.js").then((mod) => mod.useVoiceStore.getState().stopLobbyMusicAction());
 
-    // Pause Spotify player if active
+    // Pause Spotify player if active and sync volume
     import("./spotify/store.js").then((mod) => {
-      const player = mod.useSpotifyStore.getState().player;
-      player?.pause();
+      const state = mod.useSpotifyStore.getState();
+      state.player?.pause();
       mod.useSpotifyStore.setState({ playerState: null });
+      if (youtubeAudio) youtubeAudio.volume = state.volume;
     });
 
     // Set track state FIRST so UI renders immediately
@@ -83,29 +85,23 @@ export const useYouTubeStore = create<YouTubeState>((set, get) => ({
       youtubePaused: false,
     });
 
-    let audio = get().youtubeAudio;
-    if (!audio) {
-      audio = new Audio();
-      audio.addEventListener("timeupdate", () => {
-        set({ youtubeProgress: audio!.currentTime * 1000 });
+    if (!youtubeAudio) {
+      youtubeAudio = new Audio();
+      youtubeAudio.addEventListener("timeupdate", () => {
+        set({ youtubeProgress: youtubeAudio!.currentTime * 1000 });
       });
-      audio.addEventListener("loadedmetadata", () => {
-        set({ youtubeDuration: audio!.duration * 1000 });
+      youtubeAudio.addEventListener("loadedmetadata", () => {
+        set({ youtubeDuration: youtubeAudio!.duration * 1000 });
       });
-      audio.addEventListener("ended", () => {
+      youtubeAudio.addEventListener("ended", () => {
         set({ youtubePaused: true });
         // Trigger skip in the spotify store (session queue management)
         import("./spotify/store.js").then((mod) => mod.useSpotifyStore.getState().skip());
       });
-      set({ youtubeAudio: audio });
     }
 
-    audio.src = api.getYouTubeAudioUrl(videoId);
-    // Read volume from spotify store for consistency
-    import("./spotify/store.js").then((mod) => {
-      audio!.volume = mod.useSpotifyStore.getState().volume;
-    });
-    audio.play().catch((e) => {
+    youtubeAudio.src = api.getYouTubeAudioUrl(videoId);
+    youtubeAudio.play().catch((e) => {
       dbg("youtube", "playYouTube audio.play() failed", e);
     });
 
@@ -113,13 +109,11 @@ export const useYouTubeStore = create<YouTubeState>((set, get) => ({
   },
 
   pauseYouTube: () => {
-    const { youtubeAudio } = get();
     if (youtubeAudio) youtubeAudio.pause();
     set({ youtubePaused: true });
   },
 
   stopYouTube: () => {
-    const { youtubeAudio } = get();
     if (youtubeAudio) {
       youtubeAudio.pause();
       youtubeAudio.src = "";
@@ -128,7 +122,6 @@ export const useYouTubeStore = create<YouTubeState>((set, get) => ({
   },
 
   setYouTubeVolume: (vol) => {
-    const { youtubeAudio } = get();
     if (youtubeAudio) youtubeAudio.volume = vol;
   },
 

@@ -1,15 +1,14 @@
+import { useShallow } from "zustand/react/shallow";
 import { useChatStore } from "@/stores/chat/index.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import * as api from "@/lib/api/index.js";
 import { X, DoorOpen, UserPlus } from "lucide-react";
 
 export function RoomToasts() {
-  const roomKnocks = useChatStore((s) => s.roomKnocks);
-  const roomInvites = useChatStore((s) => s.roomInvites);
-  const dismissKnock = useChatStore((s) => s.dismissKnock);
-  const dismissRoomInvite = useChatStore((s) => s.dismissRoomInvite);
-  const activeServerId = useChatStore((s) => s.activeServerId);
-  const channels = useChatStore((s) => s.channels);
+  const { roomKnocks, roomInvites, dismissKnock, dismissRoomInvite, activeServerId, channels } = useChatStore(useShallow((s) => ({
+    roomKnocks: s.roomKnocks, roomInvites: s.roomInvites, dismissKnock: s.dismissKnock,
+    dismissRoomInvite: s.dismissRoomInvite, activeServerId: s.activeServerId, channels: s.channels,
+  })));
 
   if (roomKnocks.length === 0 && roomInvites.length === 0) return null;
 

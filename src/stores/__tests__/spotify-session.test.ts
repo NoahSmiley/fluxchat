@@ -112,7 +112,7 @@ describe("useSpotifyStore", () => {
     vi.clearAllMocks();
     useSpotifyStore.setState({
       account: null,
-      sdkReady: false,
+
       player: null,
       deviceId: null,
       playerState: null,
@@ -125,11 +125,9 @@ describe("useSpotifyStore", () => {
       polling: false,
       oauthError: null,
       searchSource: "spotify" as const,
-      showSearch: false,
       searchInput: "",
     });
     useYouTubeStore.setState({
-      youtubeAudio: null,
       youtubeTrack: null,
       youtubeProgress: 0,
       youtubeDuration: 0,

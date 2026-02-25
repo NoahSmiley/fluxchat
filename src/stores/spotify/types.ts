@@ -78,7 +78,6 @@ export interface SpotifyPlayerState {
 
 export interface SpotifyState {
   account: SpotifyAccount | null;
-  sdkReady: boolean;
   player: SpotifyPlayer | null;
   deviceId: string | null;
   playerState: SpotifyPlayerState | null;
@@ -91,7 +90,6 @@ export interface SpotifyState {
   polling: boolean;
   oauthError: string | null;
   searchSource: "spotify" | "youtube";
-  showSearch: boolean;
   searchInput: string;
 
   loadAccount: () => Promise<void>;
@@ -116,7 +114,6 @@ export interface SpotifyState {
   setVolume: (vol: number) => void;
   handleWSEvent: (event: WSServerEvent) => void;
   cleanup: () => void;
-  setShowSearch: (show: boolean) => void;
   setSearchInput: (input: string) => void;
   setSearchSource: (source: "spotify" | "youtube") => void;
 }

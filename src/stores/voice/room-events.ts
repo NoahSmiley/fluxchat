@@ -73,18 +73,17 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   const pollAudioLevels = () => {
-    const levels: Record<string, number> = {};
     const speaking = new Set<string>();
     const now = Date.now();
 
     // Local participant: use Web Audio analyser for instant detection
     const localId = room.localParticipant.identity;
     const localLevel = get().isMuted ? 0 : getLocalLevel();
-    levels[localId] = localLevel;
 
     if (localLevel > SPEAKING_THRESHOLD) {
       speaking.add(localId);
       speakingHoldTimers.set(localId, now);
+      set({ lastSpokeAt: now });
     } else if (speakingHoldTimers.has(localId)) {
       if (now - speakingHoldTimers.get(localId)! < SPEAKING_HOLD_MS) {
         speaking.add(localId);
@@ -96,7 +95,6 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     // Remote participants: use LiveKit's audioLevel (server-driven, best available)
     for (const p of room.remoteParticipants.values()) {
       const level = p.audioLevel ?? 0;
-      levels[p.identity] = level;
 
       if (level > SPEAKING_THRESHOLD) {
         speaking.add(p.identity);
@@ -110,21 +108,33 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
       }
     }
 
-    set({ audioLevels: levels, speakingUserIds: speaking });
+    set({ speakingUserIds: speaking });
   };
 
   pollTimer = setInterval(pollAudioLevels, POLL_INTERVAL_MS);
 
-  // Clean up on disconnect
-  const cleanupHandler = () => {
+  // Clean up on disconnect (single handler for both local resources and store state)
+  room.on(RoomEvent.Disconnected, (reason) => {
     if (pollTimer !== null) {
       clearInterval(pollTimer);
       pollTimer = null;
     }
     cleanupLocalAnalyser();
     speakingHoldTimers.clear();
-  };
-  room.on(RoomEvent.Disconnected, cleanupHandler);
+    dbg("voice", `Room Disconnected reason=${reason}`);
+    stopStatsPolling();
+    set({
+      room: null,
+      connectedChannelId: null,
+      participants: [],
+      isMuted: false,
+      isDeafened: false,
+      isScreenSharing: false,
+      screenSharers: [],
+      speakingUserIds: new Set<string>(),
+      pinnedScreenShare: null,
+    });
+  });
 
   room.on(RoomEvent.ParticipantConnected, (p) => {
     dbg("voice", `ParticipantConnected identity=${p.identity} name=${p.name}`);
@@ -159,14 +169,6 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     if (track.kind === Track.Kind.Audio) {
       track.attach();
       dbg("voice", `TrackSubscribed attached audio for ${participant.identity}`);
-
-      // Track participant → track mapping
-      set((state) => ({
-        participantTrackMap: {
-          ...state.participantTrackMap,
-          [participant.identity]: track.sid!,
-        },
-      }));
     }
     if (track.kind === Track.Kind.Video) {
       dbg("voice", `TrackSubscribed video from ${participant.identity}, updating screen sharers`);
@@ -180,15 +182,6 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
 
   room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
     dbg("voice", `TrackUnsubscribed participant=${participant?.identity} kind=${track.kind} sid=${track.sid}`);
-    if (track.kind === Track.Kind.Audio) {
-      if (participant) {
-        set((state) => {
-          const newMap = { ...state.participantTrackMap };
-          delete newMap[participant.identity];
-          return { participantTrackMap: newMap };
-        });
-      }
-    }
     const detached = track.detach();
     dbg("voice", `TrackUnsubscribed detached ${detached.length} HTML element(s)`);
     detached.forEach((el) => el.remove());
@@ -223,22 +216,5 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
   room.on(RoomEvent.TrackUnpublished, (_pub, participant) => {
     dbg("voice", `TrackUnpublished remote participant=${participant.identity}`);
     get()._updateScreenSharers();
-  });
-  room.on(RoomEvent.Disconnected, (reason) => {
-    dbg("voice", `Room Disconnected reason=${reason}`);
-    stopStatsPolling();
-    set({
-      room: null,
-      connectedChannelId: null,
-      participants: [],
-      isMuted: false,
-      isDeafened: false,
-      isScreenSharing: false,
-      screenSharers: [],
-      participantTrackMap: {},
-      audioLevels: {},
-      speakingUserIds: new Set<string>(),
-      pinnedScreenShare: null,
-    });
   });
 }

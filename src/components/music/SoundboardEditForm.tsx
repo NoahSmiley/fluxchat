@@ -4,6 +4,7 @@ import * as api from "@/lib/api/index.js";
 import type { SoundboardSound, CustomEmoji } from "@/types/shared.js";
 import { API_BASE } from "@/lib/serverUrl.js";
 import { renderEmoji } from "@/lib/emoji.js";
+import { previewSoundAudio } from "./SoundboardPanel.js";
 import { lazy, Suspense } from "react";
 const EmojiPicker = lazy(() => import("@/components/EmojiPicker.js"));
 
@@ -118,7 +119,7 @@ export function SoundboardEditForm({ serverId, sound, customEmojis, onSave, onCa
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         <button
           className="btn-small"
-          onClick={() => { const a = new Audio(audioUrl); a.volume = editVolume; a.play().catch(() => {}); }}
+          onClick={() => previewSoundAudio(audioUrl, editVolume)}
         >
           <Play size={12} /> Preview
         </button>

@@ -19,7 +19,6 @@ export type ChannelType = "text" | "voice" | "category";
 export interface VoiceParticipant {
   userId: string;
   username: string;
-  drinkCount: number;
 }
 
 export interface CreateChannelRequest {

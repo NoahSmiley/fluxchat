@@ -1,7 +1,10 @@
+import { useShallow } from "zustand/react/shallow";
 import { useNotifStore, type GlobalNotifSetting } from "@/stores/notifications.js";
 
 export function NotificationsTab() {
-  const { defaultChannelSetting, setDefaultChannelSetting } = useNotifStore();
+  const { defaultChannelSetting, setDefaultChannelSetting } = useNotifStore(useShallow((s) => ({
+    defaultChannelSetting: s.defaultChannelSetting, setDefaultChannelSetting: s.setDefaultChannelSetting,
+  })));
 
   return (
     <>

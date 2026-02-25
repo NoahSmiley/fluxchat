@@ -8,7 +8,7 @@ import { dbg } from "@/lib/debug.js";
 
 import type { VoiceState } from "./types.js";
 import { checkLobbyMusic, stopLobbyMusic } from "./lobby.js";
-import { startStatsPolling, stopStatsPolling } from "./stats.js";
+import { startStatsPolling } from "./stats.js";
 import { setupRoomEventHandlers } from "./room-events.js";
 import type { StoreApi } from "zustand";
 
@@ -165,7 +165,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       }
       optimisticParticipants[channelId] = [
         ...(optimisticParticipants[channelId] || []).filter((p) => p.userId !== localIdentity),
-        { userId: localIdentity, username: localName, drinkCount: 0 },
+        { userId: localIdentity, username: localName },
       ];
 
       set({
@@ -176,7 +176,6 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         isDeafened: false,
         isScreenSharing: false,
         screenSharers: [],
-        participantTrackMap: {},
         pinnedScreenShare: null,
         channelParticipants: optimisticParticipants,
       });
@@ -218,7 +217,6 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
     const { room, connectedChannelId, channelParticipants } = get();
     const localId = room?.localParticipant?.identity;
 
-    stopStatsPolling();
     stopLobbyMusic();
 
     try {
@@ -249,21 +247,10 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
       );
     }
 
+    // Disconnected handler resets core voice state; we only set fields it doesn't cover
     set({
-      room: null,
-      connectedChannelId: null,
-      participants: [],
       channelParticipants: updatedParticipants,
-      isMuted: false,
-      isDeafened: false,
       connecting: false,
-      isScreenSharing: false,
-      screenSharers: [],
-      participantTrackMap: {},
-      audioLevels: {},
-      speakingUserIds: new Set<string>(),
-      pinnedScreenShare: null,
-      webrtcStats: null,
     });
 
     // If we left a room (ephemeral voice channel), switch to a text channel

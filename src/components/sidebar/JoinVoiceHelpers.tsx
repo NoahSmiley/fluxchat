@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { Channel, MemberWithUser } from "@/types/shared.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { Lock, LockOpen } from "lucide-react";
@@ -7,6 +6,28 @@ import { dbg } from "@/lib/debug.js";
 import { avatarColor } from "@/lib/avatarColor.js";
 
 const LOCK_TOGGLE_DEBOUNCE_MS = 400;
+const lockTimestamps = new Map<string, number>();
+
+/** Optimistic lock toggle with debounce and API rollback. */
+export function toggleRoomLock(channelId: string, serverId: string) {
+  const current = useChatStore.getState().channels.find((c) => c.id === channelId);
+  if (!current) return;
+  const now = Date.now();
+  const prev = lockTimestamps.get(channelId) ?? 0;
+  if (now - prev < LOCK_TOGGLE_DEBOUNCE_MS) return;
+  lockTimestamps.set(channelId, now);
+  const newLocked = !current.isLocked;
+  dbg("ui", `[lock] toggling room ${channelId} lock: ${current.isLocked} -> ${newLocked}`);
+  useChatStore.setState((s) => ({
+    channels: s.channels.map((c) => c.id === channelId ? { ...c, isLocked: newLocked } : c),
+  }));
+  api.updateChannel(serverId, channelId, { isLocked: newLocked }).catch((err) => {
+    dbg("ui", "[lock] API failed:", err);
+    useChatStore.setState((s) => ({
+      channels: s.channels.map((c) => c.id === channelId ? { ...c, isLocked: !newLocked } : c),
+    }));
+  });
+}
 
 export const ANIMATED_LIST_DURATION_MS = 500;
 
@@ -82,30 +103,7 @@ export function LockToggleButton({ channel, activeServerId }: {
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
-        if (!activeServerId) return;
-        const current = useChatStore.getState().channels.find((c) => c.id === channel.id);
-        if (!current) return;
-        const now = Date.now();
-        const key = `_lockTs_${channel.id}`;
-        if ((window as any)[key] && now - (window as any)[key] < LOCK_TOGGLE_DEBOUNCE_MS) return;
-        (window as any)[key] = now;
-        const newLocked = !current.isLocked;
-        dbg("ui", `[lock] toggling room ${channel.id} lock: ${current.isLocked} -> ${newLocked}`);
-        useChatStore.setState((s) => ({
-          channels: s.channels.map((c) =>
-            c.id === channel.id ? { ...c, isLocked: newLocked } : c,
-          ),
-        }));
-        api.updateChannel(activeServerId, channel.id, { isLocked: newLocked })
-          .then((res) => dbg("ui", "[lock] API success:", res))
-          .catch((err) => {
-            dbg("ui", "[lock] API failed:", err);
-            useChatStore.setState((s) => ({
-              channels: s.channels.map((c) =>
-                c.id === channel.id ? { ...c, isLocked: !newLocked } : c,
-              ),
-            }));
-          });
+        if (activeServerId) toggleRoomLock(channel.id, activeServerId);
       }}
     >
       {channel.isLocked ? <Lock size={10} /> : <LockOpen size={10} />}

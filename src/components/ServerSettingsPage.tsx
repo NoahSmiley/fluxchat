@@ -30,6 +30,14 @@ function OverviewTab({
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState("");
 
+  function handleServerNameSave() {
+    if (!serverNameInput.trim()) return;
+    setServerNameSaving(true);
+    updateServer(server.id, serverNameInput.trim())
+      .then(() => { setEditingServerName(false); setServerNameSaving(false); })
+      .catch(() => setServerNameSaving(false));
+  }
+
   async function handleLeave() {
     setLeaving(true);
     try {
@@ -63,12 +71,7 @@ function OverviewTab({
               value={serverNameInput}
               onChange={(e) => setServerNameInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && serverNameInput.trim()) {
-                  setServerNameSaving(true);
-                  updateServer(server.id, serverNameInput.trim())
-                    .then(() => { setEditingServerName(false); setServerNameSaving(false); })
-                    .catch(() => setServerNameSaving(false));
-                }
+                if (e.key === "Enter") handleServerNameSave();
                 if (e.key === "Escape") setEditingServerName(false);
               }}
               autoFocus
@@ -77,13 +80,7 @@ function OverviewTab({
             <button
               className="btn-small btn-primary"
               disabled={serverNameSaving}
-              onClick={() => {
-                if (!serverNameInput.trim()) return;
-                setServerNameSaving(true);
-                updateServer(server.id, serverNameInput.trim())
-                  .then(() => { setEditingServerName(false); setServerNameSaving(false); })
-                  .catch(() => setServerNameSaving(false));
-              }}
+              onClick={handleServerNameSave}
             >Save</button>
             <button className="btn-small" onClick={() => setEditingServerName(false)}>Cancel</button>
           </div>

@@ -2,14 +2,10 @@ import { useChatStore } from "@/stores/chat/index.js";
 import { useAuthStore } from "@/stores/auth.js";
 import type { useNotifStore as NotifStoreType } from "@/stores/notifications.js";
 import { dbg } from "./debug.js";
+import { escapeRegex, EVERYONE_MENTION_RE, HERE_MENTION_RE } from "./mention.js";
 
 // True when running inside the Tauri desktop app
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-
-/** Escape special regex characters in a string */
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 // Notification preferences from localStorage
 function isSoundEnabled(): boolean {
@@ -127,11 +123,11 @@ export function shouldNotifyChannel(
   }
 
   // "only_mentions": @everyone, @here, or personal @username
-  if (/(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i.test(content)) {
+  if (EVERYONE_MENTION_RE.test(content)) {
     dbg("notif", `shouldNotify=true reason=@everyone channel=${channelId}`);
     return true;
   }
-  if (/(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i.test(content)) {
+  if (HERE_MENTION_RE.test(content)) {
     dbg("notif", `shouldNotify=true reason=@here channel=${channelId}`);
     return true;
   }

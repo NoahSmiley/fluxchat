@@ -1,11 +1,9 @@
 import { lazy, Suspense } from "react";
-import type { Channel } from "@/types/shared.js";
 
 const SearchBar = lazy(() => import("./SearchBar.js").then(m => ({ default: m.SearchBar })));
 
 interface ChatHeaderProps {
-  channels: Channel[];
-  activeChannelId: string | null;
+  channelName: string | undefined;
   searchResults: unknown[] | null;
   searchQuery: string;
   searchFilters: {
@@ -20,8 +18,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({
-  channels,
-  activeChannelId,
+  channelName,
   searchResults,
   searchQuery,
   searchFilters,
@@ -29,7 +26,7 @@ export function ChatHeader({
   return (
     <>
       <div className="chat-header">
-        <span className="chat-header-channel">{channels.find((c) => c.id === activeChannelId)?.name}</span>
+        <span className="chat-header-channel">{channelName}</span>
         <div className="chat-header-actions">
           <Suspense fallback={null}><SearchBar /></Suspense>
         </div>

@@ -34,9 +34,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeChannelId: null,
   hasMoreMessages: false,
   messageCursor: null,
-  loadingServers: false,
   loadingMessages: false,
-  channelsLoaded: false,
   reactions: {},
   searchQuery: "",
   searchFilters: {},
@@ -64,12 +62,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   loadServers: async () => {
-    set({ loadingServers: true });
     try {
       const servers = await api.getServers();
-      set({ servers, loadingServers: false });
+      set({ servers });
     } catch {
-      set({ loadingServers: false });
+      // Failed to load servers
     }
   },
 

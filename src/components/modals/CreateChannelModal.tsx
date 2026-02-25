@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import type { ChannelType } from "@/types/shared.js";
 import * as api from "@/lib/api/index.js";
 import { useChatStore } from "@/stores/chat/index.js";
@@ -17,16 +17,18 @@ export function CreateChannelModal({ serverId, defaultType, parentId, onClose }:
   const channels = useChatStore((s) => s.channels);
 
   // Compute depth of the parent category (0 = root)
-  let parentDepth = 0;
-  if (parentId) {
-    let current = parentId;
-    while (current) {
-      parentDepth++;
-      const ch = channels.find((c) => c.id === current);
-      current = ch?.parentId ?? "";
+  const canCreateCategory = useMemo(() => {
+    let depth = 0;
+    if (parentId) {
+      let current = parentId;
+      while (current) {
+        depth++;
+        const ch = channels.find((c) => c.id === current);
+        current = ch?.parentId ?? "";
+      }
     }
-  }
-  const canCreateCategory = parentDepth < MAX_CATEGORY_DEPTH;
+    return depth < MAX_CATEGORY_DEPTH;
+  }, [channels, parentId]);
 
   const [name, setName] = useState("");
   const [type, setType] = useState<ChannelType>(

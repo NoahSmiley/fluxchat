@@ -132,8 +132,6 @@ describe("useVoiceStore", () => {
       pinnedScreenShare: null,
       theatreMode: false,
       participantVolumes: {},
-      participantTrackMap: {},
-      audioLevels: {},
       speakingUserIds: new Set(),
       lastSpokeAt: 0,
     });
@@ -160,8 +158,8 @@ describe("useVoiceStore", () => {
         connectedChannelId: "ch1",
         channelParticipants: {
           ch1: [
-            { userId: "my-user-id", username: "me", drinkCount: 0 },
-            { userId: "u2", username: "bob", drinkCount: 0 },
+            { userId: "my-user-id", username: "me" },
+            { userId: "u2", username: "bob" },
           ],
         },
       });
@@ -191,12 +189,12 @@ describe("useVoiceStore", () => {
         connectedChannelId: "ch1",
         channelParticipants: {
           ch1: [
-            { userId: "my-user-id", username: "me", drinkCount: 0 },
-            { userId: "u2", username: "bob", drinkCount: 0 },
-            { userId: "u3", username: "charlie", drinkCount: 0 },
+            { userId: "my-user-id", username: "me" },
+            { userId: "u2", username: "bob" },
+            { userId: "u3", username: "charlie" },
           ],
           ch2: [
-            { userId: "u4", username: "dave", drinkCount: 0 },
+            { userId: "u4", username: "dave" },
           ],
         },
       });
@@ -238,40 +236,4 @@ describe("useVoiceStore", () => {
     });
   });
 
-  // ── Noise Suppression Model (3 tests) ──
-
-  describe("noiseSuppressionModel", () => {
-    it("defaults to dtln", () => {
-      expect(useVoiceStore.getState().audioSettings.noiseSuppressionModel).toBe("dtln");
-    });
-
-    it("can be changed via updateAudioSetting", () => {
-      useVoiceStore.getState().updateAudioSetting("noiseSuppressionModel", "rnnoise");
-      expect(useVoiceStore.getState().audioSettings.noiseSuppressionModel).toBe("rnnoise");
-    });
-
-    it("can be set to off", () => {
-      useVoiceStore.getState().updateAudioSetting("noiseSuppressionModel", "off");
-      expect(useVoiceStore.getState().audioSettings.noiseSuppressionModel).toBe("off");
-    });
-  });
-
-  // ── Stats Overlay Toggle (3 tests) ──
-
-  describe("stats overlay", () => {
-    it("showStatsOverlay defaults to false", () => {
-      expect(useVoiceStore.getState().showStatsOverlay).toBe(false);
-    });
-
-    it("toggleStatsOverlay toggles the overlay", () => {
-      useVoiceStore.getState().toggleStatsOverlay();
-      expect(useVoiceStore.getState().showStatsOverlay).toBe(true);
-      useVoiceStore.getState().toggleStatsOverlay();
-      expect(useVoiceStore.getState().showStatsOverlay).toBe(false);
-    });
-
-    it("webrtcStats defaults to null", () => {
-      expect(useVoiceStore.getState().webrtcStats).toBeNull();
-    });
-  });
 });

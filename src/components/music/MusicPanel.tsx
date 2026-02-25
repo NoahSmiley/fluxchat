@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useSpotifyStore } from "@/stores/spotify/index.js";
 import { useYouTubeStore } from "@/stores/youtube.js";
 import { useAuthStore } from "@/stores/auth.js";
@@ -18,12 +19,25 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
     startSession, loadSession, endSession, addTrackToQueue, removeFromQueue,
     play, pause, skip, seek, setVolume, searchTracks,
     setSearchInput, setSearchSource,
-  } = useSpotifyStore();
+  } = useSpotifyStore(useShallow((s) => ({
+    account: s.account, session: s.session, queue: s.queue, isHost: s.isHost, playerState: s.playerState,
+    searchResults: s.searchResults, searchLoading: s.searchLoading, volume: s.volume,
+    searchSource: s.searchSource, searchInput: s.searchInput,
+    startSession: s.startSession, loadSession: s.loadSession, endSession: s.endSession,
+    addTrackToQueue: s.addTrackToQueue, removeFromQueue: s.removeFromQueue,
+    play: s.play, pause: s.pause, skip: s.skip, seek: s.seek, setVolume: s.setVolume,
+    searchTracks: s.searchTracks, setSearchInput: s.setSearchInput, setSearchSource: s.setSearchSource,
+  })));
   const {
     youtubeTrack, youtubePaused, youtubeProgress, youtubeDuration,
     youtubeSearchResults, searchLoading: youtubeSearchLoading, searchError,
     searchYouTube, addYouTubeToQueue,
-  } = useYouTubeStore();
+  } = useYouTubeStore(useShallow((s) => ({
+    youtubeTrack: s.youtubeTrack, youtubePaused: s.youtubePaused, youtubeProgress: s.youtubeProgress,
+    youtubeDuration: s.youtubeDuration, youtubeSearchResults: s.youtubeSearchResults,
+    searchLoading: s.searchLoading, searchError: s.searchError,
+    searchYouTube: s.searchYouTube, addYouTubeToQueue: s.addYouTubeToQueue,
+  })));
   const searchLoading = spotifySearchLoading || youtubeSearchLoading;
   const [vibeMode, setVibeMode] = useState(false);
   const konamiRef = useRef<string[]>([]);

@@ -70,8 +70,6 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
     isDeafened: false,
     audioSettings: loadAudioSettings(),
     participantVolumes: {},
-    participantTrackMap: {},
-    audioLevels: {},
     speakingUserIds: new Set<string>(),
     isScreenSharing: false,
     screenSharers: [],
@@ -82,8 +80,6 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
     channelParticipants: {},
     lastSpokeAt: 0,
     lobbyMusicPlaying: false,
-    webrtcStats: null,
-    showStatsOverlay: false,
     lobbyMusicVolume: parseFloat(localStorage.getItem("flux-lobby-music-volume") ?? String(LOBBY_DEFAULT_GAIN)),
 
     // ── Actions ──
@@ -121,12 +117,6 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
 
     stopLobbyMusicAction: () => {
       stopLobbyMusic();
-    },
-
-    toggleStatsOverlay: () => {
-      const { showStatsOverlay } = get();
-      const newVal = !showStatsOverlay;
-      set({ showStatsOverlay: newVal, webrtcStats: newVal ? get().webrtcStats : null });
     },
   };
 });

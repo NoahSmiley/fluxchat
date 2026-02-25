@@ -28,7 +28,7 @@ export function initVoiceEvents(store: StoreApi<VoiceState>) {
         const localId = room?.localParticipant?.identity;
         if (localId && !participants.some((p: VoiceParticipant) => p.userId === localId)) {
           const localName = room?.localParticipant?.name ?? localId.slice(0, 8);
-          participants = [...participants, { userId: localId, username: localName, drinkCount: 0 }];
+          participants = [...participants, { userId: localId, username: localName }];
           // Re-announce our presence so the server adds us
           gateway.send({ type: "voice_state_update", channelId: event.channelId, action: "join" });
           dbg("voice", "voice_state: self missing from connected channel — re-announcing join");

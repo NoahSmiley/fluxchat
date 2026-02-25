@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** Lightweight AnimatePresence: keeps exiting items in DOM for animation */
 export function AnimatedList<T extends { key: string }>({
@@ -15,6 +15,15 @@ export function AnimatedList<T extends { key: string }>({
   const enteringRef = useRef<Set<string>>(new Set());
   const prevKeysRef = useRef<string>(items.map((i) => i.key).join(","));
   const [, forceRender] = useState(0);
+
+  // Cancel all pending exit timers on unmount
+  useEffect(() => {
+    const timers = timersRef;
+    return () => {
+      for (const t of timers.current.values()) clearTimeout(t);
+      timers.current.clear();
+    };
+  }, []);
 
   const currentKeyStr = items.map((i) => i.key).join(",");
   if (currentKeyStr !== prevKeysRef.current) {

@@ -28,10 +28,6 @@ export function createSearchTracks(store: StoreApi<SpotifyState>) {
   };
 }
 
-export function createSetShowSearch(store: StoreApi<SpotifyState>) {
-  return (show: boolean) => store.setState({ showSearch: show });
-}
-
 export function createSetSearchInput(store: StoreApi<SpotifyState>) {
   return (input: string) => store.setState({ searchInput: input });
 }

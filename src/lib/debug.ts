@@ -47,7 +47,7 @@ export function getDebugEnabled(): boolean {
 function pushEntry(entry: LogEntry) {
   logBuffer.push(entry);
   if (logBuffer.length > MAX_LOG_ENTRIES) {
-    logBuffer.splice(0, logBuffer.length - MAX_LOG_ENTRIES);
+    logBuffer.shift();
   }
 }
 
@@ -84,11 +84,6 @@ export function dumpLogs(): string {
       return line;
     })
     .join("\n");
-}
-
-/** Get the raw log buffer (latest entries). */
-export function getLogs(): readonly LogEntry[] {
-  return logBuffer;
 }
 
 // Expose on window for easy DevTools access

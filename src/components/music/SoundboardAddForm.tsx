@@ -83,8 +83,10 @@ export function SoundboardAddForm({ serverId, customEmojis, onSave, onCancel }: 
     setPreviewing(true);
     src.start(0, startSec, endSec - startSec);
     src.onended = () => {
-      setPreviewing(false);
       previewNodeRef.current = null;
+      previewCtxRef.current?.close();
+      previewCtxRef.current = null;
+      setPreviewing(false);
     };
   }
 

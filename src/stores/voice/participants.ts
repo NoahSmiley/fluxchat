@@ -8,17 +8,12 @@ export function createUpdateParticipants(storeRef: StoreApi<VoiceState>) {
     const { room, isMuted: localMuted, isDeafened: localDeafened } = storeRef.getState();
     if (!room) return;
 
-    const activeSpeakerIds = new Set(
-      room.activeSpeakers.map((s) => s.identity),
-    );
-
     const users: VoiceUser[] = [];
 
     const local = room.localParticipant;
     users.push({
       userId: local.identity,
       username: local.name ?? local.identity.slice(0, 8),
-      speaking: activeSpeakerIds.has(local.identity),
       isMuted: localMuted,
       isDeafened: localDeafened,
     });
@@ -27,7 +22,6 @@ export function createUpdateParticipants(storeRef: StoreApi<VoiceState>) {
       users.push({
         userId: participant.identity,
         username: participant.name ?? participant.identity.slice(0, 8),
-        speaking: activeSpeakerIds.has(participant.identity),
         isMuted: !participant.isMicrophoneEnabled,
         isDeafened: false,
       });

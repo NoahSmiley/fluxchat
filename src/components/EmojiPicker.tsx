@@ -268,16 +268,18 @@ export default function EmojiPicker({ serverId, onSelect, onClose, placement = "
             const isFav = emojiCtxMenu.isFav;
             if (emojiCtxMenu.type === "standard") {
               const native = emojiCtxMenu.native!;
-              if (isFav) { await removeStandardFavorite(native); stdFavs.delete(native); }
-              else { await addStandardFavorite(native); stdFavs.add(native); }
+              if (isFav) await removeStandardFavorite(native);
+              else await addStandardFavorite(native);
               const next = new Set(stdFavs);
+              if (isFav) next.delete(native); else next.add(native);
               setStdFavs(next);
               favCache.data = { standard: next, customIds: new Set(customFavIds) };
             } else {
               const emojiId = emojiCtxMenu.emoji!.id;
-              if (isFav) { await removeCustomFavorite(emojiId); customFavIds.delete(emojiId); }
-              else { await addCustomFavorite(emojiId); customFavIds.add(emojiId); }
+              if (isFav) await removeCustomFavorite(emojiId);
+              else await addCustomFavorite(emojiId);
               const next = new Set(customFavIds);
+              if (isFav) next.delete(emojiId); else next.add(emojiId);
               setCustomFavIds(next);
               favCache.data = { standard: new Set(stdFavs), customIds: next };
             }

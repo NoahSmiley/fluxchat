@@ -12,7 +12,9 @@ import { NotificationsTab } from "./settings/NotificationsTab.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
 
 function VoiceSettingsTab() {
-  const { audioSettings, updateAudioSetting } = useVoiceStore();
+  const { audioSettings, updateAudioSetting } = useVoiceStore(useShallow((s) => ({
+    audioSettings: s.audioSettings, updateAudioSetting: s.updateAudioSetting,
+  })));
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
 
   useEffect(() => {
@@ -96,7 +98,9 @@ const ACTION_DESCRIPTIONS: Record<KeybindAction, string> = {
 };
 
 function KeybindButton({ entry }: { entry: KeybindEntry }) {
-  const { recording, startRecording, stopRecording, clearKeybind } = useKeybindsStore();
+  const { recording, startRecording, stopRecording, clearKeybind } = useKeybindsStore(useShallow((s) => ({
+    recording: s.recording, startRecording: s.startRecording, stopRecording: s.stopRecording, clearKeybind: s.clearKeybind,
+  })));
   const isRecording = recording === entry.action;
 
   return (
@@ -134,12 +138,17 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   debug: "Debug",
 };
 
+const TABS = Object.keys(TAB_LABELS) as SettingsTab[];
+
 export function SettingsModal() {
   const { settingsOpen, closeSettings } = useUIStore(useShallow((s) => ({
     settingsOpen: s.settingsOpen, closeSettings: s.closeSettings,
   })));
-  const { keybinds } = useKeybindsStore();
-  const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore();
+  const { keybinds } = useKeybindsStore(useShallow((s) => ({ keybinds: s.keybinds })));
+  const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore(useShallow((s) => ({
+    account: s.account, startOAuthFlow: s.startOAuthFlow, unlinkAccount: s.unlinkAccount,
+    polling: s.polling, oauthError: s.oauthError,
+  })));
   const updater = useUpdater();
 
   const [debugMode, setDebugMode] = useState(getDebugEnabled);
@@ -153,15 +162,13 @@ export function SettingsModal() {
 
   if (!settingsOpen) return null;
 
-  const tabs: SettingsTab[] = ["profile", "appearance", "notifications", "voice", "keybinds", "updates", "spotify", "cs2", "debug"];
-
   return (
     <div className="settings-page">
       <div className="settings-nav">
         <div className="settings-nav-header">
           <h2>Settings</h2>
         </div>
-        {tabs.map((tab) => (
+        {TABS.map((tab) => (
           <button
             key={tab}
             className={`settings-nav-item ${activeTab === tab ? "active" : ""}`}

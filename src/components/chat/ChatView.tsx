@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useMemo, useCallback, type DragEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap, getUserRingMap } from "@/stores/chat/index.js";
+import { useChatStore } from "@/stores/chat/index.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { useUIStore } from "@/stores/ui.js";
 import { renderMessageContent, isEmojiOnly } from "@/lib/emoji.js";
 import { API_BASE } from "@/lib/serverUrl.js";
-import { EVERYONE_MENTION_RE, HERE_MENTION_RE } from "@/stores/chat/types.js";
+import { isUserMentioned } from "@/lib/mention.js";
 
 import { ChatHeader } from "./ChatHeader.js";
 import { MessageList } from "./MessageList.js";
@@ -29,7 +29,7 @@ export function ChatView() {
   const {
     messages, sendMessage, editMessage, deleteMessage, loadMoreMessages, hasMoreMessages, loadingMessages,
     members, onlineUsers, userStatuses, reactions, addReaction, removeReaction,
-    searchResults, searchQuery, searchFilters, searchUserActivity,
+    searchResults, searchQuery, searchFilters,
     channels, activeChannelId, activeServerId, decryptedCache,
     pendingAttachments, uploadProgress, uploadFile, removePendingAttachment,
     typingUsers, customEmojis,
@@ -40,7 +40,7 @@ export function ChatView() {
     members: s.members, onlineUsers: s.onlineUsers, userStatuses: s.userStatuses,
     reactions: s.reactions, addReaction: s.addReaction, removeReaction: s.removeReaction,
     searchResults: s.searchResults, searchQuery: s.searchQuery, searchFilters: s.searchFilters,
-    searchUserActivity: s.searchUserActivity, channels: s.channels,
+    channels: s.channels,
     activeChannelId: s.activeChannelId, activeServerId: s.activeServerId,
     decryptedCache: s.decryptedCache, pendingAttachments: s.pendingAttachments,
     uploadProgress: s.uploadProgress, uploadFile: s.uploadFile,
@@ -57,10 +57,19 @@ export function ChatView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const usernameMap = useMemo(() => getUsernameMap(members), [members]);
-  const imageMap = useMemo(() => getUserImageMap(members), [members]);
-  const roleMap = useMemo(() => getUserRoleMap(members), [members]);
-  const ringMap = useMemo(() => getUserRingMap(members), [members]);
+  const { usernameMap, imageMap, roleMap, ringMap } = useMemo(() => {
+    const usernameMap: Record<string, string> = {};
+    const imageMap: Record<string, string | null> = {};
+    const roleMap: Record<string, string> = {};
+    const ringMap: Record<string, { ringStyle: string; ringSpin: boolean; ringPatternSeed: number | null }> = {};
+    for (const m of members) {
+      usernameMap[m.userId] = m.username;
+      imageMap[m.userId] = m.image;
+      roleMap[m.userId] = m.role;
+      ringMap[m.userId] = { ringStyle: m.ringStyle ?? "default", ringSpin: m.ringSpin ?? false, ringPatternSeed: m.ringPatternSeed ?? null };
+    }
+    return { usernameMap, imageMap, roleMap, ringMap };
+  }, [members]);
   const memberUsernames = useMemo(() => new Set(members.map((m) => m.username)), [members]);
   const channelNameMap = useMemo(() => Object.fromEntries(channels.map((c) => [c.id, c.name])), [channels]);
 
@@ -88,7 +97,6 @@ export function ChatView() {
 
   // Cache expensive per-message work (twemoji.parse, regex, mention detection) so it doesn't re-run on keystrokes
   const messageData = useMemo(() => {
-    const userMentionRe = user ? new RegExp(`(?<![a-zA-Z0-9_])@${user.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-zA-Z0-9_])`, "i") : null;
     return new Map(displayMessages.map((msg) => {
       const decoded = decryptedCache[msg.id] ?? msg.content ?? "";
       return [msg.id, {
@@ -96,11 +104,7 @@ export function ChatView() {
         html: renderMessageContent(decoded, customEmojis, API_BASE, memberUsernames),
         emojiOnly: isEmojiOnly(decoded, customEmojis),
         urls: extractUrls(decoded),
-        isMentioned: !!user && (
-          EVERYONE_MENTION_RE.test(msg.content) ||
-          HERE_MENTION_RE.test(msg.content) ||
-          (userMentionRe?.test(msg.content) ?? false)
-        ),
+        isMentioned: !!user && isUserMentioned(msg.content, user.username),
       }];
     }));
   }, [displayMessages, decryptedCache, customEmojis, memberUsernames, user]);
@@ -128,8 +132,7 @@ export function ChatView() {
   return (
     <div className="chat-view">
       <ChatHeader
-        channels={channels}
-        activeChannelId={activeChannelId}
+        channelName={channels.find((c) => c.id === activeChannelId)?.name}
         searchResults={searchResults}
         searchQuery={searchQuery}
         searchFilters={searchFilters}

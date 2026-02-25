@@ -33,8 +33,6 @@ export function createToggleDeafen(storeRef: StoreApi<VoiceState>) {
     const newDeafened = !isDeafened;
     dbg("voice", `toggleDeafen ${newDeafened ? "deafening" : "undeafening"}`, { wasMuted: isMuted });
 
-    dbg("voice", `toggleDeafen new=${newDeafened}`);
-
     if (newDeafened && !isMuted) {
       room.localParticipant.setMicrophoneEnabled(false);
       storeRef.setState({ isDeafened: newDeafened, isMuted: true });

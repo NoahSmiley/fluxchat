@@ -1,14 +1,13 @@
 import type { StoreApi, UseBoundStore } from "zustand";
 import type { ChatState } from "./types.js";
 import {
-  EVERYONE_MENTION_RE,
-  HERE_MENTION_RE,
   channelMessageCache,
   dmMessageCache,
   getUsernameMap,
 } from "./types.js";
 import * as api from "@/lib/api/index.js";
 import { playMessageSound, showDesktopNotification, shouldNotifyChannel } from "@/lib/notifications.js";
+import { isUserMentioned } from "@/lib/mention.js";
 import { useCryptoStore } from "@/stores/crypto.js";
 import type {
   AuthStoreRef,
@@ -62,12 +61,7 @@ export function handleMessage(
 
           // @mention detection: @everyone, @here, or personal @username
           const isMention = authUser
-            ? (EVERYONE_MENTION_RE.test(msg.content) ||
-               HERE_MENTION_RE.test(msg.content) ||
-               (() => {
-                 const escaped = authUser.username.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                 return new RegExp(`(?<![a-zA-Z0-9_])@${escaped}(?![a-zA-Z0-9_])`, "i").test(msg.content);
-               })())
+            ? isUserMentioned(msg.content, authUser.username)
             : false;
 
           // Red badge: @mentions only, suppressed by mention-mute
@@ -199,9 +193,11 @@ export function handleDMMessage(
 ) {
   const dmState = dmStoreRef?.getState();
   if (event.message.dmChannelId === dmState?.activeDMChannelId) {
-    dmStoreRef?.setState((s) => ({
-      dmMessages: [...s.dmMessages, event.message],
-    }));
+    dmStoreRef?.setState((s) => {
+      // Double-check activeDMChannelId still matches (may have changed between getState calls)
+      if (s.activeDMChannelId !== event.message.dmChannelId) return {};
+      return { dmMessages: [...s.dmMessages, event.message] };
+    });
   } else {
     // Append to DM cache for instant switching later (create entry if missing)
     const cached = dmMessageCache.get(event.message.dmChannelId);

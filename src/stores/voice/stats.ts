@@ -18,11 +18,10 @@ export function startStatsPolling() {
   stopStatsPolling();
   resetStatsDelta();
   statsInterval = setInterval(async () => {
-    const { room, showStatsOverlay } = storeRef!.getState();
-    if (!room || !showStatsOverlay) return;
+    const { room } = storeRef!.getState();
+    if (!room) return;
     try {
-      const stats = await collectWebRTCStats(room);
-      storeRef!.setState({ webrtcStats: stats });
+      await collectWebRTCStats(room);
     } catch (e) {
       dbg("voice", "stats polling error", e);
     }

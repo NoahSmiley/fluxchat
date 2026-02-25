@@ -92,7 +92,7 @@ describe("useSpotifyStore", () => {
     vi.clearAllMocks();
     useSpotifyStore.setState({
       account: null,
-      sdkReady: false,
+
       player: null,
       deviceId: null,
       playerState: null,
@@ -105,11 +105,9 @@ describe("useSpotifyStore", () => {
       polling: false,
       oauthError: null,
       searchSource: "spotify" as const,
-      showSearch: false,
       searchInput: "",
     });
     useYouTubeStore.setState({
-      youtubeAudio: null,
       youtubeTrack: null,
       youtubeProgress: 0,
       youtubeDuration: 0,
@@ -126,7 +124,6 @@ describe("useSpotifyStore", () => {
     it("has correct default values", () => {
       const state = useSpotifyStore.getState();
       expect(state.account).toBeNull();
-      expect(state.sdkReady).toBe(false);
       expect(state.player).toBeNull();
       expect(state.deviceId).toBeNull();
       expect(state.playerState).toBeNull();
@@ -139,7 +136,6 @@ describe("useSpotifyStore", () => {
       expect(state.polling).toBe(false);
       expect(state.oauthError).toBeNull();
       expect(state.searchSource).toBe("spotify");
-      expect(state.showSearch).toBe(false);
       expect(state.searchInput).toBe("");
     });
   });
@@ -178,25 +174,6 @@ describe("useSpotifyStore", () => {
   });
 
   // ── Search State ──
-
-  describe("setShowSearch", () => {
-    it("opens search", () => {
-      useSpotifyStore.getState().setShowSearch(true);
-      expect(useSpotifyStore.getState().showSearch).toBe(true);
-    });
-
-    it("closes search", () => {
-      useSpotifyStore.setState({ showSearch: true });
-      useSpotifyStore.getState().setShowSearch(false);
-      expect(useSpotifyStore.getState().showSearch).toBe(false);
-    });
-
-    it("toggling twice returns to original", () => {
-      useSpotifyStore.getState().setShowSearch(true);
-      useSpotifyStore.getState().setShowSearch(false);
-      expect(useSpotifyStore.getState().showSearch).toBe(false);
-    });
-  });
 
   describe("setSearchInput", () => {
     it("sets search input text", () => {

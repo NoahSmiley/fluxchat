@@ -249,6 +249,11 @@ gateway.on((event) => {
     case "soundboard_play":
       handleSoundboardPlay(event);
       break;
+
+    // Server errors
+    case "error":
+      dbg("chat", `Server error: ${event.message}`);
+      break;
   }
 });
 
@@ -287,3 +292,12 @@ if (!isPopout()) {
 }
 
 } // end setupChatEvents
+
+/** Clean up resources owned by setupChatEvents (call before gateway.disconnect). */
+export function teardownChatEvents() {
+  if (activityPollInterval) {
+    clearInterval(activityPollInterval);
+    activityPollInterval = null;
+  }
+  lastActivityName = null;
+}

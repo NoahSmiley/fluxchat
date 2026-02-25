@@ -9,7 +9,6 @@ interface CryptoState {
   publicKeyBase64: string | null;
   serverKeys: Record<string, CryptoKey>;   // serverId → group key
   dmKeys: Record<string, CryptoKey>;       // dmChannelId → derived key
-  pendingServers: Set<string>;             // servers waiting for key
   initialized: boolean;
 
   initialize: () => Promise<void>;
@@ -29,7 +28,6 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
   publicKeyBase64: null,
   serverKeys: {},
   dmKeys: {},
-  pendingServers: new Set(),
   initialized: false,
 
   initialize: async () => {
@@ -88,14 +86,9 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
   },
 
   setServerKey: (serverId, key) => {
-    set((s) => {
-      const pending = new Set(s.pendingServers);
-      pending.delete(serverId);
-      return {
-        serverKeys: { ...s.serverKeys, [serverId]: key },
-        pendingServers: pending,
-      };
-    });
+    set((s) => ({
+      serverKeys: { ...s.serverKeys, [serverId]: key },
+    }));
   },
 
   getDMKey: async (dmChannelId, otherUserId) => {
@@ -185,11 +178,6 @@ export const useCryptoStore = create<CryptoState>((set, get) => ({
   },
 
   requestServerKey: (serverId) => {
-    set((s) => {
-      const pending = new Set(s.pendingServers);
-      pending.add(serverId);
-      return { pendingServers: pending };
-    });
     gateway.send({ type: "request_server_key", serverId });
   },
 }));

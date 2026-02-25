@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type FormEvent, type ReactNode } from "react";
+import { useState, useRef, useEffect, useMemo, type FormEvent, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useChatStore, base64ToUtf8 } from "@/stores/chat/index.js";
 import { useDMStore } from "@/stores/dm/index.js";
@@ -97,6 +97,12 @@ export function DMChatView() {
 
   const displayMessages = dmSearchResults ?? dmMessages;
 
+  const membersByUserId = useMemo(() => {
+    const map = new Map<string, (typeof members)[number]>();
+    for (const m of members) map.set(m.userId, m);
+    return map;
+  }, [members]);
+
   // Look up other user's member data for banner
   const otherMember = dm ? members.find((m) => m.userId === dm.otherUser.id) : undefined;
   const dmBannerBg = bannerBackground(otherMember?.bannerCss, otherMember?.bannerPatternSeed);
@@ -146,7 +152,7 @@ export function DMChatView() {
           const senderName = isOwn ? (user?.username ?? "You") : (dm?.otherUser.username ?? msg.senderId.slice(0, 8));
           const senderImage = isOwn ? (user?.image ?? null) : (dm?.otherUser.image ?? null);
           const decoded = decodeContent(msg.id, msg.ciphertext);
-          const senderMember = members.find((m) => m.userId === msg.senderId);
+          const senderMember = membersByUserId.get(msg.senderId);
           const senderRingStyle = isOwn ? user?.ringStyle : senderMember?.ringStyle;
           const senderRingSpin = isOwn ? user?.ringSpin : senderMember?.ringSpin;
           const senderRingPatternSeed = isOwn ? user?.ringPatternSeed ?? null : senderMember?.ringPatternSeed ?? null;

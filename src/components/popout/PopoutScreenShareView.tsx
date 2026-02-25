@@ -85,8 +85,8 @@ export function PopoutScreenShareView() {
       setStatus("Connecting...");
 
       try {
-        // Fetch a fresh viewer token directly from the API
-        const { token, url } = await api.getVoiceToken(voiceMsg.connectedChannelId, true);
+        // Fetch a fresh token directly from the API
+        const { token, url } = await api.getVoiceToken(voiceMsg.connectedChannelId);
 
         const room = new Room({
           adaptiveStream: false,

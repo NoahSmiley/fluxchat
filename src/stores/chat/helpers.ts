@@ -136,7 +136,7 @@ export function createSelectServerAction(
     // Only apply if we're still viewing this server
     if (get().activeServerId !== serverId) return;
 
-    set({ channels, members, channelsLoaded: true, customEmojis });
+    set({ channels, members, customEmojis });
 
     // Subscribe to all text channels so we receive events for unread tracking
     for (const ch of channels) {

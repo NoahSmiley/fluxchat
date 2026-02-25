@@ -75,7 +75,7 @@ describe("useSpotifyStore", () => {
     vi.clearAllMocks();
     useSpotifyStore.setState({
       account: null,
-      sdkReady: false,
+
       player: null,
       deviceId: null,
       playerState: null,
@@ -88,11 +88,9 @@ describe("useSpotifyStore", () => {
       polling: false,
       oauthError: null,
       searchSource: "spotify" as const,
-      showSearch: false,
       searchInput: "",
     });
     useYouTubeStore.setState({
-      youtubeAudio: null,
       youtubeTrack: null,
       youtubeProgress: 0,
       youtubeDuration: 0,
@@ -132,7 +130,6 @@ describe("useSpotifyStore", () => {
           duration: 200000,
           track_window: { current_track: null },
         },
-        sdkReady: true,
       });
 
       useSpotifyStore.getState().disconnectPlayer();
@@ -141,7 +138,6 @@ describe("useSpotifyStore", () => {
       expect(useSpotifyStore.getState().player).toBeNull();
       expect(useSpotifyStore.getState().deviceId).toBeNull();
       expect(useSpotifyStore.getState().playerState).toBeNull();
-      expect(useSpotifyStore.getState().sdkReady).toBe(false);
     });
 
     it("does nothing when no player exists", () => {

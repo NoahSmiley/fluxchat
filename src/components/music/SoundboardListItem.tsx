@@ -1,8 +1,8 @@
 import { Play, Pencil, Trash2 } from "lucide-react";
-import type { SoundboardSound } from "@/types/shared.js";
+import type { SoundboardSound, CustomEmoji } from "@/types/shared.js";
 import { API_BASE } from "@/lib/serverUrl.js";
 import { renderEmoji } from "@/lib/emoji.js";
-import type { CustomEmoji } from "@/types/shared.js";
+import { previewSoundAudio } from "./SoundboardPanel.js";
 
 interface SoundboardListItemProps {
   sound: SoundboardSound;
@@ -28,7 +28,7 @@ export function SoundboardListItem({ sound, customEmojis, onEdit, onDelete }: So
       <button
         className="icon-btn"
         title="Preview"
-        onClick={() => { const a = new Audio(audioUrl); a.volume = sound.volume; a.play().catch(() => {}); }}
+        onClick={() => previewSoundAudio(audioUrl, sound.volume)}
       >
         <Play size={13} />
       </button>

@@ -1,13 +1,10 @@
 import type { ScalabilityMode } from "livekit-client";
 import type { Room } from "livekit-client";
 import type { VoiceParticipant } from "@/types/shared.js";
-import type { WebRTCQualityStats } from "@/lib/webrtcStats.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // Types & Constants
 // ═══════════════════════════════════════════════════════════════════
-
-export type NoiseSuppressionModel = "off" | "speex" | "rnnoise" | "dtln" | "deepfilter" | "nsnet2";
 
 export interface AudioSettings {
   audioInputDeviceId: string;
@@ -20,9 +17,6 @@ export interface AudioSettings {
   lowPassFrequency: number;
   inputSensitivity: number;
   inputSensitivityEnabled: boolean;
-  noiseSuppressionModel: NoiseSuppressionModel;
-  suppressionStrength: number;
-  vadThreshold: number;
   micInputGain: number;
   noiseGateHoldTime: number;
   compressorEnabled: boolean;
@@ -37,7 +31,6 @@ export interface AudioSettings {
 export interface VoiceUser {
   userId: string;
   username: string;
-  speaking: boolean;
   isMuted: boolean;
   isDeafened: boolean;
 }
@@ -83,9 +76,6 @@ export const DEFAULT_SETTINGS: AudioSettings = {
   lowPassFrequency: 0,
   inputSensitivity: 40,
   inputSensitivityEnabled: true,
-  noiseSuppressionModel: "dtln",
-  suppressionStrength: 100,
-  vadThreshold: 85,
   micInputGain: 100,
   noiseGateHoldTime: 200,
   compressorEnabled: false,
@@ -113,10 +103,7 @@ export interface VoiceState {
 
   // ── Per-user volume ──
   participantVolumes: Record<string, number>;
-  participantTrackMap: Record<string, string>;
 
-  // ── Audio levels (0-1 per participant, updated at 20fps) ──
-  audioLevels: Record<string, number>;
   // Debounced speaking state — instant on, 200ms hold off (no flicker)
   speakingUserIds: Set<string>;
 
@@ -133,10 +120,6 @@ export interface VoiceState {
 
   // ── Idle detection ──
   lastSpokeAt: number;
-
-  // ── WebRTC stats overlay ──
-  webrtcStats: WebRTCQualityStats | null;
-  showStatsOverlay: boolean;
 
   // ── Lobby music (easter egg) ──
   lobbyMusicPlaying: boolean;
@@ -163,9 +146,6 @@ export interface VoiceState {
   // ── Actions: Lobby Music ──
   setLobbyMusicVolume: (volume: number) => void;
   stopLobbyMusicAction: () => void;
-
-  // ── Actions: Stats ──
-  toggleStatsOverlay: () => void;
 
   // ── Internal ──
   _updateParticipants: () => void;

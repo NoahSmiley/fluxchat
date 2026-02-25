@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { useShallow } from "zustand/react/shallow";
 import type { Channel } from "@/types/shared.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
@@ -8,6 +9,7 @@ import { ChannelSettingsModal, DeleteConfirmDialog } from "@/components/modals/C
 import { CreateChannelModal } from "@/components/modals/CreateChannelModal.js";
 import * as api from "@/lib/api/index.js";
 import { dbg } from "@/lib/debug.js";
+import { toggleRoomLock } from "./JoinVoiceHelpers.js";
 
 /** Build the mute duration submenu entries for channel/category context menus. */
 function buildMuteSubmenu(
@@ -67,6 +69,15 @@ interface ChannelSidebarMenusProps {
   user: { id: string } | null;
 }
 
+/** Delete a channel/room via API and update local state. */
+async function performDeleteChannel(serverId: string, channelId: string) {
+  await api.deleteChannel(serverId, channelId);
+  const { channels, activeChannelId, selectChannel } = useChatStore.getState();
+  const remaining = channels.filter((c) => c.id !== channelId);
+  useChatStore.setState({ channels: remaining });
+  if (activeChannelId === channelId && remaining.length > 0) selectChannel(remaining[0].id);
+}
+
 export function ChannelSidebarMenus(props: ChannelSidebarMenusProps) {
   const {
     activeServerId, isOwnerOrAdmin, connectedChannelId, rooms, unreadChannels, collapsed, toggleCollapse,
@@ -77,7 +88,15 @@ export function ChannelSidebarMenus(props: ChannelSidebarMenusProps) {
     renamingRoomId, setRenamingRoomId, markChannelRead, user,
   } = props;
 
-  const notifStore = useNotifStore();
+  const notifStore = useNotifStore(useShallow((s) => ({
+    isChannelMuted: s.isChannelMuted, isCategoryMuted: s.isCategoryMuted,
+    channelSettings: s.channelSettings, categorySettings: s.categorySettings,
+    setChannelSetting: s.setChannelSetting, setCategorySetting: s.setCategorySetting,
+    muteChannel: s.muteChannel, unmuteChannel: s.unmuteChannel,
+    muteCategory: s.muteCategory, unmuteCategory: s.unmuteCategory,
+    isChannelMentionMuted: s.isChannelMentionMuted, isCategoryMentionMuted: s.isCategoryMentionMuted,
+    setMuteChannelMentions: s.setMuteChannelMentions, setMuteCategoryMentions: s.setMuteCategoryMentions,
+  })));
 
   return (
     <>
@@ -217,12 +236,7 @@ export function ChannelSidebarMenus(props: ChannelSidebarMenusProps) {
           ...(canManage ? [
             { label: "Rename room", onClick: () => { setRenamingRoomId(room.id); setRoomCtxMenu(null); } },
             { label: room.isLocked ? "Unlock room" : "Lock room", onClick: () => {
-              if (!activeServerId) return;
-              const newLocked = !room.isLocked;
-              useChatStore.setState((s) => ({ channels: s.channels.map((c) => c.id === room.id ? { ...c, isLocked: newLocked } : c) }));
-              api.updateChannel(activeServerId, room.id, { isLocked: newLocked }).catch(() => {
-                useChatStore.setState((s) => ({ channels: s.channels.map((c) => c.id === room.id ? { ...c, isLocked: !newLocked } : c) }));
-              });
+              if (activeServerId) toggleRoomLock(room.id, activeServerId);
               setRoomCtxMenu(null);
             }},
             { label: `Bitrate: ${(room.bitrate ?? 256_000) / 1000} kbps`, submenu: [64, 96, 128, 192, 256, 320, 384, 512].map((kbps) => ({
@@ -250,11 +264,7 @@ export function ChannelSidebarMenus(props: ChannelSidebarMenusProps) {
                   useVoiceStore.getState().leaveVoiceChannel();
                   await new Promise((r) => setTimeout(r, 300));
                 }
-                await api.deleteChannel(activeServerId, room.id);
-                const { channels, activeChannelId, selectChannel } = useChatStore.getState();
-                const remaining = channels.filter((c) => c.id !== room.id);
-                useChatStore.setState({ channels: remaining });
-                if (activeChannelId === room.id && remaining.length > 0) selectChannel(remaining[0].id);
+                await performDeleteChannel(activeServerId, room.id);
               } catch (err) {
                 dbg("ui", "Failed to delete room:", err);
               }
@@ -282,11 +292,7 @@ export function ChannelSidebarMenus(props: ChannelSidebarMenusProps) {
           onConfirm={async () => {
             setIsDeleting(true);
             try {
-              await api.deleteChannel(activeServerId, deletingChannel.id);
-              const { channels, activeChannelId, selectChannel } = useChatStore.getState();
-              const remaining = channels.filter((c) => c.id !== deletingChannel.id);
-              useChatStore.setState({ channels: remaining });
-              if (activeChannelId === deletingChannel.id && remaining.length > 0) selectChannel(remaining[0].id);
+              await performDeleteChannel(activeServerId, deletingChannel.id);
               setDeletingChannel(null);
             } catch { /* ignore */ }
             finally { setIsDeleting(false); }

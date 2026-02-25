@@ -66,7 +66,6 @@ export type WSClientEvent =
   | { type: "share_server_key"; serverId: string; userId: string; encryptedKey: string }
   | { type: "request_server_key"; serverId: string }
   | { type: "spotify_playback_control"; sessionId: string; action: string; trackUri?: string; positionMs?: number; source?: string }
-  | { type: "voice_drink_update"; channelId: string; drinkCount: number }
   | { type: "update_status"; status: string }
   | { type: "play_sound"; channelId: string; soundId: string }
   | { type: "room_knock"; channelId: string }

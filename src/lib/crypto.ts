@@ -139,20 +139,6 @@ export async function generateGroupKey(): Promise<CryptoKey> {
   );
 }
 
-async function exportGroupKey(key: CryptoKey): Promise<ArrayBuffer> {
-  return crypto.subtle.exportKey("raw", key);
-}
-
-async function importGroupKey(raw: ArrayBuffer): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    raw,
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"],
-  );
-}
-
 // ── Group key wrapping (ECDH + AES-GCM wrap) ──
 
 async function deriveWrappingKey(

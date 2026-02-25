@@ -7,9 +7,6 @@ export function base64ToUtf8(b64: string): string {
   return new TextDecoder().decode(bytes);
 }
 
-export const EVERYONE_MENTION_RE = /(?<![a-zA-Z0-9_])@everyone(?![a-zA-Z0-9_])/i;
-export const HERE_MENTION_RE    = /(?<![a-zA-Z0-9_])@here(?![a-zA-Z0-9_])/i;
-
 export interface ChatState {
   servers: (Server & { role: string })[];
   channels: Channel[];
@@ -22,9 +19,7 @@ export interface ChatState {
   activeChannelId: string | null;
   hasMoreMessages: boolean;
   messageCursor: string | null;
-  loadingServers: boolean;
   loadingMessages: boolean;
-  channelsLoaded: boolean;
 
   // Reactions: messageId -> grouped reactions
   reactions: Record<string, { emoji: string; userIds: string[] }[]>;
@@ -150,30 +145,4 @@ export function getUsernameMap(members: MemberWithUser[]): Record<string, string
   return map;
 }
 
-// Helper to get image map
-export function getUserImageMap(members: MemberWithUser[]): Record<string, string | null> {
-  const map: Record<string, string | null> = {};
-  for (const m of members) {
-    map[m.userId] = m.image;
-  }
-  return map;
-}
-
-// Helper to get role map
-export function getUserRoleMap(members: MemberWithUser[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const m of members) {
-    map[m.userId] = m.role;
-  }
-  return map;
-}
-
-// Helper to get ring info map
-export function getUserRingMap(members: MemberWithUser[]): Record<string, { ringStyle: string; ringSpin: boolean; ringPatternSeed: number | null }> {
-  const map: Record<string, { ringStyle: string; ringSpin: boolean; ringPatternSeed: number | null }> = {};
-  for (const m of members) {
-    map[m.userId] = { ringStyle: m.ringStyle ?? "default", ringSpin: m.ringSpin ?? false, ringPatternSeed: m.ringPatternSeed ?? null };
-  }
-  return map;
-}
 

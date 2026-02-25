@@ -16,7 +16,7 @@ export function createStartSession(store: StoreApi<SpotifyState>) {
     const { player } = store.getState();
     player?.pause();
     yt().stopYouTube();
-    store.setState({ playerState: null, queue: [], searchResults: [], searchInput: "", showSearch: false });
+    store.setState({ playerState: null, queue: [], searchResults: [], searchInput: "" });
     useYouTubeStore.setState({ youtubeSearchResults: [] });
     await api.createListeningSession(voiceChannelId);
     await store.getState().loadSession(voiceChannelId);

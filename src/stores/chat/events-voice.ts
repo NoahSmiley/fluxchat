@@ -51,8 +51,8 @@ export function handleSoundboardPlay(event: any) {
     if (store.connectedChannelId !== event.channelId) return;
     store.stopLobbyMusicAction();
     const audioUrl = `${API_BASE}/files/${event.audioAttachmentId}/${event.audioFilename}`;
-    const audio = new Audio(audioUrl);
     const masterVolume = parseFloat(localStorage.getItem("soundboard-master-volume") ?? "1");
+    const audio = new Audio(audioUrl);
     audio.volume = Math.min(1, event.volume * masterVolume);
     audio.play().catch(() => {});
   });

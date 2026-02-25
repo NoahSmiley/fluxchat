@@ -6,10 +6,9 @@ import { useCryptoStore } from "@/stores/crypto.js";
 import { dbg } from "@/lib/debug.js";
 import { dmMessageCache, saveDMCache } from "@/stores/chat/types.js";
 import {
-  getChatStoreRef,
   savePreviousChannelState,
   clearChatStoreForDM,
-  decryptDMBatch,
+  decryptForChannel,
   decryptAndFilterSearchResults,
 } from "./helpers.js";
 
@@ -56,19 +55,9 @@ export const useDMStore = create<DMState>((set, get) => ({
   loadingDMMessages: false,
 
   showDMs: () => {
-    // Save current channel/server state in chat store before switching
     savePreviousChannelState();
-    const chatStoreRef = getChatStoreRef();
-    chatStoreRef?.setState({
-      activeServerId: null,
-      activeChannelId: null,
-      searchQuery: "",
-      searchFilters: {},
-      searchResults: null,
-    });
-    set({
-      showingDMs: true,
-    });
+    clearChatStoreForDM();
+    set({ showingDMs: true });
     get().loadDMChannels();
   },
 
@@ -96,6 +85,8 @@ export const useDMStore = create<DMState>((set, get) => ({
 
     // Restore cached DM messages for instant display
     const cachedDM = dmMessageCache.get(dmChannelId);
+    // Filter cache to only include messages for this channel (defensive)
+    const cachedMessages = cachedDM?.messages?.filter((m) => m.dmChannelId === dmChannelId) ?? [];
 
     // Clear chat store's server/channel state
     clearChatStoreForDM();
@@ -103,7 +94,7 @@ export const useDMStore = create<DMState>((set, get) => ({
     set({
       showingDMs: true,
       activeDMChannelId: dmChannelId,
-      dmMessages: cachedDM?.messages ?? [],
+      dmMessages: cachedMessages,
       dmHasMore: cachedDM?.hasMore ?? false,
       dmCursor: cachedDM?.cursor ?? null,
       loadingDMMessages: !cachedDM,
@@ -122,13 +113,8 @@ export const useDMStore = create<DMState>((set, get) => ({
         dmCursor: result.cursor,
         loadingDMMessages: false,
       });
-      // Update cache with fresh data
       saveDMCache(dmChannelId, get() as any);
-      // Decrypt DM messages
-      const dm = get().dmChannels.find((d) => d.id === dmChannelId);
-      if (dm) {
-        await decryptDMBatch(dmChannelId, dm.otherUser.id, result.items);
-      }
+      await decryptForChannel(get().dmChannels, dmChannelId, result.items);
     } catch {
       if (get().activeDMChannelId === dmChannelId) {
         set({ loadingDMMessages: false });
@@ -144,6 +130,12 @@ export const useDMStore = create<DMState>((set, get) => ({
         get().selectDM(existing.id);
         return;
       }
+      // Clear stale messages before async work so the UI doesn't flash old content
+      const prevDM = get().activeDMChannelId;
+      if (prevDM) {
+        saveDMCache(prevDM, get());
+      }
+      set({ dmMessages: [], activeDMChannelId: null, loadingDMMessages: true });
       const dm = await api.createDM(userId);
       set((state) => {
         const exists = state.dmChannels.some((d) => d.id === dm.id);
@@ -151,6 +143,7 @@ export const useDMStore = create<DMState>((set, get) => ({
       });
       get().selectDM(dm.id);
     } catch (e) {
+      set({ loadingDMMessages: false });
       dbg("chat", "Failed to open DM", e);
     }
   },
@@ -210,11 +203,7 @@ export const useDMStore = create<DMState>((set, get) => ({
         dmCursor: result.cursor,
         loadingDMMessages: false,
       }));
-      // Decrypt loaded DM messages
-      const dm = get().dmChannels.find((d) => d.id === activeDMChannelId);
-      if (dm) {
-        await decryptDMBatch(activeDMChannelId, dm.otherUser.id, result.items);
-      }
+      await decryptForChannel(get().dmChannels, activeDMChannelId, result.items);
     } catch {
       set({ loadingDMMessages: false });
     }

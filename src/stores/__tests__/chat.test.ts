@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useChatStore, getUsernameMap, getUserImageMap, getUserRoleMap } from "@/stores/chat/index.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { getUsernameMap } from "@/stores/chat/types.js";
 
 // Mock dependencies
 vi.mock("../../lib/api/index.js", () => ({
@@ -107,9 +108,7 @@ describe("useChatStore", () => {
       activeChannelId: null,
       hasMoreMessages: false,
       messageCursor: null,
-      loadingServers: false,
       loadingMessages: false,
-      channelsLoaded: false,
       reactions: {},
       searchQuery: "",
       searchFilters: {},
@@ -134,7 +133,7 @@ describe("useChatStore", () => {
     await useChatStore.getState().loadServers();
 
     expect(useChatStore.getState().servers).toEqual(mockServers);
-    expect(useChatStore.getState().loadingServers).toBe(false);
+    expect(useChatStore.getState().servers).toHaveLength(2);
   });
 
   it("sendMessage calls gateway.send with correct payload", () => {
@@ -243,13 +242,4 @@ describe("chat store helper functions", () => {
     expect(map).toEqual({ u1: "alice", u2: "bob" });
   });
 
-  it("getUserImageMap returns userId->image mapping", () => {
-    const map = getUserImageMap(members);
-    expect(map).toEqual({ u1: "a.png", u2: null });
-  });
-
-  it("getUserRoleMap returns userId->role mapping", () => {
-    const map = getUserRoleMap(members);
-    expect(map).toEqual({ u1: "owner", u2: "member" });
-  });
 });
