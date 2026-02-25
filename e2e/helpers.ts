@@ -1,4 +1,4 @@
-import { type Page } from "@playwright/test";
+import { type Page, type Locator } from "@playwright/test";
 
 const API_BASE = "http://127.0.0.1:3001";
 
@@ -336,4 +336,81 @@ export async function enterKonamiCode(page: Page) {
     await page.keyboard.press(key);
     await page.waitForTimeout(50);
   }
+}
+
+/**
+ * Right-click an element to trigger the context menu.
+ * Returns a locator for the `.context-menu` that appears (portalled to body).
+ */
+export async function rightClickElement(page: Page, locator: Locator) {
+  await locator.click({ button: "right" });
+  await page.waitForTimeout(300);
+  return page.locator(".context-menu").first();
+}
+
+/**
+ * Get the current user's ID from the session API.
+ */
+export async function getUserIdViaAPI(page: Page): Promise<string | null> {
+  return await page.evaluate(async () => {
+    const token = localStorage.getItem("flux-session-token");
+    if (!token) return null;
+    const res = await fetch("/api/auth/get-session", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.user?.id || null;
+  });
+}
+
+/**
+ * Get the first server ID the current user belongs to.
+ */
+export async function getServerIdViaAPI(page: Page): Promise<string | null> {
+  return await page.evaluate(async () => {
+    const token = localStorage.getItem("flux-session-token");
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch("/api/servers", { credentials: "include", headers });
+    if (!res.ok) return null;
+    const servers = await res.json();
+    return servers?.[0]?.id || null;
+  });
+}
+
+/**
+ * Create a channel via direct API call (bypasses UI).
+ * Returns the created channel object.
+ */
+export async function createChannelViaAPI(
+  page: Page,
+  name: string,
+  type: "text" | "voice" | "category" = "text",
+  options?: { parentId?: string; isRoom?: boolean },
+) {
+  return await page.evaluate(async ({ name, type, parentId, isRoom }) => {
+    const token = localStorage.getItem("flux-session-token");
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    // Get first server
+    const serversRes = await fetch("/api/servers", { credentials: "include", headers });
+    const servers = await serversRes.json();
+    const serverId = servers?.[0]?.id;
+    if (!serverId) return null;
+
+    const body: Record<string, unknown> = { name, type };
+    if (parentId) body.parentId = parentId;
+    if (isRoom) body.isRoom = true;
+
+    const res = await fetch(`/api/servers/${serverId}/channels`, {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    return res.json();
+  }, { name, type, parentId: options?.parentId, isRoom: options?.isRoom });
 }
