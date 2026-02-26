@@ -24,7 +24,7 @@ test.describe("Whitelist Management", () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      // Register first user (Alice) -- auto-creates "FluxChat" server
+      // Register first user (Alice) -- auto-creates "flux" server
       const alice = uniqueUser("wlAlice");
       await registerUser(pageA, alice.email, alice.username, alice.password);
 
@@ -52,7 +52,7 @@ test.describe("Whitelist Management", () => {
   test("add email to whitelist via server settings UI", async ({ page }) => {
     const user = uniqueUser("wlAdmin");
     await registerUser(page, user.email, user.username, user.password);
-    // Server "FluxChat" is auto-created; no manual creation needed
+    // Server "flux" is auto-created; no manual creation needed
 
     // Open server settings
     await openServerSettings(page);
@@ -82,7 +82,7 @@ test.describe("Whitelist Management", () => {
       const alice = uniqueUser("wlOk");
       const bob = uniqueUser("wlBobOk");
 
-      // Register Alice (first user, auto-creates "FluxChat" server)
+      // Register Alice (first user, auto-creates "flux" server)
       await registerUser(pageA, alice.email, alice.username, alice.password);
 
       // Whitelist Bob's email

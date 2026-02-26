@@ -19,7 +19,7 @@ test.describe("Direct Messaging", () => {
       const alice = uniqueUser("dmAlice");
       const bob = uniqueUser("dmBob");
 
-      // Register Alice (first user, auto-creates "FluxChat" server)
+      // Register Alice (first user, auto-creates "flux" server)
       await registerUser(pageA, alice.email, alice.username, alice.password);
 
       // Whitelist Bob

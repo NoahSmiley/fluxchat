@@ -15,13 +15,13 @@ test.describe("Server and Channel Management", () => {
   });
 
   test("auto-creates and auto-selects server for first user", async ({ page }) => {
-    // After registration, the first user should have the "FluxChat" server auto-created.
+    // After registration, the first user should have the "flux" server auto-created.
     // The channel sidebar should be visible with the server name
     await expect(page.locator(".channel-sidebar-header-title").first()).toBeVisible({ timeout: 10000 });
   });
 
   test("server name is displayed in channel sidebar header", async ({ page }) => {
-    // The auto-created server is named "FluxChat" (may have been renamed by a previous test run)
+    // The auto-created server is named "flux" (may have been renamed by a previous test run)
     const header = page.locator(".channel-sidebar-header-title").first();
     await expect(header).toBeVisible({ timeout: 10000 });
     const text = await header.textContent();

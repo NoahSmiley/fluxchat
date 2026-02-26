@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { Map } from "lucide-react";
 import type { Channel, ChannelType } from "@/types/shared.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
@@ -23,6 +24,7 @@ export function ChannelSidebar() {
     connecting: s.connecting, screenSharers: s.screenSharers, participants: s.participants,
   })));
   const openServerSettings = useUIStore((s) => s.openServerSettings);
+  const roadmapOpen = useUIStore((s) => s.roadmapOpen);
   const { user } = useAuthStore();
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = !!(server && (server.role === "owner" || server.role === "admin"));
@@ -60,6 +62,17 @@ export function ChannelSidebar() {
           onOpenSettings={openServerSettings}
         />
       )}
+
+      <button
+        className={`roadmap-sidebar-item${roadmapOpen ? " active" : ""}`}
+        onClick={() => {
+          useUIStore.getState().openRoadmap();
+          useChatStore.setState({ activeChannelId: null });
+        }}
+      >
+        <Map size={16} />
+        <span>Roadmap</span>
+      </button>
 
       {activeServerId && (
         <ChannelTree

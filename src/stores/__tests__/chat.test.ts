@@ -65,6 +65,7 @@ vi.mock("../ui.js", () => ({
   useUIStore: {
     getState: vi.fn(() => ({
       hideEconomy: vi.fn(),
+      closeRoadmap: vi.fn(),
     })),
   },
 }));

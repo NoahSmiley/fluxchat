@@ -31,6 +31,20 @@
 .crop-zoom-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
 .crop-zoom-row .settings-slider { flex: 1; }
 
+/* ── Gallery Crop Modal ── */
+.gallery-crop-modal { width: 440px; }
+.gallery-crop-hint { font-size: 12px; color: var(--text-muted); margin: -8px 0 12px; }
+.gallery-crop-preview {
+  position: relative;
+  width: 400px;
+  height: 160px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  margin-bottom: 12px;
+}
+
 .btn-danger { background: var(--danger); color: white; border: none; }
 .btn-danger:hover { opacity: 0.9; }
 

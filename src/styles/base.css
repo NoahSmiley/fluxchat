@@ -68,3 +68,111 @@ body {
 *:hover::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* ── Minimal Theme Overrides ── */
+
+/* Kill ALL animations and transitions */
+[data-theme="minimal"] *,
+[data-theme="minimal"] *::before,
+[data-theme="minimal"] *::after {
+  animation: none !important;
+  animation-duration: 0s !important;
+  transition: none !important;
+  transition-duration: 0s !important;
+}
+
+/* Kill all shadows and glows */
+[data-theme="minimal"] * {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* Kill all blur effects */
+[data-theme="minimal"] .modal,
+[data-theme="minimal"] .modal-overlay,
+[data-theme="minimal"] .auth-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Kill app border decorations */
+[data-theme="minimal"] .app-container::before,
+[data-theme="minimal"] .app-border::before,
+[data-theme="minimal"] [class*="app-border-"]::before {
+  display: none !important;
+}
+
+/* Kill avatar ring animations and glow effects */
+[data-theme="minimal"] [class*="ring-style-"]::before {
+  display: none !important;
+}
+[data-theme="minimal"] .avatar-glow,
+[data-theme="minimal"] .rare-glow {
+  display: none !important;
+}
+
+/* Flatten modal backgrounds — solid, no transparency */
+[data-theme="minimal"] .modal {
+  background: #050505 !important;
+}
+[data-theme="minimal"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Compact spacing — settings */
+[data-theme="minimal"] .settings-content {
+  padding: 16px 24px 24px !important;
+}
+[data-theme="minimal"] .settings-card {
+  padding: 14px !important;
+  margin-bottom: 10px !important;
+}
+[data-theme="minimal"] .settings-card-title {
+  margin-bottom: 10px !important;
+}
+[data-theme="minimal"] .settings-content-title {
+  margin-bottom: 16px !important;
+}
+[data-theme="minimal"] .settings-row {
+  padding: 6px 0 !important;
+}
+
+/* Compact spacing — modals */
+[data-theme="minimal"] .modal {
+  padding: 16px !important;
+}
+[data-theme="minimal"] .modal h3 {
+  margin-bottom: 12px !important;
+}
+
+/* Compact spacing — messages */
+[data-theme="minimal"] .messages-container {
+  padding: 10px !important;
+}
+[data-theme="minimal"] .message {
+  padding: 4px 40px 4px 12px !important;
+}
+
+/* Compact spacing — sidebar */
+[data-theme="minimal"] .settings-nav {
+  padding: 8px 8px 12px !important;
+}
+[data-theme="minimal"] .settings-nav-item {
+  padding: 6px 10px !important;
+}
+
+/* Kill hover scale transforms */
+[data-theme="minimal"] .sidebar-member-avatar:hover {
+  transform: none !important;
+}
+
+/* Performance rendering */
+[data-theme="minimal"] body {
+  text-rendering: optimizeSpeed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Kill decorative scrollbar transitions */
+[data-theme="minimal"] ::-webkit-scrollbar-thumb {
+  background: #1a1a1a !important;
+}

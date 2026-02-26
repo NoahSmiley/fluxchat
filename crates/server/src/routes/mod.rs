@@ -2,8 +2,10 @@ pub mod auth;
 pub mod dms;
 pub mod emojis;
 pub mod files;
+pub mod gallery;
 pub mod keys;
 pub mod messages;
+pub mod roadmap;
 pub mod servers;
 pub mod soundboard;
 pub mod spotify;
@@ -87,11 +89,22 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         // YouTube
         .route("/youtube/search", get(youtube::search))
         .route("/youtube/audio/{videoId}", get(youtube::stream_audio))
+        // Roadmap
+        .route("/servers/{serverId}/roadmap", get(roadmap::list_roadmap_items).post(roadmap::create_roadmap_item))
+        .route("/servers/{serverId}/roadmap/{itemId}", patch(roadmap::update_roadmap_item).delete(roadmap::delete_roadmap_item))
         // Soundboard
         .route("/servers/{serverId}/soundboard", get(soundboard::list_sounds))
         .route("/servers/{serverId}/soundboard", post(soundboard::create_sound))
         .route("/servers/{serverId}/soundboard/{soundId}", patch(soundboard::update_sound).delete(soundboard::delete_sound))
         .route("/servers/{serverId}/soundboard/{soundId}/favorite", post(soundboard::favorite_sound).delete(soundboard::unfavorite_sound))
+        // Gallery
+        .route("/gallery", get(gallery::list_gallery_sets).post(gallery::create_gallery_set))
+        .route("/gallery/mine", get(gallery::list_my_sets))
+        .route("/gallery/subscribed", get(gallery::list_subscribed))
+        .route("/gallery/{setId}", get(gallery::get_gallery_set).patch(gallery::manage::update_gallery_set).delete(gallery::manage::delete_gallery_set))
+        .route("/gallery/{setId}/subscribe", post(gallery::manage::subscribe).delete(gallery::manage::unsubscribe))
+        .route("/gallery/{setId}/images", post(gallery::manage::add_images))
+        .route("/gallery/{setId}/images/{imageId}", delete(gallery::manage::remove_image))
         // Custom emoji
         .route("/servers/{serverId}/emojis", get(emojis::list_emojis).post(emojis::create_emoji))
         .route("/servers/{serverId}/emojis/{emojiId}", delete(emojis::delete_emoji))

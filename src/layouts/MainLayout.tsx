@@ -17,6 +17,7 @@ import { useIdleDetection } from "@/hooks/useIdleDetection.js";
 import { useUIStore } from "@/stores/ui.js";
 
 const SettingsModal = lazy(() => import("@/components/SettingsModal.js").then(m => ({ default: m.SettingsModal })));
+const RoadmapView = lazy(() => import("@/components/roadmap/RoadmapView.js").then(m => ({ default: m.RoadmapView })));
 
 function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; side: "left" | "right" }) {
   const dragging = useRef(false);
@@ -60,6 +61,7 @@ export function MainLayout() {
   })));
   const { user } = useAuthStore();
   const serverSettingsOpen = useUIStore((s) => s.serverSettingsOpen);
+  const roadmapOpen = useUIStore((s) => s.roadmapOpen);
   const [sidebarWidth, setSidebarWidth] = useState(240);
 
   useEffect(() => {
@@ -168,6 +170,8 @@ export function MainLayout() {
               <p>Select a conversation or start a new one</p>
             </div>
           )
+        ) : roadmapOpen ? (
+          <Suspense fallback={null}><RoadmapView /></Suspense>
         ) : activeChannelId ? (
           activeChannel?.type === "voice" ? (
             <VoiceChannelView />

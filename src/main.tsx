@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./App.js";
 import { PopoutApp } from "./PopoutApp.js";
 import { isPopout } from "./lib/broadcast.js";
+import { initThemeApplicator } from "./lib/applyTheme.js";
 // Global styles
 import "./styles/base.css";
 import "./styles/layout-main.css";
@@ -40,6 +41,9 @@ import "./components/music/styles/music-search.css";
 import "./components/music/styles/music-queue.css";
 import "./components/music/styles/soundboard-panel.css";
 import "./components/music/styles/soundboard-tab.css";
+import "./components/roadmap/styles/roadmap.css";
+
+initThemeApplicator();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

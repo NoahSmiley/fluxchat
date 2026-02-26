@@ -203,6 +203,79 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
     .execute(&pool)
     .await?;
 
+    // Roadmap items
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS "roadmap_items" (
+            id TEXT PRIMARY KEY,
+            server_id TEXT NOT NULL REFERENCES "servers"(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'planned',
+            category TEXT,
+            created_by TEXT NOT NULL REFERENCES "user"(id),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_roadmap_server ON roadmap_items(server_id)"#)
+        .execute(&pool)
+        .await?;
+
+    // Gallery sets (global, any user can create)
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS "gallery_sets" (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            creator_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+            cover_attachment_id TEXT REFERENCES "attachments"(id) ON DELETE SET NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&pool)
+    .await
+    .ok();
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_gallery_sets_creator ON gallery_sets(creator_id)"#)
+        .execute(&pool)
+        .await
+        .ok();
+
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS "gallery_set_images" (
+            id TEXT PRIMARY KEY,
+            set_id TEXT NOT NULL REFERENCES "gallery_sets"(id) ON DELETE CASCADE,
+            attachment_id TEXT NOT NULL REFERENCES "attachments"(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&pool)
+    .await
+    .ok();
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_gallery_set_images_set ON gallery_set_images(set_id)"#)
+        .execute(&pool)
+        .await
+        .ok();
+
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS "gallery_subscriptions" (
+            user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+            set_id TEXT NOT NULL REFERENCES "gallery_sets"(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, set_id)
+        )"#,
+    )
+    .execute(&pool)
+    .await
+    .ok();
+
     tracing::info!("Database initialized at {}", database_path);
     Ok(pool)
 }

@@ -109,7 +109,7 @@ test.describe("Messaging", () => {
       const alice = uniqueUser("rtAlice");
       const bob = uniqueUser("rtBob");
 
-      // Register Alice (first user bypasses whitelist, auto-creates "FluxChat" server)
+      // Register Alice (first user bypasses whitelist, auto-creates "flux" server)
       await registerUser(pageA, alice.email, alice.username, alice.password);
 
       // Create a channel and select it

@@ -8,6 +8,7 @@ import { getDebugEnabled, setDebugEnabled, dumpLogs } from "@/lib/debug.js";
 import { X } from "lucide-react";
 import { ProfileTab } from "./settings/ProfileTab.js";
 import { AppearanceTab } from "./settings/AppearanceTab.js";
+import { GalleryTab } from "./settings/GalleryTab.js";
 import { NotificationsTab } from "./settings/NotificationsTab.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
 
@@ -118,11 +119,12 @@ function KeybindButton({ entry }: { entry: KeybindEntry }) {
   );
 }
 
-type SettingsTab = "profile" | "appearance" | "notifications" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "debug";
+type SettingsTab = "profile" | "appearance" | "gallery" | "notifications" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "debug";
 
 const TAB_LABELS: Record<SettingsTab, string> = {
   profile: "Profile",
   appearance: "Appearance",
+  gallery: "Gallery",
   notifications: "Notifications",
   voice: "Voice & Audio",
   keybinds: "Keybinds",
@@ -135,8 +137,8 @@ const TAB_LABELS: Record<SettingsTab, string> = {
 const TABS = Object.keys(TAB_LABELS) as SettingsTab[];
 
 export function SettingsModal() {
-  const { settingsOpen, closeSettings } = useUIStore(useShallow((s) => ({
-    settingsOpen: s.settingsOpen, closeSettings: s.closeSettings,
+  const { settingsOpen, settingsTab, closeSettings } = useUIStore(useShallow((s) => ({
+    settingsOpen: s.settingsOpen, settingsTab: s.settingsTab, closeSettings: s.closeSettings,
   })));
   const { keybinds } = useKeybindsStore(useShallow((s) => ({ keybinds: s.keybinds })));
   const { account, startOAuthFlow, unlinkAccount, polling, oauthError } = useSpotifyStore(useShallow((s) => ({
@@ -150,7 +152,16 @@ export function SettingsModal() {
 
   const [debugMode, setDebugMode] = useState(getDebugEnabled);
   const [logsCopied, setLogsCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
+    settingsTab && settingsTab in TAB_LABELS ? settingsTab as SettingsTab : "profile"
+  );
+
+  // Sync active tab when settingsTab changes from store (e.g. "Browse" button)
+  useEffect(() => {
+    if (settingsTab && settingsTab in TAB_LABELS) {
+      setActiveTab(settingsTab as SettingsTab);
+    }
+  }, [settingsTab]);
 
   // Stop recording keybind when modal closes
   useEffect(() => {
@@ -187,6 +198,8 @@ export function SettingsModal() {
         {activeTab === "profile" && <ProfileTab />}
 
         {activeTab === "appearance" && <AppearanceTab />}
+
+        {activeTab === "gallery" && <GalleryTab />}
 
         {activeTab === "notifications" && <NotificationsTab />}
 

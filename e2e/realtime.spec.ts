@@ -22,7 +22,7 @@ test.describe("Real-time Multi-user Features", () => {
       const alice = uniqueUser("rtJoinA");
       const bob = uniqueUser("rtJoinB");
 
-      // Register Alice (first user, auto-creates "FluxChat" server)
+      // Register Alice (first user, auto-creates "flux" server)
       await registerUser(pageA, alice.email, alice.username, alice.password);
 
       await whitelistEmailViaAPI(pageA, bob.email);
@@ -48,7 +48,7 @@ test.describe("Real-time Multi-user Features", () => {
       const alice = uniqueUser("rtMemA");
       const bob = uniqueUser("rtMemB");
 
-      // Register Alice (first user, auto-creates "FluxChat" server)
+      // Register Alice (first user, auto-creates "flux" server)
       await registerUser(pageA, alice.email, alice.username, alice.password);
 
       await whitelistEmailViaAPI(pageA, bob.email);
@@ -83,7 +83,7 @@ test.describe("Real-time Multi-user Features", () => {
       const alice = uniqueUser("rtMsgA");
       const bob = uniqueUser("rtMsgB");
 
-      // Register Alice (first user, auto-creates "FluxChat" server)
+      // Register Alice (first user, auto-creates "flux" server)
       await registerUser(pageA, alice.email, alice.username, alice.password);
       await createChannel(pageA, "realtime-chat", "text");
       await selectChannel(pageA, "realtime-chat");
@@ -115,7 +115,7 @@ test.describe("Real-time Multi-user Features", () => {
       const alice = uniqueUser("biA");
       const bob = uniqueUser("biB");
 
-      // Register Alice (first user, auto-creates "FluxChat" server)
+      // Register Alice (first user, auto-creates "flux" server)
       await registerUser(pageA, alice.email, alice.username, alice.password);
       await createChannel(pageA, "bi-chat", "text");
       await selectChannel(pageA, "bi-chat");
@@ -153,7 +153,7 @@ test.describe("Real-time Multi-user Features", () => {
       const alice = uniqueUser("presA");
       const bob = uniqueUser("presB");
 
-      // Register Alice (first user, auto-creates "FluxChat" server)
+      // Register Alice (first user, auto-creates "flux" server)
       await registerUser(pageA, alice.email, alice.username, alice.password);
 
       await whitelistEmailViaAPI(pageA, bob.email);
@@ -175,7 +175,7 @@ test.describe("Real-time Multi-user Features", () => {
   test("WebSocket reconnects and recovers state", async ({ page }) => {
     const user = uniqueUser("wsRecon");
     await registerUser(page, user.email, user.username, user.password);
-    // Server "FluxChat" is auto-created; no manual creation needed
+    // Server "flux" is auto-created; no manual creation needed
 
     await createChannel(page, "recon-chat", "text");
     await selectChannel(page, "recon-chat");

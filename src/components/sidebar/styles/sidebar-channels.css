@@ -43,6 +43,330 @@
   background: rgba(255, 255, 255, 0.07);
 }
 
+/* ── Gallery Active Header ── */
+.channel-sidebar-header.gallery-active {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border-bottom: none;
+  margin-bottom: 8px;
+}
+.channel-sidebar-header.gallery-active:hover {
+  background: none;
+}
+.gallery-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: background 0.4s ease;
+}
+.gallery-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+/* ── Gallery Active Header — Bottom gradient ── */
+.channel-sidebar-header.gallery-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 40%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Gallery Resize Handle ── */
+.gallery-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: row-resize;
+  z-index: 2;
+  background: transparent;
+  transition: background 0.15s;
+}
+.gallery-resize-handle:hover {
+  background: var(--accent);
+}
+
+/* ── Gallery Popover ── */
+.gallery-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(10, 10, 18, 0.78);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-radius: 0 0 12px 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+  animation: gallery-popover-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes gallery-popover-enter {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.gallery-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.gallery-popover-title {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+.gallery-popover-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+.gallery-popover-close:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.07);
+}
+.gallery-popover-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gallery-popover-section-label {
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.gallery-popover-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.gallery-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+}
+.gallery-thumb:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.gallery-thumb.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb, 124, 92, 255), 0.3), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.gallery-thumb-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.gallery-set-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.gallery-set-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+.gallery-set-row.active {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb, 124, 92, 255), 0.15);
+}
+.gallery-set-preview {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.gallery-set-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+}
+.gallery-set-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.gallery-rotation-row {
+  display: flex;
+  gap: 4px;
+}
+.gallery-rotation-btn {
+  flex: 1;
+  padding: 4px 0;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.gallery-rotation-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+.gallery-rotation-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb, 124, 92, 255), 0.2);
+}
+.gallery-popover-actions {
+  display: flex;
+  gap: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 8px;
+}
+.gallery-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.gallery-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}
+.gallery-action-off:hover {
+  color: var(--danger);
+  border-color: rgba(255, 68, 68, 0.3);
+}
+
+/* ── Gallery Height Slider ── */
+.gallery-height-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+  cursor: pointer;
+}
+.gallery-height-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid rgba(10, 10, 18, 0.8);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb, 124, 92, 255), 0.4);
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+.gallery-height-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb, 124, 92, 255), 0.5);
+}
+
+/* ── Gallery Position Controls ── */
+.gallery-position-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gallery-position-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.gallery-position-reset {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.gallery-position-reset:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.07);
+}
+.gallery-position-pad {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.gallery-position-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: left 0.05s, top 0.05s;
+}
+
 /* ── Channel Sidebar ── */
 .channel-sidebar {
   background: var(--bg-primary);
@@ -54,6 +378,33 @@
   position: relative;
   z-index: 1001;
 }
+
+/* ── Roadmap Sidebar Item ── */
+.roadmap-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.roadmap-sidebar-item:hover {
+  color: var(--text-primary);
+  background: var(--bg-modifier-hover);
+}
+.roadmap-sidebar-item.active {
+  color: var(--text-primary);
+  background: var(--bg-modifier-active);
+}
+
 .channel-add-floating-btn {
   flex-shrink: 0;
   width: 100%;
@@ -89,7 +440,6 @@
   justify-content: center;
 }
 .create-room-btn-wrapper {
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -97,19 +447,23 @@
 }
 
 @keyframes create-btn-enter {
-  from { height: 0; opacity: 0; }
-  to   { height: 40px; opacity: 1; }
+  0%   { opacity: 0; min-height: 0; height: 0; }
+  60%  { opacity: 0; min-height: 40px; }
+  100% { opacity: 1; min-height: 40px; }
 }
 @keyframes create-btn-exit {
-  from { height: 40px; opacity: 1; }
-  to   { height: 0; opacity: 0; }
+  0%   { opacity: 1; min-height: 40px; }
+  40%  { opacity: 0; min-height: 40px; }
+  100% { opacity: 0; min-height: 0; height: 0; }
 }
 .create-room-btn-enter {
-  animation: create-btn-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: create-btn-enter 0.35s ease both;
+  overflow: hidden;
 }
 .create-room-btn-exit {
-  animation: create-btn-exit 0.3s cubic-bezier(0.4, 0, 1, 1) both;
+  animation: create-btn-exit 0.35s ease both;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .create-room-btn {

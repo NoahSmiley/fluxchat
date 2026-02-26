@@ -69,3 +69,44 @@ export interface EmojiFavorites {
   standard: string[];   // Unicode chars
   customIds: string[];  // custom_emoji ids
 }
+
+export interface RoadmapItem {
+  id: string;
+  serverId: string;
+  title: string;
+  description: string;
+  status: "planned" | "in-progress" | "done" | "bug";
+  category: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GallerySet {
+  id: string;
+  name: string;
+  description: string;
+  creatorId: string;
+  creatorUsername: string;
+  coverAttachmentId: string | null;
+  coverFilename: string | null;
+  imageCount: number;
+  subscriberCount: number;
+  subscribed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GallerySetImage {
+  id: string;
+  setId: string;
+  attachmentId: string;
+  filename: string;
+  name: string;
+  position: number;
+  createdAt: string;
+}
+
+export interface GallerySetDetail extends GallerySet {
+  images: GallerySetImage[];
+}

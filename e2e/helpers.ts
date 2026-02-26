@@ -119,7 +119,7 @@ export function uniqueUser(prefix = "user") {
  * Before registration, the email is automatically whitelisted using an admin
  * token (the admin is auto-bootstrapped as the first user in the DB).
  *
- * After registration, the user auto-joins the "FluxChat" server with
+ * After registration, the user auto-joins the "flux" server with
  * "general" text and voice channels.
  */
 export async function registerUser(

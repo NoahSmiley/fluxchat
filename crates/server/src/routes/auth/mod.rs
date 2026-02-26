@@ -176,7 +176,7 @@ pub async fn sign_up(
         // First user: create the default server + channels
         let sid = uuid::Uuid::new_v4().to_string();
         sqlx::query(
-            "INSERT INTO servers (id, name, owner_id, invite_code, created_at) VALUES (?, 'FluxChat', ?, 'none', ?)",
+            "INSERT INTO servers (id, name, owner_id, invite_code, created_at) VALUES (?, 'flux', ?, 'none', ?)",
         )
         .bind(&sid)
         .bind(&user_id)

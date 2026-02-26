@@ -12,7 +12,7 @@ test.describe("Settings UI", () => {
     username = user.username;
     password = user.password;
     await registerUser(page, email, username, password);
-    // Server "FluxChat" is auto-created on first user registration; no manual creation needed
+    // Server "flux" is auto-created on first user registration; no manual creation needed
   });
 
   test("settings modal can be opened and closed", async ({ page }) => {

@@ -22,8 +22,8 @@ test.describe("Server Settings Page", () => {
     await registerUser(page, user.email, user.username, user.password);
 
     await openServerSettings(page);
-    // Should show the server name "FluxChat" (auto-created)
-    await expect(page.locator('text=FluxChat').first()).toBeVisible({ timeout: 5000 });
+    // Should show the server name "flux" (auto-created)
+    await expect(page.locator('text=flux').first()).toBeVisible({ timeout: 5000 });
   });
 
   test("can navigate to Members tab", async ({ page }) => {

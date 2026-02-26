@@ -127,15 +127,19 @@ export function JoinVoiceSection({
           items={voiceWithUsers.map(({ channel: vc, participants }) => ({ key: vc.id, channel: vc, participants }))}
           duration={ANIMATED_LIST_DURATION_MS}
           renderItem={({ channel: vc, participants }, state) => {
+            const isExiting = state === "exiting";
             const isRoomCollapsed = collapsedRooms.has(vc.id);
             const isCurrent = connectedChannelId === vc.id;
             const isLocked = !!vc.isLocked;
-            const wrapperClass = state === "exiting" ? "voice-room-exit" : state === "entering" ? "voice-room-enter" : "";
+            const wrapperClass = isExiting ? "voice-room-exit" : state === "entering" ? "voice-room-enter" : "";
+            // When exiting, freeze the detailed view so content doesn't collapse mid-animation
+            const showDetailed = isRoomCollapsed ? false : isExiting || isInVoice;
             return (
-              <RoomWrapper key={vc.id} className={`voice-room-group-wrapper ${wrapperClass}`} isExiting={state === "exiting"}>
+              <RoomWrapper key={vc.id} className={`voice-room-group-wrapper ${wrapperClass}`} isExiting={isExiting}>
                 <div
                   className={`voice-room-group ${isCurrent ? "voice-room-current" : ""}${dragHighlightRoom === vc.id ? " voice-room-drop-target" : ""}${isLocked ? " voice-room-locked" : ""}`}
                   onClick={() => {
+                    if (isExiting) return;
                     if (vc.isLocked && vc.creatorId !== user?.id && !isOwnerOrAdmin) {
                       gateway.send({ type: "room_knock", channelId: vc.id });
                       return;
@@ -146,7 +150,7 @@ export function JoinVoiceSection({
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    onRoomContextMenu(e, vc);
+                    if (!isExiting) onRoomContextMenu(e, vc);
                   }}
                   onDragOver={(e) => {
                     if (e.dataTransfer.types.includes("application/flux-member")) {
@@ -193,9 +197,7 @@ export function JoinVoiceSection({
                         )}
                       </div>
                     </div>
-                    {isRoomCollapsed ? (
-                      <CollapsedAvatars participants={participants} members={members} />
-                    ) : isInVoice ? (
+                    {showDetailed ? (
                       <div className="voice-room-detailed">
                         <AnimatedUserRows
                           participants={participants}
