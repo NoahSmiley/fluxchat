@@ -1,6 +1,7 @@
 import { dbg } from "@/lib/debug.js";
 import { playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from "@/lib/sounds.js";
 import { setAdaptiveTargetBitrate } from "./connection.js";
+import { setParticipantGain } from "./room-events.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";
 
@@ -58,7 +59,8 @@ export function createSetParticipantVolume(storeRef: StoreApi<VoiceState>) {
         [participantId]: volume,
       },
     }));
-    dbg("voice", `setParticipantVolume stored vol=${volume} participant=${participantId}`);
+    setParticipantGain(participantId, volume);
+    dbg("voice", `setParticipantVolume vol=${volume} participant=${participantId}`);
   };
 }
 

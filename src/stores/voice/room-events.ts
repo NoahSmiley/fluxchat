@@ -11,6 +11,37 @@ const SPEAKING_THRESHOLD = 0.02;
 const SPEAKING_HOLD_MS = 200;
 const POLL_INTERVAL_MS = 50; // 20fps
 
+// ── Per-participant audio pipelines (GainNode for volume control) ──
+interface ParticipantAudio {
+  ctx: AudioContext;
+  gain: GainNode;
+  source: MediaElementAudioSourceNode;
+}
+const participantAudioPipelines = new Map<string, ParticipantAudio>();
+
+export function setParticipantGain(identity: string, volume: number) {
+  const pipeline = participantAudioPipelines.get(identity);
+  if (pipeline) {
+    pipeline.gain.gain.setValueAtTime(volume, pipeline.ctx.currentTime);
+  }
+}
+
+function cleanupParticipantAudio(identity: string) {
+  const pipeline = participantAudioPipelines.get(identity);
+  if (pipeline) {
+    pipeline.source.disconnect();
+    pipeline.gain.disconnect();
+    pipeline.ctx.close().catch(() => {});
+    participantAudioPipelines.delete(identity);
+  }
+}
+
+function cleanupAllParticipantAudio() {
+  for (const identity of participantAudioPipelines.keys()) {
+    cleanupParticipantAudio(identity);
+  }
+}
+
 export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState>) {
   const get = () => storeRef.getState();
   const set = (partial: Partial<VoiceState> | ((state: VoiceState) => Partial<VoiceState>)) => {
@@ -121,6 +152,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
       pollTimer = null;
     }
     cleanupLocalAnalyser();
+    cleanupAllParticipantAudio();
     speakingHoldTimers.clear();
     dbg("voice", `Room Disconnected reason=${reason}`);
     stopStatsPolling();
@@ -170,8 +202,28 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     });
 
     if (track.kind === Track.Kind.Audio) {
-      track.attach();
-      dbg("voice", `TrackSubscribed attached audio for ${participant.identity}`);
+      get()._updateParticipants();
+      const elements = track.attach();
+      const audioEl = elements.find((el): el is HTMLAudioElement => el instanceof HTMLAudioElement);
+      if (audioEl) {
+        try {
+          // Route through GainNode for per-participant volume control (supports 0-200%)
+          const ctx = new AudioContext();
+          const source = ctx.createMediaElementSource(audioEl);
+          const gain = ctx.createGain();
+          const vol = get().participantVolumes[participant.identity] ?? 1.0;
+          gain.gain.setValueAtTime(vol, ctx.currentTime);
+          source.connect(gain);
+          gain.connect(ctx.destination);
+          cleanupParticipantAudio(participant.identity);
+          participantAudioPipelines.set(participant.identity, { ctx, gain, source });
+          dbg("voice", `TrackSubscribed attached audio with GainNode for ${participant.identity} vol=${vol}`);
+        } catch (e) {
+          dbg("voice", `TrackSubscribed GainNode setup failed for ${participant.identity}, using raw attach`, e);
+        }
+      } else {
+        dbg("voice", `TrackSubscribed attached audio for ${participant.identity} (no HTMLAudioElement)`);
+      }
     }
     if (track.kind === Track.Kind.Video) {
       dbg("voice", `TrackSubscribed video from ${participant.identity}, updating screen sharers`);
@@ -185,6 +237,10 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
 
   room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
     dbg("voice", `TrackUnsubscribed participant=${participant?.identity} kind=${track.kind} sid=${track.sid}`);
+    if (track.kind === Track.Kind.Audio && participant) {
+      cleanupParticipantAudio(participant.identity);
+      get()._updateParticipants();
+    }
     const detached = track.detach();
     dbg("voice", `TrackUnsubscribed detached ${detached.length} HTML element(s)`);
     detached.forEach((el) => el.remove());
