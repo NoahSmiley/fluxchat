@@ -5,6 +5,7 @@ import { useKeybindsStore } from "@/stores/keybinds.js";
 import { useCryptoStore } from "@/stores/crypto.js";
 import { exportKeyAsBase64 } from "@/lib/crypto.js";
 import { dbg } from "@/lib/debug.js";
+import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
 
 import type { VoiceState } from "./types.js";
 import { checkLobbyMusic, stopLobbyMusic } from "./lobby.js";
@@ -12,7 +13,7 @@ import { startStatsPolling } from "./stats.js";
 import { setupRoomEventHandlers } from "./room-events.js";
 import type { StoreApi } from "zustand";
 
-const DEFAULT_BITRATE = 128_000;
+const DEFAULT_BITRATE = 510_000;
 
 // Cached chat store ref (populated on first joinVoiceChannel, avoids async gap on leave)
 let cachedChatStore: any = null;
@@ -188,6 +189,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       get()._updateScreenSharers();
       startStatsPolling();
       checkLobbyMusic();
+      playJoinSound();
 
       // If push-to-talk is configured, start muted
       const { keybinds } = useKeybindsStore.getState();
@@ -222,6 +224,7 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
     const localId = room?.localParticipant?.identity;
 
     stopLobbyMusic();
+    playLeaveSound();
 
     try {
       import("@/stores/spotify/store.js").then(({ useSpotifyStore }) => {

@@ -1,5 +1,6 @@
 import { Room, RoomEvent, Track, VideoQuality } from "livekit-client";
 import { dbg } from "@/lib/debug.js";
+import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
 import { checkLobbyMusic } from "./lobby.js";
 import { stopStatsPolling } from "./stats.js";
 import { adaptiveTargetBitrate } from "./connection.js";
@@ -140,12 +141,14 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     dbg("voice", `ParticipantConnected identity=${p.identity} name=${p.name}`);
     get()._updateParticipants();
     checkLobbyMusic();
+    playJoinSound();
   });
   room.on(RoomEvent.ParticipantDisconnected, (p) => {
     dbg("voice", `ParticipantDisconnected identity=${p.identity}`);
     get()._updateParticipants();
     get()._updateScreenSharers();
     checkLobbyMusic();
+    playLeaveSound();
   });
   room.on(RoomEvent.TrackMuted, (pub, participant) => {
     dbg("voice", `TrackMuted participant=${participant.identity} track=${pub.trackSid} source=${pub.source}`);

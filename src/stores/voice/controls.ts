@@ -1,4 +1,5 @@
 import { dbg } from "@/lib/debug.js";
+import { playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from "@/lib/sounds.js";
 import { setAdaptiveTargetBitrate } from "./connection.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";
@@ -12,6 +13,7 @@ export function createToggleMute(storeRef: StoreApi<VoiceState>) {
     room.localParticipant.setMicrophoneEnabled(!newMuted);
     storeRef.setState({ isMuted: newMuted });
     storeRef.getState()._updateParticipants();
+    newMuted ? playMuteSound() : playUnmuteSound();
   };
 }
 
@@ -22,6 +24,7 @@ export function createSetMuted(storeRef: StoreApi<VoiceState>) {
     room.localParticipant.setMicrophoneEnabled(!muted);
     storeRef.setState({ isMuted: muted });
     storeRef.getState()._updateParticipants();
+    muted ? playMuteSound() : playUnmuteSound();
   };
 }
 
@@ -43,6 +46,7 @@ export function createToggleDeafen(storeRef: StoreApi<VoiceState>) {
       storeRef.setState({ isDeafened: newDeafened });
     }
     storeRef.getState()._updateParticipants();
+    newDeafened ? playDeafenSound() : playUndeafenSound();
   };
 }
 
