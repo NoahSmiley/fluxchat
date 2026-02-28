@@ -10,6 +10,12 @@ export interface AudioSettings {
   audioInputDeviceId: string;
   audioOutputDeviceId: string;
   dtx: boolean;
+  noiseSuppression: "off" | "standard" | "enhanced" | "dtln";
+  echoCancellation: boolean;
+  autoGainControl: boolean;
+  voiceGating: boolean;
+  sensitivity: number; // VAD threshold 0.0–1.0
+  adaptiveBitrate: boolean;
 }
 
 export interface VoiceUser {
@@ -53,6 +59,12 @@ export const DEFAULT_SETTINGS: AudioSettings = {
   audioInputDeviceId: "",
   audioOutputDeviceId: "",
   dtx: false,
+  noiseSuppression: "standard",
+  echoCancellation: true,
+  autoGainControl: true,
+  voiceGating: false,
+  sensitivity: 0.5,
+  adaptiveBitrate: true,
 };
 
 export interface VoiceState {

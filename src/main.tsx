@@ -32,6 +32,7 @@ import "./components/voice/styles/screen-share-controls.css";
 import "./components/settings/styles/settings-layout.css";
 import "./components/settings/styles/settings-controls.css";
 import "./components/settings/styles/settings-appearance.css";
+import "./components/settings/styles/audio-test.css";
 import "./components/styles/emoji-picker.css";
 import "./components/styles/emoji-grid.css";
 import "./components/music/styles/music-player.css";

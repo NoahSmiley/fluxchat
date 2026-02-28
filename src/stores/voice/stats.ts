@@ -1,5 +1,6 @@
 import { dbg } from "@/lib/debug.js";
 import { collectWebRTCStats, resetStatsDelta } from "@/lib/webrtcStats.js";
+import { tickAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import type { StoreApi } from "zustand";
 import type { VoiceState } from "./types.js";
 
@@ -18,10 +19,14 @@ export function startStatsPolling() {
   stopStatsPolling();
   resetStatsDelta();
   statsInterval = setInterval(async () => {
-    const { room } = storeRef!.getState();
+    const { room, audioSettings } = storeRef!.getState();
     if (!room) return;
     try {
-      await collectWebRTCStats(room);
+      const stats = await collectWebRTCStats(room);
+      // Feed packet loss to adaptive bitrate algorithm
+      if (audioSettings.adaptiveBitrate) {
+        tickAdaptiveBitrate(stats.audioPacketLoss);
+      }
     } catch (e) {
       dbg("voice", "stats polling error", e);
     }

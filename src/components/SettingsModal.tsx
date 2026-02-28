@@ -10,13 +10,31 @@ import { ProfileTab } from "./settings/ProfileTab.js";
 import { AppearanceTab } from "./settings/AppearanceTab.js";
 import { GalleryTab } from "./settings/GalleryTab.js";
 import { NotificationsTab } from "./settings/NotificationsTab.js";
+import { AudioTestTab } from "./settings/AudioTestTab.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
+
+function AudioTestModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal audio-test-modal">
+        <div className="audio-test-modal-header">
+          <h3>Audio A/B Test</h3>
+          <button className="modal-close-btn" onClick={onClose}><X size={16} /></button>
+        </div>
+        <div className="audio-test-modal-body">
+          <AudioTestTab />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function VoiceSettingsTab() {
   const { audioSettings, updateAudioSetting } = useVoiceStore(useShallow((s) => ({
     audioSettings: s.audioSettings, updateAudioSetting: s.updateAudioSetting,
   })));
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [audioTestOpen, setAudioTestOpen] = useState(false);
 
   useEffect(() => {
     navigator.mediaDevices.enumerateDevices().then(setDevices).catch(() => {});
@@ -29,35 +47,118 @@ function VoiceSettingsTab() {
   const outputs = devices.filter((d) => d.kind === "audiooutput");
 
   return (
-    <div className="settings-card">
-      <h3 className="settings-card-title">Voice & Audio</h3>
-      <div className="voice-device-row">
-        <label className="voice-device-label">Input Device</label>
-        <select
-          className="settings-select voice-device-select"
-          value={audioSettings.audioInputDeviceId}
-          onChange={(e) => updateAudioSetting("audioInputDeviceId", e.target.value)}
-        >
-          <option value="">System Default</option>
-          {inputs.map((d) => (
-            <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${d.deviceId.slice(0, 8)}`}</option>
-          ))}
-        </select>
+    <>
+      <div className="settings-card">
+        <h3 className="settings-card-title">Devices</h3>
+        <div className="voice-device-row">
+          <label className="voice-device-label">Input Device</label>
+          <select
+            className="settings-select voice-device-select"
+            value={audioSettings.audioInputDeviceId}
+            onChange={(e) => updateAudioSetting("audioInputDeviceId", e.target.value)}
+          >
+            <option value="">System Default</option>
+            {inputs.map((d) => (
+              <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${d.deviceId.slice(0, 8)}`}</option>
+            ))}
+          </select>
+        </div>
+        <div className="voice-device-row">
+          <label className="voice-device-label">Output Device</label>
+          <select
+            className="settings-select voice-device-select"
+            value={audioSettings.audioOutputDeviceId}
+            onChange={(e) => updateAudioSetting("audioOutputDeviceId", e.target.value)}
+          >
+            <option value="">System Default</option>
+            {outputs.map((d) => (
+              <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${d.deviceId.slice(0, 8)}`}</option>
+            ))}
+          </select>
+        </div>
       </div>
-      <div className="voice-device-row">
-        <label className="voice-device-label">Output Device</label>
-        <select
-          className="settings-select voice-device-select"
-          value={audioSettings.audioOutputDeviceId}
-          onChange={(e) => updateAudioSetting("audioOutputDeviceId", e.target.value)}
-        >
-          <option value="">System Default</option>
-          {outputs.map((d) => (
-            <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${d.deviceId.slice(0, 8)}`}</option>
-          ))}
-        </select>
+
+      <div className="settings-card">
+        <h3 className="settings-card-title">Audio Processing</h3>
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Noise Suppression</span>
+            <span className="settings-row-desc">Standard: RNNoise. Enhanced: DeepFilterNet3. DTLN: Dual-signal LSTM.</span>
+          </div>
+          <select
+            className="settings-select"
+            value={audioSettings.noiseSuppression}
+            onChange={(e) => updateAudioSetting("noiseSuppression", e.target.value)}
+          >
+            <option value="off">Off</option>
+            <option value="standard">Standard</option>
+            <option value="enhanced">Enhanced</option>
+            <option value="dtln">DTLN</option>
+          </select>
+        </div>
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Echo Cancellation</span>
+            <span className="settings-row-desc">Prevents echo when using speakers</span>
+          </div>
+          <ToggleSwitch checked={audioSettings.echoCancellation} onChange={(v) => updateAudioSetting("echoCancellation", v)} />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Automatic Gain Control</span>
+            <span className="settings-row-desc">Normalizes volume levels automatically</span>
+          </div>
+          <ToggleSwitch checked={audioSettings.autoGainControl} onChange={(v) => updateAudioSetting("autoGainControl", v)} />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Adaptive Bitrate</span>
+            <span className="settings-row-desc">Adjusts quality based on network conditions</span>
+          </div>
+          <ToggleSwitch checked={audioSettings.adaptiveBitrate} onChange={(v) => updateAudioSetting("adaptiveBitrate", v)} />
+        </div>
       </div>
-    </div>
+
+      <div className="settings-card">
+        <h3 className="settings-card-title">Voice Activity</h3>
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Voice Gating</span>
+            <span className="settings-row-desc">Only transmit when speaking</span>
+          </div>
+          <ToggleSwitch checked={audioSettings.voiceGating} onChange={(v) => updateAudioSetting("voiceGating", v)} />
+        </div>
+        {audioSettings.voiceGating && (
+          <div className="settings-row">
+            <div className="settings-row-info">
+              <span className="settings-row-label">Sensitivity</span>
+              <span className="settings-row-desc">Left = most sensitive (picks up whispers), Right = least sensitive (need to be loud)</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={audioSettings.sensitivity}
+              onChange={(e) => updateAudioSetting("sensitivity", parseFloat(e.target.value))}
+              className="settings-range"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="settings-card">
+        <div className="settings-row" style={{ borderBottom: "none" }}>
+          <div className="settings-row-info">
+            <span className="settings-row-label">Audio A/B Test</span>
+            <span className="settings-row-desc">Record a mic sample, toggle effects, and compare raw vs processed</span>
+          </div>
+          <button className="btn-small" onClick={() => setAudioTestOpen(true)}>Test Audio</button>
+        </div>
+      </div>
+
+      {audioTestOpen && <AudioTestModal onClose={() => setAudioTestOpen(false)} />}
+    </>
   );
 }
 

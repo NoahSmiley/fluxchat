@@ -19,6 +19,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@emoji-mart/data": "^1.2.1",
+    "@ricky0123/vad-web": "^0.0.30",
     "@sapphi-red/web-noise-suppressor": "^0.3.5",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-notification": "^2.3.3",

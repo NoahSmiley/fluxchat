@@ -1,4 +1,4 @@
-import { Room, ExternalE2EEKeyProvider } from "livekit-client";
+import { Room, ExternalE2EEKeyProvider, Track } from "livekit-client";
 import * as api from "@/lib/api/index.js";
 import { gateway } from "@/lib/ws.js";
 import { useKeybindsStore } from "@/stores/keybinds.js";
@@ -6,6 +6,9 @@ import { useCryptoStore } from "@/stores/crypto.js";
 import { exportKeyAsBase64 } from "@/lib/crypto.js";
 import { dbg } from "@/lib/debug.js";
 import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
+import { RnnoiseProcessor, DeepFilterProcessor, DtlnProcessor } from "@/lib/noiseProcessor.js";
+import { VadProcessor } from "@/lib/vadProcessor.js";
+import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 
 import type { VoiceState } from "./types.js";
 import { checkLobbyMusic, stopLobbyMusic } from "./lobby.js";
@@ -25,6 +28,39 @@ let joinNonce = 0;
 export let adaptiveTargetBitrate = DEFAULT_BITRATE;
 export function setAdaptiveTargetBitrate(bitrate: number) {
   adaptiveTargetBitrate = bitrate;
+}
+
+// ── Audio processor instances (shared so store can toggle live) ──
+export let activeRnnoiseProcessor: RnnoiseProcessor | null = null;
+export let activeDeepFilterProcessor: DeepFilterProcessor | null = null;
+export let activeDtlnProcessor: DtlnProcessor | null = null;
+export let activeVadProcessor: VadProcessor | null = null;
+
+export function setActiveRnnoiseProcessor(p: RnnoiseProcessor | null) { activeRnnoiseProcessor = p; }
+export function setActiveDeepFilterProcessor(p: DeepFilterProcessor | null) { activeDeepFilterProcessor = p; }
+export function setActiveDtlnProcessor(p: DtlnProcessor | null) { activeDtlnProcessor = p; }
+export function setActiveVadProcessor(p: VadProcessor | null) { activeVadProcessor = p; }
+
+async function destroyAllProcessors(room?: Room | null) {
+  if (activeRnnoiseProcessor) {
+    // Restore original track if possible
+    await activeRnnoiseProcessor.destroy();
+    activeRnnoiseProcessor = null;
+  }
+  if (activeDeepFilterProcessor) {
+    const micPub = room?.localParticipant.getTrackPublication(Track.Source.Microphone);
+    await activeDeepFilterProcessor.detach(micPub);
+    activeDeepFilterProcessor = null;
+  }
+  if (activeDtlnProcessor) {
+    await activeDtlnProcessor.destroy();
+    activeDtlnProcessor = null;
+  }
+  if (activeVadProcessor) {
+    await activeVadProcessor.destroy();
+    activeVadProcessor = null;
+  }
+  resetAdaptiveBitrate();
 }
 
 export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
@@ -51,6 +87,9 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
     if (existingRoom) {
       dbg("voice", `joinVoiceChannel ${isSwitching ? "switching" : "disconnecting"} from previous room`);
       existingRoom.removeAllListeners();
+
+      // Clean up audio processors from previous room
+      await destroyAllProcessors(existingRoom);
 
       try {
         for (const pub of existingRoom.localParticipant.audioTrackPublications.values()) {
@@ -117,9 +156,9 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         adaptiveStream: false,
         dynacast: true,
         audioCaptureDefaults: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: audioSettings.echoCancellation,
+          noiseSuppression: false, // Handled by RNNoise/DeepFilterNet3, not browser
+          autoGainControl: audioSettings.autoGainControl,
           sampleRate: 48000,
           channelCount: 2,
         },
@@ -157,6 +196,67 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       const outputDeviceId = audioSettings.audioOutputDeviceId;
       if (outputDeviceId) {
         await room.switchActiveDevice("audiooutput", outputDeviceId).catch(() => {});
+      }
+
+      // ── Attach noise suppression processor ──
+      try {
+        const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+        if (audioSettings.noiseSuppression === "standard" && micPub?.track?.mediaStreamTrack) {
+          const processor = new RnnoiseProcessor();
+          const processedTrack = await processor.init(micPub.track.mediaStreamTrack);
+          await micPub.track.mediaStreamTrack.stop(); // not needed after reroute
+          await (micPub.track as any).replaceTrack(processedTrack);
+          activeRnnoiseProcessor = processor;
+          dbg("voice", "RNNoise processor attached on join");
+        } else if (audioSettings.noiseSuppression === "enhanced" && micPub) {
+          const processor = new DeepFilterProcessor();
+          await processor.attach(micPub);
+          activeDeepFilterProcessor = processor;
+          dbg("voice", "DeepFilterNet3 processor attached on join");
+        } else if (audioSettings.noiseSuppression === "dtln" && micPub?.track?.mediaStreamTrack) {
+          const processor = new DtlnProcessor();
+          const processedTrack = await processor.init(micPub.track.mediaStreamTrack);
+          await micPub.track.mediaStreamTrack.stop();
+          await (micPub.track as any).replaceTrack(processedTrack);
+          activeDtlnProcessor = processor;
+          dbg("voice", "DTLN processor attached on join");
+        }
+      } catch (e) {
+        dbg("voice", "Noise suppression setup failed (non-fatal)", e);
+      }
+
+      // ── Init VAD for voice gating ──
+      if (audioSettings.voiceGating) {
+        try {
+          const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          const mst = micPub?.track?.mediaStreamTrack;
+          if (mst) {
+            const vadProc = new VadProcessor();
+            await vadProc.init(
+              new MediaStream([mst]),
+              audioSettings.sensitivity,
+              (speaking) => {
+                const { isMuted, isDeafened } = storeRef.getState();
+                // Skip if user is manually muted/deafened or PTT is active
+                const { keybinds } = useKeybindsStore.getState();
+                const hasPTT = keybinds.some((kb) => kb.action === "push-to-talk" && kb.key !== null);
+                if (isMuted || isDeafened || hasPTT) return;
+                room.localParticipant.setMicrophoneEnabled(speaking);
+              },
+            );
+            activeVadProcessor = vadProc;
+            dbg("voice", "VAD processor initialized on join");
+          }
+        } catch (e) {
+          dbg("voice", "VAD setup failed (non-fatal)", e);
+        }
+      }
+
+      // ── Init adaptive bitrate ──
+      if (audioSettings.adaptiveBitrate) {
+        initAdaptiveBitrate(channelBitrate, (bitrate) => {
+          storeRef.getState().applyBitrate(bitrate);
+        });
       }
 
       // Optimistically add self to channelParticipants
@@ -222,6 +322,9 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
 
     const { room, connectedChannelId, channelParticipants } = get();
     const localId = room?.localParticipant?.identity;
+
+    // Clean up audio processors before disconnecting
+    destroyAllProcessors(room).catch(() => {});
 
     stopLobbyMusic();
     playLeaveSound();

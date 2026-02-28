@@ -1,0 +1,298 @@
+/* ── Audio Test Tab ── */
+
+.audio-test-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.audio-test-duration {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.audio-test-duration input[type="range"] {
+  width: 100px;
+  accent-color: var(--accent);
+}
+
+.audio-test-duration-value {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 20px;
+}
+
+.audio-test-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Effect checkboxes ── */
+.audio-test-effects {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.audio-test-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.audio-test-checkbox input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.audio-test-checkbox-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.audio-test-vad-sensitivity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding-left: 23px;
+}
+
+.audio-test-vad-sensitivity input[type="range"] {
+  width: 100px;
+  accent-color: var(--accent);
+}
+
+/* ── Progress / status ── */
+.audio-test-progress {
+  margin-top: 10px;
+}
+
+.audio-test-progress-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ── A/B Grid ── */
+.audio-test-ab-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.audio-test-ab-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.audio-test-ab-col-header {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.audio-test-ab-col-header.a {
+  background: rgba(88, 166, 255, 0.1);
+  color: #58a6ff;
+  border: 1px solid rgba(88, 166, 255, 0.25);
+}
+
+.audio-test-ab-col-header.b {
+  background: rgba(63, 185, 80, 0.1);
+  color: #3fb950;
+  border: 1px solid rgba(63, 185, 80, 0.25);
+}
+
+/* ── Waveform & Spectrogram ── */
+.audio-test-waveform,
+.audio-test-spectrogram {
+  width: 100%;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.audio-test-waveform { height: 48px; }
+.audio-test-spectrogram { height: 64px; }
+
+.audio-test-waveform canvas,
+.audio-test-spectrogram canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 6px;
+}
+
+/* ── Metrics ── */
+.audio-test-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.audio-test-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.audio-test-metric-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.audio-test-metric-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Action buttons ── */
+.audio-test-variant-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.audio-test-variant-actions button {
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.audio-test-variant-actions button:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.audio-test-variant-actions button.playing {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Delta inline ── */
+.audio-test-delta-row-inline {
+  display: flex;
+  gap: 16px;
+  padding: 10px 0;
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.audio-test-delta-inline {
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.audio-test-delta-inline.positive { color: #3fb950; }
+.audio-test-delta-inline.negative { color: #f85149; }
+.audio-test-delta-inline.neutral { color: var(--text-secondary); }
+
+/* ── A/B Playback ── */
+.audio-test-ab-playback button {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.audio-test-ab-playback button:hover {
+  border-color: var(--text-muted);
+}
+
+/* ── Audio Test Modal ── */
+.audio-test-modal {
+  width: 900px;
+  max-width: 92vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.audio-test-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.audio-test-modal-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.audio-test-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.audio-test-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.audio-test-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.audio-test-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
