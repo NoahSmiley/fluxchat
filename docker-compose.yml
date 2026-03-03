@@ -14,7 +14,7 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       LIVEKIT_API_KEY: fluxdevkey
       LIVEKIT_API_SECRET: fluxdevsecret_that_is_at_least_32chars_long
-      LIVEKIT_URL: "ws://localhost:7880"
+      LIVEKIT_URL: "ws://76.181.222.33:7880"
     depends_on:
       - livekit
 
@@ -25,7 +25,7 @@ services:
       - "7881:7881"
       - "50000-50060:50000-50060/udp"
     volumes:
-      - ./livekit.yaml:/etc/livekit.yaml
+      - ./livekit-server/livekit.yaml:/etc/livekit.yaml
     command: --config /etc/livekit.yaml
 
 volumes:
