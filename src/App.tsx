@@ -29,10 +29,12 @@ function MacWindowControls() {
     } catch {}
   }
 
-  async function handleMaximize() {
+  async function handleFullscreen() {
     try {
       const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().toggleMaximize();
+      const win = getCurrentWindow();
+      const isFs = await win.isFullscreen();
+      await win.setFullscreen(!isFs);
     } catch {}
   }
 
@@ -56,7 +58,7 @@ function MacWindowControls() {
           </svg>
         )}
       </button>
-      <button className="mac-dot mac-maximize" onClick={handleMaximize} title="Maximize">
+      <button className="mac-dot mac-maximize" onClick={handleFullscreen} title="Fullscreen">
         {hovered && (
           <svg width="6" height="6" viewBox="0 0 6 6">
             <path d="M0.5 2L3 0.5L5.5 2V5.5H0.5V2Z" fill="rgba(0,0,0,0.65)" />

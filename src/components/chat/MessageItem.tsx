@@ -1,6 +1,7 @@
 import { Pencil, Trash2 } from "lucide-react";
 import { MessageAttachments } from "./MessageAttachments.js";
 import { LinkEmbed } from "./LinkEmbed.js";
+import { ToolUseAnnotation } from "./ToolUseAnnotation.js";
 import { avatarColor, ringClass, ringGradientStyle } from "@/lib/avatarColor.js";
 import { relativeTime } from "@/lib/relativeTime.js";
 import { renderEmoji, TWEMOJI_OPTIONS } from "@/lib/emoji.js";
@@ -124,6 +125,14 @@ export function MessageItem({
             </>
           )}
         </div>
+
+        {msg.metadata?.toolUses && msg.metadata.toolUses.length > 0 && (
+          <div className="message-tool-uses">
+            {msg.metadata.toolUses.map((tu, i) => (
+              <ToolUseAnnotation key={i} toolName={tu.name} input={tu.input} />
+            ))}
+          </div>
+        )}
 
         {msg.attachments && msg.attachments.length > 0 && (
           <MessageAttachments attachments={msg.attachments} />

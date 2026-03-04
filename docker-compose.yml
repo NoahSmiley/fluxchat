@@ -18,6 +18,11 @@ services:
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}
       SPOTIFY_REDIRECT_URI: "http://76.181.222.33:3001/api/spotify/callback"
+      # ── LiveKit Cloud (optional — enables Krisp noise cancellation) ──
+      # When set, these take priority over the self-hosted vars above.
+      # LIVEKIT_CLOUD_API_KEY: ${LIVEKIT_CLOUD_API_KEY}
+      # LIVEKIT_CLOUD_API_SECRET: ${LIVEKIT_CLOUD_API_SECRET}
+      # LIVEKIT_CLOUD_URL: ${LIVEKIT_CLOUD_URL}
     depends_on:
       - livekit
 

@@ -92,32 +92,35 @@ export async function handleDragEnd(event: DragEndEvent, state: DnDState) {
   const { active, over } = event;
   if (!over || active.id === over.id) return;
 
-  const activeNode = state.flatList.find((n) => n.channel.id === active.id);
-  const overNode = state.flatList.find((n) => n.channel.id === over.id);
-  if (!activeNode || !overNode) return;
+  // Read fresh channels from the store to avoid stale data from rapid drags
+  const freshChannels = useChatStore.getState().channels.filter((c) => !c.isRoom && c.type !== "voice");
 
-  const isActiveCategory = activeNode.channel.type === "category";
+  const activeChannel = freshChannels.find((c) => c.id === active.id);
+  const overChannel = freshChannels.find((c) => c.id === over.id);
+  if (!activeChannel || !overChannel) return;
+
+  const isActiveCategory = activeChannel.type === "category";
 
   let newParentId: string | null;
   if (activatedCategory && activatedCategory !== (active.id as string)) {
     newParentId = activatedCategory;
   } else {
-    newParentId = overNode.channel.parentId;
+    newParentId = overChannel.parentId;
   }
 
   if (newParentId) {
-    const parent = state.regularChannels.find((c) => c.id === newParentId);
+    const parent = freshChannels.find((c) => c.id === newParentId);
     if (!parent || parent.type !== "category") {
       newParentId = null;
     } else if (isActiveCategory) {
       let checkId: string | null = newParentId;
       while (checkId) {
         if (checkId === active.id) { newParentId = null; break; }
-        checkId = state.regularChannels.find((c) => c.id === checkId)?.parentId ?? null;
+        checkId = freshChannels.find((c) => c.id === checkId)?.parentId ?? null;
       }
     }
   }
-  const sameParent = (activeNode.channel.parentId ?? null) === (newParentId ?? null);
+  const sameParent = (activeChannel.parentId ?? null) === (newParentId ?? null);
   const items: ReorderItem[] = [];
 
   function assignPositions(siblings: Channel[], parentId: string | null): ReorderItem[] {
@@ -129,7 +132,7 @@ export async function handleDragEnd(event: DragEndEvent, state: DnDState) {
   }
 
   if (sameParent) {
-    const allSiblings = state.regularChannels
+    const allSiblings = freshChannels
       .filter((c) => (c.parentId ?? null) === (newParentId ?? null))
       .sort((a, b) => a.position - b.position);
 
@@ -151,15 +154,15 @@ export async function handleDragEnd(event: DragEndEvent, state: DnDState) {
       items.push({ id: fullList[i].id, parentId: newParentId, position: i });
     }
   } else {
-    const newSiblings = state.regularChannels
+    const newSiblings = freshChannels
       .filter((c) => (c.parentId ?? null) === (newParentId ?? null) && c.id !== (active.id as string));
 
-    const withMoved = [...newSiblings, activeNode.channel];
+    const withMoved = [...newSiblings, activeChannel];
     items.push(...assignPositions(withMoved, newParentId));
 
-    const oldSiblings = state.regularChannels
-      .filter((c) => (c.parentId ?? null) === (activeNode.channel.parentId ?? null) && c.id !== (active.id as string));
-    items.push(...assignPositions(oldSiblings, activeNode.channel.parentId));
+    const oldSiblings = freshChannels
+      .filter((c) => (c.parentId ?? null) === (activeChannel.parentId ?? null) && c.id !== (active.id as string));
+    items.push(...assignPositions(oldSiblings, activeChannel.parentId));
   }
 
   useChatStore.setState((s) => ({

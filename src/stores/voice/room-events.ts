@@ -3,7 +3,8 @@ import { dbg } from "@/lib/debug.js";
 import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
 import { checkLobbyMusic } from "./lobby.js";
 import { stopStatsPolling } from "./stats.js";
-import { adaptiveTargetBitrate } from "./connection.js";
+import { adaptiveTargetBitrate, activeRnnoiseProcessor, activeDeepFilterProcessor, activeVadProcessor, setActiveRnnoiseProcessor, setActiveDeepFilterProcessor, setActiveVadProcessor } from "./connection.js";
+import { resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";
 
@@ -159,6 +160,16 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     cleanupLocalAnalyser();
     cleanupAllParticipantAudio();
     speakingHoldTimers.clear();
+
+    // Clean up audio processors
+    activeRnnoiseProcessor?.destroy().catch(() => {});
+    setActiveRnnoiseProcessor(null);
+    activeDeepFilterProcessor?.detach().catch(() => {});
+    setActiveDeepFilterProcessor(null);
+    activeVadProcessor?.destroy().catch(() => {});
+    setActiveVadProcessor(null);
+    resetAdaptiveBitrate();
+
     dbg("voice", `Room Disconnected reason=${reason}`);
     stopStatsPolling();
     set({

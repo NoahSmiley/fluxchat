@@ -51,7 +51,9 @@ export function CreateChannelModal({ serverId, defaultType, parentId, onClose }:
         ...(parentId ? { parentId } : {}),
       });
       const { channels } = useChatStore.getState();
-      useChatStore.setState({ channels: [...channels, channel] });
+      if (!channels.some((c) => c.id === channel.id)) {
+        useChatStore.setState({ channels: [...channels, channel] });
+      }
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create channel");

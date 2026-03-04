@@ -15,6 +15,11 @@ export interface LinkPreview {
   domain?: string;
 }
 
+export interface MessageToolUse {
+  name: string;
+  input: Record<string, unknown>;
+}
+
 export interface Message {
   id: string;
   channelId: string;
@@ -23,6 +28,9 @@ export interface Message {
   createdAt: string;
   editedAt?: string;
   attachments?: Attachment[];
+  metadata?: {
+    toolUses?: MessageToolUse[];
+  };
 }
 
 export interface Reaction {

@@ -18,6 +18,7 @@ import "./components/chat/styles/chat-context.css";
 import "./components/chat/styles/chat-editing.css";
 import "./components/chat/styles/search-bar.css";
 import "./components/chat/styles/search-results.css";
+import "./components/chat/styles/orchestration.css";
 import "./components/chat/styles/dm-sidebar.css";
 import "./components/chat/styles/dm-members.css";
 import "./components/chat/styles/dm-usercard.css";

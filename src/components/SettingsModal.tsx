@@ -83,7 +83,7 @@ function VoiceSettingsTab() {
         <div className="settings-row">
           <div className="settings-row-info">
             <span className="settings-row-label">Noise Suppression</span>
-            <span className="settings-row-desc">Standard: RNNoise. Enhanced: DeepFilterNet3. DTLN: Dual-signal LSTM.</span>
+            <span className="settings-row-desc">Krisp: Cloud-powered (best). Standard: RNNoise. Enhanced: DeepFilterNet3. DTLN: Dual-signal LSTM.</span>
           </div>
           <select
             className="settings-select"
@@ -91,6 +91,7 @@ function VoiceSettingsTab() {
             onChange={(e) => updateAudioSetting("noiseSuppression", e.target.value)}
           >
             <option value="off">Off</option>
+            <option value="krisp">Krisp</option>
             <option value="standard">Standard</option>
             <option value="enhanced">Enhanced</option>
             <option value="dtln">DTLN</option>

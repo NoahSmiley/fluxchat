@@ -7,11 +7,11 @@ import { DEFAULT_SETTINGS } from "./types.js";
 import { initLobbyMusic, setLobbyMusicGain, stopLobbyMusic } from "./lobby.js";
 import { initStatsPolling } from "./stats.js";
 import { initVoiceEvents } from "./events.js";
-import { createJoinVoiceChannel, createLeaveVoiceChannel, activeRnnoiseProcessor, activeDeepFilterProcessor, activeDtlnProcessor, activeVadProcessor, setActiveRnnoiseProcessor, setActiveDeepFilterProcessor, setActiveDtlnProcessor, setActiveVadProcessor, adaptiveTargetBitrate } from "./connection.js";
+import { createJoinVoiceChannel, createLeaveVoiceChannel, activeRnnoiseProcessor, activeDeepFilterProcessor, activeDtlnProcessor, activeKrispProcessor, activeVadProcessor, setActiveRnnoiseProcessor, setActiveDeepFilterProcessor, setActiveDtlnProcessor, setActiveKrispProcessor, setActiveVadProcessor, adaptiveTargetBitrate } from "./connection.js";
 import { createToggleMute, createSetMuted, createToggleDeafen, createSetParticipantVolume, createApplyBitrate } from "./controls.js";
 import { createToggleScreenShare, createSetScreenShareQuality } from "./screen-share.js";
 import { createUpdateParticipants, createUpdateScreenSharers, createSetChannelParticipants } from "./participants.js";
-import { RnnoiseProcessor, DeepFilterProcessor, DtlnProcessor } from "@/lib/noiseProcessor.js";
+import { RnnoiseProcessor, DeepFilterProcessor, DtlnProcessor, KrispProcessor } from "@/lib/noiseProcessor.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import { Track } from "livekit-client";
@@ -75,12 +75,21 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
             await activeDeepFilterProcessor.detach(micPub);
             setActiveDeepFilterProcessor(null);
           }
+          if (activeKrispProcessor) {
+            await activeKrispProcessor.detach(micPub);
+            setActiveKrispProcessor(null);
+          }
           if (activeDtlnProcessor) {
             await activeDtlnProcessor.destroy();
             setActiveDtlnProcessor(null);
           }
 
-          if (value === "standard" && micPub?.track?.mediaStreamTrack) {
+          if (value === "krisp" && micPub) {
+            const processor = new KrispProcessor();
+            await processor.attach(micPub);
+            setActiveKrispProcessor(processor);
+            dbg("voice", "Switched to Krisp");
+          } else if (value === "standard" && micPub?.track?.mediaStreamTrack) {
             const processor = new RnnoiseProcessor();
             const processedTrack = await processor.init(micPub.track.mediaStreamTrack);
             await (micPub.track as any).replaceTrack(processedTrack);

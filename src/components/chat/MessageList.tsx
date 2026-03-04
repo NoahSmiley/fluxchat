@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, type RefObject } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import twemoji from "twemoji";
 import { renderEmoji, getEmojiLabel, TWEMOJI_OPTIONS } from "@/lib/emoji.js";
@@ -6,6 +6,11 @@ import { API_BASE } from "@/lib/serverUrl.js";
 import ContextMenu from "@/components/ContextMenu.js";
 import { setCursorAtOffset, getDivPlainText } from "@/lib/contentEditable.js";
 import { MessageItem, type MessageDataEntry } from "./MessageItem.js";
+import { OrchestrationPipeline, OrchestrationCompleteFooter } from "./OrchestrationPipeline.js";
+import { HandoffDivider } from "./HandoffDivider.js";
+import { ToolUseAnnotation } from "./ToolUseAnnotation.js";
+import { useOrchestrationStore } from "@/stores/orchestrationStore.js";
+import type { PipelineEvent } from "@/stores/orchestrationStore.js";
 import type { Message, CustomEmoji } from "@/types/shared.js";
 
 interface MessageListProps {
@@ -130,6 +135,20 @@ export function MessageList({
 
   const isSearchResult = !!searchResults;
 
+  const pipelineEvents = useOrchestrationStore((s) => s.pipelineEvents);
+
+  // Build a map of message index → pipeline events that render after that message
+  const pipelineEventsByIndex = useMemo(() => {
+    const map = new Map<number, PipelineEvent[]>();
+    for (const evt of pipelineEvents) {
+      const idx = evt.afterMessageIndex;
+      const list = map.get(idx);
+      if (list) list.push(evt);
+      else map.set(idx, [evt]);
+    }
+    return map;
+  }, [pipelineEvents]);
+
   return (
     <>
       <div
@@ -145,46 +164,74 @@ export function MessageList({
         {dragging && <div className="drag-overlay">Drop files to upload</div>}
         {loadingMessages && <div className="loading-messages">Loading...</div>}
 
-        {displayMessages.map((msg) => {
+        {/* Pipeline events that arrived before any messages */}
+        {pipelineEventsByIndex.get(-1)?.map((evt, i) => {
+          switch (evt.kind) {
+            case "pipeline_start":
+              return <OrchestrationPipeline key={`pe-pre-${i}`} />;
+            case "handoff":
+              return <HandoffDivider key={`pe-pre-${i}`} fromAgentId={evt.fromAgentId} toAgentId={evt.toAgentId} />;
+            case "tool_use":
+              return <ToolUseAnnotation key={`pe-pre-${i}`} toolName={evt.name} input={evt.input} />;
+            case "complete":
+              return <OrchestrationCompleteFooter key={`pe-pre-${i}`} summary={evt.summary} />;
+          }
+        })}
+
+        {displayMessages.map((msg, msgIndex) => {
           const senderName = usernameMap[msg.senderId] ?? (msg.senderId === userId ? (userUsername ?? msg.senderId.slice(0, 8)) : msg.senderId.slice(0, 8));
+          const eventsAfter = pipelineEventsByIndex.get(msgIndex);
           return (
-            <MessageItem
-              key={msg.id}
-              msg={msg}
-              msgData={messageData.get(msg.id)}
-              senderName={senderName}
-              senderImage={imageMap[msg.senderId] ?? null}
-              senderRole={roleMap[msg.senderId] ?? "member"}
-              senderRing={ringMap[msg.senderId]}
-              msgReactions={reactions[msg.id] ?? []}
-              customEmojis={customEmojis}
-              usernameMap={usernameMap}
-              channelNameMap={channelNameMap}
-              userId={userId}
-              activeServerId={activeServerId}
-              isSearchResult={isSearchResult}
-              isEditing={editingMsgId === msg.id}
-              emojiPickerMsgId={emojiPickerMsgId}
-              editDivRef={editDivRef}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                const target = e.target as HTMLElement;
-                const link = target.closest("a") as HTMLAnchorElement | null;
-                const decoded = messageData.get(msg.id)?.decoded ?? "";
-                const img = (target instanceof HTMLImageElement && !target.classList.contains("emoji") && !target.classList.contains("custom-emoji")) ? target : null;
-                setMsgMenu({ x: e.clientX, y: e.clientY, msgId: msg.id, isOwnMsg: msg.senderId === userId, decoded, contextLink: link?.href ?? null, contextImgSrc: img?.src ?? null });
-              }}
-              onStartEditing={() => startEditing(msg.id, messageData.get(msg.id)?.decoded ?? "")}
-              onCancelEditing={cancelEditing}
-              onSubmitEdit={() => submitEdit(msg.id)}
-              onDelete={() => setDeletingMsgId(msg.id)}
-              onToggleEmojiPicker={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
-              onReactionPickerSelect={handleReactionPickerSelect}
-              onReactionPickerClose={handleReactionPickerClose}
-              onReactionClick={(emoji, hasReacted) => hasReacted ? removeReaction(msg.id, emoji) : addReaction(msg.id, emoji)}
-              onReactionTooltipEnter={handleReactionTooltipEnter}
-              onReactionTooltipLeave={() => setReactionTooltip(null)}
-            />
+            <div key={msg.id} className="message-with-pipeline">
+              <MessageItem
+                msg={msg}
+                msgData={messageData.get(msg.id)}
+                senderName={senderName}
+                senderImage={imageMap[msg.senderId] ?? null}
+                senderRole={roleMap[msg.senderId] ?? "member"}
+                senderRing={ringMap[msg.senderId]}
+                msgReactions={reactions[msg.id] ?? []}
+                customEmojis={customEmojis}
+                usernameMap={usernameMap}
+                channelNameMap={channelNameMap}
+                userId={userId}
+                activeServerId={activeServerId}
+                isSearchResult={isSearchResult}
+                isEditing={editingMsgId === msg.id}
+                emojiPickerMsgId={emojiPickerMsgId}
+                editDivRef={editDivRef}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  const target = e.target as HTMLElement;
+                  const link = target.closest("a") as HTMLAnchorElement | null;
+                  const decoded = messageData.get(msg.id)?.decoded ?? "";
+                  const img = (target instanceof HTMLImageElement && !target.classList.contains("emoji") && !target.classList.contains("custom-emoji")) ? target : null;
+                  setMsgMenu({ x: e.clientX, y: e.clientY, msgId: msg.id, isOwnMsg: msg.senderId === userId, decoded, contextLink: link?.href ?? null, contextImgSrc: img?.src ?? null });
+                }}
+                onStartEditing={() => startEditing(msg.id, messageData.get(msg.id)?.decoded ?? "")}
+                onCancelEditing={cancelEditing}
+                onSubmitEdit={() => submitEdit(msg.id)}
+                onDelete={() => setDeletingMsgId(msg.id)}
+                onToggleEmojiPicker={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
+                onReactionPickerSelect={handleReactionPickerSelect}
+                onReactionPickerClose={handleReactionPickerClose}
+                onReactionClick={(emoji, hasReacted) => hasReacted ? removeReaction(msg.id, emoji) : addReaction(msg.id, emoji)}
+                onReactionTooltipEnter={handleReactionTooltipEnter}
+                onReactionTooltipLeave={() => setReactionTooltip(null)}
+              />
+              {eventsAfter?.map((evt, i) => {
+                switch (evt.kind) {
+                  case "pipeline_start":
+                    return <OrchestrationPipeline key={`pe-${msgIndex}-${i}`} />;
+                  case "handoff":
+                    return <HandoffDivider key={`pe-${msgIndex}-${i}`} fromAgentId={evt.fromAgentId} toAgentId={evt.toAgentId} />;
+                  case "tool_use":
+                    return <ToolUseAnnotation key={`pe-${msgIndex}-${i}`} toolName={evt.name} input={evt.input} />;
+                  case "complete":
+                    return <OrchestrationCompleteFooter key={`pe-${msgIndex}-${i}`} summary={evt.summary} />;
+                }
+              })}
+            </div>
           );
         })}
 

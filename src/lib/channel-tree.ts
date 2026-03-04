@@ -52,19 +52,30 @@ export function buildTree(channels: Channel[]): TreeNode[] {
 
 export function flattenTree(nodes: TreeNode[], collapsed: Set<string>, activeChannelId?: string | null): TreeNode[] {
   const result: TreeNode[] = [];
-  for (const node of nodes) {
-    result.push(node);
-    if (node.channel.type === "category") {
-      if (!collapsed.has(node.channel.id)) {
-        result.push(...flattenTree(node.children, collapsed, activeChannelId));
-      } else if (activeChannelId) {
-        // Category is collapsed — show the full path to the active channel so
-        // intermediate categories are visible but locked (pinned)
-        const activePath = findActivePath(node.children, activeChannelId);
-        if (activePath) result.push(...activePath);
+  const seen = new Set<string>();
+  function walk(nodes: TreeNode[]) {
+    for (const node of nodes) {
+      if (seen.has(node.channel.id)) continue;
+      seen.add(node.channel.id);
+      result.push(node);
+      if (node.channel.type === "category") {
+        if (!collapsed.has(node.channel.id)) {
+          walk(node.children);
+        } else if (activeChannelId) {
+          const activePath = findActivePath(node.children, activeChannelId);
+          if (activePath) {
+            for (const pn of activePath) {
+              if (!seen.has(pn.channel.id)) {
+                seen.add(pn.channel.id);
+                result.push(pn);
+              }
+            }
+          }
+        }
       }
     }
   }
+  walk(nodes);
   return result;
 }
 

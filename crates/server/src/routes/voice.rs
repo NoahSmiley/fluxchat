@@ -62,8 +62,11 @@ pub async fn get_token(
             .into_response();
     }
 
+    // Resolve effective LiveKit credentials (cloud takes priority over self-hosted)
+    let (lk_api_key, lk_api_secret, lk_url) = state.config.effective_livekit();
+
     // Check LiveKit is configured
-    if state.config.livekit_api_key.is_empty() || state.config.livekit_api_secret.is_empty() {
+    if lk_api_key.is_empty() || lk_api_secret.is_empty() {
         return (
             StatusCode::SERVICE_UNAVAILABLE,
             Json(serde_json::json!({"error": "LiveKit not configured. Set LIVEKIT_API_KEY and LIVEKIT_API_SECRET in .env"})),
@@ -85,8 +88,8 @@ pub async fn get_token(
     };
 
     let token = livekit_api::access_token::AccessToken::with_api_key(
-        &state.config.livekit_api_key,
-        &state.config.livekit_api_secret,
+        lk_api_key,
+        lk_api_secret,
     )
     .with_identity(&identity)
     .with_name(&name)
@@ -102,7 +105,7 @@ pub async fn get_token(
     match token {
         Ok(jwt) => Json(serde_json::json!({
             "token": jwt,
-            "url": state.config.livekit_url,
+            "url": lk_url,
         }))
         .into_response(),
         Err(_) => (

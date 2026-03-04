@@ -1,0 +1,141 @@
+/* ── Message + Pipeline wrapper ── */
+.message-with-pipeline {
+  display: contents;
+}
+
+/* ── Orchestration Pipeline Strip ── */
+.orchestration-pipeline {
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  padding: 8px 16px;
+  margin: 4px 0;
+}
+
+.orchestration-pipeline-top,
+.orchestration-pipeline-bottom {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.orchestration-pipeline-top::after {
+  content: "──────────────────────────────────────┐";
+}
+
+.orchestration-pipeline-bottom::after {
+  content: "────────────────────────────────────────────────┘";
+}
+
+.orchestration-pipeline-body {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.orchestration-agent-name {
+  font-weight: 600;
+}
+
+.orchestration-status {
+  font-size: 11px;
+}
+
+.orchestration-status-waiting {
+  opacity: 0.4;
+}
+
+.orchestration-status-done {
+  color: var(--text-secondary);
+}
+
+.orchestration-status-working {
+  color: var(--text-primary);
+  animation: orchestration-pulse 1.5s ease-in-out infinite;
+}
+
+.orchestration-arrow {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+@keyframes orchestration-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Handoff Divider ── */
+.orchestration-handoff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  margin: 2px 0;
+}
+
+.orchestration-handoff-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.orchestration-handoff-label {
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Tool Use Annotation ── */
+.orchestration-tool-use {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 0 1px 12px;
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.orchestration-tool-tree {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.orchestration-tool-name {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.orchestration-tool-summary {
+  color: var(--text-muted);
+}
+
+/* ── Orchestration Complete Footer ── */
+.orchestration-complete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin: 4px 0;
+}
+
+.orchestration-complete-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.orchestration-complete-label {
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Minimal theme: kill pulse animation ── */
+[data-theme="minimal"] .orchestration-status-working {
+  animation: none !important;
+}

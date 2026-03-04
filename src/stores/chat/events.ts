@@ -3,6 +3,7 @@ import type { StoreApi, UseBoundStore } from "zustand";
 import { gateway } from "@/lib/ws.js";
 import { broadcastState, onCommand, isPopout } from "@/lib/broadcast.js";
 import { useCryptoStore } from "@/stores/crypto.js";
+import { useOrchestrationStore } from "@/stores/orchestrationStore.js";
 import { dbg } from "@/lib/debug.js";
 import type { ChatState } from "./types.js";
 
@@ -267,6 +268,23 @@ gateway.on((event) => {
     // Gallery
     case "gallery_set_updated":
       handleGallerySetUpdated(event);
+      break;
+
+    // Orchestration
+    case "orchestration_plan":
+      useOrchestrationStore.getState().startPipeline(event.agents, state.messages.length);
+      break;
+    case "agent_start":
+      useOrchestrationStore.getState().setAgentWorking(event.agentId, state.messages.length);
+      break;
+    case "agent_end":
+      useOrchestrationStore.getState().setAgentDone(event.agentId);
+      break;
+    case "tool_use":
+      useOrchestrationStore.getState().addToolUse(event.name, event.input, state.messages.length);
+      break;
+    case "orchestration_complete":
+      useOrchestrationStore.getState().complete(state.messages.length, event.summary);
       break;
 
     // Server errors
