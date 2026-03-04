@@ -336,6 +336,8 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
     } catch (e) { dbg("voice", "Failed to stop Spotify session on voice leave", e); }
 
     if (room) {
+      // Remove listeners FIRST to prevent the Disconnected handler from racing
+      room.removeAllListeners();
       for (const participant of room.remoteParticipants.values()) {
         for (const publication of participant.audioTrackPublications.values()) {
           if (publication.track) publication.track.detach().forEach((el) => el.remove());
@@ -357,11 +359,19 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
       );
     }
 
-    // Disconnected handler resets core voice state; we only set fields it doesn't cover
+    // Set room: null immediately to prevent joinVoiceChannel from seeing stale room
     set({
+      room: null,
       channelParticipants: updatedParticipants,
       connecting: false,
       connectedChannelId: null,
+      isMuted: false,
+      isDeafened: false,
+      isScreenSharing: false,
+      screenSharers: [],
+      speakingUserIds: new Set<string>(),
+      pinnedScreenShare: null,
+      participants: [],
     });
 
     // If we left a room (ephemeral voice channel), switch to a text channel

@@ -46,6 +46,7 @@ pub struct SpotifyOAuthQuery {
     pub code: Option<String>,
     pub state: Option<String>,
     pub error: Option<String>,
+    pub redirect_uri: Option<String>,
 }
 
 pub async fn spotify_callback_get(
@@ -100,8 +101,12 @@ pub async fn spotify_callback_get(
     };
 
     let client_id = std::env::var("SPOTIFY_CLIENT_ID").unwrap_or_default();
-    let redirect_uri = std::env::var("SPOTIFY_REDIRECT_URI")
-        .unwrap_or_else(|_| "http://127.0.0.1:3001/api/spotify/callback".to_string());
+    // Use the redirect_uri from the query (Tauri local listener) if provided,
+    // otherwise fall back to the env var (direct browser flow).
+    let redirect_uri = query.redirect_uri.clone().unwrap_or_else(|| {
+        std::env::var("SPOTIFY_REDIRECT_URI")
+            .unwrap_or_else(|_| "http://127.0.0.1:3001/api/spotify/callback".to_string())
+    });
 
     if client_id.is_empty() {
         return Html(

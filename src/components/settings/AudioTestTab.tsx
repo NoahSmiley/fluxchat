@@ -285,9 +285,9 @@ async function applyDeepFilter(input: AudioBuffer, level: number, log: (msg: str
   }
   log("WASM + model fetched, initializing on main thread...");
 
-  const dfModule = createDeepFilterModule(assets.wasmModule, assets.modelBytes, level);
+  const dfModule = await createDeepFilterModule(assets.wasmModule, assets.modelBytes, level);
   const frameLength = dfModule.frameLength;
-  log(`DeepFilter ready: frame=${frameLength} samples, processing...`);
+  log(`DeepFilter ready: frame=${frameLength} samples, handle OK, processing...`);
 
   // Process frame-by-frame
   const samples = input.getChannelData(0);
@@ -295,6 +295,7 @@ async function applyDeepFilter(input: AudioBuffer, level: number, log: (msg: str
   let readPos = 0;
   let writePos = 0;
   let framesProcessed = 0;
+  let firstFrameDiffSamples = 0;
 
   while (readPos + frameLength <= samples.length) {
     const frame = new Float32Array(frameLength);
@@ -302,6 +303,15 @@ async function applyDeepFilter(input: AudioBuffer, level: number, log: (msg: str
 
     const processed = dfModule.processFrame(frame);
     output.set(processed, writePos);
+
+    // Check first frame for actual differences
+    if (framesProcessed === 0) {
+      for (let i = 0; i < Math.min(frameLength, processed.length); i++) {
+        if (processed[i] !== frame[i]) firstFrameDiffSamples++;
+      }
+      log(`Frame 0 diagnostic: input len=${frame.length}, output len=${processed.length}, differing samples=${firstFrameDiffSamples}/${frameLength}`);
+    }
+
     readPos += frameLength;
     writePos += frameLength;
     framesProcessed++;
@@ -313,9 +323,10 @@ async function applyDeepFilter(input: AudioBuffer, level: number, log: (msg: str
     writePos += samples.length - readPos;
   }
 
+  const errors = dfModule.errorCount;
   dfModule.destroy();
   core.destroy();
-  log(`DeepFilter done: ${framesProcessed} frames processed`);
+  log(`DeepFilter done: ${framesProcessed} frames processed${errors > 0 ? `, ${errors} errors (check console)` : ""}`);
 
   const buf = new AudioBuffer({
     numberOfChannels: 1,
@@ -334,7 +345,7 @@ async function applyDeepFilter(input: AudioBuffer, level: number, log: (msg: str
  * the exact same heap management, import functions, and JS wrappers that the
  * library was built and tested with. No hand-replication needed.
  */
-function createDeepFilterModule(
+async function createDeepFilterModule(
   wasmModule: WebAssembly.Module,
   modelBytes: ArrayBuffer,
   suppressionLevel: number,
@@ -519,8 +530,8 @@ function createDeepFilterModule(
     throw new Error(getStringFromWasm(arg0, arg1));
   };
 
-  // ── Instantiate WASM ──
-  const instance = new WebAssembly.Instance(wasmModule, imports);
+  // ── Instantiate WASM (async to avoid Chrome's 8MB sync limit) ──
+  const instance = await WebAssembly.instantiate(wasmModule, imports);
   wasm = instance.exports;
   // Invalidate cached memory views after init (wasm memory may have grown)
   cachedUint8Memory = null;
@@ -552,7 +563,16 @@ function createDeepFilterModule(
     console.error("[DeepFilter] df_create failed:", e);
     throw new Error(`df_create failed: ${e}`);
   }
+  if (!handle) {
+    throw new Error(`df_create returned null handle (0)`);
+  }
   const frameLength = df_get_frame_length(handle);
+  if (!frameLength || frameLength < 1 || frameLength > 8192) {
+    throw new Error(`df_get_frame_length returned invalid value: ${frameLength}`);
+  }
+  console.log(`[DeepFilter] handle=${handle}, frameLength=${frameLength}, suppressionLevel=${suppressionLevel}`);
+
+  let errorCount = 0;
 
   return {
     frameLength,
@@ -561,12 +581,20 @@ function createDeepFilterModule(
       cachedFloat32Memory = null;
       cachedUint8Memory = null;
       try {
-        return df_process_frame(handle, frame);
+        const result = df_process_frame(handle, frame);
+        if (errorCount === 0 && result === frame) {
+          console.warn("[DeepFilter] processFrame returned same reference as input");
+        }
+        return result;
       } catch (e) {
-        console.error("[DeepFilter] df_process_frame error:", e);
+        errorCount++;
+        if (errorCount <= 3) {
+          console.error(`[DeepFilter] df_process_frame error #${errorCount}:`, e);
+        }
         return frame;
       }
     },
+    get errorCount() { return errorCount; },
     destroy: () => {
       try { wasm.__wbg_dfstate_free(handle); } catch {}
     },

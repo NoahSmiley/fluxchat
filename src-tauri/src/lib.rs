@@ -183,10 +183,11 @@ async fn start_oauth_listener(server_url: String) -> Result<serde_json::Value, S
             )
         } else {
             let backend_url = format!(
-                "{}/api/spotify/callback?code={}&state={}",
+                "{}/api/spotify/callback?code={}&state={}&redirect_uri={}",
                 server_url.trim_end_matches('/'),
                 urlencode(&code),
                 urlencode(&state),
+                urlencode("http://127.0.0.1:29170/callback"),
             );
             format!("HTTP/1.1 302 Found\r\nLocation: {backend_url}\r\nConnection: close\r\n\r\n")
         };

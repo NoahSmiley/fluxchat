@@ -13,25 +13,30 @@ const POLL_INTERVAL_MS = 50; // 20fps
 
 // ── Per-participant audio pipelines (GainNode for volume control) ──
 interface ParticipantAudio {
-  ctx: AudioContext;
-  gain: GainNode;
-  source: MediaElementAudioSourceNode;
+  audioEl: HTMLAudioElement;
+  ctx?: AudioContext;
+  gain?: GainNode;
+  source?: MediaElementAudioSourceNode;
 }
 const participantAudioPipelines = new Map<string, ParticipantAudio>();
 
 export function setParticipantGain(identity: string, volume: number) {
   const pipeline = participantAudioPipelines.get(identity);
-  if (pipeline) {
+  if (!pipeline) return;
+  if (pipeline.gain && pipeline.ctx) {
     pipeline.gain.gain.setValueAtTime(volume, pipeline.ctx.currentTime);
+  } else {
+    // Fallback: HTMLAudioElement.volume (0-1 range, no boost beyond 100%)
+    pipeline.audioEl.volume = Math.min(Math.max(volume, 0), 1);
   }
 }
 
 function cleanupParticipantAudio(identity: string) {
   const pipeline = participantAudioPipelines.get(identity);
   if (pipeline) {
-    pipeline.source.disconnect();
-    pipeline.gain.disconnect();
-    pipeline.ctx.close().catch(() => {});
+    pipeline.source?.disconnect();
+    pipeline.gain?.disconnect();
+    pipeline.ctx?.close().catch(() => {});
     participantAudioPipelines.delete(identity);
   }
 }
@@ -192,7 +197,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
   });
 
   // Attach remote audio tracks with Web Audio pipeline
-  room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
+  room.on(RoomEvent.TrackSubscribed, async (track, _publication, participant) => {
     dbg("voice", `TrackSubscribed participant=${participant.identity} kind=${track.kind} sid=${track.sid}`, {
       source: _publication.source,
       mimeType: _publication.mimeType,
@@ -203,24 +208,31 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
 
     if (track.kind === Track.Kind.Audio) {
       get()._updateParticipants();
-      const elements = track.attach();
-      const audioEl = elements.find((el): el is HTMLAudioElement => el instanceof HTMLAudioElement);
+      const el = track.attach() as unknown;
+      const audioEl = el instanceof HTMLAudioElement ? el : null;
       if (audioEl) {
+        cleanupParticipantAudio(participant.identity);
+        const vol = get().participantVolumes[participant.identity] ?? 1.0;
+        const pipeline: ParticipantAudio = { audioEl };
         try {
           // Route through GainNode for per-participant volume control (supports 0-200%)
           const ctx = new AudioContext();
+          await ctx.resume(); // Required for autoplay policy
           const source = ctx.createMediaElementSource(audioEl);
           const gain = ctx.createGain();
-          const vol = get().participantVolumes[participant.identity] ?? 1.0;
           gain.gain.setValueAtTime(vol, ctx.currentTime);
           source.connect(gain);
           gain.connect(ctx.destination);
-          cleanupParticipantAudio(participant.identity);
-          participantAudioPipelines.set(participant.identity, { ctx, gain, source });
+          pipeline.ctx = ctx;
+          pipeline.gain = gain;
+          pipeline.source = source;
           dbg("voice", `TrackSubscribed attached audio with GainNode for ${participant.identity} vol=${vol}`);
         } catch (e) {
-          dbg("voice", `TrackSubscribed GainNode setup failed for ${participant.identity}, using raw attach`, e);
+          // Fallback: audio plays through raw element, volume limited to 0-100%
+          audioEl.volume = Math.min(Math.max(vol, 0), 1);
+          dbg("voice", `TrackSubscribed GainNode failed for ${participant.identity}, using element volume`, e);
         }
+        participantAudioPipelines.set(participant.identity, pipeline);
       } else {
         dbg("voice", `TrackSubscribed attached audio for ${participant.identity} (no HTMLAudioElement)`);
       }
