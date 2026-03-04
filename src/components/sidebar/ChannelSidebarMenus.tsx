@@ -88,6 +88,8 @@ export function ChannelSidebarMenus(props: ChannelSidebarMenusProps) {
     renamingRoomId, setRenamingRoomId, markChannelRead, user,
   } = props;
 
+  const channelParticipants = useVoiceStore((s) => s.channelParticipants);
+
   const notifStore = useNotifStore(useShallow((s) => ({
     isChannelMuted: s.isChannelMuted, isCategoryMuted: s.isCategoryMuted,
     channelSettings: s.channelSettings, categorySettings: s.categorySettings,
@@ -121,35 +123,31 @@ export function ChannelSidebarMenus(props: ChannelSidebarMenusProps) {
       )}
 
       {/* --- Voice user move context menu --- */}
-      {contextMenu && createPortal(
-        <div className="voice-user-context-menu-backdrop" onClick={() => setContextMenu(null)}>
-          <div
-            className="voice-user-context-menu"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="voice-user-context-menu-header">Move {contextMenu.username} to:</div>
-            {rooms.filter((r) => r.id !== contextMenu.channelId).map((r) => (
-              <button
-                key={r.id}
-                className="voice-user-context-menu-item"
-                onClick={() => {
+      {contextMenu && (() => {
+        const otherRooms = rooms.filter((r) => r.id !== contextMenu.channelId && (channelParticipants[r.id]?.length ?? 0) > 0);
+        const items: ContextMenuEntry[] = otherRooms.length > 0
+          ? [
+              { label: `Move ${contextMenu.username} to:`, disabled: true },
+              ...otherRooms.map((r) => ({
+                label: r.name,
+                onClick: () => {
                   if (activeServerId) {
                     api.moveUserToRoom(activeServerId, contextMenu.channelId, contextMenu.userId, r.id).catch((err) => dbg("ui", "[move-user] failed:", err));
                   }
                   setContextMenu(null);
-                }}
-              >
-                {r.name}
-              </button>
-            ))}
-            {rooms.filter((r) => r.id !== contextMenu.channelId).length === 0 && (
-              <div className="voice-user-context-menu-empty">No other rooms</div>
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
+                },
+              })),
+            ]
+          : [{ label: "No other active rooms", disabled: true }];
+        return (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={() => setContextMenu(null)}
+            items={items}
+          />
+        );
+      })()}
 
       {/* --- Channel context menu --- */}
       {channelCtxMenu && (() => {

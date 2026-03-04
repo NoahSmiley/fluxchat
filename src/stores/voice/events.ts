@@ -4,6 +4,7 @@ import { broadcastState, onCommand, isPopout } from "@/lib/broadcast.js";
 import { dbg } from "@/lib/debug.js";
 import type { StoreApi } from "zustand";
 import type { VoiceState } from "./types.js";
+import { checkLobbyMusic } from "./lobby.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // WebSocket Event Handlers
@@ -42,6 +43,10 @@ export function initVoiceEvents(store: StoreApi<VoiceState>) {
         }
       }
       store.getState()._setChannelParticipants(event.channelId, participants);
+      // Re-check lobby music when participants change in our connected channel
+      if (connectedChannelId === event.channelId) {
+        checkLobbyMusic();
+      }
     }
   });
 

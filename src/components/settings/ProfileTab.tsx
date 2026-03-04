@@ -38,10 +38,15 @@ export function ProfileTab() {
       setEditingUsername(false);
       return;
     }
+    const trimmed = usernameInput.trim();
+    if (trimmed.length < 2 || trimmed.length > 32) {
+      setProfileError("Username must be 2-32 characters");
+      return;
+    }
     setProfileSaving(true);
     setProfileError(null);
     try {
-      await updateProfile({ username: usernameInput.trim() });
+      await updateProfile({ username: trimmed });
       setEditingUsername(false);
     } catch (err) {
       setProfileError(err instanceof Error ? err.message : "Failed to update username");

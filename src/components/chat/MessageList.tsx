@@ -159,7 +159,7 @@ export function MessageList({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         onMouseOver={handleMsgMouseOver}
-        onMouseLeave={() => { if (emojiTooltipActiveRef.current) { emojiTooltipActiveRef.current = false; setEmojiTooltip(null); } }}
+        onMouseLeave={() => { if (emojiTooltipActiveRef.current) { emojiTooltipActiveRef.current = false; setEmojiTooltip(null); } setReactionTooltip(null); }}
       >
         {dragging && <div className="drag-overlay">Drop files to upload</div>}
         {loadingMessages && <div className="loading-messages">Loading...</div>}

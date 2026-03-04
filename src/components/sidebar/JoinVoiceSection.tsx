@@ -94,7 +94,7 @@ export function JoinVoiceSection({
   const screenSharerIds = useMemo(() => new Set(screenSharers.map((s) => s.participantId)), [screenSharers]);
 
   // Animate the Create Room button in/out
-  const showCreateBtn = !(connectedChannelId && (channelParticipants[connectedChannelId]?.length ?? 0) <= 1);
+  const showCreateBtn = !connectedChannelId;
   const [createBtnVisible, setCreateBtnVisible] = useState(showCreateBtn);
   const [createBtnAnim, setCreateBtnAnim] = useState("");
   const createBtnTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);

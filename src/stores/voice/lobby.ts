@@ -31,10 +31,12 @@ function getStore() {
 export function checkLobbyMusic() {
   if (localStorage.getItem("flux-lobby-music-enabled") === "false") return;
 
-  const { room } = getStore().getState();
+  const { room, connectedChannelId, channelParticipants } = getStore().getState();
   if (!room) return;
 
-  const isAlone = room.remoteParticipants.size === 0;
+  // Check both LiveKit remote participants AND WebSocket-announced participants
+  const wsCount = connectedChannelId ? (channelParticipants[connectedChannelId]?.length ?? 0) : 0;
+  const isAlone = room.remoteParticipants.size === 0 && wsCount <= 1;
 
   if (isAlone) {
     if (!lobbyMusicState.timer && !lobbyMusicState.audio) {

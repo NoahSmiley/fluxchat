@@ -99,7 +99,12 @@ export const VoiceUserRow = memo(function VoiceUserRow({
         className="voice-channel-user"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        onContextMenu={onContextMenu}
+        onClick={() => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }}
+        onContextMenu={onContextMenu ? (e) => {
+          if (hoverTimer.current) clearTimeout(hoverTimer.current);
+          setShowCard(false);
+          onContextMenu(e);
+        } : undefined}
       >
         <span
           className={`voice-avatar-ring ${ringClassName}`}

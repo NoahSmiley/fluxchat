@@ -24,7 +24,8 @@ export function VoiceChannelView() {
     connectedChannelId,
     connecting,
     connectionError,
-    participants,
+    participants: livekitParticipants,
+    channelParticipants,
     isMuted,
     isDeafened,
     isScreenSharing,
@@ -42,7 +43,7 @@ export function VoiceChannelView() {
     setScreenShareQuality,
   } = useVoiceStore(useShallow((s) => ({
     room: s.room, connectedChannelId: s.connectedChannelId, connecting: s.connecting,
-    connectionError: s.connectionError, participants: s.participants, isMuted: s.isMuted,
+    connectionError: s.connectionError, participants: s.participants, channelParticipants: s.channelParticipants, isMuted: s.isMuted,
     isDeafened: s.isDeafened, isScreenSharing: s.isScreenSharing, screenSharers: s.screenSharers,
     pinnedScreenShare: s.pinnedScreenShare, theatreMode: s.theatreMode,
     participantVolumes: s.participantVolumes, joinVoiceChannel: s.joinVoiceChannel,
@@ -60,6 +61,17 @@ export function VoiceChannelView() {
   const isConnected = connectedChannelId === activeChannelId;
   const hasScreenShares = screenSharers.length > 0;
   const screenSharerIds = useMemo(() => new Set(screenSharers.map(s => s.participantId)), [screenSharers]);
+
+  // Merge LiveKit participants with WebSocket-announced participants so all users
+  // in the room appear as tiles, even if they haven't established LiveKit connections yet.
+  const participants = useMemo(() => {
+    const wsParticipants = connectedChannelId ? (channelParticipants[connectedChannelId] ?? []) : [];
+    const livekitIds = new Set(livekitParticipants.map((p) => p.userId));
+    const wsOnly = wsParticipants
+      .filter((p) => !livekitIds.has(p.userId))
+      .map((p) => ({ userId: p.userId, username: p.username, isMuted: false, isDeafened: false }));
+    return [...livekitParticipants, ...wsOnly];
+  }, [livekitParticipants, channelParticipants, connectedChannelId]);
 
   // Load session when connecting to voice channel or switching to music tab
   useEffect(() => {

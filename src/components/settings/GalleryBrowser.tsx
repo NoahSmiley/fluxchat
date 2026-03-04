@@ -85,7 +85,7 @@ export function GalleryBrowser({ onClose }: { onClose: () => void }) {
               <div className="gallery-browser-info">
                 <span className="gallery-browser-name">{set.name}</span>
                 <span className="gallery-browser-meta">
-                  by {set.creatorUsername} · {set.imageCount} images · {set.subscriberCount} subscribers
+                  by {set.creatorUsername} · {set.imageCount} {set.imageCount === 1 ? "image" : "images"} · {set.subscriberCount} {set.subscriberCount === 1 ? "subscriber" : "subscribers"}
                 </span>
               </div>
               <button

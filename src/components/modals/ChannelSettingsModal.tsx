@@ -120,6 +120,7 @@ export function ChannelSettingsModal({ channel, serverId, onClose }: Props) {
   }
 
   async function handleDelete() {
+    if (deleting) return;
     setDeleting(true);
     try {
       await api.deleteChannel(serverId, channel.id);

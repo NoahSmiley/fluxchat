@@ -334,7 +334,7 @@ function GallerySettings() {
                     </div>
                     <div className="gallery-set-browser-info">
                       <span className="gallery-set-browser-name">{subSet.name}</span>
-                      <span className="gallery-set-browser-count">{subSet.imageCount} images · by {subSet.creatorUsername}</span>
+                      <span className="gallery-set-browser-count">{subSet.imageCount} {subSet.imageCount === 1 ? "image" : "images"} · by {subSet.creatorUsername}</span>
                     </div>
                   </button>
                 ))}

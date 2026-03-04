@@ -565,8 +565,8 @@ export function GalleryTab() {
                   <span className="gallery-discover-name">{set.name}</span>
                   <span className="gallery-discover-creator">by {set.creatorUsername}</span>
                   <span className="gallery-discover-stats">
-                    <span>{set.imageCount} images</span>
-                    <span>{set.subscriberCount} subscribers</span>
+                    <span>{set.imageCount} {set.imageCount === 1 ? "image" : "images"}</span>
+                    <span>{set.subscriberCount} {set.subscriberCount === 1 ? "subscriber" : "subscribers"}</span>
                   </span>
                   {set.description && (
                     <span className="gallery-discover-desc">{set.description}</span>
@@ -671,8 +671,8 @@ export function GalleryTab() {
                   <div className="gallery-my-set-info">
                     <span className="gallery-discover-name">{set.name}</span>
                     <span className="gallery-discover-stats">
-                      <span>{set.imageCount} images</span>
-                      <span>{set.subscriberCount} subscribers</span>
+                      <span>{set.imageCount} {set.imageCount === 1 ? "image" : "images"}</span>
+                      <span>{set.subscriberCount} {set.subscriberCount === 1 ? "subscriber" : "subscribers"}</span>
                     </span>
                   </div>
                   <ChevronDown size={14} className={`gallery-my-set-chevron ${editingSetId === set.id ? "open" : ""}`} />

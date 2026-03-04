@@ -137,6 +137,8 @@ function MembersTab({
   async function handleAddWhitelist() {
     const email = whitelistInput.trim();
     if (!email) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) return;
     setWhitelistLoading(true);
     try {
       const added = await api.addToWhitelist([email]);

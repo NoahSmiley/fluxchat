@@ -145,10 +145,31 @@
 .voice-tile-volume {
   width: 100%;
   padding: 0 4px;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.15s ease, max-height 0.15s ease;
+}
+
+.voice-participant-tile:hover .voice-tile-volume {
+  opacity: 1;
+  max-height: 20px;
 }
 
 .voice-tile-volume .volume-slider {
   width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.voice-tile-volume .volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
 }
 
 /* ── Speaking Avatar ── */
