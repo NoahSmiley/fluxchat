@@ -86,7 +86,10 @@ export function PopoutScreenShareView() {
 
       try {
         // Fetch a fresh token directly from the API
-        const { token, url } = await api.getVoiceToken(voiceMsg.connectedChannelId);
+        // In hybrid mode, use screenToken/screenUrl (self-hosted) for video
+        const { token, url, screenToken, screenUrl } = await api.getVoiceToken(voiceMsg.connectedChannelId);
+        const connectUrl = screenUrl ?? url;
+        const connectToken = screenToken ?? token;
 
         const room = new Room({
           adaptiveStream: false,
@@ -118,7 +121,7 @@ export function PopoutScreenShareView() {
           setStatus("Disconnected");
         });
 
-        await room.connect(url, token);
+        await room.connect(connectUrl, connectToken);
         hasConnected = true;
 
         // Check if sharer is already publishing

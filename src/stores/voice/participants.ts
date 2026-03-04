@@ -33,24 +33,25 @@ export function createUpdateParticipants(storeRef: StoreApi<VoiceState>) {
 
 export function createUpdateScreenSharers(storeRef: StoreApi<VoiceState>) {
   return () => {
-    const { room, screenSharers: previousSharers, pinnedScreenShare } = storeRef.getState();
-    if (!room) return;
+    const { room, screenRoom, screenSharers: previousSharers, pinnedScreenShare } = storeRef.getState();
+    const targetRoom = screenRoom ?? room;
+    if (!targetRoom) return;
 
     const sharers: ScreenShareInfo[] = [];
 
     // Check local
-    for (const pub of room.localParticipant.videoTrackPublications.values()) {
+    for (const pub of targetRoom.localParticipant.videoTrackPublications.values()) {
       if (pub.source === Track.Source.ScreenShare) {
         sharers.push({
-          participantId: room.localParticipant.identity,
-          username: room.localParticipant.name ?? room.localParticipant.identity.slice(0, 8),
+          participantId: targetRoom.localParticipant.identity,
+          username: targetRoom.localParticipant.name ?? targetRoom.localParticipant.identity.slice(0, 8),
         });
         break;
       }
     }
 
     // Check remote
-    for (const participant of room.remoteParticipants.values()) {
+    for (const participant of targetRoom.remoteParticipants.values()) {
       for (const pub of participant.videoTrackPublications.values()) {
         if (pub.source === Track.Source.ScreenShare) {
           sharers.push({

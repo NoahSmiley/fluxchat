@@ -47,6 +47,16 @@ impl Config {
         }
     }
 
+    /// Returns true when both cloud AND self-hosted LiveKit credentials are configured.
+    /// Audio goes through cloud (Krisp), screen share stays on self-hosted.
+    pub fn is_hybrid_livekit(&self) -> bool {
+        self.livekit_cloud_api_key.is_some()
+            && self.livekit_cloud_api_secret.is_some()
+            && self.livekit_cloud_url.is_some()
+            && !self.livekit_api_key.is_empty()
+            && !self.livekit_api_secret.is_empty()
+    }
+
     /// Returns (api_key, api_secret, url) — cloud credentials if all three are set, otherwise self-hosted.
     pub fn effective_livekit(&self) -> (&str, &str, &str) {
         match (&self.livekit_cloud_api_key, &self.livekit_cloud_api_secret, &self.livekit_cloud_url) {

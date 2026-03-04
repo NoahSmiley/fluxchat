@@ -48,7 +48,7 @@ function cleanupAllParticipantAudio() {
   }
 }
 
-export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState>) {
+export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState>, isHybrid = false) {
   const get = () => storeRef.getState();
   const set = (partial: Partial<VoiceState> | ((state: VoiceState) => Partial<VoiceState>)) => {
     storeRef.setState(partial as any);
@@ -170,10 +170,18 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     setActiveVadProcessor(null);
     resetAdaptiveBitrate();
 
+    // Also disconnect screen room if audio room drops (hybrid mode)
+    const { screenRoom } = get();
+    if (screenRoom) {
+      screenRoom.removeAllListeners();
+      screenRoom.disconnect();
+    }
+
     dbg("voice", `Room Disconnected reason=${reason}`);
     stopStatsPolling();
     set({
       room: null,
+      screenRoom: null,
       connectedChannelId: null,
       participants: [],
       isMuted: false,
@@ -248,7 +256,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
         dbg("voice", `TrackSubscribed attached audio for ${participant.identity} (no HTMLAudioElement)`);
       }
     }
-    if (track.kind === Track.Kind.Video) {
+    if (track.kind === Track.Kind.Video && !isHybrid) {
       dbg("voice", `TrackSubscribed video from ${participant.identity}, updating screen sharers`);
       if (_publication.source === Track.Source.ScreenShare) {
         _publication.setVideoDimensions({ width: 1920, height: 1080 });
@@ -267,7 +275,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     const detached = track.detach();
     dbg("voice", `TrackUnsubscribed detached ${detached.length} HTML element(s)`);
     detached.forEach((el) => el.remove());
-    if (track.kind === Track.Kind.Video) {
+    if (track.kind === Track.Kind.Video && !isHybrid) {
       get()._updateScreenSharers();
     }
   });
@@ -284,19 +292,86 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
         dbg("voice", `LocalTrackPublished enforced CBR ${br}`);
       }
     }
-    get()._updateScreenSharers();
+    if (!isHybrid) get()._updateScreenSharers();
   });
   room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
     dbg("voice", `LocalTrackUnpublished source=${pub.source} sid=${pub.trackSid}`);
-    set({ isScreenSharing: false });
-    get()._updateScreenSharers();
+    if (!isHybrid) {
+      set({ isScreenSharing: false });
+      get()._updateScreenSharers();
+    }
   });
   room.on(RoomEvent.TrackPublished, (_pub, participant) => {
     dbg("voice", `TrackPublished remote participant=${participant.identity}`);
-    get()._updateScreenSharers();
+    if (!isHybrid) get()._updateScreenSharers();
   });
   room.on(RoomEvent.TrackUnpublished, (_pub, participant) => {
     dbg("voice", `TrackUnpublished remote participant=${participant.identity}`);
+    if (!isHybrid) get()._updateScreenSharers();
+  });
+}
+
+// ── Screen Room Event Handlers (hybrid mode — video only) ──
+export function setupScreenRoomEventHandlers(screenRoom: Room, storeRef: StoreApi<VoiceState>) {
+  const get = () => storeRef.getState();
+  const set = (partial: Partial<VoiceState> | ((state: VoiceState) => Partial<VoiceState>)) => {
+    storeRef.setState(partial as any);
+  };
+
+  screenRoom.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
+    if (track.kind === Track.Kind.Video) {
+      dbg("voice", `[screenRoom] TrackSubscribed video from ${participant.identity}`);
+      if (_publication.source === Track.Source.ScreenShare) {
+        _publication.setVideoDimensions({ width: 1920, height: 1080 });
+        _publication.setVideoQuality(VideoQuality.HIGH);
+      }
+      get()._updateScreenSharers();
+    }
+  });
+
+  screenRoom.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
+    if (track.kind === Track.Kind.Video) {
+      dbg("voice", `[screenRoom] TrackUnsubscribed video from ${participant?.identity}`);
+      const detached = track.detach();
+      detached.forEach((el) => el.remove());
+      get()._updateScreenSharers();
+    }
+  });
+
+  screenRoom.on(RoomEvent.LocalTrackPublished, (pub) => {
+    dbg("voice", `[screenRoom] LocalTrackPublished source=${pub.source}`);
+    if (pub.source === Track.Source.ScreenShare) {
+      set({ isScreenSharing: true });
+    }
     get()._updateScreenSharers();
+  });
+
+  screenRoom.on(RoomEvent.LocalTrackUnpublished, (pub) => {
+    dbg("voice", `[screenRoom] LocalTrackUnpublished source=${pub.source}`);
+    if (pub.source === Track.Source.ScreenShare) {
+      set({ isScreenSharing: false });
+    }
+    get()._updateScreenSharers();
+  });
+
+  screenRoom.on(RoomEvent.TrackPublished, (_pub, participant) => {
+    dbg("voice", `[screenRoom] TrackPublished remote participant=${participant.identity}`);
+    get()._updateScreenSharers();
+  });
+
+  screenRoom.on(RoomEvent.TrackUnpublished, (_pub, participant) => {
+    dbg("voice", `[screenRoom] TrackUnpublished remote participant=${participant.identity}`);
+    get()._updateScreenSharers();
+  });
+
+  screenRoom.on(RoomEvent.Disconnected, (reason) => {
+    dbg("voice", `[screenRoom] Disconnected reason=${reason}`);
+    // Reset screen share state only — don't trigger full leave
+    set({
+      screenRoom: null,
+      isScreenSharing: false,
+      screenSharers: [],
+      pinnedScreenShare: null,
+    });
   });
 }

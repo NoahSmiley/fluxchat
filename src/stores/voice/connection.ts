@@ -13,7 +13,7 @@ import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate
 import type { VoiceState } from "./types.js";
 import { checkLobbyMusic, stopLobbyMusic } from "./lobby.js";
 import { startStatsPolling } from "./stats.js";
-import { setupRoomEventHandlers } from "./room-events.js";
+import { setupRoomEventHandlers, setupScreenRoomEventHandlers } from "./room-events.js";
 import type { StoreApi } from "zustand";
 
 const DEFAULT_BITRATE = 510_000;
@@ -77,7 +77,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       storeRef.setState(partial as any);
     };
 
-    const { room: existingRoom, connectedChannelId, audioSettings } = get();
+    const { room: existingRoom, screenRoom: existingScreenRoom, connectedChannelId, audioSettings } = get();
 
     dbg("voice", `joinVoiceChannel requested channel=${channelId}`, {
       currentChannel: connectedChannelId,
@@ -116,7 +116,19 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       }
 
       await existingRoom.disconnect();
-      set({ room: null, connectedChannelId: null, connecting: true, connectionError: null });
+
+      // Disconnect screen room if it exists
+      if (existingScreenRoom) {
+        existingScreenRoom.removeAllListeners();
+        for (const participant of existingScreenRoom.remoteParticipants.values()) {
+          for (const pub of participant.videoTrackPublications.values()) {
+            if (pub.track) pub.track.detach().forEach((el) => el.remove());
+          }
+        }
+        await existingScreenRoom.disconnect();
+      }
+
+      set({ room: null, screenRoom: null, connectedChannelId: null, connecting: true, connectionError: null });
     }
 
     const previousChannelId = isSwitching ? connectedChannelId : null;
@@ -127,7 +139,8 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
 
     try {
       dbg("voice", "joinVoiceChannel fetching voice token...");
-      const { token, url } = await api.getVoiceToken(channelId);
+      const { token, url, screenToken, screenUrl } = await api.getVoiceToken(channelId);
+      const isHybrid = !!screenToken && !!screenUrl;
 
       if (isStale()) {
         dbg("voice", "joinVoiceChannel aborted after token fetch — newer join in progress");
@@ -147,6 +160,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       const serverKey = serverId ? cryptoState.getServerKey(serverId) : null;
 
       let e2eeOptions: { keyProvider: ExternalE2EEKeyProvider; worker: Worker } | undefined;
+      let screenE2eeOptions: { keyProvider: ExternalE2EEKeyProvider; worker: Worker } | undefined;
       if (serverKey) {
         try {
           const keyProvider = new ExternalE2EEKeyProvider();
@@ -156,6 +170,16 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
             keyProvider,
             worker: new Worker(new URL("livekit-client/e2ee-worker", import.meta.url), { type: "module" }),
           };
+
+          // Separate E2EE key provider for screen room (each room needs its own)
+          if (isHybrid) {
+            const screenKeyProvider = new ExternalE2EEKeyProvider();
+            await screenKeyProvider.setKey(keyBase64);
+            screenE2eeOptions = {
+              keyProvider: screenKeyProvider,
+              worker: new Worker(new URL("livekit-client/e2ee-worker", import.meta.url), { type: "module" }),
+            };
+          }
         } catch (e) { dbg("voice", "joinVoiceChannel E2EE setup failed", e); }
       }
 
@@ -185,9 +209,36 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         ...(e2eeOptions ? { e2ee: e2eeOptions } : {}),
       });
 
-      setupRoomEventHandlers(room, storeRef);
+      setupRoomEventHandlers(room, storeRef, isHybrid);
 
       await room.connect(url, token);
+
+      // ── Hybrid: create + connect screen room (self-hosted, video only) ──
+      let screenRoom: Room | null = null;
+      if (isHybrid) {
+        try {
+          screenRoom = new Room({
+            adaptiveStream: false,
+            dynacast: true,
+            publishDefaults: {
+              videoCodec: "h264",
+              screenShareEncoding: { maxBitrate: 6_000_000, maxFramerate: 60, priority: "high" },
+              screenShareSimulcastLayers: [],
+              scalabilityMode: "L1T1",
+              degradationPreference: "balanced",
+              backupCodec: { codec: "vp8" },
+            },
+            ...(screenE2eeOptions ? { e2ee: screenE2eeOptions } : {}),
+          });
+
+          setupScreenRoomEventHandlers(screenRoom, storeRef);
+          await screenRoom.connect(screenUrl, screenToken);
+          dbg("voice", "Hybrid screen room connected to self-hosted LiveKit");
+        } catch (e) {
+          dbg("voice", "Failed to connect hybrid screen room (non-fatal)", e);
+          screenRoom = null;
+        }
+      }
 
       if (isStale()) {
         room.disconnect();
@@ -287,6 +338,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
 
       set({
         room,
+        screenRoom,
         connectedChannelId: channelId,
         connecting: false,
         isMuted: false,
@@ -332,7 +384,7 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
     const get = () => storeRef.getState();
     const set = (partial: Partial<VoiceState>) => { storeRef.setState(partial); };
 
-    const { room, connectedChannelId, channelParticipants } = get();
+    const { room, screenRoom, connectedChannelId, channelParticipants } = get();
     const localId = room?.localParticipant?.identity;
 
     // Clean up audio processors before disconnecting
@@ -346,6 +398,17 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
         useSpotifyStore.getState().leaveSession();
       });
     } catch (e) { dbg("voice", "Failed to stop Spotify session on voice leave", e); }
+
+    // Disconnect screen room first (hybrid mode)
+    if (screenRoom) {
+      screenRoom.removeAllListeners();
+      for (const participant of screenRoom.remoteParticipants.values()) {
+        for (const publication of participant.videoTrackPublications.values()) {
+          if (publication.track) publication.track.detach().forEach((el) => el.remove());
+        }
+      }
+      screenRoom.disconnect();
+    }
 
     if (room) {
       // Remove listeners FIRST to prevent the Disconnected handler from racing
@@ -374,6 +437,7 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
     // Set room: null immediately to prevent joinVoiceChannel from seeing stale room
     set({
       room: null,
+      screenRoom: null,
       channelParticipants: updatedParticipants,
       connecting: false,
       connectedChannelId: null,

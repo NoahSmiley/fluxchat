@@ -188,6 +188,7 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
   return {
     // ── Initial State ──
     room: null,
+    screenRoom: null,
     connectedChannelId: null,
     connecting: false,
     connectionError: null,

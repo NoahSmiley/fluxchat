@@ -10,7 +10,7 @@ const { mockGatewayOn, mockGatewayOnConnect, mockGatewaySend } = vi.hoisted(() =
 // ── Mocks ──
 
 vi.mock("../../lib/api/index.js", () => ({
-  getVoiceToken: vi.fn(() => Promise.resolve({ token: "fake-token", url: "ws://localhost:7880" })),
+  getVoiceToken: vi.fn(() => Promise.resolve({ token: "fake-token", url: "ws://localhost:7880", screenToken: null, screenUrl: null })),
   getStoredToken: vi.fn(() => null),
   setStoredToken: vi.fn(),
   getSession: vi.fn(() => Promise.resolve(null)),

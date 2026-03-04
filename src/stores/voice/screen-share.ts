@@ -9,22 +9,24 @@ export function createToggleScreenShare(storeRef: StoreApi<VoiceState>) {
     const get = () => storeRef.getState();
     const set = (partial: Partial<VoiceState>) => { storeRef.setState(partial); };
 
-    const { room, isScreenSharing, screenShareQuality } = get();
-    if (!room) return;
+    const { room, screenRoom, isScreenSharing, screenShareQuality } = get();
+    const targetRoom = screenRoom ?? room;
+    if (!targetRoom) return;
 
     const preset = SCREEN_SHARE_PRESETS[screenShareQuality];
 
     try {
       if (isScreenSharing) {
         dbg("voice", "toggleScreenShare stopping");
-        await room.localParticipant.setScreenShareEnabled(false);
+        await targetRoom.localParticipant.setScreenShareEnabled(false);
         set({ isScreenSharing: false });
       } else {
         dbg("voice", `toggleScreenShare starting quality=${screenShareQuality}`, {
           ...preset,
           displaySurface,
+          hybrid: !!screenRoom,
         });
-        await room.localParticipant.setScreenShareEnabled(true,
+        await targetRoom.localParticipant.setScreenShareEnabled(true,
           // Capture options
           {
             audio: true,
@@ -53,7 +55,7 @@ export function createToggleScreenShare(storeRef: StoreApi<VoiceState>) {
         dbg("voice", "toggleScreenShare started successfully");
 
         // Apply resolution + framerate constraints on the captured track
-        for (const pub of room.localParticipant.videoTrackPublications.values()) {
+        for (const pub of targetRoom.localParticipant.videoTrackPublications.values()) {
           if (pub.source === Track.Source.ScreenShare && pub.track) {
             const mst = pub.track.mediaStreamTrack;
             if (mst?.readyState === "live") {
@@ -85,8 +87,9 @@ export function createSetScreenShareQuality(storeRef: StoreApi<VoiceState>) {
     const prevQuality = get().screenShareQuality;
     set({ screenShareQuality: quality });
 
-    const { room, isScreenSharing } = get();
-    if (!isScreenSharing || !room) return;
+    const { room, screenRoom, isScreenSharing } = get();
+    const targetRoom = screenRoom ?? room;
+    if (!isScreenSharing || !targetRoom) return;
 
     const preset = SCREEN_SHARE_PRESETS[quality];
     const prevPreset = SCREEN_SHARE_PRESETS[prevQuality];
@@ -96,11 +99,11 @@ export function createSetScreenShareQuality(storeRef: StoreApi<VoiceState>) {
       dbg("voice", `setScreenShareQuality codec change ${prevPreset.codec} → ${preset.codec}, republishing`);
       (async () => {
         try {
-          for (const pub of room.localParticipant.videoTrackPublications.values()) {
+          for (const pub of targetRoom.localParticipant.videoTrackPublications.values()) {
             if (pub.source === Track.Source.ScreenShare && pub.track) {
               const mediaStreamTrack = pub.track.mediaStreamTrack;
-              await room.localParticipant.unpublishTrack(pub.track, false);
-              await room.localParticipant.publishTrack(mediaStreamTrack, {
+              await targetRoom.localParticipant.unpublishTrack(pub.track, false);
+              await targetRoom.localParticipant.publishTrack(mediaStreamTrack, {
                 source: Track.Source.ScreenShare,
                 videoCodec: preset.codec,
                 screenShareEncoding: {
@@ -125,7 +128,7 @@ export function createSetScreenShareQuality(storeRef: StoreApi<VoiceState>) {
     // Same codec — apply encoding params live via RTCRtpSender + track constraints
     dbg("voice", `setScreenShareQuality live update: ${prevQuality} → ${quality}`, preset);
 
-    for (const pub of room.localParticipant.videoTrackPublications.values()) {
+    for (const pub of targetRoom.localParticipant.videoTrackPublications.values()) {
       if (pub.source === Track.Source.ScreenShare && pub.track) {
         // Update encoder params (bitrate, framerate cap)
         const sender = pub.track.sender;

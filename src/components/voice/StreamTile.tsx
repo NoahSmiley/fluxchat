@@ -23,10 +23,11 @@ interface StreamTileProps {
 export function StreamTile({ participantId, username, isPinned }: StreamTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pubRef = useRef<RemoteTrackPublication | null>(null);
-  const { room, pinScreenShare, unpinScreenShare, toggleTheatreMode, theatreMode } = useVoiceStore(useShallow((s) => ({
-    room: s.room, pinScreenShare: s.pinScreenShare, unpinScreenShare: s.unpinScreenShare,
+  const { room: audioRoom, screenRoom, pinScreenShare, unpinScreenShare, toggleTheatreMode, theatreMode } = useVoiceStore(useShallow((s) => ({
+    room: s.room, screenRoom: s.screenRoom, pinScreenShare: s.pinScreenShare, unpinScreenShare: s.unpinScreenShare,
     toggleTheatreMode: s.toggleTheatreMode, theatreMode: s.theatreMode,
   })));
+  const room = screenRoom ?? audioRoom;
 
   /** Find and attach the screen share track for this participant */
   const attachTrack = useCallback(() => {

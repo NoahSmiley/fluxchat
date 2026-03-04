@@ -70,6 +70,7 @@ export const DEFAULT_SETTINGS: AudioSettings = {
 export interface VoiceState {
   // ── Connection state ──
   room: Room | null;
+  screenRoom: Room | null; // Self-hosted LiveKit room for screen share (hybrid mode)
   connectedChannelId: string | null;
   connecting: boolean;
   connectionError: string | null;

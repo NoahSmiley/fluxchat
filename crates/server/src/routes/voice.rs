@@ -103,11 +103,43 @@ pub async fn get_token(
     .to_jwt();
 
     match token {
-        Ok(jwt) => Json(serde_json::json!({
-            "token": jwt,
-            "url": lk_url,
-        }))
-        .into_response(),
+        Ok(jwt) => {
+            // Hybrid mode: generate a second token for self-hosted LiveKit (screen share)
+            let (screen_token, screen_url) = if state.config.is_hybrid_livekit() {
+                let st = livekit_api::access_token::AccessToken::with_api_key(
+                    &state.config.livekit_api_key,
+                    &state.config.livekit_api_secret,
+                )
+                .with_identity(&identity)
+                .with_name(&name)
+                .with_grants(livekit_api::access_token::VideoGrants {
+                    room_join: true,
+                    room: body.channel_id.clone(),
+                    can_publish: !is_viewer,
+                    can_subscribe: true,
+                    ..Default::default()
+                })
+                .to_jwt();
+
+                match st {
+                    Ok(screen_jwt) => (
+                        serde_json::Value::String(screen_jwt),
+                        serde_json::Value::String(state.config.livekit_url.clone()),
+                    ),
+                    Err(_) => (serde_json::Value::Null, serde_json::Value::Null),
+                }
+            } else {
+                (serde_json::Value::Null, serde_json::Value::Null)
+            };
+
+            Json(serde_json::json!({
+                "token": jwt,
+                "url": lk_url,
+                "screenToken": screen_token,
+                "screenUrl": screen_url,
+            }))
+            .into_response()
+        }
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": "Failed to generate token"})),
