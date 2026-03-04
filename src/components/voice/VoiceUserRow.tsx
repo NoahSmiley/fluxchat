@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, memo } from "react";
+import { useState, useRef, useCallback, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
 import type { MemberWithUser } from "@/types/shared.js";
@@ -45,6 +45,8 @@ export const VoiceUserRow = memo(function VoiceUserRow({
   const cardRef = useRef<HTMLDivElement>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isHovered = useRef(false);
+  const mountedAt = useRef(Date.now());
   const { user } = useAuthStore();
   const { onlineUsers, userStatuses, userActivities } = useChatStore(useShallow((s) => ({
     onlineUsers: s.onlineUsers, userStatuses: s.userStatuses, userActivities: s.userActivities,
@@ -52,6 +54,15 @@ export const VoiceUserRow = memo(function VoiceUserRow({
   const { openDM, showDMs } = useDMStore(useShallow((s) => ({
     openDM: s.openDM, showDMs: s.showDMs,
   })));
+
+  // Cleanup timers on unmount to prevent stale popups when switching rooms
+  useEffect(() => {
+    mountedAt.current = Date.now();
+    return () => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+      if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    };
+  }, []);
 
   const cancelDismiss = useCallback(() => {
     if (dismissTimer.current) {
@@ -68,10 +79,13 @@ export const VoiceUserRow = memo(function VoiceUserRow({
   }, [cancelDismiss]);
 
   const handleMouseEnter = () => {
+    isHovered.current = true;
     cancelDismiss();
     if (!member) return;
+    // Suppress hover-to-inspect if row just mounted (e.g. room expanding under cursor)
+    if (Date.now() - mountedAt.current < 400) return;
     hoverTimer.current = setTimeout(() => {
-      if (rowRef.current) {
+      if (rowRef.current && isHovered.current) {
         const rect = rowRef.current.getBoundingClientRect();
         setCardPos({ top: rect.top - 40, left: rect.right + 8 });
         setShowCard(true);
@@ -80,6 +94,7 @@ export const VoiceUserRow = memo(function VoiceUserRow({
   };
 
   const handleMouseLeave = () => {
+    isHovered.current = false;
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     scheduleDismiss();
   };
