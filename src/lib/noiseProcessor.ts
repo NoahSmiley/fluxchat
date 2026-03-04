@@ -1,4 +1,5 @@
 import { dbg } from "@/lib/debug.js";
+import { API_BASE } from "@/lib/serverUrl.js";
 
 // ═══════════════════════════════════════════════════════════════════
 // Noise Suppression Processors
@@ -71,9 +72,12 @@ export class DeepFilterProcessor {
     await this.detach(micPublication);
 
     const { DeepFilterNoiseFilterProcessor } = await import("deepfilternet3-noise-filter");
+    // Route WASM/model fetches through the Rust backend's CDN proxy to avoid CORS in Tauri
+    const cdnUrl = API_BASE.replace(/\/api$/, "/deepfilter-cdn");
     this.processor = new DeepFilterNoiseFilterProcessor({
       sampleRate: 48000,
       noiseReductionLevel: 50, // Conservative — avoids speech distortion
+      assetConfig: { cdnUrl },
     });
 
     await micPublication.track.setProcessor(this.processor);

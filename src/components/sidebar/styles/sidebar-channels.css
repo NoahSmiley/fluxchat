@@ -494,9 +494,9 @@
 .voice-room-group-wrapper {
   display: grid;
   grid-template-rows: 1fr;
-  margin-top: 4px;
+  margin-top: 8px;
 }
-.voice-room-group-wrapper:first-child { margin-top: 0; }
+.voice-room-group-wrapper:first-child { margin-top: 8px; }
 .voice-room-group-wrapper > .voice-room-group {
   overflow: hidden;
   min-height: 0;
