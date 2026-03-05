@@ -10,31 +10,14 @@ import { ProfileTab } from "./settings/ProfileTab.js";
 import { AppearanceTab } from "./settings/AppearanceTab.js";
 import { GalleryTab } from "./settings/GalleryTab.js";
 import { NotificationsTab } from "./settings/NotificationsTab.js";
-import { AudioTestTab } from "./settings/AudioTestTab.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
-
-function AudioTestModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal audio-test-modal">
-        <div className="audio-test-modal-header">
-          <h3>Audio A/B Test</h3>
-          <button className="modal-close-btn" onClick={onClose}><X size={16} /></button>
-        </div>
-        <div className="audio-test-modal-body">
-          <AudioTestTab />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function VoiceSettingsTab() {
   const { audioSettings, updateAudioSetting } = useVoiceStore(useShallow((s) => ({
     audioSettings: s.audioSettings, updateAudioSetting: s.updateAudioSetting,
   })));
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [audioTestOpen, setAudioTestOpen] = useState(false);
+
 
   useEffect(() => {
     navigator.mediaDevices.enumerateDevices().then(setDevices).catch(() => {});
@@ -82,20 +65,13 @@ function VoiceSettingsTab() {
         <h3 className="settings-card-title">Audio Processing</h3>
         <div className="settings-row">
           <div className="settings-row-info">
-            <span className="settings-row-label">Noise Suppression</span>
-            <span className="settings-row-desc">Krisp: Cloud-powered (best). Standard: RNNoise. Enhanced: DeepFilterNet3. DTLN: Dual-signal LSTM.</span>
+            <span className="settings-row-label" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <KrispLogo />
+              Noise Suppression
+            </span>
+            <span className="settings-row-desc">Powered by Krisp — AI-based noise cancellation removes background noise in real time</span>
           </div>
-          <select
-            className="settings-select"
-            value={audioSettings.noiseSuppression}
-            onChange={(e) => updateAudioSetting("noiseSuppression", e.target.value)}
-          >
-            <option value="off">Off</option>
-            <option value="krisp">Krisp</option>
-            <option value="standard">Standard</option>
-            <option value="enhanced">Enhanced</option>
-            <option value="dtln">DTLN</option>
-          </select>
+          <ToggleSwitch checked={!!audioSettings.noiseSuppression} onChange={(v) => updateAudioSetting("noiseSuppression", v)} />
         </div>
         <div className="settings-row">
           <div className="settings-row-info">
@@ -148,18 +124,17 @@ function VoiceSettingsTab() {
         )}
       </div>
 
-      <div className="settings-card">
-        <div className="settings-row" style={{ borderBottom: "none" }}>
-          <div className="settings-row-info">
-            <span className="settings-row-label">Audio A/B Test</span>
-            <span className="settings-row-desc">Record a mic sample, toggle effects, and compare raw vs processed</span>
-          </div>
-          <button className="btn-small" onClick={() => setAudioTestOpen(true)}>Test Audio</button>
-        </div>
-      </div>
-
-      {audioTestOpen && <AudioTestModal onClose={() => setAudioTestOpen(false)} />}
     </>
+  );
+}
+
+function KrispLogo() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="#33cc99"/>
+      <path d="M12 6c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2s2-.9 2-2V8c0-1.1-.9-2-2-2z" fill="#33cc99"/>
+      <path d="M16 12c0 2.21-1.79 4-4 4s-4-1.79-4-4H6c0 3.04 2.28 5.54 5.23 5.92V20h1.54v-2.08C15.72 17.54 18 15.04 18 12h-2z" fill="#33cc99"/>
+    </svg>
   );
 }
 

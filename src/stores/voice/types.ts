@@ -10,7 +10,7 @@ export interface AudioSettings {
   audioInputDeviceId: string;
   audioOutputDeviceId: string;
   dtx: boolean;
-  noiseSuppression: "off" | "krisp" | "standard" | "enhanced" | "dtln";
+  noiseSuppression: boolean;
   echoCancellation: boolean;
   autoGainControl: boolean;
   voiceGating: boolean;
@@ -59,7 +59,7 @@ export const DEFAULT_SETTINGS: AudioSettings = {
   audioInputDeviceId: "",
   audioOutputDeviceId: "",
   dtx: false,
-  noiseSuppression: "krisp",
+  noiseSuppression: true,
   echoCancellation: true,
   autoGainControl: true,
   voiceGating: false,

@@ -7,11 +7,11 @@ import { DEFAULT_SETTINGS } from "./types.js";
 import { initLobbyMusic, setLobbyMusicGain, stopLobbyMusic } from "./lobby.js";
 import { initStatsPolling } from "./stats.js";
 import { initVoiceEvents } from "./events.js";
-import { createJoinVoiceChannel, createLeaveVoiceChannel, activeRnnoiseProcessor, activeDeepFilterProcessor, activeDtlnProcessor, activeKrispProcessor, activeVadProcessor, setActiveRnnoiseProcessor, setActiveDeepFilterProcessor, setActiveDtlnProcessor, setActiveKrispProcessor, setActiveVadProcessor, adaptiveTargetBitrate } from "./connection.js";
+import { createJoinVoiceChannel, createLeaveVoiceChannel, activeKrispProcessor, activeVadProcessor, setActiveKrispProcessor, setActiveVadProcessor, adaptiveTargetBitrate } from "./connection.js";
 import { createToggleMute, createSetMuted, createToggleDeafen, createSetParticipantVolume, createApplyBitrate } from "./controls.js";
 import { createToggleScreenShare, createSetScreenShareQuality } from "./screen-share.js";
 import { createUpdateParticipants, createUpdateScreenSharers, createSetChannelParticipants } from "./participants.js";
-import { RnnoiseProcessor, DeepFilterProcessor, DtlnProcessor, KrispProcessor } from "@/lib/noiseProcessor.js";
+import { KrispProcessor } from "@/lib/noiseProcessor.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import { Track } from "livekit-client";
@@ -23,7 +23,14 @@ const LOBBY_DEFAULT_GAIN = 0.15;
 function loadAudioSettings(): AudioSettings {
   try {
     const saved = localStorage.getItem("flux-audio-settings");
-    if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migrate old string noiseSuppression to boolean
+      if (typeof parsed.noiseSuppression === "string") {
+        parsed.noiseSuppression = parsed.noiseSuppression !== "off";
+      }
+      return { ...DEFAULT_SETTINGS, ...parsed };
+    }
   } catch { /* ignore corrupt data */ }
   return { ...DEFAULT_SETTINGS };
 }
@@ -60,57 +67,28 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
       room.switchActiveDevice("audiooutput", value).catch(() => {});
     }
 
-    // ── Live toggle: noise suppression ──
+    // ── Live toggle: Krisp noise suppression ──
     if (room && key === "noiseSuppression") {
       (async () => {
         try {
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
 
           // Tear down current processor
-          if (activeRnnoiseProcessor) {
-            await activeRnnoiseProcessor.destroy();
-            setActiveRnnoiseProcessor(null);
-          }
-          if (activeDeepFilterProcessor) {
-            await activeDeepFilterProcessor.detach(micPub);
-            setActiveDeepFilterProcessor(null);
-          }
           if (activeKrispProcessor) {
             await activeKrispProcessor.detach(micPub);
             setActiveKrispProcessor(null);
           }
-          if (activeDtlnProcessor) {
-            await activeDtlnProcessor.destroy();
-            setActiveDtlnProcessor(null);
-          }
 
-          if (value === "krisp" && micPub) {
+          if (value && micPub) {
             const processor = new KrispProcessor();
             await processor.attach(micPub);
             setActiveKrispProcessor(processor);
-            dbg("voice", "Switched to Krisp");
-          } else if (value === "standard" && micPub?.track?.mediaStreamTrack) {
-            const processor = new RnnoiseProcessor();
-            const processedTrack = await processor.init(micPub.track.mediaStreamTrack);
-            await (micPub.track as any).replaceTrack(processedTrack);
-            setActiveRnnoiseProcessor(processor);
-            dbg("voice", "Switched to RNNoise (standard)");
-          } else if (value === "enhanced" && micPub) {
-            const processor = new DeepFilterProcessor();
-            await processor.attach(micPub);
-            setActiveDeepFilterProcessor(processor);
-            dbg("voice", "Switched to DeepFilterNet3 (enhanced)");
-          } else if (value === "dtln" && micPub?.track?.mediaStreamTrack) {
-            const processor = new DtlnProcessor();
-            const processedTrack = await processor.init(micPub.track.mediaStreamTrack);
-            await (micPub.track as any).replaceTrack(processedTrack);
-            setActiveDtlnProcessor(processor);
-            dbg("voice", "Switched to DTLN");
+            dbg("voice", "Krisp noise suppression enabled");
           } else {
-            dbg("voice", "Noise suppression disabled");
+            dbg("voice", "Krisp noise suppression disabled");
           }
         } catch (e) {
-          dbg("voice", "Live noise suppression toggle failed", e);
+          dbg("voice", "Krisp noise suppression toggle failed", e);
         }
       })();
     }

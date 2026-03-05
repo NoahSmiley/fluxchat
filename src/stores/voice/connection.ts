@@ -6,7 +6,7 @@ import { useCryptoStore } from "@/stores/crypto.js";
 import { exportKeyAsBase64 } from "@/lib/crypto.js";
 import { dbg } from "@/lib/debug.js";
 import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
-import { RnnoiseProcessor, DeepFilterProcessor, DtlnProcessor, KrispProcessor } from "@/lib/noiseProcessor.js";
+import { KrispProcessor } from "@/lib/noiseProcessor.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 
@@ -31,37 +31,17 @@ export function setAdaptiveTargetBitrate(bitrate: number) {
 }
 
 // ── Audio processor instances (shared so store can toggle live) ──
-export let activeRnnoiseProcessor: RnnoiseProcessor | null = null;
-export let activeDeepFilterProcessor: DeepFilterProcessor | null = null;
-export let activeDtlnProcessor: DtlnProcessor | null = null;
 export let activeKrispProcessor: KrispProcessor | null = null;
 export let activeVadProcessor: VadProcessor | null = null;
 
-export function setActiveRnnoiseProcessor(p: RnnoiseProcessor | null) { activeRnnoiseProcessor = p; }
-export function setActiveDeepFilterProcessor(p: DeepFilterProcessor | null) { activeDeepFilterProcessor = p; }
-export function setActiveDtlnProcessor(p: DtlnProcessor | null) { activeDtlnProcessor = p; }
 export function setActiveKrispProcessor(p: KrispProcessor | null) { activeKrispProcessor = p; }
 export function setActiveVadProcessor(p: VadProcessor | null) { activeVadProcessor = p; }
 
 async function destroyAllProcessors(room?: Room | null) {
-  if (activeRnnoiseProcessor) {
-    // Restore original track if possible
-    await activeRnnoiseProcessor.destroy();
-    activeRnnoiseProcessor = null;
-  }
-  if (activeDeepFilterProcessor) {
-    const micPub = room?.localParticipant.getTrackPublication(Track.Source.Microphone);
-    await activeDeepFilterProcessor.detach(micPub);
-    activeDeepFilterProcessor = null;
-  }
   if (activeKrispProcessor) {
     const micPub = room?.localParticipant.getTrackPublication(Track.Source.Microphone);
     await activeKrispProcessor.detach(micPub);
     activeKrispProcessor = null;
-  }
-  if (activeDtlnProcessor) {
-    await activeDtlnProcessor.destroy();
-    activeDtlnProcessor = null;
   }
   if (activeVadProcessor) {
     await activeVadProcessor.destroy();
@@ -256,36 +236,19 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         await room.switchActiveDevice("audiooutput", outputDeviceId).catch(() => {});
       }
 
-      // ── Attach noise suppression processor ──
-      try {
-        const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-        if (audioSettings.noiseSuppression === "krisp" && micPub) {
-          const processor = new KrispProcessor();
-          await processor.attach(micPub);
-          activeKrispProcessor = processor;
-          dbg("voice", "Krisp processor attached on join");
-        } else if (audioSettings.noiseSuppression === "standard" && micPub?.track?.mediaStreamTrack) {
-          const processor = new RnnoiseProcessor();
-          const processedTrack = await processor.init(micPub.track.mediaStreamTrack);
-          await micPub.track.mediaStreamTrack.stop(); // not needed after reroute
-          await (micPub.track as any).replaceTrack(processedTrack);
-          activeRnnoiseProcessor = processor;
-          dbg("voice", "RNNoise processor attached on join");
-        } else if (audioSettings.noiseSuppression === "enhanced" && micPub) {
-          const processor = new DeepFilterProcessor();
-          await processor.attach(micPub);
-          activeDeepFilterProcessor = processor;
-          dbg("voice", "DeepFilterNet3 processor attached on join");
-        } else if (audioSettings.noiseSuppression === "dtln" && micPub?.track?.mediaStreamTrack) {
-          const processor = new DtlnProcessor();
-          const processedTrack = await processor.init(micPub.track.mediaStreamTrack);
-          await micPub.track.mediaStreamTrack.stop();
-          await (micPub.track as any).replaceTrack(processedTrack);
-          activeDtlnProcessor = processor;
-          dbg("voice", "DTLN processor attached on join");
+      // ── Attach Krisp noise suppression ──
+      if (audioSettings.noiseSuppression) {
+        try {
+          const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          if (micPub) {
+            const processor = new KrispProcessor();
+            await processor.attach(micPub);
+            activeKrispProcessor = processor;
+            dbg("voice", "Krisp noise suppression attached on join");
+          }
+        } catch (e) {
+          dbg("voice", "Krisp noise suppression failed (non-fatal)", e);
         }
-      } catch (e) {
-        dbg("voice", "Noise suppression setup failed (non-fatal)", e);
       }
 
       // ── Init VAD for voice gating ──
