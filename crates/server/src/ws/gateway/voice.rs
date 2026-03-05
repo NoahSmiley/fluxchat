@@ -74,6 +74,21 @@ impl GatewayState {
             .unwrap_or_default()
     }
 
+    /// Force-clear all voice participants for a channel (used when admin deletes a room
+    /// that has stale participant entries from disconnected clients).
+    pub async fn clear_voice_channel(&self, channel_id: &str) {
+        let mut vp = self.voice_participants.write().await;
+        vp.remove(channel_id);
+
+        // Also clear voice_channel_id from any clients that still reference this channel
+        let mut clients = self.clients.write().await;
+        for client in clients.values_mut() {
+            if client.voice_channel_id.as_deref() == Some(channel_id) {
+                client.voice_channel_id = None;
+            }
+        }
+    }
+
     pub async fn update_drink_count(&self, user_id: &str, channel_id: &str, drink_count: i32) {
         let mut vp = self.voice_participants.write().await;
         if let Some(participants) = vp.get_mut(channel_id) {

@@ -54,6 +54,14 @@ export function handleRoomDeleted(
         ? { activeChannelId: fallbackChannel?.id ?? null, messages: [], reactions: {} }
         : {}),
     }));
+
+    // Auto-disconnect from voice if the deleted room is the one we're in
+    import("@/stores/voice/store.js").then((mod) => {
+      const voiceState = mod.useVoiceStore.getState();
+      if (voiceState.connectedChannelId === event.channelId) {
+        voiceState.leaveVoiceChannel();
+      }
+    });
   }
 }
 

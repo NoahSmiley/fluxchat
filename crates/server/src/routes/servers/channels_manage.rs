@@ -178,14 +178,9 @@ pub async fn delete_channel(
     let is_admin_or_owner = matches!(role.as_deref(), Some("owner") | Some("admin"));
 
     if channel.is_room == 1 {
-        let participants = state.gateway.voice_channel_participants(&channel_id).await;
-        if !participants.is_empty() {
-            return (
-                StatusCode::FORBIDDEN,
-                Json(serde_json::json!({"error": "Cannot delete a room with active participants"})),
-            )
-                .into_response();
-        }
+        // Force-clear any stale voice participants so the room can be deleted.
+        // Stale entries can accumulate from WebSocket reconnect races.
+        state.gateway.clear_voice_channel(&channel_id).await;
     }
 
     if channel.is_room == 1 {

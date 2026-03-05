@@ -51,9 +51,11 @@ export function initVoiceEvents(store: StoreApi<VoiceState>) {
   });
 
   // Re-announce voice state on WebSocket reconnect (e.g. after server restart)
+  // Only re-announce if the LiveKit room is still connected — prevents stale
+  // ghost entries when the WS reconnects after the user already left voice.
   gateway.onConnect(() => {
-    const { connectedChannelId } = store.getState();
-    if (connectedChannelId) {
+    const { connectedChannelId, room } = store.getState();
+    if (connectedChannelId && room) {
       gateway.send({ type: "voice_state_update", channelId: connectedChannelId, action: "join" });
     }
   });
