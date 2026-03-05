@@ -168,16 +168,17 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         dynacast: true,
         audioCaptureDefaults: {
           echoCancellation: audioSettings.echoCancellation,
-          noiseSuppression: false, // Handled by RNNoise/DeepFilterNet3, not browser
+          noiseSuppression: false, // Handled by Krisp, not browser
           autoGainControl: audioSettings.autoGainControl,
           sampleRate: 48000,
-          channelCount: 2,
+          // Krisp outputs mono — don't force stereo capture or it produces silent/garbled audio
+          channelCount: 1,
         },
         publishDefaults: {
           audioPreset: { maxBitrate: channelBitrate },
           dtx: audioSettings.dtx,
           red: true,
-          forceStereo: true,
+          forceStereo: false,
           stopMicTrackOnMute: false,
           videoCodec: "h264",
           screenShareEncoding: { maxBitrate: 6_000_000, maxFramerate: 60, priority: "high" },
@@ -237,18 +238,25 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       }
 
       // ── Attach Krisp noise suppression ──
+      // If Krisp fails (WASM load, SharedArrayBuffer, etc.), attach() now
+      // restores the original mic track so the user isn't silenced.
       if (audioSettings.noiseSuppression) {
         try {
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          dbg("voice", "Krisp: noiseSuppression enabled, micPub exists:", !!micPub);
           if (micPub) {
+            dbg("voice", "Krisp: SharedArrayBuffer available:", typeof SharedArrayBuffer !== "undefined");
+            dbg("voice", "Krisp: AudioWorklet available:", typeof AudioWorkletNode !== "undefined");
             const processor = new KrispProcessor();
             await processor.attach(micPub);
             activeKrispProcessor = processor;
-            dbg("voice", "Krisp noise suppression attached on join");
+            dbg("voice", "Krisp: noise suppression ACTIVE on join");
           }
         } catch (e) {
-          dbg("voice", "Krisp noise suppression failed (non-fatal)", e);
+          dbg("voice", "Krisp: noise suppression FAILED on join — mic continues without it", e);
         }
+      } else {
+        dbg("voice", "Krisp: noise suppression disabled in settings, skipping");
       }
 
       // ── Init VAD for voice gating ──

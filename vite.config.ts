@@ -16,17 +16,16 @@ export default defineConfig({
     host: "127.0.0.1",
     port: parseInt(process.env.VITE_PORT || "1420"),
     strictPort: true,
+    // Required for SharedArrayBuffer (used by Krisp WASM noise suppression)
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "credentialless",
+    },
     proxy: {
       "/api": `http://localhost:${process.env.API_PORT || "3001"}`,
       "/gateway": {
         target: `http://localhost:${process.env.API_PORT || "3001"}`,
         ws: true,
-      },
-      "/deepfilter-cdn": {
-        target: "https://cdn.mezon.ai/AI/models/datas/noise_suppression/deepfilternet3",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/deepfilter-cdn/, ""),
-        secure: true,
       },
     },
   },

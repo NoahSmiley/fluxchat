@@ -68,6 +68,8 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
     }
 
     // ── Live toggle: Krisp noise suppression ──
+    // If attach fails, KrispProcessor restores the original mic track so the
+    // user isn't silenced. We revert the setting so the toggle reflects reality.
     if (room && key === "noiseSuppression") {
       (async () => {
         try {
@@ -88,7 +90,11 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
             dbg("voice", "Krisp noise suppression disabled");
           }
         } catch (e) {
-          dbg("voice", "Krisp noise suppression toggle failed", e);
+          dbg("voice", "Krisp noise suppression toggle failed — mic continues without it", e);
+          // Revert the setting so the toggle reflects the actual state
+          const reverted = { ...storeApi.getState().audioSettings, noiseSuppression: false };
+          storeApi.setState({ audioSettings: reverted });
+          try { localStorage.setItem("flux-audio-settings", JSON.stringify(reverted)); } catch { /* ignore */ }
         }
       })();
     }
