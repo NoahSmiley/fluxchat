@@ -59,6 +59,42 @@ export class KrispProcessor {
         processedTrackChannels: this.processor?.processedTrack?.getSettings?.()?.channelCount,
       });
       dbg("voice", "Krisp: ATTACHED SUCCESSFULLY");
+
+      // Verify audio is actually flowing through the processed track
+      try {
+        const processedMst = this.processor?.processedTrack;
+        if (processedMst) {
+          const ctx = new AudioContext();
+          const source = ctx.createMediaStreamSource(new MediaStream([processedMst]));
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          source.connect(analyser);
+          const data = new Uint8Array(analyser.frequencyBinCount);
+
+          // Sample audio levels over 2 seconds
+          let sampleCount = 0;
+          const interval = setInterval(() => {
+            analyser.getByteTimeDomainData(data);
+            let sum = 0;
+            for (let i = 0; i < data.length; i++) {
+              const v = (data[i] - 128) / 128;
+              sum += v * v;
+            }
+            const rms = Math.sqrt(sum / data.length);
+            sampleCount++;
+            dbg("voice", `Krisp: audio level sample #${sampleCount} RMS=${rms.toFixed(4)}`);
+            if (sampleCount >= 4) {
+              clearInterval(interval);
+              source.disconnect();
+              analyser.disconnect();
+              ctx.close().catch(() => {});
+              dbg("voice", "Krisp: audio level monitoring complete");
+            }
+          }, 500);
+        }
+      } catch (e2) {
+        dbg("voice", "Krisp: audio level check failed (non-fatal)", e2);
+      }
     } catch (e) {
       // setProcessor failed — restore the original mic track
       dbg("voice", "Krisp: setProcessor FAILED, restoring original track", e);
