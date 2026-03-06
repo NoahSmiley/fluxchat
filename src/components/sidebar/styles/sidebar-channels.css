@@ -497,6 +497,7 @@
   margin-top: 8px;
 }
 .voice-room-group-wrapper:first-child { margin-top: 8px; }
+.voice-room-group-wrapper:last-child { margin-bottom: 8px; }
 .voice-room-group-wrapper > .voice-room-group {
   overflow: hidden;
   min-height: 0;

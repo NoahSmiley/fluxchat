@@ -14,41 +14,41 @@
   flex: 1;
   padding: 8px 12px;
   font-size: 13px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
   border-radius: var(--radius) 0 0 var(--radius);
-  color: #fff;
+  color: var(--text-primary);
   outline: none;
 }
 
 .music-search-btn {
   padding: 0 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
   border-left: none;
   border-radius: 0 var(--radius) var(--radius) 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
 }
 
 .music-search-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .music-search-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
 }
 
 .music-search-input:focus {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--text-muted);
 }
 
 .music-search-loading {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   padding: 8px 0;
 }
 
@@ -70,11 +70,11 @@
 }
 
 .music-search-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-hover);
 }
 
 .music-search-item:hover .music-search-item-name {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .music-search-item-art {
@@ -94,7 +94,7 @@
 
 .music-search-item-name {
   font-size: 13px;
-  color: #fff;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -102,7 +102,7 @@
 
 .music-search-item-artist {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -124,7 +124,7 @@
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
@@ -135,17 +135,16 @@
 }
 
 .music-search-item-add:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* Source tabs for search */
 .music-search-source-tabs {
   display: flex;
   gap: 4px;
-  padding: 0 12px;
   margin-bottom: 8px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-tertiary);
   border-radius: 8px;
   padding: 3px;
 }
@@ -156,7 +155,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -168,7 +167,7 @@
 }
 
 .music-source-tab:hover {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-secondary);
 }
 
 .music-source-tab svg {
@@ -176,7 +175,7 @@
 }
 
 .music-source-tab.active {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }

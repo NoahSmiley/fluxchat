@@ -8,8 +8,6 @@ import { Settings } from "lucide-react";
 import { useUIStore } from "@/stores/ui.js";
 import { avatarColor, ringClass, ringGradientStyle } from "@/lib/avatarColor.js";
 import { UserCard } from "./MemberList.js";
-import ContextMenu from "@/components/ContextMenu.js";
-import { useNotifStore } from "@/stores/notifications.js";
 
 export function ServerSidebar() {
   const { servers, selectServer, members, onlineUsers, userStatuses, userActivities } = useChatStore(useShallow((s) => ({
@@ -21,14 +19,9 @@ export function ServerSidebar() {
   })));
   const { user } = useAuthStore();
   const sidebarPosition = useUIStore((s) => s.sidebarPosition);
-  const notifStore = useNotifStore(useShallow((s) => ({
-    isUserMuted: s.isUserMuted, muteUser: s.muteUser, unmuteUser: s.unmuteUser,
-  })));
-
   const [activeCardUserId, setActiveCardUserId] = useState<string | null>(null);
   const [cardPos, setCardPos] = useState<{ top?: number; right?: number; left?: number; bottom?: number }>({ top: 0 });
   const [hoverTooltip, setHoverTooltip] = useState<{ username: string; style: React.CSSProperties } | null>(null);
-  const [avatarCtxMenu, setAvatarCtxMenu] = useState<{ x: number; y: number; userId: string } | null>(null);
 
   const sortedMembers = useMemo(() => {
     const byName = (a: typeof members[0], b: typeof members[0]) =>
@@ -84,7 +77,25 @@ export function ServerSidebar() {
     setHoverTooltip(null);
   }
 
-  function handleAvatarClick(e: React.MouseEvent, userId: string) {
+  function handleAvatarClick(e: React.MouseEvent, userId: string, isSelf: boolean) {
+    e.stopPropagation();
+    setHoverTooltip(null);
+    if (isSelf) {
+      // Self-click toggles profile card
+      if (activeCardUserId === userId) {
+        setActiveCardUserId(null);
+      } else {
+        computeCardPos(e.currentTarget as HTMLElement);
+        setActiveCardUserId(userId);
+      }
+    } else {
+      // Other users: left-click opens DM directly
+      handleDMFromCard(userId);
+    }
+  }
+
+  function handleAvatarRightClick(e: React.MouseEvent, userId: string) {
+    e.preventDefault();
     e.stopPropagation();
     setHoverTooltip(null);
     if (activeCardUserId === userId) {
@@ -130,8 +141,8 @@ export function ServerSidebar() {
                   style={ringGradientStyle(m.ringPatternSeed, m.ringStyle) as React.CSSProperties}
                   onMouseEnter={(e) => handleAvatarEnter(e, m.username)}
                   onMouseLeave={handleAvatarLeave}
-                  onClick={(e) => handleAvatarClick(e, m.userId)}
-                  onContextMenu={!isSelf ? (e) => { e.preventDefault(); e.stopPropagation(); setHoverTooltip(null); setAvatarCtxMenu({ x: e.clientX, y: e.clientY, userId: m.userId }); } : undefined}
+                  onClick={(e) => handleAvatarClick(e, m.userId, isSelf)}
+                  onContextMenu={!isSelf ? (e) => handleAvatarRightClick(e, m.userId) : undefined}
                 >
                   <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
                     <div className="member-avatar" style={{ background: m.image ? 'transparent' : avatarColor(m.username) }}>
@@ -173,28 +184,6 @@ export function ServerSidebar() {
         </div>
       )}
 
-      {avatarCtxMenu && (() => {
-        const isMuted = notifStore.isUserMuted(avatarCtxMenu.userId);
-        return (
-          <ContextMenu
-            x={avatarCtxMenu.x}
-            y={avatarCtxMenu.y}
-            onClose={() => setAvatarCtxMenu(null)}
-            items={[
-              { label: "Message", onClick: () => { handleDMFromCard(avatarCtxMenu.userId); setAvatarCtxMenu(null); } },
-              { type: "separator" },
-              {
-                label: isMuted ? "Unmute user" : "Mute user",
-                onClick: () => {
-                  if (isMuted) notifStore.unmuteUser(avatarCtxMenu.userId);
-                  else notifStore.muteUser(avatarCtxMenu.userId);
-                  setAvatarCtxMenu(null);
-                },
-              },
-            ]}
-          />
-        );
-      })()}
 
       <div className="server-sidebar-spacer" />
 
