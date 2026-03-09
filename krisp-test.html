@@ -320,26 +320,37 @@
       const authToken = localStorage.getItem("flux-session-token");
       if (!authToken) throw new Error("Not logged in — no flux-session-token in localStorage");
 
-      const apiBase = "/api";
+      const serverUrl = import.meta.env.VITE_SERVER_URL;
+      const apiBase = serverUrl ? serverUrl.replace(/\/+$/, "") + "/api" : "/api";
+      log("API base: " + apiBase);
       const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + authToken };
+
+      // Helper to fetch JSON with proper error handling
+      async function apiFetch(url, opts) {
+        const r = await fetch(url, opts);
+        if (!r.ok) {
+          const text = await r.text().catch(() => "");
+          throw new Error(`${r.status} ${r.statusText} — ${url}\n${text.slice(0, 200)}`);
+        }
+        return r.json();
+      }
 
       // Find a voice channel to use for the token
       log("Fetching servers...");
-      const servers = await fetch(apiBase + "/servers", { headers }).then(r => { if (!r.ok) throw new Error("Failed to fetch servers: " + r.status); return r.json(); });
+      const servers = await apiFetch(apiBase + "/servers", { headers });
       if (!servers.length) throw new Error("No servers found");
+      log("Found " + servers.length + " server(s)", "ok");
 
       let channelId = null;
       for (const server of servers) {
-        const channels = await fetch(apiBase + "/servers/" + server.id + "/channels", { headers }).then(r => r.json());
+        const channels = await apiFetch(apiBase + "/servers/" + server.id + "/channels", { headers });
         const voice = channels.find(c => c.type === "voice");
         if (voice) { channelId = voice.id; log("Using voice channel: " + voice.name + " (" + voice.id + ")"); break; }
       }
       if (!channelId) throw new Error("No voice channels found in any server");
 
-      log("POST /api/voice/token");
-      const res = await fetch(apiBase + "/voice/token", { method: "POST", headers, body: JSON.stringify({ channelId }) });
-      if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-      const tokenData = await res.json();
+      log("POST " + apiBase + "/voice/token");
+      const tokenData = await apiFetch(apiBase + "/voice/token", { method: "POST", headers, body: JSON.stringify({ channelId }) });
       setStep("s-token", "pass", `token len=${tokenData.token.length}`);
       log("Token received", "ok");
 
