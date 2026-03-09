@@ -6,7 +6,7 @@ import { useCryptoStore } from "@/stores/crypto.js";
 import { exportKeyAsBase64 } from "@/lib/crypto.js";
 import { dbg } from "@/lib/debug.js";
 import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
-import { KrispProcessor } from "@/lib/noiseProcessor.js";
+import { detachKrisp } from "@/lib/noiseProcessor.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 
@@ -31,16 +31,17 @@ export function setAdaptiveTargetBitrate(bitrate: number) {
 }
 
 // ── Audio processor instances (shared so store can toggle live) ──
-export let activeKrispProcessor: KrispProcessor | null = null;
+// activeKrispProcessor holds the raw KrispNoiseFilter() instance
+export let activeKrispProcessor: any = null;
 export let activeVadProcessor: VadProcessor | null = null;
 
-export function setActiveKrispProcessor(p: KrispProcessor | null) { activeKrispProcessor = p; }
+export function setActiveKrispProcessor(p: any) { activeKrispProcessor = p; }
 export function setActiveVadProcessor(p: VadProcessor | null) { activeVadProcessor = p; }
 
 async function destroyAllProcessors(room?: Room | null) {
   if (activeKrispProcessor) {
     const micPub = room?.localParticipant.getTrackPublication(Track.Source.Microphone);
-    await activeKrispProcessor.detach(micPub);
+    await detachKrisp(activeKrispProcessor, micPub);
     activeKrispProcessor = null;
   }
   if (activeVadProcessor) {
@@ -237,27 +238,8 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         await room.switchActiveDevice("audiooutput", outputDeviceId).catch(() => {});
       }
 
-      // ── Attach Krisp noise suppression ──
-      // If Krisp fails (WASM load, SharedArrayBuffer, etc.), attach() now
-      // restores the original mic track so the user isn't silenced.
-      if (audioSettings.noiseSuppression) {
-        try {
-          const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-          dbg("voice", "Krisp: noiseSuppression enabled, micPub exists:", !!micPub);
-          if (micPub) {
-            dbg("voice", "Krisp: SharedArrayBuffer available:", typeof SharedArrayBuffer !== "undefined");
-            dbg("voice", "Krisp: AudioWorklet available:", typeof AudioWorkletNode !== "undefined");
-            const processor = new KrispProcessor();
-            await processor.attach(micPub);
-            activeKrispProcessor = processor;
-            dbg("voice", "Krisp: noise suppression ACTIVE on join");
-          }
-        } catch (e) {
-          dbg("voice", "Krisp: noise suppression FAILED on join — mic continues without it", e);
-        }
-      } else {
-        dbg("voice", "Krisp: noise suppression disabled in settings, skipping");
-      }
+      // Krisp noise suppression is set up inside the LocalTrackPublished handler
+      // (room-events.ts) to match the official LiveKit integration pattern.
 
       // ── Init VAD for voice gating ──
       if (audioSettings.voiceGating) {
