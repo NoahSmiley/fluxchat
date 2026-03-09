@@ -10,18 +10,18 @@
 .hidden { display: none !important; }
 
 :root {
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #0e0e0e;
-  --bg-tertiary: #1a1a1a;
-  --bg-hover: #1e1e1e;
-  --bg-input: #161616;
+  --bg-primary: #060606;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #141414;
+  --bg-hover: #181818;
+  --bg-input: #101010;
   --text-primary: #e8e8e8;
   --text-secondary: #888888;
   --text-muted: #555555;
   --accent: #ffffff;
   --accent-hover: #cccccc;
   --danger: #ff4444;
-  --border: #161616;
+  --border: #121212;
   --radius: 12px;
   --radius-lg: 18px;
   --titlebar-height: 24px;
