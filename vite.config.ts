@@ -19,7 +19,7 @@ export default defineConfig({
     // Required for SharedArrayBuffer (used by Krisp WASM noise suppression)
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "credentialless",
+      "Cross-Origin-Embedder-Policy": "require-corp",
     },
     proxy: {
       "/api": `http://localhost:${process.env.API_PORT || "3001"}`,

@@ -389,6 +389,15 @@ export function SettingsModal() {
                 {logsCopied ? "Copied!" : "Copy Logs"}
               </button>
             </div>
+            <div className="settings-row">
+              <div className="settings-row-info">
+                <span className="settings-row-label">Krisp Diagnostic</span>
+                <span className="settings-row-desc">Step-by-step test of Krisp noise filter in this WebView</span>
+              </div>
+              <button className="btn-small" onClick={() => { window.location.href = "/krisp-test.html"; }}>
+                Open Diagnostic
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Krisp Diagnostic — Flux</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #111;
+      color: #ddd;
+      padding: 20px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .sub { color: #777; font-size: 13px; margin-bottom: 20px; }
+
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .card h2 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Cascadia Code', monospace;
+      border-bottom: 1px solid #222;
+    }
+    .step:last-child { border-bottom: none; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot.pending { background: #444; }
+    .dot.running { background: #f90; animation: pulse 0.8s infinite; }
+    .dot.pass { background: #4caf50; }
+    .dot.fail { background: #f44336; }
+    .dot.skip { background: #666; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .detail { color: #888; font-size: 11px; margin-left: 18px; padding: 2px 0; word-break: break-all; }
+    .detail.err { color: #e57373; }
+
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    button {
+      padding: 7px 16px; border: none; border-radius: 4px;
+      font-size: 13px; font-weight: 600; cursor: pointer; background: #333; color: #fff;
+    }
+    button:hover { background: #444; }
+    button:disabled { opacity: 0.3; cursor: not-allowed; }
+    button.primary { background: #1a5fb4; }
+    button.danger { background: #a33; }
+    button.success { background: #2a6; }
+
+    input[type="text"] {
+      width: 100%; padding: 6px 10px; background: #0a0a0a;
+      border: 1px solid #333; border-radius: 4px; color: #fff;
+      font-family: monospace; font-size: 12px; margin-bottom: 8px;
+    }
+    label { font-size: 12px; color: #888; display: block; margin-bottom: 3px; }
+
+    .meter { height: 16px; background: #0a0a0a; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+    .meter-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #ff9800, #f44336); width: 0%; transition: width 50ms; }
+    .meter-label { font-size: 11px; color: #666; margin-top: 2px; }
+
+    #log {
+      background: #0a0a0a; border: 1px solid #222; border-radius: 4px; padding: 10px;
+      font-family: 'SF Mono', 'Cascadia Code', monospace; font-size: 11px; line-height: 1.5;
+      max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    }
+    .t { color: #555; } .i { color: #64b5f6; } .ok { color: #81c784; } .w { color: #ffb74d; } .e { color: #e57373; }
+    .back { display: inline-block; margin-bottom: 16px; color: #64b5f6; text-decoration: none; font-size: 13px; }
+    .back:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<a class="back" href="/">← Back to Flux</a>
+<h1>Krisp Noise Filter — Flux Diagnostic</h1>
+<p class="sub">Tests Krisp inside the Flux Tauri WebView. Same origin, same headers, same environment.</p>
+
+<!-- STEP 1 -->
+<div class="card" id="card-env">
+  <h2>1 — Environment</h2>
+  <div class="step" id="s-ua"><span class="dot pending"></span>User Agent</div>
+  <div class="step" id="s-coi"><span class="dot pending"></span>self.crossOriginIsolated</div>
+  <div class="step" id="s-sab"><span class="dot pending"></span>SharedArrayBuffer available</div>
+  <div class="step" id="s-aw"><span class="dot pending"></span>AudioWorklet available</div>
+  <div class="step" id="s-wasm"><span class="dot pending"></span>WebAssembly available</div>
+</div>
+
+<!-- STEP 2 -->
+<div class="card" id="card-import">
+  <h2>2 — Krisp Import</h2>
+  <div class="step" id="s-import"><span class="dot pending"></span>Dynamic import @livekit/krisp-noise-filter</div>
+  <div class="step" id="s-supported"><span class="dot pending"></span>isKrispNoiseFilterSupported()</div>
+  <div class="step" id="s-create"><span class="dot pending"></span>KrispNoiseFilter() instantiation</div>
+</div>
+
+<!-- STEP 3 -->
+<div class="card" id="card-mic">
+  <h2>3 — Microphone (no LiveKit)</h2>
+  <div class="step" id="s-mic"><span class="dot pending"></span>getUserMedia (raw mic)</div>
+  <div class="controls">
+    <button id="btn-mic" class="primary">Capture Mic</button>
+    <button id="btn-mic-stop" class="danger" disabled>Stop Mic</button>
+  </div>
+  <div class="meter"><div id="meter-raw" class="meter-fill"></div></div>
+  <div class="meter-label">Raw mic level</div>
+</div>
+
+<!-- STEP 4 -->
+<div class="card" id="card-lk">
+  <h2>4 — LiveKit Room Connection</h2>
+  <label>Token Server (standalone — no Flux backend needed)</label>
+  <input type="text" id="token-url" value="http://localhost:3456/token" />
+  <label>Identity</label>
+  <input type="text" id="identity" value="krisp-tester" />
+  <div class="step" id="s-token"><span class="dot pending"></span>Fetch voice token</div>
+  <div class="step" id="s-connect"><span class="dot pending"></span>Room.connect()</div>
+  <div class="step" id="s-publish"><span class="dot pending"></span>Publish microphone track</div>
+  <div class="controls">
+    <button id="btn-connect" class="primary">Connect & Publish</button>
+    <button id="btn-disconnect" class="danger" disabled>Disconnect</button>
+  </div>
+</div>
+
+<!-- STEP 5 -->
+<div class="card" id="card-krisp">
+  <h2>5 — Attach Krisp to LiveKit Track</h2>
+  <div class="step" id="s-setproc"><span class="dot pending"></span>track.setProcessor(krisp)</div>
+  <div class="step" id="s-enable"><span class="dot pending"></span>krisp.setEnabled(true)</div>
+  <div class="step" id="s-disable"><span class="dot pending"></span>krisp.setEnabled(false)</div>
+  <div class="step" id="s-reenable"><span class="dot pending"></span>krisp.setEnabled(true) again</div>
+  <div class="step" id="s-detach"><span class="dot pending"></span>track.stopProcessor()</div>
+  <div class="step" id="s-destroy"><span class="dot pending"></span>krisp.destroy()</div>
+  <div class="step" id="s-reattach"><span class="dot pending"></span>Re-create + re-attach Krisp</div>
+  <div class="controls">
+    <button id="btn-krisp-run" class="success" disabled>Run Krisp Tests</button>
+  </div>
+  <div class="meter"><div id="meter-krisp" class="meter-fill"></div></div>
+  <div class="meter-label">Post-processor mic level</div>
+</div>
+
+<!-- Log -->
+<div class="card">
+  <h2>Log</h2>
+  <div id="log"></div>
+</div>
+
+<script type="module">
+  // ── Global error trap ──
+  window.addEventListener("error", (e) => {
+    document.getElementById("log").innerHTML += `<span class="e">[UNCAUGHT] ${e.message} @ ${e.filename}:${e.lineno}</span>\n`;
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    document.getElementById("log").innerHTML += `<span class="e">[UNHANDLED PROMISE] ${e.reason}</span>\n`;
+  });
+
+  const $ = id => document.getElementById(id);
+  const $log = $("log");
+
+  function log(msg, level = "i") {
+    const ts = new Date().toLocaleTimeString("en-US", { hour12: false, fractionalSecondDigits: 3 });
+    const cls = { i: "i", ok: "ok", w: "w", e: "e" }[level] || "i";
+    const safe = msg.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    $log.innerHTML += `<span class="t">[${ts}]</span> <span class="${cls}">${safe}</span>\n`;
+    $log.scrollTop = $log.scrollHeight;
+    console.log(`[krisp-diag] ${msg}`);
+  }
+
+  function setStep(id, state, detail) {
+    const el = $(id);
+    if (!el) return;
+    el.querySelector(".dot").className = "dot " + state;
+    const next = el.nextElementSibling;
+    if (next && next.classList.contains("detail")) next.remove();
+    if (detail) {
+      const d = document.createElement("div");
+      d.className = "detail" + (state === "fail" ? " err" : "");
+      d.textContent = detail;
+      el.after(d);
+    }
+  }
+
+  // ── Audio meter ──
+  let meterCtx, meterSource, meterAnalyser, meterRaf;
+  function startMeter(mediaStreamTrack, meterId) {
+    stopMeter();
+    try {
+      meterCtx = new AudioContext();
+      meterSource = meterCtx.createMediaStreamSource(new MediaStream([mediaStreamTrack]));
+      meterAnalyser = meterCtx.createAnalyser();
+      meterAnalyser.fftSize = 256;
+      meterSource.connect(meterAnalyser);
+      const data = new Uint8Array(meterAnalyser.frequencyBinCount);
+      const bar = $(meterId);
+      function tick() {
+        meterAnalyser.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+        bar.style.width = Math.min(100, Math.round(Math.sqrt(sum / data.length) * 500)) + "%";
+        meterRaf = requestAnimationFrame(tick);
+      }
+      tick();
+    } catch (e) { log("Meter error: " + e.message, "w"); }
+  }
+  function stopMeter() {
+    if (meterRaf) cancelAnimationFrame(meterRaf);
+    meterSource?.disconnect(); meterAnalyser?.disconnect();
+    meterCtx?.close().catch(() => {}); meterCtx = meterSource = meterAnalyser = null;
+  }
+
+  // ═══ STEP 1 ═══
+  log("=== Step 1: Environment ===");
+  setStep("s-ua", "pass", navigator.userAgent);
+  log("UA: " + navigator.userAgent);
+
+  const coi = self.crossOriginIsolated;
+  setStep("s-coi", coi ? "pass" : "fail", String(coi));
+  log("crossOriginIsolated = " + coi, coi ? "ok" : "e");
+
+  if (typeof SharedArrayBuffer !== "undefined") {
+    setStep("s-sab", "pass"); log("SharedArrayBuffer: available", "ok");
+  } else {
+    setStep("s-sab", "fail", "NOT available — Krisp WASM will fail");
+    log("SharedArrayBuffer: NOT available", "e");
+  }
+
+  try {
+    const ctx = new AudioContext();
+    if (ctx.audioWorklet) { setStep("s-aw", "pass"); log("AudioWorklet: available", "ok"); }
+    else { setStep("s-aw", "fail"); log("AudioWorklet: NOT available", "e"); }
+    ctx.close();
+  } catch (e) { setStep("s-aw", "fail", e.message); log("AudioWorklet check: " + e.message, "e"); }
+
+  if (typeof WebAssembly !== "undefined") {
+    setStep("s-wasm", "pass"); log("WebAssembly: available", "ok");
+  } else { setStep("s-wasm", "fail"); log("WebAssembly: NOT available", "e"); }
+
+  // ═══ STEP 2 ═══
+  log("=== Step 2: Krisp import ===");
+  let KrispNoiseFilter, isKrispNoiseFilterSupported, krispProcessor;
+
+  setStep("s-import", "running");
+  try {
+    const mod = await import("/node_modules/.vite/deps/@livekit_krisp-noise-filter.js?v=krisp");
+    KrispNoiseFilter = mod.KrispNoiseFilter;
+    isKrispNoiseFilterSupported = mod.isKrispNoiseFilterSupported;
+    setStep("s-import", "pass", `Exports: ${Object.keys(mod).join(", ")}`);
+    log("Import succeeded", "ok");
+  } catch (_e1) {
+    // Fallback: try bare specifier (works if Vite resolves it)
+    try {
+      const mod = await import("@livekit/krisp-noise-filter");
+      KrispNoiseFilter = mod.KrispNoiseFilter;
+      isKrispNoiseFilterSupported = mod.isKrispNoiseFilterSupported;
+      setStep("s-import", "pass", `Exports: ${Object.keys(mod).join(", ")}`);
+      log("Import succeeded (bare specifier)", "ok");
+    } catch (e2) {
+      setStep("s-import", "fail", e2.message);
+      log("Import FAILED: " + e2.message, "e");
+    }
+  }
+
+  if (isKrispNoiseFilterSupported) {
+    try {
+      const sup = isKrispNoiseFilterSupported();
+      setStep("s-supported", sup ? "pass" : "fail", String(sup));
+      log("isKrispNoiseFilterSupported() = " + sup, sup ? "ok" : "e");
+    } catch (e) { setStep("s-supported", "fail", e.message); log("isSupported threw: " + e.message, "e"); }
+  }
+
+  if (KrispNoiseFilter) {
+    try {
+      krispProcessor = KrispNoiseFilter();
+      setStep("s-create", "pass");
+      log("KrispNoiseFilter() created", "ok");
+      try { await krispProcessor.destroy(); } catch {}
+      krispProcessor = null;
+    } catch (e) { setStep("s-create", "fail", e.message); log("Create FAILED: " + e.message, "e"); }
+  }
+
+  // ═══ STEP 3 ═══
+  let rawStream = null;
+  $("btn-mic").addEventListener("click", async () => {
+    log("=== Step 3: Raw mic capture ===");
+    setStep("s-mic", "running");
+    try {
+      rawStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000, channelCount: 1 }
+      });
+      const track = rawStream.getAudioTracks()[0];
+      setStep("s-mic", "pass", `${track.label} (${track.getSettings().sampleRate}Hz)`);
+      log("Mic captured: " + track.label, "ok");
+      startMeter(track, "meter-raw");
+      $("btn-mic").disabled = true; $("btn-mic-stop").disabled = false;
+    } catch (e) { setStep("s-mic", "fail", e.message); log("getUserMedia FAILED: " + e.message, "e"); }
+  });
+
+  $("btn-mic-stop").addEventListener("click", () => {
+    if (rawStream) { rawStream.getTracks().forEach(t => t.stop()); rawStream = null; }
+    stopMeter(); setStep("s-mic", "pending");
+    $("btn-mic").disabled = false; $("btn-mic-stop").disabled = true;
+    log("Mic stopped");
+  });
+
+  // ═══ STEP 4 — uses Flux backend ═══
+  const { Room, RoomEvent, Track } = await import("/node_modules/.vite/deps/livekit-client.js?v=lkc").catch(
+    () => import("livekit-client")
+  );
+  let room = null, micPub = null;
+
+  $("btn-connect").addEventListener("click", async () => {
+    $("btn-connect").disabled = true;
+    log("=== Step 4: LiveKit connect ===");
+
+    try {
+      setStep("s-token", "running");
+      const tokenUrl = $("token-url").value.trim();
+      const identity = $("identity").value.trim() || "krisp-tester";
+
+      log("GET " + tokenUrl + "?identity=" + identity);
+      const res = await fetch(`${tokenUrl}?identity=${encodeURIComponent(identity)}`);
+      if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+      const tokenData = await res.json();
+      setStep("s-token", "pass", `token len=${tokenData.token.length}, room=${tokenData.room}`);
+      log("Token received, room=" + tokenData.room, "ok");
+
+      setStep("s-connect", "running");
+      const connectUrl = tokenData.url;
+      log("Connecting to " + connectUrl);
+
+      room = new Room({
+        adaptiveStream: false, dynacast: true,
+        audioCaptureDefaults: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 48000, channelCount: 1 },
+        publishDefaults: { dtx: true, red: true, stopMicTrackOnMute: false },
+      });
+
+      room.on(RoomEvent.Disconnected, (reason) => { log("Disconnected: " + reason, "w"); handleDisconnect(); });
+      room.on(RoomEvent.LocalTrackPublished, (pub) => {
+        if (pub.source === Track.Source.Microphone) {
+          micPub = pub;
+          setStep("s-publish", "pass", `sid=${pub.trackSid}`);
+          $("btn-krisp-run").disabled = false;
+          log("Mic published — ready for Krisp tests", "ok");
+          const mst = pub.track?.mediaStreamTrack;
+          if (mst) startMeter(mst, "meter-krisp");
+        }
+      });
+
+      await room.connect(connectUrl, tokenData.token);
+      setStep("s-connect", "pass", `identity=${room.localParticipant.identity}`);
+      log("Connected as " + room.localParticipant.identity, "ok");
+
+      setStep("s-publish", "running");
+      await room.localParticipant.setMicrophoneEnabled(true);
+      $("btn-disconnect").disabled = false;
+    } catch (e) {
+      log("FAILED: " + e.message, "e");
+      ["s-token","s-connect","s-publish"].forEach(s => { if ($(s)?.querySelector(".dot")?.classList.contains("running")) setStep(s,"fail",e.message); });
+      $("btn-connect").disabled = false;
+    }
+  });
+
+  function handleDisconnect() {
+    room = null; micPub = null; krispProcessor = null; stopMeter();
+    $("btn-connect").disabled = false; $("btn-disconnect").disabled = true; $("btn-krisp-run").disabled = true;
+    ["s-connect","s-publish","s-setproc","s-enable","s-disable","s-reenable","s-detach","s-destroy","s-reattach"].forEach(s => setStep(s,"pending"));
+  }
+
+  $("btn-disconnect").addEventListener("click", async () => {
+    if (!room) return;
+    log("--- Disconnecting ---");
+    if (krispProcessor) {
+      try { if (micPub?.track) await micPub.track.stopProcessor(); await krispProcessor.destroy(); } catch {}
+      krispProcessor = null;
+    }
+    await room.disconnect();
+    handleDisconnect(); log("Disconnected", "ok");
+  });
+
+  // ═══ STEP 5 ═══
+  $("btn-krisp-run").addEventListener("click", async () => {
+    if (!micPub?.track) { log("No mic track", "e"); return; }
+    $("btn-krisp-run").disabled = true;
+    log("=== Step 5: Krisp on LiveKit track ===");
+    const delay = ms => new Promise(r => setTimeout(r, ms));
+
+    // 5a
+    setStep("s-setproc", "running");
+    try {
+      krispProcessor = KrispNoiseFilter();
+      await micPub.track.setProcessor(krispProcessor);
+      setStep("s-setproc", "pass"); log("setProcessor() succeeded", "ok");
+    } catch (e) { setStep("s-setproc", "fail", e.message); log("setProcessor FAILED: " + e.message, "e"); $("btn-krisp-run").disabled = false; return; }
+
+    // 5b
+    setStep("s-enable", "running");
+    try {
+      await krispProcessor.setEnabled(true);
+      setStep("s-enable", "pass"); log("setEnabled(true) — KRISP ACTIVE", "ok");
+      const mst = micPub.track?.mediaStreamTrack; if (mst) startMeter(mst, "meter-krisp");
+    } catch (e) { setStep("s-enable", "fail", e.message); log("setEnabled(true) FAILED: " + e.message, "e"); $("btn-krisp-run").disabled = false; return; }
+
+    await delay(2000); log("(2s with Krisp ON)");
+
+    // 5c
+    setStep("s-disable", "running");
+    try { await krispProcessor.setEnabled(false); setStep("s-disable", "pass"); log("setEnabled(false) succeeded", "ok"); }
+    catch (e) { setStep("s-disable", "fail", e.message); }
+
+    await delay(1000);
+
+    // 5d
+    setStep("s-reenable", "running");
+    try { await krispProcessor.setEnabled(true); setStep("s-reenable", "pass"); log("Re-enable succeeded", "ok"); }
+    catch (e) { setStep("s-reenable", "fail", e.message); }
+
+    await delay(1000);
+
+    // 5e
+    setStep("s-detach", "running");
+    try { await micPub.track.stopProcessor(); setStep("s-detach", "pass"); log("stopProcessor() succeeded", "ok"); }
+    catch (e) { setStep("s-detach", "fail", e.message); }
+
+    // 5f
+    setStep("s-destroy", "running");
+    try { await krispProcessor.destroy(); krispProcessor = null; setStep("s-destroy", "pass"); log("destroy() succeeded", "ok"); }
+    catch (e) { setStep("s-destroy", "fail", e.message); }
+
+    await delay(500);
+
+    // 5g
+    setStep("s-reattach", "running");
+    try {
+      krispProcessor = KrispNoiseFilter();
+      await micPub.track.setProcessor(krispProcessor);
+      await krispProcessor.setEnabled(true);
+      setStep("s-reattach", "pass"); log("Re-attach succeeded — Krisp active", "ok");
+      const mst = micPub.track?.mediaStreamTrack; if (mst) startMeter(mst, "meter-krisp");
+    } catch (e) { setStep("s-reattach", "fail", e.message); log("Re-attach FAILED: " + e.message, "e"); }
+
+    log("=== All Krisp tests complete ===", "ok");
+    $("btn-krisp-run").disabled = false;
+  });
+
+  log("Diagnostic ready. Steps 1-2 ran automatically.");
+</script>
+</body>
+</html>

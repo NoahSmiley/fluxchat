@@ -15,9 +15,10 @@ export const TWEMOJI_OPTIONS = {
   ext: ".svg",
   base: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/",
   // Inject data-emoji-id so message hover tooltips can read the :name:
+  // crossorigin required for COEP require-corp (SharedArrayBuffer / Krisp)
   attributes: (rawText: string) => {
     const id = _nativeToId.get(rawText);
-    return id ? { "data-emoji-id": `:${id}:` } : {};
+    return { crossorigin: "anonymous", ...(id ? { "data-emoji-id": `:${id}:` } : {}) };
   },
 };
 

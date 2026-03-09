@@ -145,6 +145,7 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
       script.id = "spotify-sdk-script";
       script.src = "https://sdk.scdn.co/spotify-player.js";
       script.async = true;
+      script.crossOrigin = "anonymous"; // Required for COEP require-corp
       document.body.appendChild(script);
     },
 
