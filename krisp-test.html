@@ -124,10 +124,6 @@
 <!-- STEP 4 -->
 <div class="card" id="card-lk">
   <h2>4 — LiveKit Room Connection</h2>
-  <label>Token Server (standalone — no Flux backend needed)</label>
-  <input type="text" id="token-url" value="http://localhost:3456/token" />
-  <label>Identity</label>
-  <input type="text" id="identity" value="krisp-tester" />
   <div class="step" id="s-token"><span class="dot pending"></span>Fetch voice token</div>
   <div class="step" id="s-connect"><span class="dot pending"></span>Room.connect()</div>
   <div class="step" id="s-publish"><span class="dot pending"></span>Publish microphone track</div>
@@ -319,15 +315,33 @@
 
     try {
       setStep("s-token", "running");
-      const tokenUrl = $("token-url").value.trim();
-      const identity = $("identity").value.trim() || "krisp-tester";
 
-      log("GET " + tokenUrl + "?identity=" + identity);
-      const res = await fetch(`${tokenUrl}?identity=${encodeURIComponent(identity)}`);
+      // Use the Flux backend API to get a voice token
+      const authToken = localStorage.getItem("flux-session-token");
+      if (!authToken) throw new Error("Not logged in — no flux-session-token in localStorage");
+
+      const apiBase = "/api";
+      const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + authToken };
+
+      // Find a voice channel to use for the token
+      log("Fetching servers...");
+      const servers = await fetch(apiBase + "/servers", { headers }).then(r => { if (!r.ok) throw new Error("Failed to fetch servers: " + r.status); return r.json(); });
+      if (!servers.length) throw new Error("No servers found");
+
+      let channelId = null;
+      for (const server of servers) {
+        const channels = await fetch(apiBase + "/servers/" + server.id + "/channels", { headers }).then(r => r.json());
+        const voice = channels.find(c => c.type === "voice");
+        if (voice) { channelId = voice.id; log("Using voice channel: " + voice.name + " (" + voice.id + ")"); break; }
+      }
+      if (!channelId) throw new Error("No voice channels found in any server");
+
+      log("POST /api/voice/token");
+      const res = await fetch(apiBase + "/voice/token", { method: "POST", headers, body: JSON.stringify({ channelId }) });
       if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
       const tokenData = await res.json();
-      setStep("s-token", "pass", `token len=${tokenData.token.length}, room=${tokenData.room}`);
-      log("Token received, room=" + tokenData.room, "ok");
+      setStep("s-token", "pass", `token len=${tokenData.token.length}`);
+      log("Token received", "ok");
 
       setStep("s-connect", "running");
       const connectUrl = tokenData.url;
