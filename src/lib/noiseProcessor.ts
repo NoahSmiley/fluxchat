@@ -12,8 +12,9 @@ import { dbg } from "@/lib/debug.js";
 // The Krisp SDK fetches models at runtime from LiveKit's CDN and
 // validates the license against the LiveKit Cloud server.
 //
-// scripts/patch-krisp.js only patches the Safari/WKWebView gate
-// since Tauri's WebView doesn't report its Safari version correctly.
+// scripts/patch-krisp.js patches:
+//   - Safari/WKWebView version gate (Tauri reports incorrectly)
+//   - SharedArrayBuffer noise level init (SDK bug: zero-init → level 0)
 // ═══════════════════════════════════════════════════════════════════
 
 /**
@@ -37,15 +38,18 @@ export async function attachNoiseFilter(micPub: any): Promise<any | null> {
       return null;
     }
 
-    dbg("voice", "Krisp: creating filter instance...");
     const processor = KrispNoiseFilter();
-
     await micPub.track.setProcessor(processor);
     dbg("voice", "Krisp: processor attached to track");
 
     await processor.setEnabled(true);
-    dbg("voice", "Krisp: setEnabled(true) — noise suppression ACTIVE");
+    const isEnabled = processor.isEnabled?.();
 
+    if (!isEnabled) {
+      dbg("voice", "Krisp: WARNING — filter did not enable");
+    }
+
+    dbg("voice", `Krisp: noise suppression ${isEnabled ? "ACTIVE" : "INACTIVE"}`);
     return processor;
   } catch (e) {
     dbg("voice", "Krisp: attach FAILED", e);

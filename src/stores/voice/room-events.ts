@@ -291,14 +291,19 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
         dbg("voice", `LocalTrackPublished enforced CBR ${br}`);
       }
 
-      // ── DeepFilterNet3 noise suppression ──
+      // ── Krisp noise suppression ──
       const { audioSettings } = get();
       if (audioSettings.noiseSuppression) {
+        dbg("voice", "Krisp: noiseSuppression=true, attaching filter...");
         const processor = await attachNoiseFilter(pub);
         if (processor) {
           setActiveKrispProcessor(processor);
-          dbg("voice", "NoiseFilter: noise suppression ACTIVE on join");
+          dbg("voice", "Krisp: noise suppression ACTIVE on join");
+        } else {
+          dbg("voice", "Krisp: attachNoiseFilter returned null — suppression NOT active");
         }
+      } else {
+        dbg("voice", "Krisp: noiseSuppression setting is OFF, skipping");
       }
     }
     if (!isHybrid) get()._updateScreenSharers();
