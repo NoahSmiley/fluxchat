@@ -169,6 +169,7 @@
     document.getElementById("log").innerHTML += `<span class="e">[UNHANDLED PROMISE] ${e.reason}</span>\n`;
   });
 
+  (async () => {
   const $ = id => document.getElementById(id);
   const $log = $("log");
 
@@ -256,23 +257,14 @@
 
   setStep("s-import", "running");
   try {
-    const mod = await import("/node_modules/.vite/deps/@livekit_krisp-noise-filter.js?v=krisp");
+    const mod = await import("@livekit/krisp-noise-filter");
     KrispNoiseFilter = mod.KrispNoiseFilter;
     isKrispNoiseFilterSupported = mod.isKrispNoiseFilterSupported;
     setStep("s-import", "pass", `Exports: ${Object.keys(mod).join(", ")}`);
     log("Import succeeded", "ok");
-  } catch (_e1) {
-    // Fallback: try bare specifier (works if Vite resolves it)
-    try {
-      const mod = await import("@livekit/krisp-noise-filter");
-      KrispNoiseFilter = mod.KrispNoiseFilter;
-      isKrispNoiseFilterSupported = mod.isKrispNoiseFilterSupported;
-      setStep("s-import", "pass", `Exports: ${Object.keys(mod).join(", ")}`);
-      log("Import succeeded (bare specifier)", "ok");
-    } catch (e2) {
-      setStep("s-import", "fail", e2.message);
-      log("Import FAILED: " + e2.message, "e");
-    }
+  } catch (e) {
+    setStep("s-import", "fail", e.message);
+    log("Import FAILED: " + e.message, "e");
   }
 
   if (isKrispNoiseFilterSupported) {
@@ -317,10 +309,8 @@
     log("Mic stopped");
   });
 
-  // ═══ STEP 4 — uses Flux backend ═══
-  const { Room, RoomEvent, Track } = await import("/node_modules/.vite/deps/livekit-client.js?v=lkc").catch(
-    () => import("livekit-client")
-  );
+  // ═══ STEP 4 ═══
+  const { Room, RoomEvent, Track } = await import("livekit-client");
   let room = null, micPub = null;
 
   $("btn-connect").addEventListener("click", async () => {
@@ -458,6 +448,7 @@
   });
 
   log("Diagnostic ready. Steps 1-2 ran automatically.");
+  })();
 </script>
 </body>
 </html>

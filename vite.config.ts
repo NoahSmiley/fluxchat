@@ -41,6 +41,10 @@ export default defineConfig({
     // Produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        "krisp-test": resolve(__dirname, "krisp-test.html"),
+      },
       output: {
         manualChunks: {
           "livekit": ["livekit-client"],
