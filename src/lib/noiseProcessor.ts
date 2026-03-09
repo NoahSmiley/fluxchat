@@ -29,11 +29,13 @@ export class KrispProcessor {
     dbg("voice", "Krisp: importing @livekit/krisp-noise-filter...");
     const { KrispNoiseFilter } = await import("@livekit/krisp-noise-filter");
     dbg("voice", "Krisp: module imported, creating filter instance...");
-    this.processor = KrispNoiseFilter();
+    this.processor = KrispNoiseFilter({ debugLogs: true });
 
     const track = micPublication.track;
+    const originalTrackId = track?.mediaStreamTrack?.id;
     dbg("voice", "Krisp: pre-attach track state", {
       trackSid: track?.sid,
+      originalTrackId,
       mediaStreamTrackState: track?.mediaStreamTrack?.readyState,
       channelCount: track?.mediaStreamTrack?.getSettings?.()?.channelCount,
       sampleRate: track?.mediaStreamTrack?.getSettings?.()?.sampleRate,
@@ -44,9 +46,31 @@ export class KrispProcessor {
       await micPublication.track.setProcessor(this.processor);
 
       dbg("voice", "Krisp: ATTACHED SUCCESSFULLY", {
+        processedTrackId: this.processor?.processedTrack?.id,
         processedTrackState: this.processor?.processedTrack?.readyState,
         processedTrackChannels: this.processor?.processedTrack?.getSettings?.()?.channelCount,
+        trackSwapped: originalTrackId !== this.processor?.processedTrack?.id,
       });
+
+      // The WASM AudioWorklet has two gates: isEnabled AND isReady.
+      // isEnabled() only checks a flag — even if true, audio passes through
+      // unfiltered when the WASM module hasn't finished initializing (_isReady=false).
+      // Poll and force-enable if needed.
+      const p = this.processor;
+      setTimeout(async () => {
+        try {
+          const enabled = p.isEnabled?.();
+          dbg("voice", "Krisp: post-attach state check", { enabled });
+
+          if (!enabled && p.setEnabled) {
+            dbg("voice", "Krisp: not enabled — forcing setEnabled(true)");
+            await p.setEnabled(true);
+            dbg("voice", "Krisp: force-enabled, isEnabled now:", p.isEnabled?.());
+          }
+        } catch (e) {
+          dbg("voice", "Krisp: post-attach check failed", e);
+        }
+      }, 3000);
     } catch (e) {
       // setProcessor failed — restore the original mic track
       dbg("voice", "Krisp: setProcessor FAILED, restoring original track", e);
