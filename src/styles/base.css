@@ -26,8 +26,8 @@
   --radius-lg: 18px;
   --titlebar-height: 24px;
 
-  --bg-modifier-hover: rgba(255, 255, 255, 0.06);
-  --bg-modifier-active: rgba(255, 255, 255, 0.1);
+  --bg-modifier-hover: rgba(255, 255, 255, 0.04);
+  --bg-modifier-active: rgba(255, 255, 255, 0.07);
 }
 
 html, body, #root {

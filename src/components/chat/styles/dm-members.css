@@ -28,8 +28,8 @@
   cursor: pointer;
   transition: background 0.1s;
 }
-.member-item:hover { background: rgba(255, 255, 255, 0.05); }
-.member-item.selected { background: rgba(255, 255, 255, 0.08); }
+.member-item:hover { background: rgba(255, 255, 255, 0.03); }
+.member-item.selected { background: rgba(255, 255, 255, 0.05); }
 .member-item.offline { opacity: 0.4; }
 .member-item.offline:hover { opacity: 0.6; }
 
