@@ -4,7 +4,7 @@ import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
 import { checkLobbyMusic } from "./lobby.js";
 import { stopStatsPolling } from "./stats.js";
 import { adaptiveTargetBitrate, activeKrispProcessor, activeVadProcessor, setActiveKrispProcessor, setActiveVadProcessor } from "./connection.js";
-import { attachKrisp, detachKrisp } from "@/lib/noiseProcessor.js";
+import { attachNoiseFilter, detachNoiseFilter } from "@/lib/noiseProcessor.js";
 import { resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";
@@ -163,7 +163,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     speakingHoldTimers.clear();
 
     // Clean up audio processors
-    detachKrisp(activeKrispProcessor).catch(() => {});
+    detachNoiseFilter(activeKrispProcessor).catch(() => {});
     setActiveKrispProcessor(null);
     activeVadProcessor?.destroy().catch(() => {});
     setActiveVadProcessor(null);
@@ -291,15 +291,13 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
         dbg("voice", `LocalTrackPublished enforced CBR ${br}`);
       }
 
-      // ── Krisp noise suppression (official LiveKit pattern) ──
-      // Attach inside LocalTrackPublished so the SDK's onPublish flow
-      // fires correctly and the license check validates against Cloud.
+      // ── DeepFilterNet3 noise suppression ──
       const { audioSettings } = get();
       if (audioSettings.noiseSuppression) {
-        const processor = await attachKrisp(pub);
+        const processor = await attachNoiseFilter(pub);
         if (processor) {
           setActiveKrispProcessor(processor);
-          dbg("voice", "Krisp: noise suppression ACTIVE on join");
+          dbg("voice", "NoiseFilter: noise suppression ACTIVE on join");
         }
       }
     }

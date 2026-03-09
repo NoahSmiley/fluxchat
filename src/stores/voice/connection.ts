@@ -6,7 +6,7 @@ import { useCryptoStore } from "@/stores/crypto.js";
 import { exportKeyAsBase64 } from "@/lib/crypto.js";
 import { dbg } from "@/lib/debug.js";
 import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
-import { detachKrisp } from "@/lib/noiseProcessor.js";
+import { detachNoiseFilter } from "@/lib/noiseProcessor.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 
@@ -41,7 +41,7 @@ export function setActiveVadProcessor(p: VadProcessor | null) { activeVadProcess
 async function destroyAllProcessors(room?: Room | null) {
   if (activeKrispProcessor) {
     const micPub = room?.localParticipant.getTrackPublication(Track.Source.Microphone);
-    await detachKrisp(activeKrispProcessor, micPub);
+    await detachNoiseFilter(activeKrispProcessor, micPub);
     activeKrispProcessor = null;
   }
   if (activeVadProcessor) {

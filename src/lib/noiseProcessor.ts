@@ -20,7 +20,7 @@ import { dbg } from "@/lib/debug.js";
  * Create and attach a Krisp noise filter to a mic track publication.
  * Returns the processor instance (for later toggle/detach), or null on failure.
  */
-export async function attachKrisp(micPub: any): Promise<any | null> {
+export async function attachNoiseFilter(micPub: any): Promise<any | null> {
   if (!micPub?.track) {
     dbg("voice", "Krisp: no mic track to attach to");
     return null;
@@ -57,9 +57,9 @@ export async function attachKrisp(micPub: any): Promise<any | null> {
 }
 
 /**
- * Detach and destroy a Krisp processor from a mic track.
+ * Detach and destroy a noise filter processor from a mic track.
  */
-export async function detachKrisp(processor: any, micPub?: any): Promise<void> {
+export async function detachNoiseFilter(processor: any, micPub?: any): Promise<void> {
   if (!processor) return;
   try {
     if (micPub?.track) {

@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Krisp Noise Filter Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    h1 { color: #fff; margin-bottom: 8px; font-size: 22px; }
+    .subtitle { color: #888; margin-bottom: 24px; font-size: 14px; }
+
+    .section {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .section h2 {
+      font-size: 14px;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    label { display: block; margin-bottom: 6px; font-size: 13px; color: #ccc; }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 8px 12px;
+      background: #0a0a1a;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #fff;
+      font-family: monospace;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    input[type="text"]:focus, input[type="password"]:focus {
+      outline: none;
+      border-color: #0f3460;
+    }
+
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary { background: #0f3460; color: #fff; }
+    .btn-success { background: #1a7a3a; color: #fff; }
+    .btn-danger  { background: #a03030; color: #fff; }
+    .btn-warning { background: #b07020; color: #fff; }
+
+    .status-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #222;
+    }
+    .status-badge .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #555;
+    }
+    .status-badge.active .dot { background: #4caf50; }
+    .status-badge.error .dot  { background: #f44336; }
+    .status-badge.warn .dot   { background: #ff9800; }
+
+    .level-bar-container {
+      margin-top: 12px;
+      background: #0a0a1a;
+      border-radius: 4px;
+      height: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+    .level-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #4caf50, #ffeb3b, #f44336);
+      width: 0%;
+      transition: width 50ms linear;
+    }
+    .level-label {
+      position: absolute;
+      top: 2px; left: 8px;
+      font-size: 11px;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+
+    #log {
+      background: #0a0a1a;
+      border: 1px solid #222;
+      border-radius: 4px;
+      padding: 12px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log-time { color: #666; }
+    .log-info { color: #64b5f6; }
+    .log-ok   { color: #81c784; }
+    .log-warn { color: #ffb74d; }
+    .log-err  { color: #e57373; }
+  </style>
+</head>
+<body>
+  <h1>Krisp Noise Filter -- Isolated Test</h1>
+  <p class="subtitle">Tests @livekit/krisp-noise-filter via LiveKit Room connection. Served by Vite for ESM resolution.</p>
+
+  <!-- Connection config -->
+  <div class="section">
+    <h2>Connection</h2>
+    <label for="lk-url">LiveKit Cloud URL</label>
+    <input type="text" id="lk-url" value="wss://chatapp-qt9oihg8.livekit.cloud" />
+
+    <label for="api-base">Backend API Base (for voice token)</label>
+    <input type="text" id="api-base" value="/api" />
+
+    <label for="channel-id">Channel ID (any valid voice channel)</label>
+    <input type="text" id="channel-id" placeholder="paste a voice channel ID here" />
+
+    <label for="auth-token">Auth Token (from localStorage flux-session-token)</label>
+    <input type="password" id="auth-token" placeholder="will auto-fill from localStorage if available" />
+
+    <div class="btn-row">
+      <button id="btn-connect" class="btn-primary">Connect + Publish Mic</button>
+      <button id="btn-disconnect" class="btn-danger" disabled>Disconnect</button>
+    </div>
+
+    <div class="status-row">
+      <span id="s-room" class="status-badge"><span class="dot"></span>Room</span>
+      <span id="s-mic" class="status-badge"><span class="dot"></span>Mic Published</span>
+      <span id="s-krisp" class="status-badge"><span class="dot"></span>Krisp Attached</span>
+      <span id="s-krisp-on" class="status-badge"><span class="dot"></span>Krisp Enabled</span>
+    </div>
+  </div>
+
+  <!-- Krisp controls -->
+  <div class="section">
+    <h2>Krisp Controls</h2>
+    <div class="btn-row">
+      <button id="btn-krisp-toggle" class="btn-warning" disabled>Toggle Krisp On/Off</button>
+      <button id="btn-krisp-detach" class="btn-danger" disabled>Detach Krisp</button>
+      <button id="btn-krisp-reattach" class="btn-success" disabled>Re-attach Krisp</button>
+    </div>
+  </div>
+
+  <!-- Audio level -->
+  <div class="section">
+    <h2>Mic Audio Level (post-processor)</h2>
+    <div class="level-bar-container">
+      <div id="level-bar" class="level-bar"></div>
+      <div id="level-label" class="level-label">0%</div>
+    </div>
+  </div>
+
+  <!-- Log output -->
+  <div class="section">
+    <h2>Log</h2>
+    <div id="log"></div>
+  </div>
+
+  <script type="module">
+    import { Room, RoomEvent, Track } from "livekit-client";
+    import {
+      KrispNoiseFilter,
+      isKrispNoiseFilterSupported,
+    } from "@livekit/krisp-noise-filter";
+
+    // ── DOM refs ──
+    const $url        = document.getElementById("lk-url");
+    const $apiBase    = document.getElementById("api-base");
+    const $channelId  = document.getElementById("channel-id");
+    const $authToken  = document.getElementById("auth-token");
+    const $btnConnect = document.getElementById("btn-connect");
+    const $btnDisconnect = document.getElementById("btn-disconnect");
+    const $btnKrispToggle   = document.getElementById("btn-krisp-toggle");
+    const $btnKrispDetach   = document.getElementById("btn-krisp-detach");
+    const $btnKrispReattach = document.getElementById("btn-krisp-reattach");
+    const $log       = document.getElementById("log");
+    const $levelBar  = document.getElementById("level-bar");
+    const $levelLabel = document.getElementById("level-label");
+
+    const badges = {
+      room:     document.getElementById("s-room"),
+      mic:      document.getElementById("s-mic"),
+      krisp:    document.getElementById("s-krisp"),
+      krispOn:  document.getElementById("s-krisp-on"),
+    };
+
+    // ── State ──
+    let room = null;
+    let krispProcessor = null;
+    let krispEnabled = false;
+    let analyserCtx = null;
+    let analyserNode = null;
+    let analyserSource = null;
+    let levelRaf = null;
+
+    // ── Auto-fill auth token from localStorage ──
+    try {
+      const stored = localStorage.getItem("flux-session-token");
+      if (stored) $authToken.value = stored;
+    } catch {}
+
+    // ── Logging ──
+    function log(msg, level = "info") {
+      const ts = new Date().toLocaleTimeString("en-US", { hour12: false, fractionalSecondDigits: 3 });
+      const cls = { info: "log-info", ok: "log-ok", warn: "log-warn", err: "log-err" }[level] || "log-info";
+      $log.innerHTML += `<span class="log-time">[${ts}]</span> <span class="${cls}">${esc(msg)}</span>\n`;
+      $log.scrollTop = $log.scrollHeight;
+      console.log(`[krisp-test] ${msg}`);
+    }
+    function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+    function setBadge(key, state) {
+      const el = badges[key];
+      if (!el) return;
+      el.className = "status-badge" + (state === true ? " active" : state === "error" ? " error" : state === "warn" ? " warn" : "");
+    }
+
+    // ── Fetch voice token from backend ──
+    async function fetchVoiceToken(channelId) {
+      const base = $apiBase.value.replace(/\/+$/, "");
+      const token = $authToken.value.trim();
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      log(`POST ${base}/voice/token  channelId=${channelId}`);
+      const res = await fetch(`${base}/voice/token`, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ channelId }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Token fetch failed (${res.status}): ${body}`);
+      }
+      return res.json(); // { token, url, screenToken, screenUrl }
+    }
+
+    // ── Audio level meter ──
+    function startLevelMeter(mediaStreamTrack) {
+      stopLevelMeter();
+      try {
+        analyserCtx = new AudioContext();
+        analyserSource = analyserCtx.createMediaStreamSource(new MediaStream([mediaStreamTrack]));
+        analyserNode = analyserCtx.createAnalyser();
+        analyserNode.fftSize = 256;
+        analyserSource.connect(analyserNode);
+        const data = new Uint8Array(analyserNode.frequencyBinCount);
+
+        function tick() {
+          analyserNode.getByteTimeDomainData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) {
+            const v = (data[i] - 128) / 128;
+            sum += v * v;
+          }
+          const rms = Math.sqrt(sum / data.length);
+          const pct = Math.min(100, Math.round(rms * 500)); // scale up for visibility
+          $levelBar.style.width = pct + "%";
+          $levelLabel.textContent = pct + "%";
+          levelRaf = requestAnimationFrame(tick);
+        }
+        tick();
+      } catch (e) {
+        log("Level meter failed: " + e.message, "warn");
+      }
+    }
+    function stopLevelMeter() {
+      if (levelRaf) cancelAnimationFrame(levelRaf);
+      analyserSource?.disconnect();
+      analyserNode?.disconnect();
+      analyserCtx?.close().catch(() => {});
+      analyserCtx = null;
+      analyserNode = null;
+      analyserSource = null;
+      $levelBar.style.width = "0%";
+      $levelLabel.textContent = "0%";
+    }
+
+    // ── Attach Krisp ──
+    async function attachKrisp(micPub) {
+      if (!micPub?.track) {
+        log("attachKrisp: no track on publication", "warn");
+        return;
+      }
+      try {
+        log("Checking Krisp support...");
+        const supported = isKrispNoiseFilterSupported();
+        log("isKrispNoiseFilterSupported() = " + supported, supported ? "ok" : "warn");
+        if (!supported) {
+          log("Krisp is NOT supported in this browser. Skipping.", "err");
+          setBadge("krisp", "error");
+          return;
+        }
+
+        log("Creating KrispNoiseFilter instance...");
+        krispProcessor = KrispNoiseFilter();
+        log("KrispNoiseFilter() created", "ok");
+
+        log("Calling track.setProcessor(krisp)...");
+        await micPub.track.setProcessor(krispProcessor);
+        log("setProcessor() complete -- Krisp attached to mic track", "ok");
+        setBadge("krisp", true);
+
+        log("Calling krisp.setEnabled(true)...");
+        await krispProcessor.setEnabled(true);
+        krispEnabled = true;
+        log("setEnabled(true) complete -- Krisp noise suppression ACTIVE", "ok");
+        setBadge("krispOn", true);
+
+        $btnKrispToggle.disabled = false;
+        $btnKrispDetach.disabled = false;
+        $btnKrispReattach.disabled = true;
+
+        // Re-attach level meter since the processor may change the stream
+        const mst = micPub.track.mediaStreamTrack;
+        if (mst) startLevelMeter(mst);
+      } catch (e) {
+        log("Krisp attach FAILED: " + e.message, "err");
+        log("Stack: " + e.stack, "err");
+        setBadge("krisp", "error");
+        krispProcessor = null;
+      }
+    }
+
+    // ── Connect ──
+    $btnConnect.addEventListener("click", async () => {
+      const channelId = $channelId.value.trim();
+      if (!channelId) {
+        log("Please enter a Channel ID", "err");
+        return;
+      }
+
+      $btnConnect.disabled = true;
+      $btnConnect.textContent = "Connecting...";
+
+      try {
+        // 1. Get token
+        log("--- Fetching voice token ---");
+        const tokenData = await fetchVoiceToken(channelId);
+        log("Got token (length=" + tokenData.token.length + "), url=" + tokenData.url, "ok");
+
+        // Use the URL from token response (may differ from input)
+        const connectUrl = tokenData.url || $url.value.trim();
+
+        // 2. Create Room
+        log("--- Creating LiveKit Room ---");
+        room = new Room({
+          adaptiveStream: false,
+          dynacast: true,
+          audioCaptureDefaults: {
+            echoCancellation: true,
+            noiseSuppression: true, // browser baseline; Krisp replaces this
+            autoGainControl: true,
+            sampleRate: 48000,
+            channelCount: 1, // Krisp outputs mono
+          },
+          publishDefaults: {
+            dtx: true,
+            red: true,
+            forceStereo: false,
+            stopMicTrackOnMute: false,
+          },
+        });
+
+        // Room events
+        room.on(RoomEvent.Connected, () => {
+          log("RoomEvent.Connected", "ok");
+          setBadge("room", true);
+        });
+        room.on(RoomEvent.Disconnected, (reason) => {
+          log("RoomEvent.Disconnected reason=" + reason, "warn");
+          setBadge("room", false);
+          setBadge("mic", false);
+          setBadge("krisp", false);
+          setBadge("krispOn", false);
+          handleDisconnected();
+        });
+        room.on(RoomEvent.LocalTrackPublished, async (pub) => {
+          log("RoomEvent.LocalTrackPublished source=" + pub.source + " sid=" + pub.trackSid, "ok");
+
+          if (pub.source === Track.Source.Microphone) {
+            setBadge("mic", true);
+            log("Mic track published. MediaStreamTrack id=" + pub.track?.mediaStreamTrack?.id);
+
+            // Start level meter
+            const mst = pub.track?.mediaStreamTrack;
+            if (mst) startLevelMeter(mst);
+
+            // Attach Krisp
+            log("--- Attaching Krisp Noise Filter ---");
+            await attachKrisp(pub);
+          }
+        });
+        room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
+          log("RoomEvent.LocalTrackUnpublished source=" + pub.source, "warn");
+          if (pub.source === Track.Source.Microphone) {
+            setBadge("mic", false);
+            stopLevelMeter();
+          }
+        });
+        room.on(RoomEvent.ParticipantConnected, (p) => {
+          log("ParticipantConnected: " + p.identity);
+        });
+        room.on(RoomEvent.ParticipantDisconnected, (p) => {
+          log("ParticipantDisconnected: " + p.identity);
+        });
+        room.on(RoomEvent.MediaDevicesError, (e) => {
+          log("MediaDevicesError: " + e.message, "err");
+        });
+        room.on(RoomEvent.SignalConnected, () => {
+          log("SignalConnected (WebSocket to SFU established)");
+        });
+
+        // 3. Connect
+        log("Connecting to " + connectUrl + " ...");
+        await room.connect(connectUrl, tokenData.token);
+        log("room.connect() resolved -- connected as " + room.localParticipant.identity, "ok");
+        setBadge("room", true);
+
+        // 4. Publish mic
+        log("--- Publishing microphone ---");
+        await room.localParticipant.setMicrophoneEnabled(true);
+        log("setMicrophoneEnabled(true) resolved", "ok");
+
+        $btnDisconnect.disabled = false;
+        $btnConnect.textContent = "Connected";
+      } catch (e) {
+        log("CONNECT FAILED: " + e.message, "err");
+        log("Stack: " + (e.stack || ""), "err");
+        $btnConnect.disabled = false;
+        $btnConnect.textContent = "Connect + Publish Mic";
+        setBadge("room", "error");
+      }
+    });
+
+    // ── Disconnect ──
+    function handleDisconnected() {
+      stopLevelMeter();
+      krispProcessor = null;
+      krispEnabled = false;
+      room = null;
+      $btnConnect.disabled = false;
+      $btnConnect.textContent = "Connect + Publish Mic";
+      $btnDisconnect.disabled = true;
+      $btnKrispToggle.disabled = true;
+      $btnKrispDetach.disabled = true;
+      $btnKrispReattach.disabled = true;
+    }
+
+    $btnDisconnect.addEventListener("click", async () => {
+      if (!room) return;
+      log("--- Disconnecting ---");
+      try {
+        if (krispProcessor) {
+          const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+          if (micPub?.track) {
+            await micPub.track.stopProcessor();
+            log("Stopped processor on mic track", "ok");
+          }
+          try { await krispProcessor.destroy(); } catch {}
+          log("Krisp processor destroyed", "ok");
+        }
+      } catch (e) {
+        log("Krisp cleanup error: " + e.message, "warn");
+      }
+      await room.disconnect();
+      log("Disconnected", "ok");
+      handleDisconnected();
+      setBadge("room", false);
+      setBadge("mic", false);
+      setBadge("krisp", false);
+      setBadge("krispOn", false);
+    });
+
+    // ── Krisp Toggle ──
+    $btnKrispToggle.addEventListener("click", async () => {
+      if (!krispProcessor) return;
+      try {
+        const next = !krispEnabled;
+        log("Calling krisp.setEnabled(" + next + ")...");
+        await krispProcessor.setEnabled(next);
+        krispEnabled = next;
+        log("Krisp " + (next ? "ENABLED" : "DISABLED"), next ? "ok" : "warn");
+        setBadge("krispOn", next);
+      } catch (e) {
+        log("setEnabled failed: " + e.message, "err");
+      }
+    });
+
+    // ── Krisp Detach ──
+    $btnKrispDetach.addEventListener("click", async () => {
+      if (!room || !krispProcessor) return;
+      try {
+        const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+        if (micPub?.track) {
+          log("Calling track.stopProcessor()...");
+          await micPub.track.stopProcessor();
+          log("Processor stopped on track", "ok");
+        }
+        await krispProcessor.destroy();
+        log("Krisp processor destroyed", "ok");
+        krispProcessor = null;
+        krispEnabled = false;
+        setBadge("krisp", false);
+        setBadge("krispOn", false);
+        $btnKrispToggle.disabled = true;
+        $btnKrispDetach.disabled = true;
+        $btnKrispReattach.disabled = false;
+
+        // Restart level meter on raw track
+        const mst = micPub?.track?.mediaStreamTrack;
+        if (mst) startLevelMeter(mst);
+      } catch (e) {
+        log("Detach failed: " + e.message, "err");
+      }
+    });
+
+    // ── Krisp Re-attach ──
+    $btnKrispReattach.addEventListener("click", async () => {
+      if (!room) return;
+      const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      if (!micPub) {
+        log("No mic publication to re-attach Krisp to", "err");
+        return;
+      }
+      log("--- Re-attaching Krisp ---");
+      await attachKrisp(micPub);
+    });
+
+    // ── Init ──
+    log("Page loaded. Krisp test ready.");
+    log("livekit-client and @livekit/krisp-noise-filter imported successfully.", "ok");
+  </script>
+</body>
+</html>

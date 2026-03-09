@@ -11,7 +11,7 @@ import { createJoinVoiceChannel, createLeaveVoiceChannel, activeKrispProcessor, 
 import { createToggleMute, createSetMuted, createToggleDeafen, createSetParticipantVolume, createApplyBitrate } from "./controls.js";
 import { createToggleScreenShare, createSetScreenShareQuality } from "./screen-share.js";
 import { createUpdateParticipants, createUpdateScreenSharers, createSetChannelParticipants } from "./participants.js";
-import { attachKrisp, detachKrisp } from "@/lib/noiseProcessor.js";
+import { attachNoiseFilter, detachNoiseFilter } from "@/lib/noiseProcessor.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import { Track } from "livekit-client";
@@ -67,7 +67,7 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
       room.switchActiveDevice("audiooutput", value).catch(() => {});
     }
 
-    // ── Live toggle: Krisp noise suppression ──
+    // ── Live toggle: noise suppression (DeepFilterNet3) ──
     if (room && key === "noiseSuppression") {
       (async () => {
         try {
@@ -75,23 +75,23 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
 
           // Tear down current processor
           if (activeKrispProcessor) {
-            await detachKrisp(activeKrispProcessor, micPub);
+            await detachNoiseFilter(activeKrispProcessor, micPub);
             setActiveKrispProcessor(null);
           }
 
           if (value && micPub) {
-            const processor = await attachKrisp(micPub);
+            const processor = await attachNoiseFilter(micPub);
             if (processor) {
               setActiveKrispProcessor(processor);
-              dbg("voice", "Krisp noise suppression enabled");
+              dbg("voice", "Noise suppression enabled");
             } else {
-              throw new Error("Krisp attach returned null");
+              throw new Error("NoiseFilter attach returned null");
             }
           } else {
-            dbg("voice", "Krisp noise suppression disabled");
+            dbg("voice", "Noise suppression disabled");
           }
         } catch (e) {
-          dbg("voice", "Krisp noise suppression toggle failed — mic continues without it", e);
+          dbg("voice", "Noise suppression toggle failed — mic continues without it", e);
           const reverted = { ...storeApi.getState().audioSettings, noiseSuppression: false };
           storeApi.setState({ audioSettings: reverted });
           try { localStorage.setItem("flux-audio-settings", JSON.stringify(reverted)); } catch { /* ignore */ }
