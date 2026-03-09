@@ -7,7 +7,16 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ""
+          - platform: macos-latest
+            args: "--bundles dmg,updater"
+
+    runs-on: ${{ matrix.platform }}
     permissions:
       contents: write
 
@@ -43,7 +52,7 @@ jobs:
             echo "Detected STABLE release: $TAG"
           fi
 
-      # Stable release — same as before
+      # Stable release
       - name: Build and release (stable)
         if: steps.channel.outputs.is_beta == 'false'
         uses: tauri-apps/tauri-action@v0
@@ -59,8 +68,9 @@ jobs:
           releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
+          args: ${{ matrix.args }}
 
-      # Beta release — tagged as prerelease
+      # Beta release
       - name: Build and release (beta)
         if: steps.channel.outputs.is_beta == 'true'
         uses: tauri-apps/tauri-action@v0
@@ -76,11 +86,19 @@ jobs:
           releaseDraft: false
           prerelease: true
           updaterJsonPreferNsis: true
+          args: ${{ matrix.args }}
 
-      # Update the rolling "latest-beta" release so beta clients always find the newest build
+  # Update latest-beta after both platforms finish
+  update-beta:
+    needs: build
+    if: contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Update latest-beta release
-        if: steps.channel.outputs.is_beta == 'true'
-        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
