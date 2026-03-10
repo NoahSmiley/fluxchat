@@ -32,7 +32,7 @@ export function MusicQueue({ queue, hasTrack, play, removeFromQueue }: MusicQueu
                 {item.source === "youtube" ? <YouTubeIcon /> : <SpotifyIcon />}
               </span>
               {item.trackImageUrl && (
-                <img src={item.trackImageUrl} alt="" className="music-queue-item-art" />
+                <img src={item.trackImageUrl} alt="" className="music-queue-item-art" crossOrigin="anonymous" />
               )}
               <div className="music-queue-item-info">
                 <span className="music-queue-item-name">{item.trackName}</span>

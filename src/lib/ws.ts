@@ -44,7 +44,9 @@ class FluxWebSocket {
       if (this.ws !== ws) return;
       try {
         const event: WSServerEvent = JSON.parse(e.data);
-        dbg("ws", `recv ${event.type}`, event);
+        // Only log data for less-frequent events; suppress noisy ones
+        const quiet = event.type === "presence" || event.type === "typing" || event.type === "voice_state" || event.type === "activity_update";
+        dbg("ws", `recv ${event.type}`, quiet ? undefined : event);
         for (const handler of this.handlers) {
           handler(event);
         }
@@ -81,8 +83,9 @@ class FluxWebSocket {
 
   send(event: WSClientEvent) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      // Log sends except pings
-      if (event.type !== "ping") {
+      // Log sends except pings and frequent events
+      const quiet = event.type === "ping" || event.type === "typing_start" || event.type === "typing_stop" || event.type === "update_activity";
+      if (!quiet) {
         dbg("ws", `send ${event.type}`, event);
       }
       this.ws.send(JSON.stringify(event));

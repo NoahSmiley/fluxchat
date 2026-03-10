@@ -53,6 +53,7 @@ export function LinkEmbed({ url }: { url: string }) {
           src={preview.image}
           alt=""
           loading="lazy"
+          crossOrigin="anonymous"
         />
       )}
     </div>

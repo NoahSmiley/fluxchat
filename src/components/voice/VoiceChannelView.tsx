@@ -79,13 +79,7 @@ export function VoiceChannelView() {
     if (isConnected && activeChannelId) {
       loadSession(activeChannelId);
     }
-  }, [isConnected, activeChannelId]);
-
-  useEffect(() => {
-    if (isConnected && activeTab === "music" && activeChannelId) {
-      loadSession(activeChannelId);
-    }
-  }, [activeTab, isConnected, activeChannelId]);
+  }, [isConnected, activeChannelId, activeTab]);
 
   // Auto-switch to streams tab when a screen share starts
   const prevShareCount = useRef(0);

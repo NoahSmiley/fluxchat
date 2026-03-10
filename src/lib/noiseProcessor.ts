@@ -28,7 +28,6 @@ export async function attachNoiseFilter(micPub: any): Promise<any | null> {
   }
 
   try {
-    dbg("voice", "Krisp: importing @livekit/krisp-noise-filter...");
     const { KrispNoiseFilter, isKrispNoiseFilterSupported } = await import(
       "@livekit/krisp-noise-filter"
     );
@@ -40,16 +39,9 @@ export async function attachNoiseFilter(micPub: any): Promise<any | null> {
 
     const processor = KrispNoiseFilter();
     await micPub.track.setProcessor(processor);
-    dbg("voice", "Krisp: processor attached to track");
-
     await processor.setEnabled(true);
     const isEnabled = processor.isEnabled?.();
-
-    if (!isEnabled) {
-      dbg("voice", "Krisp: WARNING — filter did not enable");
-    }
-
-    dbg("voice", `Krisp: noise suppression ${isEnabled ? "ACTIVE" : "INACTIVE"}`);
+    dbg("voice", `Krisp: ${isEnabled ? "ACTIVE" : "FAILED to enable"}`);
     return processor;
   } catch (e) {
     dbg("voice", "Krisp: attach FAILED", e);

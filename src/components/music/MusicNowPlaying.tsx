@@ -54,7 +54,7 @@ export function MusicNowPlaying({
           {albumArtUrl && (
             <div className={`music-vinyl ${isPaused ? "paused" : "spinning"}`}>
               <div className="music-vinyl-grooves" />
-              <img src={albumArtUrl} alt="" className="music-album-art" />
+              <img src={albumArtUrl} alt="" className="music-album-art" crossOrigin="anonymous" />
               <div className="music-vinyl-center" />
             </div>
           )}

@@ -74,6 +74,7 @@ export function MusicSearch({
                     src={track.album.images[track.album.images.length - 1].url}
                     alt=""
                     className="music-search-item-art"
+                    crossOrigin="anonymous"
                   />
                 )}
                 <div className="music-search-item-info">
@@ -103,7 +104,7 @@ export function MusicSearch({
           : youtubeSearchResults.map((track) => (
               <div key={track.id} className="music-search-item">
                 {track.thumbnail && (
-                  <img src={track.thumbnail} alt="" className="music-search-item-art" />
+                  <img src={track.thumbnail} alt="" className="music-search-item-art" crossOrigin="anonymous" />
                 )}
                 <div className="music-search-item-info">
                   <span className="music-search-item-name">{track.title}</span>

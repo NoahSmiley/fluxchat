@@ -87,6 +87,7 @@ export const useYouTubeStore = create<YouTubeState>((set, get) => ({
 
     if (!youtubeAudio) {
       youtubeAudio = new Audio();
+      youtubeAudio.crossOrigin = "anonymous"; // Required for COEP credentialless
       youtubeAudio.addEventListener("timeupdate", () => {
         set({ youtubeProgress: youtubeAudio!.currentTime * 1000 });
       });

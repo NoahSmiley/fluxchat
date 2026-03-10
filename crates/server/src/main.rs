@@ -1,8 +1,9 @@
 use flux_server::{config::Config, db, routes, ws, AppState};
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use axum::http::{HeaderName, Method};
+use axum::http::{HeaderName, HeaderValue, Method};
 use tower_http::cors::CorsLayer;
+use tower_http::set_header::SetResponseHeaderLayer;
 
 #[tokio::main]
 async fn main() {
@@ -78,7 +79,11 @@ async fn main() {
                     HeaderName::from_static("authorization"),
                 ])
                 .allow_credentials(true),
-        );
+        )
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("cross-origin-resource-policy"),
+            HeaderValue::from_static("cross-origin"),
+        ));
 
     let addr = format!("{}:{}", config.host, config.port);
     let listener = TcpListener::bind(&addr).await.expect("Failed to bind");

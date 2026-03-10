@@ -84,7 +84,7 @@ function NowPlayingBar({ session, playerState, youtubeTrack, queue, volume, setV
   return (
     <div className="voice-now-playing">
       {npArt && (
-        <img src={npArt} alt="" className="voice-np-art" />
+        <img src={npArt} alt="" className="voice-np-art" crossOrigin="anonymous" />
       )}
       <div className="voice-np-info">
         <span className="voice-np-name">{npName}</span>

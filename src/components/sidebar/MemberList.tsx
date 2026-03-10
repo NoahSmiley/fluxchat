@@ -108,7 +108,7 @@ export const UserCard = memo(function UserCard({
           <div className="user-card-activity">
             {activity.activityType === "listening" ? (
               <>
-                {activity.albumArt && <img src={activity.albumArt} alt="" className="user-card-album-art" />}
+                {activity.albumArt && <img src={activity.albumArt} alt="" className="user-card-album-art" crossOrigin="anonymous" />}
                 <div className="user-card-activity-info">
                   <span className="user-card-activity-label">Listening to Spotify</span>
                   <span className="user-card-activity-name">{activity.name}</span>

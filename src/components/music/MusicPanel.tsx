@@ -136,7 +136,9 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
 
       {/* Blurred album backdrop (hidden in vibe mode) */}
       {albumArtUrl && !vibeMode && (
-        <div className="music-backdrop" style={{ backgroundImage: `url(${albumArtUrl})` }} />
+        <div className="music-backdrop">
+          <img src={albumArtUrl} alt="" crossOrigin="anonymous" />
+        </div>
       )}
 
       {/* Empty state: session started but nothing playing */}

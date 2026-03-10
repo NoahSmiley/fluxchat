@@ -24,8 +24,16 @@ export function createStartSession(store: StoreApi<SpotifyState>) {
   };
 }
 
+let lastLoadSessionChannel: string | null = null;
+let lastLoadSessionTime = 0;
+
 export function createLoadSession(store: StoreApi<SpotifyState>) {
   return async (voiceChannelId: string) => {
+    // Debounce duplicate calls for the same channel within 2 seconds
+    const now = Date.now();
+    if (voiceChannelId === lastLoadSessionChannel && now - lastLoadSessionTime < 2000) return;
+    lastLoadSessionChannel = voiceChannelId;
+    lastLoadSessionTime = now;
     dbg("spotify", `loadSession channel=${voiceChannelId}`);
     try {
       const data = await api.getListeningSession(voiceChannelId);
