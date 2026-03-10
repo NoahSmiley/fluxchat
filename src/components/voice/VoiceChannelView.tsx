@@ -7,6 +7,7 @@ import { useYouTubeStore } from "@/stores/youtube.js";
 import { SoundboardPanel } from "@/components/music/SoundboardPanel.js";
 import { MusicPanel } from "@/components/music/MusicPanel.js";
 import { StreamTile } from "./StreamTile.js";
+import { PinnedStreamFloating } from "./PinnedStreamFloating.js";
 import { VoiceParticipantGrid } from "./VoiceParticipantGrid.js";
 import { VoiceControlsBar } from "./VoiceControlsBar.js";
 import { VoiceJoinPrompt } from "./VoiceJoinPrompt.js";
@@ -275,6 +276,15 @@ export function VoiceChannelView() {
           toggleDeafen={toggleDeafen}
           toggleScreenShare={toggleScreenShare}
           leaveVoiceChannel={leaveVoiceChannel}
+        />
+      )}
+
+      {/* Floating PiP when navigating away from streams tab */}
+      {isConnected && hasScreenShares && activeTab !== "streams" && pinnedSharer && (
+        <PinnedStreamFloating
+          participantId={pinnedSharer.participantId}
+          username={pinnedSharer.username}
+          onGoToStreams={() => setActiveTab("streams")}
         />
       )}
     </div>

@@ -15,9 +15,10 @@ import { RoomToasts } from "@/components/voice/RoomToasts.js";
 import { useKeybindListener } from "@/hooks/useKeybindListener.js";
 import { useIdleDetection } from "@/hooks/useIdleDetection.js";
 import { useUIStore } from "@/stores/ui.js";
+import { useVoiceStore } from "@/stores/voice/index.js";
+import { PinnedStreamFloating } from "@/components/voice/PinnedStreamFloating.js";
 
 const SettingsModal = lazy(() => import("@/components/SettingsModal.js").then(m => ({ default: m.SettingsModal })));
-const RoadmapView = lazy(() => import("@/components/roadmap/RoadmapView.js").then(m => ({ default: m.RoadmapView })));
 
 function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; side: "left" | "right" }) {
   const dragging = useRef(false);
@@ -61,7 +62,9 @@ export function MainLayout() {
   })));
   const { user } = useAuthStore();
   const serverSettingsOpen = useUIStore((s) => s.serverSettingsOpen);
-  const roadmapOpen = useUIStore((s) => s.roadmapOpen);
+  const { screenSharers, pinnedScreenShare, connectedChannelId } = useVoiceStore(useShallow((s) => ({
+    screenSharers: s.screenSharers, pinnedScreenShare: s.pinnedScreenShare, connectedChannelId: s.connectedChannelId,
+  })));
   const [sidebarWidth, setSidebarWidth] = useState(240);
 
   useEffect(() => {
@@ -170,8 +173,6 @@ export function MainLayout() {
               <p>Select a conversation or start a new one</p>
             </div>
           )
-        ) : roadmapOpen ? (
-          <Suspense fallback={null}><RoadmapView /></Suspense>
         ) : activeChannelId ? (
           activeChannel?.type === "voice" ? (
             <VoiceChannelView />
@@ -192,6 +193,26 @@ export function MainLayout() {
       <Suspense fallback={null}><SettingsModal /></Suspense>
       {serverSettingsOpen && <ServerSettingsPage />}
       <RoomToasts />
+
+      {/* Floating PiP when viewing a non-voice channel while connected to voice with screen sharers */}
+      {(() => {
+        const isViewingVoice = !showingDMs && activeChannel?.type === "voice";
+        const effectivePinned = pinnedScreenShare ?? (screenSharers.length > 0 ? screenSharers[0].participantId : null);
+        const pinnedSharer = screenSharers.find((s) => s.participantId === effectivePinned);
+        if (!isViewingVoice && connectedChannelId && screenSharers.length > 0 && pinnedSharer) {
+          return (
+            <PinnedStreamFloating
+              participantId={pinnedSharer.participantId}
+              username={pinnedSharer.username}
+              onGoToStreams={() => {
+                // Navigate to the voice channel
+                if (connectedChannelId) useChatStore.getState().selectChannel(connectedChannelId);
+              }}
+            />
+          );
+        }
+        return null;
+      })()}
     </div>
   );
 }

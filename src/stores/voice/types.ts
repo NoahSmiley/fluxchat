@@ -94,6 +94,7 @@ export interface VoiceState {
   pinnedScreenShare: string | null;
   theatreMode: boolean;
   screenShareQuality: ScreenShareQuality;
+  floatingCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
   // ── Participants ──
   participants: VoiceUser[];
@@ -123,6 +124,7 @@ export interface VoiceState {
   unpinScreenShare: () => void;
   toggleTheatreMode: () => void;
   setScreenShareQuality: (quality: ScreenShareQuality) => void;
+  setFloatingCorner: (corner: VoiceState["floatingCorner"]) => void;
 
   // ── Actions: Lobby Music ──
   setLobbyMusicVolume: (volume: number) => void;

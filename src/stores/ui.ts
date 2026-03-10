@@ -9,7 +9,6 @@ interface UIState {
   settingsOpen: boolean;
   settingsTab: string | null;
   serverSettingsOpen: boolean;
-  roadmapOpen: boolean;
   sidebarPosition: SidebarPosition;
   appBorderStyle: AppBorderStyle;
   highlightOwnMessages: boolean;
@@ -23,8 +22,6 @@ interface UIState {
   closeSettings: () => void;
   openServerSettings: () => void;
   closeServerSettings: () => void;
-  openRoadmap: () => void;
-  closeRoadmap: () => void;
   setSidebarPosition: (pos: SidebarPosition) => void;
   setAppBorderStyle: (style: AppBorderStyle) => void;
   setHighlightOwnMessages: (val: boolean) => void;
@@ -43,7 +40,6 @@ export const useUIStore = create<UIState>()(
       settingsOpen: false,
       settingsTab: null,
       serverSettingsOpen: false,
-      roadmapOpen: false,
       sidebarPosition: "left",
       appBorderStyle: "none",
       highlightOwnMessages: true,
@@ -57,8 +53,6 @@ export const useUIStore = create<UIState>()(
       closeSettings: () => set({ settingsOpen: false, settingsTab: null }),
       openServerSettings: () => set({ serverSettingsOpen: true }),
       closeServerSettings: () => set({ serverSettingsOpen: false }),
-      openRoadmap: () => set({ roadmapOpen: true }),
-      closeRoadmap: () => set({ roadmapOpen: false }),
       setSidebarPosition: (pos) => set({ sidebarPosition: pos }),
       setAppBorderStyle: (style) => set({ appBorderStyle: style }),
       setHighlightOwnMessages: (val) => set({ highlightOwnMessages: val }),

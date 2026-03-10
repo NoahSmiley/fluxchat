@@ -3,7 +3,6 @@ import type { ChatState } from "./types.js";
 import type { StoreApi } from "zustand";
 import * as api from "@/lib/api/index.js";
 import { gateway } from "@/lib/ws.js";
-import { useUIStore } from "@/stores/ui.js";
 import {
   channelMessageCache,
   serverCache,
@@ -156,8 +155,6 @@ export function createSelectServerAction(
 
 export function createSelectChannelAction(set: Set, get: Get) {
   return async (channelId: string) => {
-    useUIStore.getState().closeRoadmap();
-
     // Skip if already viewing this channel
     if (get().activeChannelId === channelId) return;
 

@@ -70,18 +70,6 @@ export interface EmojiFavorites {
   customIds: string[];  // custom_emoji ids
 }
 
-export interface RoadmapItem {
-  id: string;
-  serverId: string;
-  title: string;
-  description: string;
-  status: "planned" | "in-progress" | "done" | "bug";
-  category: string | null;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface GallerySet {
   id: string;
   name: string;

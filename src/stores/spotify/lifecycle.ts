@@ -114,6 +114,12 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
         set({ playerState: state });
         if (state) get().updateActivity();
       });
+
+      // Reconnect if we lost the deviceId (e.g. page was closed before "ready" fired)
+      if (!persistedDeviceId) {
+        dbg("spotify", "persisted player has no deviceId — reconnecting");
+        persisted.connect();
+      }
       return;
     }
 

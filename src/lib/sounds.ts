@@ -68,3 +68,15 @@ export function playUndeafenSound() {
   playTone(400, 0.06, "triangle", 0.06);
   setTimeout(() => playTone(400, 0.06, "triangle", 0.06), 70);
 }
+
+/** Metallic click — room locked */
+export function playLockSound() {
+  playTone(800, 0.06, "square", 0.06);
+  setTimeout(() => playTone(600, 0.10, "triangle", 0.08), 60);
+}
+
+/** Rising click — room unlocked */
+export function playUnlockSound() {
+  playTone(500, 0.06, "triangle", 0.06);
+  setTimeout(() => playTone(700, 0.10, "sine", 0.08), 60);
+}

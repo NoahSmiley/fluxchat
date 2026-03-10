@@ -4,6 +4,7 @@ import { useChatStore } from "@/stores/chat/index.js";
 import { Lock, LockOpen } from "lucide-react";
 import * as api from "@/lib/api/index.js";
 import { dbg } from "@/lib/debug.js";
+import { playLockSound, playUnlockSound } from "@/lib/sounds.js";
 import { avatarColor, ringClass, ringGradientStyle, bannerBackground } from "@/lib/avatarColor.js";
 import { AnimatedList } from "@/components/AnimatedList.js";
 import { VoiceUserRow } from "@/components/voice/VoiceUserRow.js";
@@ -21,6 +22,7 @@ export function toggleRoomLock(channelId: string, serverId: string) {
   if (now - prev < LOCK_TOGGLE_DEBOUNCE_MS) return;
   lockTimestamps.set(channelId, now);
   const newLocked = !current.isLocked;
+  if (newLocked) playLockSound(); else playUnlockSound();
   dbg("ui", `[lock] toggling room ${channelId} lock: ${current.isLocked} -> ${newLocked}`);
   useChatStore.setState((s) => ({
     channels: s.channels.map((c) => c.id === channelId ? { ...c, isLocked: newLocked } : c),

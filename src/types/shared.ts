@@ -9,7 +9,6 @@ export type {
   SoundboardSound,
   CustomEmoji,
   EmojiFavorites,
-  RoadmapItem,
   GallerySet,
   GallerySetImage,
   GallerySetDetail,
