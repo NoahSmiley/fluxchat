@@ -151,6 +151,19 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
       setTimeout(() => player.connect(), 1000);
     });
 
+    player.addListener("initialization_error", ({ message }: { message: string }) => {
+      dbg("spotify", `initialization_error: ${message}`);
+    });
+    player.addListener("authentication_error", ({ message }: { message: string }) => {
+      dbg("spotify", `authentication_error: ${message}`);
+    });
+    player.addListener("account_error", ({ message }: { message: string }) => {
+      dbg("spotify", `account_error: ${message}`);
+    });
+    player.addListener("playback_error", ({ message }: { message: string }) => {
+      dbg("spotify", `playback_error: ${message}`);
+    });
+
     player.addListener("player_state_changed", (state: import("./types.js").SpotifyPlayerState | null) => {
       const track = state?.track_window?.current_track;
       dbg("spotify", "player_state_changed", {
@@ -162,7 +175,9 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
       if (state) get().updateActivity();
     });
 
-    player.connect();
+    player.connect().then((success: boolean) => {
+      dbg("spotify", `player.connect() result=${success}`);
+    });
     set({ player });
     persistPlayer(player, null);
   };

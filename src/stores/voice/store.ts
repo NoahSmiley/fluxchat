@@ -7,11 +7,12 @@ import { DEFAULT_SETTINGS } from "./types.js";
 import { initLobbyMusic, setLobbyMusicGain, stopLobbyMusic } from "./lobby.js";
 import { initStatsPolling } from "./stats.js";
 import { initVoiceEvents } from "./events.js";
-import { createJoinVoiceChannel, createLeaveVoiceChannel, activeKrispProcessor, activeVadProcessor, setActiveKrispProcessor, setActiveVadProcessor, adaptiveTargetBitrate } from "./connection.js";
+import { createJoinVoiceChannel, createLeaveVoiceChannel, activeNoiseProcessor, activeVadProcessor, setActiveNoiseProcessor, setActiveVadProcessor, adaptiveTargetBitrate, detachActiveNoiseProcessor } from "./connection.js";
 import { createToggleMute, createSetMuted, createToggleDeafen, createSetParticipantVolume, createApplyBitrate } from "./controls.js";
 import { createToggleScreenShare, createSetScreenShareQuality } from "./screen-share.js";
 import { createUpdateParticipants, createUpdateScreenSharers, createSetChannelParticipants } from "./participants.js";
-import { attachNoiseFilter, detachNoiseFilter } from "@/lib/noiseProcessor.js";
+import { attachNoiseFilter } from "@/lib/noiseProcessor.js";
+import { attachDeepFilter } from "@/lib/deepFilterProcessor.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import { Track } from "livekit-client";
@@ -25,9 +26,9 @@ function loadAudioSettings(): AudioSettings {
     const saved = localStorage.getItem("flux-audio-settings");
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Migrate old string noiseSuppression to boolean
-      if (typeof parsed.noiseSuppression === "string") {
-        parsed.noiseSuppression = parsed.noiseSuppression !== "off";
+      // Migrate old boolean noiseSuppression to union type
+      if (typeof parsed.noiseSuppression === "boolean") {
+        parsed.noiseSuppression = parsed.noiseSuppression ? "krisp" : "off";
       }
       return { ...DEFAULT_SETTINGS, ...parsed };
     }
@@ -67,32 +68,37 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
       room.switchActiveDevice("audiooutput", value).catch(() => {});
     }
 
-    // ── Live toggle: noise suppression (Krisp) ──
+    // ── Live toggle: noise suppression (Krisp / DeepFilterNet3) ──
     if (room && key === "noiseSuppression") {
       (async () => {
         try {
           const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
 
-          // Tear down current processor
-          if (activeKrispProcessor) {
-            await detachNoiseFilter(activeKrispProcessor, micPub);
-            setActiveKrispProcessor(null);
-          }
+          // Always tear down the current processor first
+          await detachActiveNoiseProcessor(room);
 
-          if (value && micPub) {
+          if (value === "krisp" && micPub) {
             const processor = await attachNoiseFilter(micPub);
             if (processor) {
-              setActiveKrispProcessor(processor);
-              dbg("voice", "Noise suppression enabled");
+              setActiveNoiseProcessor(processor, "krisp");
+              dbg("voice", "Noise suppression enabled: Krisp");
             } else {
-              throw new Error("NoiseFilter attach returned null");
+              throw new Error("Krisp attach returned null");
+            }
+          } else if (value === "deepfilter" && micPub) {
+            const processor = await attachDeepFilter(micPub);
+            if (processor) {
+              setActiveNoiseProcessor(processor, "deepfilter");
+              dbg("voice", "Noise suppression enabled: DeepFilterNet3");
+            } else {
+              throw new Error("DeepFilter attach returned null");
             }
           } else {
             dbg("voice", "Noise suppression disabled");
           }
         } catch (e) {
           dbg("voice", "Noise suppression toggle failed — mic continues without it", e);
-          const reverted = { ...storeApi.getState().audioSettings, noiseSuppression: false };
+          const reverted = { ...storeApi.getState().audioSettings, noiseSuppression: "off" as const };
           storeApi.setState({ audioSettings: reverted });
           try { localStorage.setItem("flux-audio-settings", JSON.stringify(reverted)); } catch { /* ignore */ }
         }

@@ -3,8 +3,9 @@ import { dbg } from "@/lib/debug.js";
 import { playJoinSound, playLeaveSound, playStreamStartSound } from "@/lib/sounds.js";
 import { checkLobbyMusic } from "./lobby.js";
 import { stopStatsPolling } from "./stats.js";
-import { adaptiveTargetBitrate, activeKrispProcessor, activeVadProcessor, setActiveKrispProcessor, setActiveVadProcessor } from "./connection.js";
-import { attachNoiseFilter, detachNoiseFilter } from "@/lib/noiseProcessor.js";
+import { adaptiveTargetBitrate, activeNoiseProcessor, activeNoiseType, activeVadProcessor, setActiveNoiseProcessor, setActiveVadProcessor, detachActiveNoiseProcessor } from "./connection.js";
+import { attachNoiseFilter } from "@/lib/noiseProcessor.js";
+import { attachDeepFilter } from "@/lib/deepFilterProcessor.js";
 import { resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";
@@ -189,8 +190,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     smoothedLevels.clear();
 
     // Clean up audio processors
-    detachNoiseFilter(activeKrispProcessor).catch(() => {});
-    setActiveKrispProcessor(null);
+    detachActiveNoiseProcessor().catch(() => {});
     activeVadProcessor?.destroy().catch(() => {});
     setActiveVadProcessor(null);
     resetAdaptiveBitrate();
@@ -324,11 +324,14 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
         dbg("voice", `LocalTrackPublished enforced CBR ${br}`);
       }
 
-      // ── Krisp noise suppression ──
+      // ── Noise suppression (Krisp or DeepFilterNet3) ──
       const { audioSettings } = get();
-      if (audioSettings.noiseSuppression) {
+      if (audioSettings.noiseSuppression === "krisp") {
         const processor = await attachNoiseFilter(pub);
-        if (processor) setActiveKrispProcessor(processor);
+        if (processor) setActiveNoiseProcessor(processor, "krisp");
+      } else if (audioSettings.noiseSuppression === "deepfilter") {
+        const processor = await attachDeepFilter(pub);
+        if (processor) setActiveNoiseProcessor(processor, "deepfilter");
       }
     }
     if (!isHybrid) get()._updateScreenSharers();

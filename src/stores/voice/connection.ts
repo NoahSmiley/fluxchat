@@ -7,6 +7,7 @@ import { exportKeyAsBase64 } from "@/lib/crypto.js";
 import { dbg } from "@/lib/debug.js";
 import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
 import { detachNoiseFilter } from "@/lib/noiseProcessor.js";
+import { detachDeepFilter } from "@/lib/deepFilterProcessor.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 
@@ -31,19 +32,31 @@ export function setAdaptiveTargetBitrate(bitrate: number) {
 }
 
 // ── Audio processor instances (shared so store can toggle live) ──
-// activeKrispProcessor holds the raw KrispNoiseFilter() instance
-export let activeKrispProcessor: any = null;
+// activeNoiseProcessor holds either a Krisp or DeepFilter processor instance
+export let activeNoiseProcessor: any = null;
+export let activeNoiseType: "krisp" | "deepfilter" | null = null;
 export let activeVadProcessor: VadProcessor | null = null;
 
-export function setActiveKrispProcessor(p: any) { activeKrispProcessor = p; }
+export function setActiveNoiseProcessor(p: any, type: "krisp" | "deepfilter" | null) {
+  activeNoiseProcessor = p;
+  activeNoiseType = type;
+}
 export function setActiveVadProcessor(p: VadProcessor | null) { activeVadProcessor = p; }
 
-async function destroyAllProcessors(room?: Room | null) {
-  if (activeKrispProcessor) {
-    const micPub = room?.localParticipant.getTrackPublication(Track.Source.Microphone);
-    await detachNoiseFilter(activeKrispProcessor, micPub);
-    activeKrispProcessor = null;
+export async function detachActiveNoiseProcessor(room?: Room | null) {
+  if (!activeNoiseProcessor) return;
+  const micPub = room?.localParticipant.getTrackPublication(Track.Source.Microphone);
+  if (activeNoiseType === "deepfilter") {
+    await detachDeepFilter(activeNoiseProcessor, micPub);
+  } else {
+    await detachNoiseFilter(activeNoiseProcessor, micPub);
   }
+  activeNoiseProcessor = null;
+  activeNoiseType = null;
+}
+
+async function destroyAllProcessors(room?: Room | null) {
+  await detachActiveNoiseProcessor(room);
   if (activeVadProcessor) {
     await activeVadProcessor.destroy();
     activeVadProcessor = null;
