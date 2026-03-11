@@ -16,16 +16,18 @@ interface Props {
 export function PinnedStreamFloating({ participantId, username, onGoToStreams }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { room, screenRoom, floatingCorner, setFloatingCorner, unpinScreenShare } = useVoiceStore(useShallow((s) => ({
+  const { room, screenRoom, floatingCorner, setFloatingCorner, dismissFloating, floatingSize, setFloatingSize } = useVoiceStore(useShallow((s) => ({
     room: s.room, screenRoom: s.screenRoom,
     floatingCorner: s.floatingCorner, setFloatingCorner: s.setFloatingCorner,
-    unpinScreenShare: s.unpinScreenShare,
+    dismissFloating: s.dismissFloating, floatingSize: s.floatingSize, setFloatingSize: s.setFloatingSize,
   })));
   const lkRoom = screenRoom ?? room;
 
   const [dragging, setDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
   const dragStart = useRef<{ mouseX: number; mouseY: number; elX: number; elY: number } | null>(null);
+  const [resizing, setResizing] = useState(false);
+  const resizeStart = useRef<{ mouseX: number; mouseY: number; w: number; h: number } | null>(null);
 
   // ── Attach LiveKit video track ──
   const attachTrack = useCallback(() => {
@@ -126,10 +128,50 @@ export function PinnedStreamFloating({ participantId, username, onGoToStreams }:
     };
   }, [dragging, setFloatingCorner]);
 
+  // ── Resize logic ──
+  const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, w: floatingSize.width, h: floatingSize.height };
+    setResizing(true);
+  }, [floatingSize]);
+
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e: MouseEvent) => {
+      if (!resizeStart.current) return;
+      const corner = floatingCorner;
+      // Resize direction depends on which corner the PiP is in
+      const dx = corner.includes("right")
+        ? resizeStart.current.mouseX - e.clientX   // dragging left to grow
+        : e.clientX - resizeStart.current.mouseX;   // dragging right to grow
+      const dy = corner.includes("bottom")
+        ? resizeStart.current.mouseY - e.clientY
+        : e.clientY - resizeStart.current.mouseY;
+      // Maintain 16:9 aspect ratio based on the larger axis
+      const delta = Math.max(dx, dy);
+      const newW = Math.max(200, Math.min(800, resizeStart.current.w + delta));
+      const newH = Math.round(newW * 9 / 16);
+      setFloatingSize({ width: newW, height: newH });
+    };
+    const onUp = () => {
+      setResizing(false);
+      resizeStart.current = null;
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.userSelect = "none";
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+    };
+  }, [resizing, floatingCorner, setFloatingSize]);
+
   // While dragging, use absolute position; otherwise use CSS class for corner
   const style: React.CSSProperties = dragOffset
-    ? { position: "fixed", left: dragOffset.x, top: dragOffset.y, transition: "none" }
-    : {};
+    ? { position: "fixed", left: dragOffset.x, top: dragOffset.y, width: floatingSize.width, height: floatingSize.height, transition: "none" }
+    : { width: floatingSize.width, height: floatingSize.height };
 
   return (
     <div
@@ -145,12 +187,17 @@ export function PinnedStreamFloating({ participantId, username, onGoToStreams }:
         <button
           className="floating-stream-close"
           onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); unpinScreenShare(); }}
+          onClick={(e) => { e.stopPropagation(); dismissFloating(); }}
           title="Close"
         >
           <X size={12} />
         </button>
       </div>
+      {/* Resize handle — corner opposite to the PiP's snapped corner */}
+      <div
+        className={`floating-stream-resize corner-${floatingCorner}`}
+        onMouseDown={onResizeMouseDown}
+      />
     </div>
   );
 }

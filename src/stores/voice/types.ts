@@ -95,6 +95,8 @@ export interface VoiceState {
   theatreMode: boolean;
   screenShareQuality: ScreenShareQuality;
   floatingCorner: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+  floatingDismissed: boolean; // true when user clicked X on the floating PiP
+  floatingSize: { width: number; height: number }; // resizable PiP dimensions
 
   // ── Participants ──
   participants: VoiceUser[];
@@ -125,6 +127,8 @@ export interface VoiceState {
   toggleTheatreMode: () => void;
   setScreenShareQuality: (quality: ScreenShareQuality) => void;
   setFloatingCorner: (corner: VoiceState["floatingCorner"]) => void;
+  dismissFloating: () => void;
+  setFloatingSize: (size: { width: number; height: number }) => void;
 
   // ── Actions: Lobby Music ──
   setLobbyMusicVolume: (volume: number) => void;

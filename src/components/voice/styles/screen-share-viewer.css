@@ -41,15 +41,13 @@
 /* ── Floating PiP Stream Player ── */
 .floating-stream-pip {
   position: fixed;
-  width: 320px;
-  height: 180px;
   z-index: 9999;
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
   background: #000;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
   cursor: grab;
-  transition: top 0.3s ease, left 0.3s ease, right 0.3s ease, bottom 0.3s ease;
+  transition: top 0.3s ease, left 0.3s ease, right 0.3s ease, bottom 0.3s ease, width 0.15s ease, height 0.15s ease;
 }
 .floating-stream-pip.dragging { cursor: grabbing; transition: none; }
 
@@ -64,6 +62,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  border-radius: 10px;
 }
 
 .floating-stream-overlay {
@@ -76,9 +75,12 @@
   justify-content: space-between;
   padding: 6px 8px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  border-radius: 0 0 10px 10px;
   opacity: 0;
   transition: opacity 0.15s;
+  pointer-events: none;
 }
+.floating-stream-pip:hover .floating-stream-overlay { pointer-events: auto; }
 .floating-stream-pip:hover .floating-stream-overlay { opacity: 1; }
 
 .floating-stream-label {
@@ -103,6 +105,35 @@
   backdrop-filter: blur(4px);
 }
 .floating-stream-close:hover { background: rgba(255, 80, 80, 0.6); }
+
+/* Resize handle — placed on the inner corner (opposite to the snapped edge) */
+.floating-stream-resize {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.floating-stream-pip:hover .floating-stream-resize { opacity: 1; }
+.floating-stream-resize::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+/* Position resize handle at the inner corner based on the PiP's snapped corner */
+.floating-stream-resize.corner-bottom-right { top: -4px; left: -4px; cursor: nw-resize; }
+.floating-stream-resize.corner-bottom-right::after { border-width: 2px 0 0 2px; top: 4px; left: 4px; }
+.floating-stream-resize.corner-bottom-left  { top: -4px; right: -4px; cursor: ne-resize; }
+.floating-stream-resize.corner-bottom-left::after  { border-width: 2px 2px 0 0; top: 4px; right: 4px; }
+.floating-stream-resize.corner-top-right    { bottom: -4px; left: -4px; cursor: sw-resize; }
+.floating-stream-resize.corner-top-right::after    { border-width: 0 0 2px 2px; bottom: 4px; left: 4px; }
+.floating-stream-resize.corner-top-left     { bottom: -4px; right: -4px; cursor: se-resize; }
+.floating-stream-resize.corner-top-left::after     { border-width: 0 2px 2px 0; bottom: 4px; right: 4px; }
+.floating-stream-resize:hover::after { border-color: rgba(255, 255, 255, 0.7); }
 
 /* ── Pop-out Windows ── */
 .popout-container { height: 100%; display: flex; flex-direction: column; }

@@ -33,6 +33,7 @@ export function VoiceChannelView() {
     screenSharers,
     pinnedScreenShare,
     theatreMode,
+    floatingDismissed,
     participantVolumes,
     joinVoiceChannel,
     leaveVoiceChannel,
@@ -46,7 +47,7 @@ export function VoiceChannelView() {
     room: s.room, connectedChannelId: s.connectedChannelId, connecting: s.connecting,
     connectionError: s.connectionError, participants: s.participants, channelParticipants: s.channelParticipants, isMuted: s.isMuted,
     isDeafened: s.isDeafened, isScreenSharing: s.isScreenSharing, screenSharers: s.screenSharers,
-    pinnedScreenShare: s.pinnedScreenShare, theatreMode: s.theatreMode,
+    pinnedScreenShare: s.pinnedScreenShare, theatreMode: s.theatreMode, floatingDismissed: s.floatingDismissed,
     participantVolumes: s.participantVolumes, joinVoiceChannel: s.joinVoiceChannel,
     leaveVoiceChannel: s.leaveVoiceChannel, toggleMute: s.toggleMute, toggleDeafen: s.toggleDeafen,
     toggleScreenShare: s.toggleScreenShare, setParticipantVolume: s.setParticipantVolume,
@@ -86,6 +87,7 @@ export function VoiceChannelView() {
   useEffect(() => {
     if (screenSharers.length > 0 && prevShareCount.current === 0) {
       setActiveTab("streams");
+      useVoiceStore.setState({ floatingDismissed: false });
     }
     prevShareCount.current = screenSharers.length;
   }, [screenSharers.length]);
@@ -274,11 +276,11 @@ export function VoiceChannelView() {
       )}
 
       {/* Floating PiP when navigating away from streams tab */}
-      {isConnected && hasScreenShares && activeTab !== "streams" && pinnedSharer && (
+      {isConnected && hasScreenShares && activeTab !== "streams" && !floatingDismissed && pinnedSharer && (
         <PinnedStreamFloating
           participantId={pinnedSharer.participantId}
           username={pinnedSharer.username}
-          onGoToStreams={() => setActiveTab("streams")}
+          onGoToStreams={() => { setActiveTab("streams"); useVoiceStore.setState({ floatingDismissed: false }); }}
         />
       )}
     </div>

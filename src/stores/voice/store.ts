@@ -187,6 +187,8 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
     theatreMode: false,
     screenShareQuality: "1080p60" as ScreenShareQuality,
     floatingCorner: "bottom-right" as VoiceState["floatingCorner"],
+    floatingDismissed: false,
+    floatingSize: { width: 320, height: 180 },
     participants: [],
     channelParticipants: {},
     lastSpokeAt: 0,
@@ -222,6 +224,14 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
 
     setFloatingCorner: (corner) => {
       set({ floatingCorner: corner });
+    },
+
+    dismissFloating: () => {
+      set({ floatingDismissed: true });
+    },
+
+    setFloatingSize: (size) => {
+      set({ floatingSize: size });
     },
 
     setLobbyMusicVolume: (volume: number) => {
