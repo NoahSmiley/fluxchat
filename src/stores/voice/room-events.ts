@@ -9,8 +9,9 @@ import { resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";
 
-const SPEAKING_THRESHOLD = 0.02;
-const SPEAKING_HOLD_MS = 200;
+const SPEAKING_ON_THRESHOLD = 0.04; // must exceed this to start speaking
+const SPEAKING_OFF_THRESHOLD = 0.02; // must drop below this to stop speaking (hysteresis)
+const SPEAKING_HOLD_MS = 350; // hold speaking state for this long after audio drops
 const POLL_INTERVAL_MS = 50; // 20fps
 
 // ── Per-participant audio pipelines (GainNode for volume control) ──
@@ -111,43 +112,57 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
   const speakingHoldTimers = new Map<string, number>();
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+  // Track who is currently considered speaking (avoids creating new Set every poll)
+  let currentSpeaking = new Set<string>();
+
+  /** Evaluate a single participant's speaking state with hysteresis */
+  function evaluateSpeaking(
+    identity: string,
+    level: number,
+    now: number,
+    nextSpeaking: Set<string>,
+  ) {
+    const wasSpeaking = currentSpeaking.has(identity);
+    // Hysteresis: higher threshold to start, lower to stop
+    const threshold = wasSpeaking ? SPEAKING_OFF_THRESHOLD : SPEAKING_ON_THRESHOLD;
+
+    if (level > threshold) {
+      nextSpeaking.add(identity);
+      speakingHoldTimers.set(identity, now);
+    } else if (speakingHoldTimers.has(identity)) {
+      if (now - speakingHoldTimers.get(identity)! < SPEAKING_HOLD_MS) {
+        nextSpeaking.add(identity);
+      } else {
+        speakingHoldTimers.delete(identity);
+      }
+    }
+  }
+
   const pollAudioLevels = () => {
-    const speaking = new Set<string>();
+    const nextSpeaking = new Set<string>();
     const now = Date.now();
 
     // Local participant: use Web Audio analyser for instant detection
     const localId = room.localParticipant.identity;
     const localLevel = get().isMuted ? 0 : getLocalLevel();
-
-    if (localLevel > SPEAKING_THRESHOLD) {
-      speaking.add(localId);
-      speakingHoldTimers.set(localId, now);
+    evaluateSpeaking(localId, localLevel, now, nextSpeaking);
+    if (nextSpeaking.has(localId) && !currentSpeaking.has(localId)) {
       set({ lastSpokeAt: now });
-    } else if (speakingHoldTimers.has(localId)) {
-      if (now - speakingHoldTimers.get(localId)! < SPEAKING_HOLD_MS) {
-        speaking.add(localId);
-      } else {
-        speakingHoldTimers.delete(localId);
-      }
     }
 
-    // Remote participants: use LiveKit's audioLevel (server-driven, best available)
+    // Remote participants: use LiveKit's audioLevel (server-driven)
     for (const p of room.remoteParticipants.values()) {
-      const level = p.audioLevel ?? 0;
-
-      if (level > SPEAKING_THRESHOLD) {
-        speaking.add(p.identity);
-        speakingHoldTimers.set(p.identity, now);
-      } else if (speakingHoldTimers.has(p.identity)) {
-        if (now - speakingHoldTimers.get(p.identity)! < SPEAKING_HOLD_MS) {
-          speaking.add(p.identity);
-        } else {
-          speakingHoldTimers.delete(p.identity);
-        }
-      }
+      evaluateSpeaking(p.identity, p.audioLevel ?? 0, now, nextSpeaking);
     }
 
-    set({ speakingUserIds: speaking });
+    // Only update React state if the speaking set actually changed
+    if (nextSpeaking.size !== currentSpeaking.size ||
+        [...nextSpeaking].some((id) => !currentSpeaking.has(id))) {
+      currentSpeaking = nextSpeaking;
+      set({ speakingUserIds: nextSpeaking });
+    } else {
+      currentSpeaking = nextSpeaking;
+    }
   };
 
   pollTimer = setInterval(pollAudioLevels, POLL_INTERVAL_MS);
@@ -226,34 +241,41 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
 
     if (track.kind === Track.Kind.Audio) {
       get()._updateParticipants();
+      const mst = track.mediaStreamTrack;
+      if (!mst) {
+        dbg("voice", `TrackSubscribed no mediaStreamTrack for ${participant.identity}`);
+        return;
+      }
+
+      cleanupParticipantAudio(participant.identity);
+      const vol = get().participantVolumes[participant.identity] ?? 1.0;
+
+      // Create a hidden <audio> element to satisfy browser autoplay with LiveKit's attach()
       const el = track.attach() as unknown;
       const audioEl = el instanceof HTMLAudioElement ? el : null;
-      if (audioEl) {
-        cleanupParticipantAudio(participant.identity);
-        const vol = get().participantVolumes[participant.identity] ?? 1.0;
-        const pipeline: ParticipantAudio = { audioEl };
-        try {
-          // Route through GainNode for per-participant volume control (supports 0-200%)
-          const ctx = new AudioContext();
-          await ctx.resume(); // Required for autoplay policy
-          const source = ctx.createMediaElementSource(audioEl);
-          const gain = ctx.createGain();
-          gain.gain.setValueAtTime(vol, ctx.currentTime);
-          source.connect(gain);
-          gain.connect(ctx.destination);
-          pipeline.ctx = ctx;
-          pipeline.gain = gain;
-          pipeline.source = source;
-          dbg("voice", `TrackSubscribed attached audio with GainNode for ${participant.identity} vol=${vol}`);
-        } catch (e) {
-          // Fallback: audio plays through raw element, volume limited to 0-100%
-          audioEl.volume = Math.min(Math.max(vol, 0), 1);
-          dbg("voice", `TrackSubscribed GainNode failed for ${participant.identity}, using element volume`, e);
-        }
-        participantAudioPipelines.set(participant.identity, pipeline);
-      } else {
-        dbg("voice", `TrackSubscribed attached audio for ${participant.identity} (no HTMLAudioElement)`);
+
+      const pipeline: ParticipantAudio = { audioEl: audioEl ?? new Audio() };
+      try {
+        // Use createMediaStreamSource (more reliable for WebRTC than createMediaElementSource)
+        const ctx = new AudioContext();
+        await ctx.resume();
+        const source = ctx.createMediaStreamSource(new MediaStream([mst]));
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        // Mute the original element to avoid double audio output
+        if (audioEl) audioEl.volume = 0;
+        pipeline.ctx = ctx;
+        pipeline.gain = gain;
+        pipeline.source = source as unknown as MediaElementAudioSourceNode;
+        dbg("voice", `TrackSubscribed attached audio with GainNode (MediaStreamSource) for ${participant.identity} vol=${vol}`);
+      } catch (e) {
+        // Fallback: audio plays through raw element, volume limited to 0-100%
+        if (audioEl) audioEl.volume = Math.min(Math.max(vol, 0), 1);
+        dbg("voice", `TrackSubscribed GainNode failed for ${participant.identity}, using element volume`, e);
       }
+      participantAudioPipelines.set(participant.identity, pipeline);
     }
     if (track.kind === Track.Kind.Video && !isHybrid) {
       dbg("voice", `TrackSubscribed video from ${participant.identity}, updating screen sharers`);
