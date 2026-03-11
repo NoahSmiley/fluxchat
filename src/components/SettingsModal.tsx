@@ -65,11 +65,9 @@ function VoiceSettingsTab() {
         <h3 className="settings-card-title">Audio Processing</h3>
         <div className="settings-row">
           <div className="settings-row-info">
-            <span className="settings-row-label" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <img src="/krisp-logo.png" alt="Krisp" width="16" height="16" style={{ opacity: 0.9 }} />
-              Noise Suppression
-            </span>
-            <span className="settings-row-desc">Powered by Krisp — AI-based noise cancellation removes background noise in real time</span>
+            <span className="settings-row-label">Noise Suppression</span>
+            <span className="settings-row-desc">AI-based noise cancellation removes background noise in real time</span>
+            <img src="/krisp-logo.png" alt="Powered by Krisp" height="12" style={{ opacity: 0.5, marginTop: 4 }} />
           </div>
           <ToggleSwitch checked={!!audioSettings.noiseSuppression} onChange={(v) => updateAudioSetting("noiseSuppression", v)} />
         </div>
