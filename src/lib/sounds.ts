@@ -80,3 +80,10 @@ export function playUnlockSound() {
   playTone(500, 0.06, "triangle", 0.06);
   setTimeout(() => playTone(700, 0.10, "sine", 0.08), 60);
 }
+
+/** Ascending three-tone chime — someone started streaming */
+export function playStreamStartSound() {
+  playTone(523, 0.10, "sine", 0.12);       // C5
+  setTimeout(() => playTone(659, 0.10, "sine", 0.12), 100);  // E5
+  setTimeout(() => playTone(784, 0.15, "sine", 0.14), 200);  // G5
+}

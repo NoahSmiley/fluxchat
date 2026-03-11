@@ -1,6 +1,6 @@
 import { Room, RoomEvent, Track, VideoQuality } from "livekit-client";
 import { dbg } from "@/lib/debug.js";
-import { playJoinSound, playLeaveSound } from "@/lib/sounds.js";
+import { playJoinSound, playLeaveSound, playStreamStartSound } from "@/lib/sounds.js";
 import { checkLobbyMusic } from "./lobby.js";
 import { stopStatsPolling } from "./stats.js";
 import { adaptiveTargetBitrate, activeKrispProcessor, activeVadProcessor, setActiveKrispProcessor, setActiveVadProcessor } from "./connection.js";
@@ -342,6 +342,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
   });
   room.on(RoomEvent.TrackPublished, (_pub, participant) => {
     dbg("voice", `TrackPublished remote participant=${participant.identity}`);
+    if (_pub.source === Track.Source.ScreenShare) playStreamStartSound();
     if (!isHybrid) get()._updateScreenSharers();
   });
   room.on(RoomEvent.TrackUnpublished, (_pub, participant) => {
@@ -395,6 +396,7 @@ export function setupScreenRoomEventHandlers(screenRoom: Room, storeRef: StoreAp
 
   screenRoom.on(RoomEvent.TrackPublished, (_pub, participant) => {
     dbg("voice", `[screenRoom] TrackPublished remote participant=${participant.identity}`);
+    if (_pub.source === Track.Source.ScreenShare) playStreamStartSound();
     get()._updateScreenSharers();
   });
 
