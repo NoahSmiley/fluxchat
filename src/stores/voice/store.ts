@@ -67,7 +67,7 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
       room.switchActiveDevice("audiooutput", value).catch(() => {});
     }
 
-    // ── Live toggle: noise suppression (DeepFilterNet3) ──
+    // ── Live toggle: noise suppression (Krisp) ──
     if (room && key === "noiseSuppression") {
       (async () => {
         try {
