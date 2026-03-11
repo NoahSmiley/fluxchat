@@ -3,47 +3,60 @@
 .music-search {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .music-search-form {
   display: flex;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.2s;
+}
+
+.music-search-form:focus-within {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .music-search-input {
   flex: 1;
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-size: 13px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: var(--radius) 0 0 var(--radius);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
   color: var(--text-primary);
   outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.music-search-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.music-search-input:focus {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, white 10%);
 }
 
 .music-search-btn {
-  padding: 0 10px;
+  padding: 0 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-left: none;
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border-radius: 0 10px 10px 0;
   color: var(--text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
+  transition: background 0.15s, color 0.15s;
 }
 
 .music-search-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
-}
-
-.music-search-input::placeholder {
-  color: var(--text-muted);
-}
-
-.music-search-input:focus {
-  border-color: var(--text-muted);
 }
 
 .music-search-loading {
@@ -65,7 +78,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: background 0.1s;
 }
 
@@ -80,7 +93,7 @@
 .music-search-item-art {
   width: 36px;
   height: 36px;
-  border-radius: 3px;
+  border-radius: 4px;
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -126,40 +139,42 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
 }
 
 .music-search-item-play:hover {
   background: #1db954;
   color: #fff;
+  transform: scale(1.1);
 }
 
 .music-search-item-add:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+  transform: scale(1.1);
 }
 
 /* Source tabs for search */
 .music-search-source-tabs {
   display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
+  gap: 0;
   background: var(--bg-tertiary);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 3px;
+  border: 1px solid var(--border);
 }
 
 .music-source-tab {
   flex: 1;
-  padding: 7px 0;
+  padding: 8px 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -168,6 +183,7 @@
 
 .music-source-tab:hover {
   color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .music-source-tab svg {
@@ -177,5 +193,5 @@
 .music-source-tab.active {
   background: var(--bg-secondary);
   color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
