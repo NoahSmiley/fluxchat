@@ -6,13 +6,11 @@ import type { VoiceParticipant } from "@/types/shared.js";
 // Types & Constants
 // ═══════════════════════════════════════════════════════════════════
 
-export type NoiseSuppressionMode = "off" | "krisp" | "deepfilter";
-
 export interface AudioSettings {
   audioInputDeviceId: string;
   audioOutputDeviceId: string;
   dtx: boolean;
-  noiseSuppression: NoiseSuppressionMode;
+  noiseSuppression: boolean;
   echoCancellation: boolean;
   autoGainControl: boolean;
   voiceGating: boolean;
@@ -61,7 +59,7 @@ export const DEFAULT_SETTINGS: AudioSettings = {
   audioInputDeviceId: "",
   audioOutputDeviceId: "",
   dtx: false,
-  noiseSuppression: "krisp",
+  noiseSuppression: true,
   echoCancellation: true,
   autoGainControl: true,
   voiceGating: true,

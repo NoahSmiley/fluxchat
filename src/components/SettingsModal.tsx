@@ -65,26 +65,13 @@ function VoiceSettingsTab() {
         <h3 className="settings-card-title">Audio Processing</h3>
         <div className="settings-row">
           <div className="settings-row-info">
-            <span className="settings-row-label">Noise Suppression</span>
-            <span className="settings-row-desc">AI-based noise cancellation removes background noise in real time</span>
+            <span className="settings-row-label" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <img src="/krisp-logo.png" alt="Krisp" width="16" height="16" style={{ opacity: 0.9 }} />
+              Noise Suppression
+            </span>
+            <span className="settings-row-desc">Powered by Krisp — AI-based noise cancellation removes background noise in real time</span>
           </div>
-          <div className="noise-suppression-selector">
-            <button
-              className={`noise-suppression-option ${audioSettings.noiseSuppression === "off" ? "active" : ""}`}
-              onClick={() => updateAudioSetting("noiseSuppression", "off")}
-            >Off</button>
-            <button
-              className={`noise-suppression-option ${audioSettings.noiseSuppression === "krisp" ? "active" : ""}`}
-              onClick={() => updateAudioSetting("noiseSuppression", "krisp")}
-            >
-              <img src="/krisp-logo.png" alt="" width="14" height="14" style={{ opacity: audioSettings.noiseSuppression === "krisp" ? 1 : 0.5 }} />
-              Krisp
-            </button>
-            <button
-              className={`noise-suppression-option ${audioSettings.noiseSuppression === "deepfilter" ? "active" : ""}`}
-              onClick={() => updateAudioSetting("noiseSuppression", "deepfilter")}
-            >DeepFilter</button>
-          </div>
+          <ToggleSwitch checked={!!audioSettings.noiseSuppression} onChange={(v) => updateAudioSetting("noiseSuppression", v)} />
         </div>
         <div className="settings-row">
           <div className="settings-row-info">
