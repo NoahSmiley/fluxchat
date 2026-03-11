@@ -46,7 +46,9 @@ export function createHandleWSEvent(store: StoreApi<SpotifyState>) {
         const source = (event as any).source ?? "spotify";
 
         if (source === "youtube") {
+          // Use metadata from the event (sent by the host), fall back to local lookup
           const findTrackInfo = (videoId: string) => {
+            if (event.trackName) return { name: event.trackName, artist: event.trackArtist ?? "YouTube", imageUrl: event.trackImageUrl ?? "", durationMs: event.trackDurationMs ?? 0 };
             const qi = store.getState().queue.find(i => i.trackUri === videoId);
             if (qi) return { name: qi.trackName, artist: qi.trackArtist, imageUrl: qi.trackImageUrl ?? "", durationMs: qi.trackDurationMs };
             const si = yt().youtubeSearchResults.find(t => t.id === videoId);

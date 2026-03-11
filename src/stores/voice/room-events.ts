@@ -9,10 +9,11 @@ import { resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";
 
-const SPEAKING_ON_THRESHOLD = 0.04; // must exceed this to start speaking
-const SPEAKING_OFF_THRESHOLD = 0.02; // must drop below this to stop speaking (hysteresis)
-const SPEAKING_HOLD_MS = 350; // hold speaking state for this long after audio drops
+const SPEAKING_ON_THRESHOLD = 0.06; // must exceed this to start speaking
+const SPEAKING_OFF_THRESHOLD = 0.025; // must drop below this to stop speaking (hysteresis)
+const SPEAKING_HOLD_MS = 500; // hold speaking state for 500ms after audio drops
 const POLL_INTERVAL_MS = 50; // 20fps
+const EMA_ALPHA = 0.35; // exponential moving average smoothing (lower = smoother, more lag)
 
 // ── Per-participant audio pipelines (GainNode for volume control) ──
 interface ParticipantAudio {
@@ -110,10 +111,19 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
 
   // ── Polling loop for speaking indicators ──
   const speakingHoldTimers = new Map<string, number>();
+  const smoothedLevels = new Map<string, number>(); // EMA-smoothed audio levels
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   // Track who is currently considered speaking (avoids creating new Set every poll)
   let currentSpeaking = new Set<string>();
+
+  /** Apply exponential moving average to smooth noisy audio levels */
+  function smoothLevel(identity: string, rawLevel: number): number {
+    const prev = smoothedLevels.get(identity) ?? 0;
+    const smoothed = EMA_ALPHA * rawLevel + (1 - EMA_ALPHA) * prev;
+    smoothedLevels.set(identity, smoothed);
+    return smoothed;
+  }
 
   /** Evaluate a single participant's speaking state with hysteresis */
   function evaluateSpeaking(
@@ -144,7 +154,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
 
     // Local participant: use Web Audio analyser for instant detection
     const localId = room.localParticipant.identity;
-    const localLevel = get().isMuted ? 0 : getLocalLevel();
+    const localLevel = get().isMuted ? 0 : smoothLevel(localId, getLocalLevel());
     evaluateSpeaking(localId, localLevel, now, nextSpeaking);
     if (nextSpeaking.has(localId) && !currentSpeaking.has(localId)) {
       set({ lastSpokeAt: now });
@@ -152,7 +162,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
 
     // Remote participants: use LiveKit's audioLevel (server-driven)
     for (const p of room.remoteParticipants.values()) {
-      evaluateSpeaking(p.identity, p.audioLevel ?? 0, now, nextSpeaking);
+      evaluateSpeaking(p.identity, smoothLevel(p.identity, p.audioLevel ?? 0), now, nextSpeaking);
     }
 
     // Only update React state if the speaking set actually changed
@@ -176,6 +186,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     cleanupLocalAnalyser();
     cleanupAllParticipantAudio();
     speakingHoldTimers.clear();
+    smoothedLevels.clear();
 
     // Clean up audio processors
     detachNoiseFilter(activeKrispProcessor).catch(() => {});

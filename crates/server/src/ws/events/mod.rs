@@ -111,6 +111,14 @@ pub enum ClientEvent {
         position_ms: Option<i64>,
         #[serde(default = "default_source_str")]
         source: String,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "trackName")]
+        track_name: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "trackArtist")]
+        track_artist: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "trackImageUrl")]
+        track_image_url: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "trackDurationMs")]
+        track_duration_ms: Option<i64>,
     },
     VoiceDrinkUpdate {
         #[serde(rename = "channelId")]

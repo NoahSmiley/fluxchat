@@ -124,7 +124,17 @@ export function createPlay(store: StoreApi<SpotifyState>) {
       api.removeFromQueue(session.id, queueItem.id);
     }
 
-    // Broadcast to other session members
+    // Build track info from queue or search results (needed for both send and local playback)
+    const searchItem = effectiveSource === "youtube" ? yt().youtubeSearchResults.find(t => t.id === trackUri) : undefined;
+    const trackInfo = effectiveSource === "youtube"
+      ? queueItem
+        ? { name: queueItem.trackName, artist: queueItem.trackArtist, imageUrl: queueItem.trackImageUrl ?? "", durationMs: queueItem.trackDurationMs }
+        : searchItem
+        ? { name: searchItem.title, artist: searchItem.channel, imageUrl: searchItem.thumbnail, durationMs: searchItem.durationMs }
+        : undefined
+      : undefined;
+
+    // Broadcast to other session members (include metadata so they don't need local lookup)
     gateway.send({
       type: "spotify_playback_control",
       sessionId: session.id,
@@ -132,16 +142,15 @@ export function createPlay(store: StoreApi<SpotifyState>) {
       trackUri,
       positionMs: 0,
       source: effectiveSource,
+      ...(trackInfo && {
+        trackName: trackInfo.name,
+        trackArtist: trackInfo.artist,
+        trackImageUrl: trackInfo.imageUrl,
+        trackDurationMs: trackInfo.durationMs,
+      }),
     });
 
     if (effectiveSource === "youtube") {
-      // Build track info from queue or search results
-      const searchItem = yt().youtubeSearchResults.find(t => t.id === trackUri);
-      const trackInfo = queueItem
-        ? { name: queueItem.trackName, artist: queueItem.trackArtist, imageUrl: queueItem.trackImageUrl ?? "", durationMs: queueItem.trackDurationMs }
-        : searchItem
-        ? { name: searchItem.title, artist: searchItem.channel, imageUrl: searchItem.thumbnail, durationMs: searchItem.durationMs }
-        : undefined;
       yt().playYouTube(trackUri, trackInfo);
     } else {
       // Switch to Spotify
@@ -196,12 +205,20 @@ export function createSkip(store: StoreApi<SpotifyState>) {
       return;
     }
 
+    const skipTrackInfo = nextItem && nextSource === "youtube" ? {
+      trackName: nextItem.trackName,
+      trackArtist: nextItem.trackArtist,
+      trackImageUrl: nextItem.trackImageUrl ?? "",
+      trackDurationMs: nextItem.trackDurationMs,
+    } : undefined;
+
     gateway.send({
       type: "spotify_playback_control",
       sessionId: session.id,
       action: "skip",
       trackUri: nextTrack,
       source: nextSource,
+      ...skipTrackInfo,
     });
 
     store.setState((s) => ({ queue: s.queue.filter((item) => item.trackUri !== nextTrack) }));

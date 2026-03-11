@@ -100,6 +100,10 @@ pub async fn handle_spotify_playback(
     track_uri: Option<String>,
     position_ms: Option<i64>,
     source: String,
+    track_name: Option<String>,
+    track_artist: Option<String>,
+    track_image_url: Option<String>,
+    track_duration_ms: Option<i64>,
 ) {
     let session = sqlx::query_as::<_, (String, String)>(
         r#"SELECT host_user_id, voice_channel_id FROM "listening_sessions" WHERE id = ?"#,
@@ -183,6 +187,10 @@ pub async fn handle_spotify_playback(
                 track_uri,
                 position_ms,
                 source,
+                track_name,
+                track_artist,
+                track_image_url,
+                track_duration_ms,
             },
             Some(client_id),
         )

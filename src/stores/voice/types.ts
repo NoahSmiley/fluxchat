@@ -62,7 +62,7 @@ export const DEFAULT_SETTINGS: AudioSettings = {
   noiseSuppression: true,
   echoCancellation: true,
   autoGainControl: true,
-  voiceGating: false,
+  voiceGating: true,
   sensitivity: 0.5,
   adaptiveBitrate: true,
 };

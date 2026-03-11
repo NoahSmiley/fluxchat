@@ -218,8 +218,8 @@ async fn handle_client_event(
         ClientEvent::VoiceDrinkUpdate { channel_id, drink_count } => {
             voice::handle_drink_update(state, user, &channel_id, drink_count).await;
         }
-        ClientEvent::SpotifyPlaybackControl { session_id, action, track_uri, position_ms, source } => {
-            voice::handle_spotify_playback(state, client_id, session_id, action, track_uri, position_ms, source).await;
+        ClientEvent::SpotifyPlaybackControl { session_id, action, track_uri, position_ms, source, track_name, track_artist, track_image_url, track_duration_ms } => {
+            voice::handle_spotify_playback(state, client_id, session_id, action, track_uri, position_ms, source, track_name, track_artist, track_image_url, track_duration_ms).await;
         }
         ClientEvent::PlaySound { channel_id, sound_id } => {
             voice::handle_play_sound(state, client_id, user, &channel_id, &sound_id).await;
