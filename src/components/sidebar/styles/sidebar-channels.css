@@ -365,7 +365,7 @@
 
 /* ── Channel Sidebar ── */
 .channel-sidebar {
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
