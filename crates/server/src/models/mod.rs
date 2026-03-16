@@ -95,16 +95,3 @@ pub struct LinkPreview {
     pub fetched_at: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-#[serde(rename_all = "camelCase")]
-pub struct WhitelistEntry {
-    pub id: String,
-    pub email: String,
-    pub added_by: String,
-    pub added_at: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AddWhitelistRequest {
-    pub emails: Vec<String>,
-}

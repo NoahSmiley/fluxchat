@@ -9,6 +9,83 @@ use std::sync::Arc;
 use crate::models::{AuthUser, UpdateUserRequest};
 use crate::AppState;
 
+/// Resolve intro/exit sound attachment IDs to URLs for a user.
+async fn resolve_sound_urls(db: &sqlx::SqlitePool, user_id: &str) -> (Option<String>, Option<String>) {
+    let row = sqlx::query_as::<_, (Option<String>, Option<String>, Option<String>, Option<String>)>(
+        r#"SELECT u.intro_sound_attachment_id, a_intro.filename,
+                  u.exit_sound_attachment_id, a_exit.filename
+           FROM "user" u
+           LEFT JOIN attachments a_intro ON a_intro.id = u.intro_sound_attachment_id
+           LEFT JOIN attachments a_exit  ON a_exit.id  = u.exit_sound_attachment_id
+           WHERE u.id = ?"#,
+    )
+    .bind(user_id)
+    .fetch_optional(db)
+    .await
+    .ok()
+    .flatten();
+
+    match row {
+        Some((intro_id, intro_name, exit_id, exit_name)) => {
+            let intro = intro_id.zip(intro_name).map(|(id, name)| format!("/files/{}/{}", id, name));
+            let exit = exit_id.zip(exit_name).map(|(id, name)| format!("/files/{}/{}", id, name));
+            (intro, exit)
+        }
+        None => (None, None),
+    }
+}
+
+/// Handle a nullable attachment ID field: null clears it, string sets it (with ownership validation).
+async fn handle_sound_field(
+    db: &sqlx::SqlitePool,
+    user_id: &str,
+    column: &str,
+    value: &serde_json::Value,
+) -> Result<bool, (StatusCode, Json<serde_json::Value>)> {
+    match value {
+        serde_json::Value::Null => {
+            let now = chrono::Utc::now().to_rfc3339();
+            let _ = sqlx::query(&format!(
+                r#"UPDATE "user" SET {} = NULL, updatedAt = ? WHERE id = ?"#, column
+            ))
+            .bind(&now)
+            .bind(user_id)
+            .execute(db)
+            .await;
+            Ok(true)
+        }
+        serde_json::Value::String(att_id) => {
+            let valid = sqlx::query_scalar::<_, i64>(
+                "SELECT COUNT(*) FROM attachments WHERE id = ? AND uploader_id = ?",
+            )
+            .bind(att_id)
+            .bind(user_id)
+            .fetch_one(db)
+            .await
+            .unwrap_or(0);
+
+            if valid == 0 {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({"error": "Invalid attachment"})),
+                ));
+            }
+
+            let now = chrono::Utc::now().to_rfc3339();
+            let _ = sqlx::query(&format!(
+                r#"UPDATE "user" SET {} = ?, updatedAt = ? WHERE id = ?"#, column
+            ))
+            .bind(att_id)
+            .bind(&now)
+            .bind(user_id)
+            .execute(db)
+            .await;
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
 /// GET /api/users/me
 pub async fn get_me(
     State(state): State<Arc<AppState>>,
@@ -24,20 +101,25 @@ pub async fn get_me(
     .flatten();
 
     match profile {
-        Some((id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed, status)) => Json(serde_json::json!({
-            "id": id,
-            "username": username,
-            "email": email,
-            "image": image,
-            "ringStyle": ring_style,
-            "ringSpin": ring_spin,
-            "steamId": steam_id,
-            "ringPatternSeed": ring_pattern_seed,
-            "bannerCss": banner_css,
-            "bannerPatternSeed": banner_pattern_seed,
-            "status": status,
-        }))
-        .into_response(),
+        Some((id, username, email, image, ring_style, ring_spin, steam_id, ring_pattern_seed, banner_css, banner_pattern_seed, status)) => {
+            let (intro_sound_url, exit_sound_url) = resolve_sound_urls(&state.db, &id).await;
+            Json(serde_json::json!({
+                "id": id,
+                "username": username,
+                "email": email,
+                "image": image,
+                "ringStyle": ring_style,
+                "ringSpin": ring_spin,
+                "steamId": steam_id,
+                "ringPatternSeed": ring_pattern_seed,
+                "bannerCss": banner_css,
+                "bannerPatternSeed": banner_pattern_seed,
+                "status": status,
+                "introSoundUrl": intro_sound_url,
+                "exitSoundUrl": exit_sound_url,
+            }))
+            .into_response()
+        }
         None => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({"error": "User not found"})),
@@ -211,6 +293,24 @@ pub async fn update_me(
         }
     }
 
+    // Intro sound
+    if let Some(ref val) = body.intro_sound_attachment_id {
+        match handle_sound_field(&state.db, &user.id, "intro_sound_attachment_id", val).await {
+            Ok(true) => has_updates = true,
+            Err(e) => return e.into_response(),
+            _ => {}
+        }
+    }
+
+    // Exit sound
+    if let Some(ref val) = body.exit_sound_attachment_id {
+        match handle_sound_field(&state.db, &user.id, "exit_sound_attachment_id", val).await {
+            Ok(true) => has_updates = true,
+            Err(e) => return e.into_response(),
+            _ => {}
+        }
+    }
+
     if !has_updates {
         return (
             StatusCode::BAD_REQUEST,
@@ -253,6 +353,8 @@ pub async fn update_me(
                 )
                 .await;
 
+            let (intro_sound_url, exit_sound_url) = resolve_sound_urls(&state.db, &id).await;
+
             Json(serde_json::json!({
                 "id": id,
                 "username": username,
@@ -265,6 +367,8 @@ pub async fn update_me(
                 "bannerCss": banner_css,
                 "bannerPatternSeed": banner_pattern_seed,
                 "status": status,
+                "introSoundUrl": intro_sound_url,
+                "exitSoundUrl": exit_sound_url,
             }))
             .into_response()
         }

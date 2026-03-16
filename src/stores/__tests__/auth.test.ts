@@ -4,8 +4,8 @@ import { useAuthStore } from "@/stores/auth.js";
 // Mock the api module
 vi.mock("../../lib/api/index.js", () => ({
   getSession: vi.fn(),
-  signIn: vi.fn(),
-  signUp: vi.fn(),
+  ssoInitiate: vi.fn(),
+  ssoPoll: vi.fn(),
   signOut: vi.fn(),
   updateUserProfile: vi.fn(),
   getStoredToken: vi.fn(() => null),
@@ -20,7 +20,7 @@ describe("useAuthStore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset store to initial state
-    useAuthStore.setState({ user: null, loading: true, error: null });
+    useAuthStore.setState({ user: null, loading: true, error: null, ssoPolling: false, ssoCode: null });
   });
 
   it("initialize sets user from session", async () => {
@@ -48,50 +48,13 @@ describe("useAuthStore", () => {
     expect(useAuthStore.getState().loading).toBe(false);
   });
 
-  it("login success sets user", async () => {
-    const mockUser = {
-      id: "u1",
-      email: "alice@test.com",
-      username: "alice",
-      ringStyle: "default" as const,
-      ringSpin: false,
-    };
-    mockedApi.signIn.mockResolvedValue({ user: mockUser, token: "tok123" });
-    mockedApi.getSession.mockResolvedValue({ user: mockUser });
+  it("cancelSSO stops polling", () => {
+    useAuthStore.setState({ ssoPolling: true, ssoCode: "abc" });
 
-    await useAuthStore.getState().login("alice@test.com", "password123");
+    useAuthStore.getState().cancelSSO();
 
-    expect(mockedApi.signIn).toHaveBeenCalledWith("alice@test.com", "password123");
-    expect(useAuthStore.getState().user).toEqual(mockUser);
-    expect(useAuthStore.getState().error).toBeNull();
-  });
-
-  it("login failure sets error", async () => {
-    mockedApi.signIn.mockRejectedValue(new Error("Invalid credentials"));
-
-    await expect(
-      useAuthStore.getState().login("alice@test.com", "wrong"),
-    ).rejects.toThrow("Invalid credentials");
-
-    expect(useAuthStore.getState().user).toBeNull();
-    expect(useAuthStore.getState().error).toBe("Invalid credentials");
-  });
-
-  it("register success sets user", async () => {
-    const mockUser = {
-      id: "u1",
-      email: "bob@test.com",
-      username: "bob",
-      ringStyle: "default" as const,
-      ringSpin: false,
-    };
-    mockedApi.signUp.mockResolvedValue({ user: mockUser, token: "tok456" });
-    mockedApi.getSession.mockResolvedValue({ user: mockUser });
-
-    await useAuthStore.getState().register("bob@test.com", "password123", "bob");
-
-    expect(mockedApi.signUp).toHaveBeenCalledWith("bob@test.com", "password123", "bob");
-    expect(useAuthStore.getState().user).toEqual(mockUser);
+    expect(useAuthStore.getState().ssoPolling).toBe(false);
+    expect(useAuthStore.getState().ssoCode).toBeNull();
   });
 
   it("logout clears user", async () => {

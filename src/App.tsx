@@ -5,7 +5,6 @@ import { useAuthStore } from "./stores/auth.js";
 import { useUIStore } from "./stores/ui.js";
 import { useUpdater } from "./hooks/useUpdater.js";
 import { LoginPage } from "./pages/LoginPage.js";
-import { RegisterPage } from "./pages/RegisterPage.js";
 import { MainLayout } from "./layouts/MainLayout.js";
 import { SpotifyCallback } from "./pages/SpotifyCallback.js";
 import { prefetchEmojiFavorites } from "./lib/emojiCache.js";
@@ -274,7 +273,6 @@ export function App() {
       <div className="app-body">
         <Routes>
           <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
-          <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterPage />} />
           <Route path="/spotify-callback" element={<SpotifyCallback />} />
           <Route path="/*" element={user ? <MainLayout /> : <Navigate to="/login" />} />
         </Routes>

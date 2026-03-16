@@ -19,8 +19,8 @@ vi.mock("../../lib/api/index.js", () => ({
   getStoredToken: vi.fn(() => null),
   setStoredToken: vi.fn(),
   getSession: vi.fn(() => Promise.resolve(null)),
-  signIn: vi.fn(),
-  signUp: vi.fn(),
+  ssoInitiate: vi.fn(),
+  ssoPoll: vi.fn(),
   signOut: vi.fn(),
   updateUserProfile: vi.fn(),
 }));

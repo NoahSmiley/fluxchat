@@ -15,6 +15,7 @@ import {
 
 export function useKeybindListener() {
   const heldKeysRef = useRef<Set<string>>(new Set());
+  const globalHoldActionRef = useRef<"push-to-talk" | "push-to-mute" | null>(null);
 
   useEffect(() => {
     // ── Global key events (Tauri) — fire even when app window is NOT focused
@@ -32,24 +33,32 @@ export function useKeybindListener() {
           const kb = getHoldKeybind();
           if (!kb) return;
 
+          // Capture which action is active so key-up uses the same one
+          globalHoldActionRef.current = kb.action as "push-to-talk" | "push-to-mute";
+
           if (kb.action === "push-to-talk") {
-            useVoiceStore.getState().setMuted(false);
+            useVoiceStore.getState().setMuted(false, true);
           } else if (kb.action === "push-to-mute") {
-            useVoiceStore.getState().setMuted(true);
+            useVoiceStore.getState().setMuted(true, true);
           }
         });
 
         unlistenUp = await listen("global-key-up", () => {
           const { room } = useVoiceStore.getState();
-          if (!room) return;
+          if (!room) {
+            globalHoldActionRef.current = null;
+            return;
+          }
 
-          const kb = getHoldKeybind();
-          if (!kb) return;
+          // Use the action captured on key-down, not a fresh lookup
+          const action = globalHoldActionRef.current;
+          globalHoldActionRef.current = null;
+          if (!action) return;
 
-          if (kb.action === "push-to-talk") {
-            useVoiceStore.getState().setMuted(true);
-          } else if (kb.action === "push-to-mute") {
-            useVoiceStore.getState().setMuted(false);
+          if (action === "push-to-talk") {
+            useVoiceStore.getState().setMuted(true, true);
+          } else if (action === "push-to-mute") {
+            useVoiceStore.getState().setMuted(false, true);
           }
         });
 
@@ -68,6 +77,12 @@ export function useKeybindListener() {
       if (state.room === prevRoom) return;
       prevRoom = state.room;
 
+      // Clear held keys on voice disconnect to prevent stale state
+      if (!state.room) {
+        heldKeysRef.current.clear();
+        globalHoldActionRef.current = null;
+      }
+
       const kb = getHoldKeybind();
       if (state.room && kb?.key) {
         startGlobalHook(kb.key);
@@ -80,6 +95,10 @@ export function useKeybindListener() {
     const unsubKeybinds = useKeybindsStore.subscribe((state) => {
       if (state.keybinds === prevKeybinds) return;
       prevKeybinds = state.keybinds;
+
+      // Clear held keys when keybinds change to prevent stale entries
+      heldKeysRef.current.clear();
+      globalHoldActionRef.current = null;
 
       const { room } = useVoiceStore.getState();
       const kb = getHoldKeybind();
@@ -128,11 +147,11 @@ export function useKeybindListener() {
         switch (kb.action) {
           case "push-to-talk":
             heldKeysRef.current.add(e.code);
-            useVoiceStore.getState().setMuted(false);
+            useVoiceStore.getState().setMuted(false, true);
             break;
           case "push-to-mute":
             heldKeysRef.current.add(e.code);
-            useVoiceStore.getState().setMuted(true);
+            useVoiceStore.getState().setMuted(true, true);
             break;
           case "toggle-mute":
             useVoiceStore.getState().toggleMute();
@@ -159,10 +178,10 @@ export function useKeybindListener() {
 
         switch (kb.action) {
           case "push-to-talk":
-            useVoiceStore.getState().setMuted(true);
+            useVoiceStore.getState().setMuted(true, true);
             break;
           case "push-to-mute":
-            useVoiceStore.getState().setMuted(false);
+            useVoiceStore.getState().setMuted(false, true);
             break;
         }
       }
@@ -202,11 +221,11 @@ export function useKeybindListener() {
         switch (kb.action) {
           case "push-to-talk":
             heldKeysRef.current.add(code);
-            useVoiceStore.getState().setMuted(false);
+            useVoiceStore.getState().setMuted(false, true);
             break;
           case "push-to-mute":
             heldKeysRef.current.add(code);
-            useVoiceStore.getState().setMuted(true);
+            useVoiceStore.getState().setMuted(true, true);
             break;
           case "toggle-mute":
             useVoiceStore.getState().toggleMute();
@@ -234,10 +253,10 @@ export function useKeybindListener() {
 
         switch (kb.action) {
           case "push-to-talk":
-            useVoiceStore.getState().setMuted(true);
+            useVoiceStore.getState().setMuted(true, true);
             break;
           case "push-to-mute":
-            useVoiceStore.getState().setMuted(false);
+            useVoiceStore.getState().setMuted(false, true);
             break;
         }
       }
@@ -257,20 +276,24 @@ export function useKeybindListener() {
       // When the global hook is active, PTT/PTM works across focus — no blur reset needed.
       if (isGlobalHookActive()) return;
 
-      if (heldKeysRef.current.size === 0) return;
+      // Snapshot which keys were held before clearing
+      const heldCodes = new Set(heldKeysRef.current);
       heldKeysRef.current.clear();
+
+      if (heldCodes.size === 0) return;
 
       const { room } = useVoiceStore.getState();
       if (!room) return;
 
+      // Only reset state for keybinds whose key was actually held
       const { keybinds } = useKeybindsStore.getState();
-      const hasPTT = keybinds.some((kb) => kb.action === "push-to-talk" && kb.key !== null);
-      if (hasPTT) {
-        useVoiceStore.getState().setMuted(true);
-      }
-      const hasPTM = keybinds.some((kb) => kb.action === "push-to-mute" && kb.key !== null);
-      if (hasPTM) {
-        useVoiceStore.getState().setMuted(false);
+      for (const kb of keybinds) {
+        if (!kb.key || !heldCodes.has(kb.key)) continue;
+        if (kb.action === "push-to-talk") {
+          useVoiceStore.getState().setMuted(true, true);
+        } else if (kb.action === "push-to-mute") {
+          useVoiceStore.getState().setMuted(false, true);
+        }
       }
     }
 

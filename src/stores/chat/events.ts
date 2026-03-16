@@ -47,6 +47,7 @@ import {
   handleRoomInvite,
   handleRoomForceMove,
   handleSoundboardPlay,
+  handleVoiceJoinLeave,
 } from "./events-voice.js";
 
 // ── Lazy store refs (shared with domain modules via exported types) ──
@@ -263,6 +264,9 @@ gateway.on((event) => {
       break;
     case "soundboard_play":
       handleSoundboardPlay(event);
+      break;
+    case "voice_join_leave":
+      handleVoiceJoinLeave(event);
       break;
 
     // Gallery

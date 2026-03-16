@@ -21,8 +21,8 @@ vi.mock("../../lib/api/index.js", () => ({
   setStoredToken: vi.fn(),
   // Also needed by auth.ts which auto-initializes on import
   getSession: vi.fn(() => Promise.resolve(null)),
-  signIn: vi.fn(),
-  signUp: vi.fn(),
+  ssoInitiate: vi.fn(),
+  ssoPoll: vi.fn(),
   signOut: vi.fn(),
   updateUserProfile: vi.fn(),
 }));

@@ -51,17 +51,14 @@ export function MusicSearch({
         </button>
       </div>
       <form onSubmit={onSearch} className="music-search-form">
+        <Search size={14} className="music-search-icon" />
         <input
           type="text"
-          placeholder={`Search ${searchSource === "spotify" ? "Spotify" : "YouTube"}...`}
+          placeholder="Search..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="music-search-input"
-          autoFocus
         />
-        <button type="submit" className="music-search-btn" title="Search">
-          <Search size={16} />
-        </button>
       </form>
       {searchLoading && <div className="music-search-loading">Searching...</div>}
       {searchError && <div className="music-search-loading" style={{ color: "#ff6b6b" }}>{searchError}</div>}

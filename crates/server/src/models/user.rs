@@ -39,6 +39,10 @@ pub struct VoiceParticipant {
     pub username: String,
     #[serde(default)]
     pub drink_count: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub intro_sound_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exit_sound_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -87,20 +91,10 @@ pub struct UpdateUserRequest {
     pub ring_spin: Option<bool>,
     #[serde(default, deserialize_with = "nullable_value")]
     pub steam_id: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SignUpRequest {
-    pub email: String,
-    pub password: String,
-    pub name: String,
-    pub username: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SignInRequest {
-    pub email: String,
-    pub password: String,
+    #[serde(default, deserialize_with = "nullable_value")]
+    pub intro_sound_attachment_id: Option<serde_json::Value>,
+    #[serde(default, deserialize_with = "nullable_value")]
+    pub exit_sound_attachment_id: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]

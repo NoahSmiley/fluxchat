@@ -1,6 +1,6 @@
 import type { StoreApi } from "zustand";
 import type { SpotifyState } from "./types.js";
-import { playOnDevice, yt, useYouTubeStore, dbg } from "./types.js";
+import { playOnDevice, yt, getYouTubeAudio, useYouTubeStore, dbg } from "./types.js";
 import * as api from "@/lib/api/index.js";
 import { gateway } from "@/lib/ws.js";
 
@@ -87,7 +87,7 @@ export function createPlay(store: StoreApi<SpotifyState>) {
       if (youtubeTrack) {
         // Resume YouTube
         dbg("spotify", "play: resuming YouTube");
-        const audio = yt().youtubeAudio;
+        const audio = getYouTubeAudio();
         if (audio) {
           audio.play();
           useYouTubeStore.setState({ youtubePaused: false });
@@ -164,7 +164,7 @@ export function createPlay(store: StoreApi<SpotifyState>) {
 export function createPause(store: StoreApi<SpotifyState>) {
   return () => {
     const { session, player, playerState } = store.getState();
-    const { youtubeTrack, youtubePaused, youtubeProgress, youtubeAudio } = yt();
+    const { youtubeTrack, youtubePaused, youtubeProgress } = yt();
     if (!session) return;
 
     const ytActive = youtubeTrack && !youtubePaused;
@@ -178,7 +178,9 @@ export function createPause(store: StoreApi<SpotifyState>) {
     });
 
     if (ytActive) {
-      youtubeAudio?.pause();
+      const audio = getYouTubeAudio();
+      if (audio) audio.pause();
+      useYouTubeStore.setState({ youtubePaused: true });
     } else {
       player?.pause();
     }
@@ -242,7 +244,7 @@ export function createSkip(store: StoreApi<SpotifyState>) {
 export function createSeek(store: StoreApi<SpotifyState>) {
   return (ms: number) => {
     const { session, player } = store.getState();
-    const { youtubeTrack, youtubeAudio } = yt();
+    const { youtubeTrack } = yt();
     if (!session) return;
     dbg("spotify", `seek ms=${ms}`);
 
@@ -257,7 +259,8 @@ export function createSeek(store: StoreApi<SpotifyState>) {
     });
 
     if (ytActive) {
-      if (youtubeAudio) youtubeAudio.currentTime = ms / 1000;
+      const audio = getYouTubeAudio();
+      if (audio) audio.currentTime = ms / 1000;
     } else {
       player?.seek(ms);
     }

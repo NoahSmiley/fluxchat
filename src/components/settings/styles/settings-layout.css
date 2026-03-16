@@ -138,6 +138,52 @@
   margin-bottom: 0;
 }
 
+/* ── Intro/Exit Sounds ── */
+.settings-sound-section {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.settings-sound-section:first-of-type { border-top: none; padding-top: 0; }
+.settings-sound-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.settings-sound-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.settings-sound-actions .btn-small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+}
+.settings-sound-actions .btn-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.settings-sound-actions .btn-danger:hover {
+  background: rgba(255, 80, 80, 0.1);
+}
+.settings-sound-status { color: var(--text-green, #98c379); }
+.settings-sound-editor {
+  margin-top: 8px;
+}
+.settings-sound-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+.settings-sound-editor-btns {
+  display: flex;
+  gap: 6px;
+}
+
 /* ── Settings Rows ── */
 .settings-row {
   display: flex;

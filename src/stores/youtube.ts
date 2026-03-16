@@ -7,6 +7,11 @@ import { dbg } from "@/lib/debug.js";
 // Module-level audio element — not in Zustand since no component reads it
 let youtubeAudio: HTMLAudioElement | null = null;
 
+/** Expose the module-level audio element for playback.ts controls. */
+export function getYouTubeAudio(): HTMLAudioElement | null {
+  return youtubeAudio;
+}
+
 interface YouTubeState {
   youtubeTrack: { id: string; name: string; artist: string; imageUrl: string; durationMs: number } | null;
   youtubeProgress: number;

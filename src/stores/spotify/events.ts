@@ -1,7 +1,7 @@
 import type { StoreApi } from "zustand";
 import type { SpotifyState } from "./types.js";
 import type { WSServerEvent } from "@/types/shared.js";
-import { playOnDevice, yt, useYouTubeStore, dbg } from "./types.js";
+import { playOnDevice, yt, getYouTubeAudio, useYouTubeStore, dbg } from "./types.js";
 import { gateway } from "@/lib/ws.js";
 
 // ═══════════════════════════════════════════════════════════════════
@@ -61,12 +61,14 @@ export function createHandleWSEvent(store: StoreApi<SpotifyState>) {
             yt().playYouTube(event.trackUri, findTrackInfo(event.trackUri));
           } else if (event.action === "play" && !event.trackUri) {
             // Resume YouTube
-            const audio = yt().youtubeAudio;
+            const audio = getYouTubeAudio();
             if (audio) { audio.play(); useYouTubeStore.setState({ youtubePaused: false }); }
           } else if (event.action === "pause") {
-            yt().youtubeAudio?.pause();
+            const audio = getYouTubeAudio();
+            if (audio) audio.pause();
+            useYouTubeStore.setState({ youtubePaused: true });
           } else if (event.action === "seek" && event.positionMs != null) {
-            const audio = yt().youtubeAudio;
+            const audio = getYouTubeAudio();
             if (audio) audio.currentTime = event.positionMs / 1000;
           } else if (event.action === "skip" && event.trackUri) {
             player?.pause();

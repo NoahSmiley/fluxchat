@@ -114,7 +114,7 @@ export interface VoiceState {
   leaveVoiceChannel: () => void;
   toggleMute: () => void;
   toggleDeafen: () => void;
-  setMuted: (muted: boolean) => void;
+  setMuted: (muted: boolean, silent?: boolean) => void;
   setParticipantVolume: (participantId: string, volume: number) => void;
   // ── Actions: Audio Settings ──
   updateAudioSetting: (key: keyof AudioSettings, value: boolean | number | string) => void;

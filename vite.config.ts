@@ -16,10 +16,10 @@ export default defineConfig({
     host: "127.0.0.1",
     port: parseInt(process.env.VITE_PORT || "1420"),
     strictPort: true,
-    // Required for SharedArrayBuffer (used by Krisp WASM noise suppression)
+    // COEP temporarily removed to test Spotify SDK compatibility
+    // SharedArrayBuffer (Krisp WASM) needs COEP — will restore after test
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "credentialless",
     },
     proxy: {
       "/api": `http://localhost:${process.env.API_PORT || "3001"}`,

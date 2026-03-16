@@ -1,6 +1,6 @@
 import { Room, RoomEvent, Track, VideoQuality } from "livekit-client";
 import { dbg } from "@/lib/debug.js";
-import { playJoinSound, playLeaveSound, playStreamStartSound } from "@/lib/sounds.js";
+import { playStreamStartSound } from "@/lib/sounds.js";
 import { checkLobbyMusic } from "./lobby.js";
 import { stopStatsPolling } from "./stats.js";
 import { adaptiveTargetBitrate, activeKrispProcessor, activeVadProcessor, setActiveKrispProcessor, setActiveVadProcessor } from "./connection.js";
@@ -222,14 +222,14 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     dbg("voice", `ParticipantConnected identity=${p.identity} name=${p.name}`);
     get()._updateParticipants();
     checkLobbyMusic();
-    playJoinSound();
+    // Join sound now played via voice_join_leave WebSocket event (supports custom sounds)
   });
   room.on(RoomEvent.ParticipantDisconnected, (p) => {
     dbg("voice", `ParticipantDisconnected identity=${p.identity}`);
     get()._updateParticipants();
     get()._updateScreenSharers();
     checkLobbyMusic();
-    playLeaveSound();
+    // Leave sound now played via voice_join_leave WebSocket event (supports custom sounds)
   });
   room.on(RoomEvent.TrackMuted, (pub, participant) => {
     dbg("voice", `TrackMuted participant=${participant.identity} track=${pub.trackSid} source=${pub.source}`);

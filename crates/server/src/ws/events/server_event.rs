@@ -36,6 +36,16 @@ pub enum ServerEvent {
         channel_id: String,
         participants: Vec<VoiceParticipant>,
     },
+    VoiceJoinLeave {
+        #[serde(rename = "channelId")]
+        channel_id: String,
+        #[serde(rename = "userId")]
+        user_id: String,
+        username: String,
+        action: String,
+        #[serde(skip_serializing_if = "Option::is_none", rename = "soundUrl")]
+        sound_url: Option<String>,
+    },
     ReactionAdd {
         #[serde(rename = "messageId")]
         message_id: String,

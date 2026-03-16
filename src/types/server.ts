@@ -32,13 +32,6 @@ export interface UpdateServerRequest {
   name?: string;
 }
 
-export interface WhitelistEntry {
-  id: string;
-  email: string;
-  addedBy: string;
-  addedAt: string;
-}
-
 export interface SoundboardSound {
   id: string;
   serverId: string;

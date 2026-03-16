@@ -15,6 +15,7 @@ pub struct Config {
     pub upload_dir: String,
     pub max_upload_bytes: u64,
     pub room_cleanup_delay_secs: u64,
+    pub athion_url: String,
 }
 
 impl Config {
@@ -44,6 +45,8 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(120),
+            athion_url: env::var("ATHION_URL")
+                .unwrap_or_else(|_| "https://liminull-site.vercel.app".into()),
         }
     }
 

@@ -2,7 +2,6 @@ mod common;
 
 use axum::http::{HeaderName, HeaderValue};
 use axum_test::TestServer;
-use serde_json::json;
 
 fn auth_header(token: &str) -> (HeaderName, HeaderValue) {
     (
@@ -16,58 +15,6 @@ async fn setup() -> (TestServer, sqlx::SqlitePool) {
     let app = common::create_test_app(pool.clone());
     let server = TestServer::new(app).unwrap();
     (server, pool)
-}
-
-#[tokio::test]
-async fn sign_in_valid_credentials() {
-    let (server, pool) = setup().await;
-
-    common::create_test_user(&pool, "alice@test.com", "alice", "password123").await;
-
-    let res = server
-        .post("/api/auth/sign-in/email")
-        .json(&json!({
-            "email": "alice@test.com",
-            "password": "password123"
-        }))
-        .await;
-
-    res.assert_status_ok();
-    let body: serde_json::Value = res.json();
-    assert_eq!(body["user"]["email"], "alice@test.com");
-    assert!(body["token"].as_str().is_some());
-}
-
-#[tokio::test]
-async fn sign_in_wrong_password_returns_401() {
-    let (server, pool) = setup().await;
-
-    common::create_test_user(&pool, "alice@test.com", "alice", "password123").await;
-
-    let res = server
-        .post("/api/auth/sign-in/email")
-        .json(&json!({
-            "email": "alice@test.com",
-            "password": "wrongpassword"
-        }))
-        .await;
-
-    res.assert_status(axum::http::StatusCode::UNAUTHORIZED);
-}
-
-#[tokio::test]
-async fn sign_in_nonexistent_email_returns_401() {
-    let (server, _pool) = setup().await;
-
-    let res = server
-        .post("/api/auth/sign-in/email")
-        .json(&json!({
-            "email": "nobody@test.com",
-            "password": "password123"
-        }))
-        .await;
-
-    res.assert_status(axum::http::StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]

@@ -57,3 +57,32 @@ export function handleSoundboardPlay(event: any) {
     audio.play().catch(() => {});
   });
 }
+
+export function handleVoiceJoinLeave(event: { channelId: string; userId: string; username: string; action: "join" | "leave"; soundUrl?: string }) {
+  import("@/stores/voice/store.js").then((mod) => {
+    const store = mod.useVoiceStore.getState();
+    // Only play sounds if we're in the same voice channel
+    if (store.connectedChannelId !== event.channelId) return;
+    // Don't play sounds for ourselves
+    import("@/stores/auth.js").then(({ useAuthStore }) => {
+      const myId = useAuthStore.getState().user?.id;
+      if (event.userId === myId) return;
+      // Respect deafen state
+      if (store.isDeafened) return;
+
+      if (event.soundUrl) {
+        // Play custom sound
+        const audioUrl = `${API_BASE}${event.soundUrl}`;
+        const audio = new Audio(audioUrl);
+        audio.volume = 0.5;
+        audio.play().catch(() => {});
+      } else {
+        // Fall back to procedural sounds
+        import("@/lib/sounds.js").then((sounds) => {
+          if (event.action === "join") sounds.playJoinSound();
+          else sounds.playLeaveSound();
+        });
+      }
+    });
+  });
+}

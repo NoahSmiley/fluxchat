@@ -92,9 +92,13 @@ async fn upload_file_too_large() {
             livekit_api_key: "".into(),
             livekit_api_secret: "".into(),
             livekit_url: "ws://localhost:7880".into(),
+            livekit_cloud_api_key: None,
+            livekit_cloud_api_secret: None,
+            livekit_cloud_url: None,
             upload_dir: "/tmp/flux-test-uploads".into(),
             max_upload_bytes: 100, // Very small limit
             room_cleanup_delay_secs: 2,
+            athion_url: "http://localhost:0".into(),
         },
         gateway: Arc::new(ws::gateway::GatewayState::new()),
         spotify_auth_pending: tokio::sync::RwLock::new(std::collections::HashMap::new()),

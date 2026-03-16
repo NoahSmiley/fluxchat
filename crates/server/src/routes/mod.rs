@@ -9,9 +9,9 @@ pub mod roadmap;
 pub mod servers;
 pub mod soundboard;
 pub mod spotify;
+pub mod sso;
 pub mod users;
 pub mod voice;
-pub mod whitelist;
 pub mod youtube;
 
 use crate::ws;
@@ -21,8 +21,8 @@ use std::sync::Arc;
 
 pub fn build_router(state: Arc<AppState>) -> Router {
     let auth_routes = Router::new()
-        .route("/sign-up/email", post(auth::sign_up))
-        .route("/sign-in/email", post(auth::sign_in))
+        .route("/sso/initiate", post(sso::sso_initiate))
+        .route("/sso/poll", post(sso::sso_poll))
         .route("/sign-out", post(auth::sign_out))
         .route("/get-session", get(auth::get_session));
 
@@ -43,10 +43,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/servers/{serverId}/members", get(servers::list_members))
         // Role management
         .route("/members/{userId}/role", patch(servers::update_member_role))
-        // Email whitelist
-        .route("/whitelist", get(whitelist::list_whitelist))
-        .route("/whitelist", post(whitelist::add_to_whitelist))
-        .route("/whitelist/{id}", delete(whitelist::remove_from_whitelist))
         // Messages
         .route("/channels/{channelId}/messages", get(messages::list_messages))
         .route("/channels/{channelId}/messages/search", get(messages::search_messages))

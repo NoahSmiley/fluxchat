@@ -9,8 +9,17 @@ use crate::ws::events::ActivityInfo;
 
 pub type ClientId = u64;
 
-/// channel_id -> user_id -> (username, drink_count)
-type VoiceParticipantMap = HashMap<String, HashMap<String, (String, i32)>>;
+/// Per-participant in-memory voice data.
+#[derive(Clone, Debug)]
+pub struct VoiceParticipantData {
+    pub username: String,
+    pub drink_count: i32,
+    pub intro_sound_url: Option<String>,
+    pub exit_sound_url: Option<String>,
+}
+
+/// channel_id -> user_id -> VoiceParticipantData
+type VoiceParticipantMap = HashMap<String, HashMap<String, VoiceParticipantData>>;
 
 pub struct ConnectedClient {
     pub user_id: String,
@@ -103,9 +112,9 @@ impl GatewayState {
 
         if let Some(voice_channel) = &client.voice_channel_id {
             let mut vp = self.voice_participants.write().await;
-            if let Some(participants) = vp.get_mut(voice_channel) {
-                participants.remove(&client.user_id);
-                if participants.is_empty() {
+            if let Some(channel_participants) = vp.get_mut(voice_channel) {
+                channel_participants.remove(&client.user_id);
+                if channel_participants.is_empty() {
                     vp.remove(voice_channel);
                 }
             }

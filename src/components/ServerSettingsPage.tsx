@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Trash2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useChatStore } from "@/stores/chat/index.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { useUIStore } from "@/stores/ui.js";
 import * as api from "@/lib/api/index.js";
-import type { WhitelistEntry, MemberWithUser } from "@/types/shared.js";
+import type { MemberWithUser } from "@/types/shared.js";
 import { SoundboardTab } from "./music/SoundboardTab.js";
 import { EmojiTab } from "./EmojiTab.js";
 
@@ -126,35 +126,6 @@ function MembersTab({
   user: ReturnType<typeof useAuthStore.getState>["user"];
   members: MemberWithUser[];
 }) {
-  const [whitelist, setWhitelist] = useState<WhitelistEntry[]>([]);
-  const [whitelistInput, setWhitelistInput] = useState("");
-  const [whitelistLoading, setWhitelistLoading] = useState(false);
-
-  useEffect(() => {
-    api.getWhitelist().then(setWhitelist).catch(() => {});
-  }, []);
-
-  async function handleAddWhitelist() {
-    const email = whitelistInput.trim();
-    if (!email) return;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return;
-    setWhitelistLoading(true);
-    try {
-      const added = await api.addToWhitelist([email]);
-      if (added.length > 0) setWhitelist((prev) => [...added, ...prev]);
-      setWhitelistInput("");
-    } catch { /* ignore */ }
-    setWhitelistLoading(false);
-  }
-
-  async function handleRemoveWhitelist(id: string) {
-    try {
-      await api.removeFromWhitelist(id);
-      setWhitelist((prev) => prev.filter((e) => e.id !== id));
-    } catch { /* ignore */ }
-  }
-
   async function handleToggleRole(member: { userId: string; role: string }) {
     const newRole = member.role === "admin" ? "member" : "admin";
     try {
@@ -171,35 +142,6 @@ function MembersTab({
 
   return (
     <>
-      <div className="settings-card">
-        <h3 className="settings-card-title">Email Whitelist</h3>
-        <p className="settings-card-desc">Only whitelisted emails can register.</p>
-        <div className="settings-row" style={{ gap: 8 }}>
-          <input
-            type="email"
-            placeholder="user@example.com"
-            value={whitelistInput}
-            onChange={(e) => setWhitelistInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleAddWhitelist(); }}
-            style={{ flex: 1 }}
-          />
-          <button className="btn-small btn-primary" onClick={handleAddWhitelist} disabled={whitelistLoading}>Add</button>
-        </div>
-        {whitelist.map((entry) => (
-          <div key={entry.id} className="settings-row">
-            <div className="settings-row-info">
-              <span className="settings-row-label">{entry.email}</span>
-            </div>
-            <button className="btn-small btn-danger" onClick={() => handleRemoveWhitelist(entry.id)} title="Remove">
-              <Trash2 size={12} />
-            </button>
-          </div>
-        ))}
-        {whitelist.length === 0 && (
-          <p className="settings-card-desc" style={{ opacity: 0.5 }}>No emails whitelisted yet.</p>
-        )}
-      </div>
-
       <div className="settings-card">
         <h3 className="settings-card-title">Members</h3>
         <p className="settings-card-desc">Owner can demote any admin. Admins can promote members and demote admins within 72h of their promotion.</p>

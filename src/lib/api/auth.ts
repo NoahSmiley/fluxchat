@@ -3,21 +3,30 @@ import type { RingStyle } from "@/types/shared.js";
 import { API_BASE, request, getStoredToken, setStoredToken } from "./base.js";
 import type { AuthResponse } from "./base.js";
 
-// ── Auth ──
+// ── SSO Auth ──
 
-export async function signUp(email: string, password: string, username: string) {
-  const data = await request<AuthResponse>("/auth/sign-up/email", {
-    method: "POST",
-    body: JSON.stringify({ email, password, name: username, username }),
-  });
-  if (data.token) setStoredToken(data.token);
-  return data;
+export interface SsoInitiateResponse {
+  code: string;
+  expiresAt: string;
+  loginUrl: string;
 }
 
-export async function signIn(email: string, password: string) {
-  const data = await request<AuthResponse>("/auth/sign-in/email", {
+export interface SsoPollResponse {
+  status?: string;
+  user?: AuthResponse["user"];
+  token?: string;
+}
+
+export async function ssoInitiate() {
+  return request<SsoInitiateResponse>("/auth/sso/initiate", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function ssoPoll(code: string) {
+  const data = await request<SsoPollResponse>("/auth/sso/poll", {
+    method: "POST",
+    body: JSON.stringify({ code }),
   });
   if (data.token) setStoredToken(data.token);
   return data;
@@ -29,7 +38,7 @@ export async function signOut() {
   return result;
 }
 
-export async function getSession(): Promise<{ user: { id: string; email: string; username: string; image?: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId?: string | null; ringPatternSeed?: number | null; bannerCss?: string | null; bannerPatternSeed?: number | null; status?: string } } | null> {
+export async function getSession(): Promise<{ user: { id: string; email: string; username: string; image?: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId?: string | null; ringPatternSeed?: number | null; bannerCss?: string | null; bannerPatternSeed?: number | null; status?: string; introSoundUrl?: string | null; exitSoundUrl?: string | null } } | null> {
   const headers: Record<string, string> = {};
   const token = getStoredToken();
   if (token) {
@@ -46,8 +55,8 @@ export async function getSession(): Promise<{ user: { id: string; email: string;
 
 // ── User Profile ──
 
-export async function updateUserProfile(data: { username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; steamId?: string | null }) {
-  return request<{ id: string; username: string; email: string; image: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId: string | null; ringPatternSeed: number | null; bannerCss: string | null; bannerPatternSeed: number | null }>("/users/me", {
+export async function updateUserProfile(data: { username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; steamId?: string | null; introSoundAttachmentId?: string | null; exitSoundAttachmentId?: string | null }) {
+  return request<{ id: string; username: string; email: string; image: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId: string | null; ringPatternSeed: number | null; bannerCss: string | null; bannerPatternSeed: number | null; introSoundUrl: string | null; exitSoundUrl: string | null }>("/users/me", {
     method: "PATCH",
     body: JSON.stringify(data),
   });

@@ -143,7 +143,7 @@ export function persistPlayer(player: SpotifyPlayer | null, deviceId: string | n
 // Shared helpers
 // ═══════════════════════════════════════════════════════════════════
 
-import { useYouTubeStore } from "@/stores/youtube.js";
+import { useYouTubeStore, getYouTubeAudio } from "@/stores/youtube.js";
 import * as api from "@/lib/api/index.js";
 import { dbg } from "@/lib/debug.js";
 
@@ -152,7 +152,7 @@ export function yt() {
   return useYouTubeStore.getState();
 }
 
-export { useYouTubeStore, dbg };
+export { useYouTubeStore, getYouTubeAudio, dbg };
 
 /** Play a track on a Spotify device, retrying on 404 (device not yet registered). */
 export async function playOnDevice(deviceId: string, uris: string[], positionMs?: number): Promise<boolean> {

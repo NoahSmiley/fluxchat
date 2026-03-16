@@ -52,13 +52,19 @@ pub async fn send_initial_state(
 }
 
 pub async fn handle_disconnect(state: &AppState, client_id: ClientId, user: &AuthUser) {
-    let (old_voice, was_invisible) = {
+    // Capture exit sound URL from voice_participants BEFORE unregister removes it
+    let (old_voice, was_invisible, exit_sound_url) = {
         let clients = state.gateway.clients.read().await;
         let client = clients.get(&client_id);
-        (
-            client.and_then(|c| c.voice_channel_id.clone()),
-            client.map(|c| c.status == "invisible").unwrap_or(false),
-        )
+        let voice_ch = client.and_then(|c| c.voice_channel_id.clone());
+        let invisible = client.map(|c| c.status == "invisible").unwrap_or(false);
+        let exit_url = if let (Some(ref ch), Some(ref c)) = (&voice_ch, &client) {
+            let vp = state.gateway.voice_participants.read().await;
+            vp.get(ch).and_then(|p| p.get(&c.user_id)).and_then(|d| d.exit_sound_url.clone())
+        } else {
+            None
+        };
+        (voice_ch, invisible, exit_url)
     };
 
     state.gateway.unregister(client_id).await;
@@ -84,6 +90,21 @@ pub async fn handle_disconnect(state: &AppState, client_id: ClientId, user: &Aut
                 ).await;
             }
         }
+
+        // Broadcast exit sound notification
+        state
+            .gateway
+            .broadcast_all(
+                &ServerEvent::VoiceJoinLeave {
+                    channel_id: channel_id.clone(),
+                    user_id: user.id.clone(),
+                    username: user.username.clone(),
+                    action: "leave".to_string(),
+                    sound_url: exit_sound_url,
+                },
+                None,
+            )
+            .await;
 
         state
             .gateway

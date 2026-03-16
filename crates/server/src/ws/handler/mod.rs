@@ -213,7 +213,7 @@ async fn handle_client_event(
             chat_ext::handle_send_dm(state, user, dm_channel_id, ciphertext, mls_epoch).await;
         }
         ClientEvent::VoiceStateUpdate { channel_id, action } => {
-            voice::handle_voice_state(state, client_id, &channel_id, &action).await;
+            voice::handle_voice_state(state, client_id, user, &channel_id, &action).await;
         }
         ClientEvent::VoiceDrinkUpdate { channel_id, drink_count } => {
             voice::handle_drink_update(state, user, &channel_id, drink_count).await;

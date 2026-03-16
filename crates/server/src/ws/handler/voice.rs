@@ -3,16 +3,46 @@ use crate::models::AuthUser;
 use crate::ws::events::ServerEvent;
 use crate::ws::gateway::ClientId;
 
+/// Resolve a user's intro/exit sound attachment IDs to URLs.
+async fn lookup_sound_urls(db: &sqlx::SqlitePool, user_id: &str) -> (Option<String>, Option<String>) {
+    let row = sqlx::query_as::<_, (Option<String>, Option<String>, Option<String>, Option<String>)>(
+        r#"SELECT u.intro_sound_attachment_id, a_intro.filename,
+                  u.exit_sound_attachment_id, a_exit.filename
+           FROM "user" u
+           LEFT JOIN attachments a_intro ON a_intro.id = u.intro_sound_attachment_id
+           LEFT JOIN attachments a_exit  ON a_exit.id  = u.exit_sound_attachment_id
+           WHERE u.id = ?"#,
+    )
+    .bind(user_id)
+    .fetch_optional(db)
+    .await
+    .ok()
+    .flatten();
+
+    match row {
+        Some((intro_id, intro_name, exit_id, exit_name)) => {
+            let intro = intro_id.zip(intro_name).map(|(id, name)| format!("/files/{}/{}", id, name));
+            let exit = exit_id.zip(exit_name).map(|(id, name)| format!("/files/{}/{}", id, name));
+            (intro, exit)
+        }
+        None => (None, None),
+    }
+}
+
 pub async fn handle_voice_state(
     state: &AppState,
     client_id: ClientId,
+    user: &AuthUser,
     channel_id: &str,
     action: &str,
 ) {
     match action {
         "join" => {
             state.gateway.cancel_room_cleanup(channel_id).await;
-            state.gateway.voice_join(client_id, channel_id).await;
+
+            let (intro_url, exit_url) = lookup_sound_urls(&state.db, &user.id).await;
+
+            state.gateway.voice_join(client_id, channel_id, intro_url.clone(), exit_url).await;
             let participants = state.gateway.voice_channel_participants(channel_id).await;
             state
                 .gateway
@@ -24,9 +54,25 @@ pub async fn handle_voice_state(
                     None,
                 )
                 .await;
+
+            // Notify clients so they can play the intro sound
+            state
+                .gateway
+                .broadcast_all(
+                    &ServerEvent::VoiceJoinLeave {
+                        channel_id: channel_id.to_string(),
+                        user_id: user.id.clone(),
+                        username: user.username.clone(),
+                        action: "join".to_string(),
+                        sound_url: intro_url,
+                    },
+                    None,
+                )
+                .await;
         }
         "leave" => {
-            if let Some(left_channel) = state.gateway.voice_leave(client_id).await {
+            // voice_leave returns the leaving user's data (including exit sound URL)
+            if let Some((left_channel, left_data)) = state.gateway.voice_leave(client_id).await {
                 let participants =
                     state.gateway.voice_channel_participants(&left_channel).await;
 
@@ -55,6 +101,21 @@ pub async fn handle_voice_state(
                         ).await;
                     }
                 }
+
+                // Notify clients so they can play the exit sound
+                state
+                    .gateway
+                    .broadcast_all(
+                        &ServerEvent::VoiceJoinLeave {
+                            channel_id: left_channel.clone(),
+                            user_id: user.id.clone(),
+                            username: user.username.clone(),
+                            action: "leave".to_string(),
+                            sound_url: left_data.exit_sound_url,
+                        },
+                        None,
+                    )
+                    .await;
 
                 state
                     .gateway

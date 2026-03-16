@@ -5,7 +5,6 @@ export type {
   MemberWithUser,
   MemberRole,
   UpdateServerRequest,
-  WhitelistEntry,
   SoundboardSound,
   CustomEmoji,
   EmojiFavorites,
@@ -106,6 +105,7 @@ export type WSServerEvent =
   | { type: "room_knock_accepted"; channelId: string }
   | { type: "room_invite"; channelId: string; channelName: string; inviterUsername: string; serverId: string }
   | { type: "room_force_move"; targetChannelId: string; targetChannelName: string }
+  | { type: "voice_join_leave"; channelId: string; userId: string; username: string; action: "join" | "leave"; soundUrl?: string }
   | { type: "gallery_set_updated"; setId: string }
   | { type: "error"; message: string };
 
@@ -119,8 +119,6 @@ export const WS_RECONNECT_MAX_DELAY = 30_000;
 
 const MAX_USERNAME_LENGTH = 32;
 const MIN_USERNAME_LENGTH = 2;
-const MIN_PASSWORD_LENGTH = 8;
-
 export function validateUsername(username: string): string | null {
   if (username.length < MIN_USERNAME_LENGTH) {
     return `Username must be at least ${MIN_USERNAME_LENGTH} characters`;
@@ -130,13 +128,6 @@ export function validateUsername(username: string): string | null {
   }
   if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
     return "Username can only contain letters, numbers, underscores, and hyphens";
-  }
-  return null;
-}
-
-export function validatePassword(password: string): string | null {
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters`;
   }
   return null;
 }

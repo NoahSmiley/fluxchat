@@ -11,6 +11,7 @@ import { AppearanceTab } from "./settings/AppearanceTab.js";
 import { GalleryTab } from "./settings/GalleryTab.js";
 import { NotificationsTab } from "./settings/NotificationsTab.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
+import { IntroExitSoundsCard } from "./settings/IntroExitSoundsCard.js";
 
 function VoiceSettingsTab() {
   const { audioSettings, updateAudioSetting } = useVoiceStore(useShallow((s) => ({
@@ -67,7 +68,7 @@ function VoiceSettingsTab() {
           <div className="settings-row-info">
             <span className="settings-row-label">Noise Suppression</span>
             <span className="settings-row-desc">AI-based noise cancellation removes background noise in real time</span>
-            <img src="/krisp-logo.png" alt="Powered by Krisp" height="12" style={{ opacity: 0.5, marginTop: 4 }} />
+            <img src="/krisp-logo.png" alt="Powered by Krisp" style={{ height: 12, width: "auto", alignSelf: "flex-start", opacity: 0.5, marginTop: 4 }} />
           </div>
           <ToggleSwitch checked={!!audioSettings.noiseSuppression} onChange={(v) => updateAudioSetting("noiseSuppression", v)} />
         </div>
@@ -121,6 +122,8 @@ function VoiceSettingsTab() {
           </div>
         )}
       </div>
+
+      <IntroExitSoundsCard />
 
     </>
   );

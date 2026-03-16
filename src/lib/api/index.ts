@@ -3,8 +3,8 @@ export { getStoredToken } from "./base.js";
 
 // ── Domain re-exports ──
 export {
-  signUp,
-  signIn,
+  ssoInitiate,
+  ssoPoll,
   signOut,
   getSession,
   updateUserProfile,
@@ -14,6 +14,7 @@ export {
   getMyServerKey,
   shareServerKeyWith,
 } from "./auth.js";
+export type { SsoInitiateResponse, SsoPollResponse } from "./auth.js";
 
 export {
   getServers,
@@ -21,9 +22,6 @@ export {
   leaveServer,
   getServerMembers,
   updateMemberRole,
-  getWhitelist,
-  addToWhitelist,
-  removeFromWhitelist,
   getChannels,
   createChannel,
   updateChannel,

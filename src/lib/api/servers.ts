@@ -6,7 +6,6 @@ import type {
   UpdateChannelRequest,
   MemberWithUser,
   ReorderItem,
-  WhitelistEntry,
   CustomEmoji,
   EmojiFavorites,
 } from "@/types/shared.js";
@@ -41,23 +40,6 @@ export async function updateMemberRole(userId: string, role: string) {
     method: "PATCH",
     body: JSON.stringify({ role }),
   });
-}
-
-// ── Whitelist ──
-
-export async function getWhitelist() {
-  return request<WhitelistEntry[]>("/whitelist");
-}
-
-export async function addToWhitelist(emails: string[]) {
-  return request<WhitelistEntry[]>("/whitelist", {
-    method: "POST",
-    body: JSON.stringify({ emails }),
-  });
-}
-
-export async function removeFromWhitelist(id: string) {
-  return request<void>(`/whitelist/${id}`, { method: "DELETE" });
 }
 
 // ── Channels ──

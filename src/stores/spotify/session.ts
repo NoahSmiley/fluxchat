@@ -19,6 +19,9 @@ export function createStartSession(store: StoreApi<SpotifyState>) {
     store.setState({ playerState: null, queue: [], searchResults: [], searchInput: "" });
     useYouTubeStore.setState({ youtubeSearchResults: [] });
     await api.createListeningSession(voiceChannelId);
+    // Reset loadSession debounce so it doesn't skip the load we just created
+    lastLoadSessionChannel = null;
+    lastLoadSessionTime = 0;
     await store.getState().loadSession(voiceChannelId);
     dbg("spotify", "startSession complete", { sessionId: store.getState().session?.id });
   };

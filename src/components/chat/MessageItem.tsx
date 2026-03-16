@@ -6,7 +6,7 @@ import { avatarColor, ringClass, ringGradientStyle } from "@/lib/avatarColor.js"
 import { relativeTime } from "@/lib/relativeTime.js";
 import { renderEmoji, TWEMOJI_OPTIONS } from "@/lib/emoji.js";
 import { API_BASE } from "@/lib/serverUrl.js";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 const EmojiPicker = lazy(() => import("@/components/EmojiPicker.js"));
 import { getCharOffset, setCursorAtOffset } from "@/lib/contentEditable.js";
 import twemoji from "twemoji";
@@ -73,6 +73,7 @@ export function MessageItem({
   const decoded = msgData?.decoded ?? "";
   const rc = ringClass(senderRing?.ringStyle, senderRing?.ringSpin, senderRole, false, senderRing?.ringPatternSeed);
   const isOwn = msg.senderId === userId;
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div
@@ -81,8 +82,11 @@ export function MessageItem({
     >
       <div className={`message-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(senderName), ...ringGradientStyle(senderRing?.ringPatternSeed, senderRing?.ringStyle) } as React.CSSProperties}>
         <div className="message-avatar">
-          {senderImage && <img src={senderImage} alt={senderName} className="avatar-img" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
-          <div className="avatar-fallback" style={{ background: avatarColor(senderName) }}>{senderName.charAt(0).toUpperCase()}</div>
+          {senderImage && !imgFailed ? (
+            <img src={senderImage} alt={senderName} className="avatar-img" onError={() => setImgFailed(true)} />
+          ) : (
+            <div className="avatar-fallback" style={{ background: avatarColor(senderName) }}>{senderName.charAt(0).toUpperCase()}</div>
+          )}
         </div>
       </div>
       <div className="message-content">

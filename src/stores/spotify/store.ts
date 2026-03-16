@@ -90,16 +90,16 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
     // ── Inline Actions (account / SDK lifecycle) ──
 
     loadAccount: async () => {
-      dbg("spotify", "loadAccount");
+      console.log("[spotify] loadAccount");
       try {
         const info = await api.getSpotifyAuthInfo();
-        dbg("spotify", "loadAccount result", { linked: info.linked, displayName: info.displayName });
+        console.log("[spotify] loadAccount result", { linked: info.linked, displayName: info.displayName });
         set({ account: info });
         if (info.linked) {
           get().initializeSDK();
         }
       } catch (e) {
-        dbg("spotify", "loadAccount failed", e);
+        console.warn("[spotify] loadAccount failed", e);
         set({ account: null });
       }
 
@@ -117,19 +117,22 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
 
     initializeSDK: () => {
       if (sdkReady && get().player && get().deviceId) {
-        dbg("spotify", "initializeSDK skipped — already ready", { deviceId: get().deviceId });
+        console.log("[spotify] initializeSDK skipped — already ready", { deviceId: get().deviceId });
         return;
       }
-      dbg("spotify", "initializeSDK", { sdkReady, hasPlayer: !!get().player, hasSpotifyGlobal: !!window.Spotify });
+      console.log("[spotify] initializeSDK", { sdkReady, hasPlayer: !!get().player, hasSpotifyGlobal: !!window.Spotify });
 
       if (window.Spotify) {
+        console.log("[spotify] SDK already loaded, calling connectPlayer");
         sdkReady = true;
         get().connectPlayer();
         return;
       }
 
       if (document.getElementById("spotify-sdk-script")) {
+        console.log("[spotify] SDK script tag exists, waiting for ready callback");
         window.onSpotifyWebPlaybackSDKReady = () => {
+          console.log("[spotify] onSpotifyWebPlaybackSDKReady fired (existing script)");
           sdkReady = true;
           get().connectPlayer();
         };
@@ -137,6 +140,7 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
       }
 
       window.onSpotifyWebPlaybackSDKReady = () => {
+        console.log("[spotify] onSpotifyWebPlaybackSDKReady fired");
         sdkReady = true;
         get().connectPlayer();
       };
@@ -145,8 +149,11 @@ export const useSpotifyStore = create<SpotifyState>()((set, get, storeApi) => {
       script.id = "spotify-sdk-script";
       script.src = "https://sdk.scdn.co/spotify-player.js";
       script.async = true;
-      script.crossOrigin = "anonymous"; // Required for COEP require-corp
+      script.crossOrigin = "anonymous"; // Required for COEP credentialless
+      script.onload = () => console.log("[spotify] SDK script loaded successfully");
+      script.onerror = (e) => console.error("[spotify] SDK script FAILED to load", e);
       document.body.appendChild(script);
+      console.log("[spotify] SDK script tag appended to DOM");
     },
 
     disconnectPlayer: () => {

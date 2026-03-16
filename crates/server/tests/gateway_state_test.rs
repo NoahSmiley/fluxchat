@@ -37,7 +37,7 @@ async fn voice_join() {
     gw.register(cid, "u1".into(), "alice".into(), tx, "online".into())
         .await;
 
-    gw.voice_join(cid, "vc1").await;
+    gw.voice_join(cid, "vc1", None, None).await;
 
     let participants = gw.voice_channel_participants("vc1").await;
     assert_eq!(participants.len(), 1);
@@ -54,8 +54,8 @@ async fn voice_join_leaves_previous_channel() {
     gw.register(cid, "u1".into(), "alice".into(), tx, "online".into())
         .await;
 
-    gw.voice_join(cid, "vc1").await;
-    gw.voice_join(cid, "vc2").await;
+    gw.voice_join(cid, "vc1", None, None).await;
+    gw.voice_join(cid, "vc2", None, None).await;
 
     let p1 = gw.voice_channel_participants("vc1").await;
     let p2 = gw.voice_channel_participants("vc2").await;
@@ -72,10 +72,12 @@ async fn voice_leave() {
     gw.register(cid, "u1".into(), "alice".into(), tx, "online".into())
         .await;
 
-    gw.voice_join(cid, "vc1").await;
+    gw.voice_join(cid, "vc1", None, None).await;
     let left = gw.voice_leave(cid).await;
 
-    assert_eq!(left, Some("vc1".into()));
+    assert!(left.is_some());
+    let (channel, _data) = left.unwrap();
+    assert_eq!(channel, "vc1");
     assert_eq!(gw.voice_channel_participants("vc1").await.len(), 0);
 }
 
@@ -93,8 +95,8 @@ async fn voice_channel_participants() {
     gw.register(cid2, "u2".into(), "bob".into(), tx2, "online".into())
         .await;
 
-    gw.voice_join(cid1, "vc1").await;
-    gw.voice_join(cid2, "vc1").await;
+    gw.voice_join(cid1, "vc1", None, None).await;
+    gw.voice_join(cid2, "vc1", None, None).await;
 
     let participants = gw.voice_channel_participants("vc1").await;
     assert_eq!(participants.len(), 2);
@@ -108,7 +110,7 @@ async fn update_drink_count() {
     gw.register(cid, "u1".into(), "alice".into(), tx, "online".into())
         .await;
 
-    gw.voice_join(cid, "vc1").await;
+    gw.voice_join(cid, "vc1", None, None).await;
     gw.update_drink_count("u1", "vc1", 5).await;
 
     let participants = gw.voice_channel_participants("vc1").await;
@@ -228,7 +230,7 @@ async fn unregister_cleans_voice_and_subscriptions() {
 
     gw.subscribe_channel(cid, "ch1").await;
     gw.subscribe_dm(cid, "dm1").await;
-    gw.voice_join(cid, "vc1").await;
+    gw.voice_join(cid, "vc1", None, None).await;
 
     gw.unregister(cid).await;
 

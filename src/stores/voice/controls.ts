@@ -19,13 +19,14 @@ export function createToggleMute(storeRef: StoreApi<VoiceState>) {
 }
 
 export function createSetMuted(storeRef: StoreApi<VoiceState>) {
-  return (muted: boolean) => {
-    const { room, isMuted } = storeRef.getState();
+  return (muted: boolean, silent = false) => {
+    const { room, isMuted, isDeafened } = storeRef.getState();
     if (!room || isMuted === muted) return;
+    if (isDeafened) return;
     room.localParticipant.setMicrophoneEnabled(!muted);
     storeRef.setState({ isMuted: muted });
     storeRef.getState()._updateParticipants();
-    muted ? playMuteSound() : playUnmuteSound();
+    if (!silent) { muted ? playMuteSound() : playUnmuteSound(); }
   };
 }
 

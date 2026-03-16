@@ -276,6 +276,16 @@ pub async fn init_pool(database_path: &str) -> Result<SqlitePool, sqlx::Error> {
     .await
     .ok();
 
+    // Migration: intro/exit voice channel sounds
+    sqlx::query(r#"ALTER TABLE "user" ADD COLUMN intro_sound_attachment_id TEXT"#)
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query(r#"ALTER TABLE "user" ADD COLUMN exit_sound_attachment_id TEXT"#)
+        .execute(&pool)
+        .await
+        .ok();
+
     tracing::info!("Database initialized at {}", database_path);
     Ok(pool)
 }
