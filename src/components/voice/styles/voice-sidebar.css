@@ -130,9 +130,9 @@
   text-align: center;
 }
 .voice-speaking-mic.active {
-  color: #43b581;
+  color: var(--accent);
   opacity: 1;
-  filter: drop-shadow(0 0 4px rgba(67, 181, 129, 0.6));
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.6));
 }
 .voice-speaking-mic.muted { color: #ed4245; opacity: 0.6; }
 .voice-speaking-mic.muted.active {
@@ -173,7 +173,7 @@
 }
 .channel-live-badge svg { animation: pulse-dot 1.5s ease-in-out infinite; }
 
-.channel-item.voice-connected { color: #43b581; }
+.channel-item.voice-connected { color: var(--accent); }
 
 /* ── Voice Status Bar ── */
 .voice-status-bar-wrapper {
@@ -222,7 +222,7 @@
 .voice-status-label {
   font-size: 11px;
   font-weight: 600;
-  color: #43b581;
+  color: var(--accent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

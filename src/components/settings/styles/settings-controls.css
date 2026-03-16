@@ -99,8 +99,8 @@
 }
 
 .keybind-button.recording {
-  border-color: #43b581;
-  background: rgba(67, 181, 129, 0.1);
+  border-color: var(--accent);
+  background: rgba(34, 211, 238, 0.1);
   animation: keybind-pulse 1s ease-in-out infinite;
 }
 

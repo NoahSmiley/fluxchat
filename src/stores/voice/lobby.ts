@@ -2,7 +2,7 @@ import { dbg } from "@/lib/debug.js";
 import type { StoreApi } from "zustand";
 import type { VoiceState } from "./types.js";
 
-const LOBBY_WAIT_MS = 30_000;
+const LOBBY_WAIT_MS = 120_000;
 const LOBBY_FADE_IN_S = 2;
 const LOBBY_FADE_OUT_S = 1;
 

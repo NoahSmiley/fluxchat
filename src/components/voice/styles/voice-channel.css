@@ -89,7 +89,7 @@
 
 .voice-participant-tile.speaking {
   background: color-mix(in srgb, var(--ring-color, #888) 10%, transparent);
-  box-shadow: 0 0 0 2px #43b581, 0 0 12px rgba(67, 181, 129, 0.4);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(34, 211, 238, 0.4);
 }
 
 /* Banner background in voice tiles */
@@ -98,7 +98,7 @@
 }
 
 .voice-participant-tile.has-banner.speaking {
-  box-shadow: 0 0 0 2px #43b581, 0 0 16px rgba(67, 181, 129, 0.5);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 16px rgba(34, 211, 238, 0.5);
 }
 
 .voice-tile-banner {

@@ -170,7 +170,7 @@
 /* ── Stats Overlay ── */
 
 :root {
-  --stats-good: #4ade80;
+  --stats-good: #22d3ee;
   --stats-warn: #fbbf24;
   --stats-bad: #f87171;
 }
