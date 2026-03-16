@@ -243,6 +243,11 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     checkLobbyMusic();
     // Leave sound now played via voice_join_leave WebSocket event (supports custom sounds)
   });
+  room.on(RoomEvent.ParticipantMetadataChanged, (_prevMetadata, participant) => {
+    dbg("voice", `ParticipantMetadataChanged participant=${participant.identity} metadata=${participant.metadata}`);
+    get()._updateParticipants();
+  });
+
   room.on(RoomEvent.TrackMuted, (pub, participant) => {
     dbg("voice", `TrackMuted participant=${participant.identity} track=${pub.trackSid} source=${pub.source}`);
     get()._updateParticipants();

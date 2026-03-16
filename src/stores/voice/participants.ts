@@ -19,11 +19,16 @@ export function createUpdateParticipants(storeRef: StoreApi<VoiceState>) {
     });
 
     for (const participant of room.remoteParticipants.values()) {
+      let remoteDeafened = false;
+      try {
+        const meta = participant.metadata ? JSON.parse(participant.metadata) : null;
+        remoteDeafened = !!meta?.deafened;
+      } catch { /* ignore invalid metadata */ }
       users.push({
         userId: participant.identity,
         username: participant.name ?? participant.identity.slice(0, 8),
         isMuted: !participant.isMicrophoneEnabled,
-        isDeafened: false,
+        isDeafened: remoteDeafened,
       });
     }
 
