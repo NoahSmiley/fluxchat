@@ -119,7 +119,7 @@ export function handleServerDeleted(
   useChatStore.setState((s) => ({
     servers: s.servers.filter((sv) => sv.id !== event.serverId),
     ...(s.activeServerId === event.serverId
-      ? { activeServerId: null, activeChannelId: null, channels: [], messages: [], members: [] }
+      ? { activeServerId: null, activeChannelId: null, activeGameId: null, channels: [], messages: [], members: [] }
       : {}),
   }));
 }

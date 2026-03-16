@@ -9,6 +9,9 @@ function getCtx(): AudioContext {
   if (!audioCtx || audioCtx.state === "closed") {
     audioCtx = new AudioContext();
   }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
   return audioCtx;
 }
 
@@ -35,16 +38,44 @@ function playTone(
   osc.stop(ctx.currentTime + duration);
 }
 
-/** Two-tone ascending chime — someone joined */
+/** Two-tone ascending chime — default join sound (no custom set) */
 export function playJoinSound() {
   playTone(440, 0.12, "sine", 0.12);
   setTimeout(() => playTone(587, 0.15, "sine", 0.12), 80);
 }
 
-/** Two-tone descending — someone left */
+/** Two-tone descending — default leave sound (no custom set) */
 export function playLeaveSound() {
   playTone(587, 0.12, "sine", 0.10);
   setTimeout(() => playTone(392, 0.18, "sine", 0.10), 80);
+}
+
+/** Single rising beep — plays alongside custom sound on join */
+export function playJoinBeep() {
+  playTone(520, 0.12, "sine", 0.12);
+}
+
+/** Single falling beep — plays alongside custom sound on leave */
+export function playLeaveBeep() {
+  playTone(400, 0.14, "sine", 0.10);
+}
+
+/** Play a custom sound from a full URL (fire-and-forget). */
+export function playCustomSound(url: string) {
+  fetch(url)
+    .then((res) => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.blob();
+    })
+    .then((blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+      const audio = new Audio(blobUrl);
+      audio.volume = 0.5;
+      audio.onended = () => URL.revokeObjectURL(blobUrl);
+      audio.onerror = () => URL.revokeObjectURL(blobUrl);
+      return audio.play();
+    })
+    .catch((err) => console.warn("Custom sound playback failed:", err));
 }
 
 /** Short low click — someone muted */

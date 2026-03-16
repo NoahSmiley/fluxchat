@@ -80,18 +80,8 @@ export function ServerSidebar() {
   function handleAvatarClick(e: React.MouseEvent, userId: string, isSelf: boolean) {
     e.stopPropagation();
     setHoverTooltip(null);
-    if (isSelf) {
-      // Self-click toggles profile card
-      if (activeCardUserId === userId) {
-        setActiveCardUserId(null);
-      } else {
-        computeCardPos(e.currentTarget as HTMLElement);
-        setActiveCardUserId(userId);
-      }
-    } else {
-      // Other users: left-click opens DM directly
-      handleDMFromCard(userId);
-    }
+    // Left-click always opens DM (self or others)
+    handleDMFromCard(userId);
   }
 
   function handleAvatarRightClick(e: React.MouseEvent, userId: string) {
@@ -122,7 +112,7 @@ export function ServerSidebar() {
         onClick={() => { if (servers.length > 0) selectServer(servers[0].id); }}
         style={{ cursor: servers.length > 0 ? "pointer" : "default" }}
       >
-        <FluxLogo size={36} />
+        <FluxLogo size={24} />
       </div>
 
       {sortedMembers.length > 0 && (
@@ -142,7 +132,7 @@ export function ServerSidebar() {
                   onMouseEnter={(e) => handleAvatarEnter(e, m.username)}
                   onMouseLeave={handleAvatarLeave}
                   onClick={(e) => handleAvatarClick(e, m.userId, isSelf)}
-                  onContextMenu={!isSelf ? (e) => handleAvatarRightClick(e, m.userId) : undefined}
+                  onContextMenu={(e) => handleAvatarRightClick(e, m.userId)}
                 >
                   <div className={`member-avatar-ring ${rc}`} style={{ "--ring-color": avatarColor(m.username), ...ringGradientStyle(m.ringPatternSeed, m.ringStyle) } as React.CSSProperties}>
                     <div className="member-avatar" style={{ background: m.image ? 'transparent' : avatarColor(m.username) }}>

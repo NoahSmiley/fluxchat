@@ -8,6 +8,7 @@ import { LoginPage } from "./pages/LoginPage.js";
 import { MainLayout } from "./layouts/MainLayout.js";
 import { SpotifyCallback } from "./pages/SpotifyCallback.js";
 import { prefetchEmojiFavorites } from "./lib/emojiCache.js";
+import { FluxLogo } from "./components/FluxLogo.js";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 

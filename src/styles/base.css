@@ -5,6 +5,8 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .hidden { display: none !important; }
@@ -40,7 +42,11 @@ body {
   color: var(--text-primary);
   overflow: hidden;
   -webkit-app-region: no-drag;
-  user-select: none;
+}
+
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 

@@ -1,6 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
 import { useVoiceStore } from "@/stores/voice/index.js";
-import { Music, Square, Volume1, VolumeX } from "lucide-react";
+import { Music, X, Volume1, VolumeX } from "lucide-react";
 
 // ── Lobby Music Bar (Easter Egg) ──
 export function LobbyMusicBar() {
@@ -37,9 +37,9 @@ export function LobbyMusicBar() {
         <button
           className="lobby-music-stop-btn"
           onClick={stopLobbyMusicAction}
-          title="Stop"
+          title="Dismiss"
         >
-          <Square size={14} />
+          <X size={14} />
         </button>
       </div>
     </div>

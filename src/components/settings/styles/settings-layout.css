@@ -148,7 +148,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+}
+.settings-sound-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .settings-sound-actions {
   display: flex;
@@ -162,14 +166,27 @@
   padding: 4px 10px;
   font-size: 11px;
 }
-.settings-sound-actions .btn-danger {
+.settings-sound-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.settings-sound-icon-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+.settings-sound-icon-btn--danger:hover {
   color: var(--danger);
-  border-color: var(--danger);
+  background: rgba(255, 80, 80, 0.08);
 }
-.settings-sound-actions .btn-danger:hover {
-  background: rgba(255, 80, 80, 0.1);
-}
-.settings-sound-status { color: var(--text-green, #98c379); }
 .settings-sound-editor {
   margin-top: 8px;
 }

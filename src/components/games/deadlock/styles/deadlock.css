@@ -1,0 +1,366 @@
+/* ══════════════════════════════════════════
+   Deadlock — Header Bar
+   ══════════════════════════════════════════ */
+.dl-header-bar {
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.06) 0%, transparent 60%);
+}
+
+.dl-header-brand {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 16px;
+  border-right: 1px solid var(--border);
+}
+
+.dl-header-logo {
+  height: 22px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ── Tabs ── */
+.dl-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 100%;
+}
+
+.dl-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.dl-tab:hover {
+  color: var(--text-secondary);
+}
+
+.dl-tab.active {
+  color: #a855f7;
+  border-bottom-color: #a855f7;
+}
+
+/* ── Tab Content ── */
+.dl-tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ══════════════════════════════════════════
+   Home Tab
+   ══════════════════════════════════════════ */
+.dl-home {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dl-hero {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(168, 85, 247, 0.12) 0%, rgba(168, 85, 247, 0.02) 100%),
+    linear-gradient(135deg, rgba(120, 50, 200, 0.08) 0%, rgba(60, 20, 100, 0.04) 50%, transparent 100%);
+  border: 1px solid rgba(168, 85, 247, 0.12);
+}
+
+.dl-hero-content {
+  position: relative;
+  padding: 28px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dl-hero-logo {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  align-self: flex-start;
+}
+
+.dl-hero-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #a855f7;
+  opacity: 0.8;
+}
+
+.dl-hero-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 420px;
+}
+
+/* ── Cards ── */
+.dl-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.dl-card {
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 0.15s;
+}
+
+.dl-card:hover {
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.dl-card h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px;
+}
+
+.dl-card p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ══════════════════════════════════════════
+   Heroes Tab
+   ══════════════════════════════════════════ */
+.dl-heroes {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dl-heroes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dl-heroes-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.dl-role-filters {
+  display: flex;
+  gap: 4px;
+}
+
+.dl-role-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dl-role-btn:hover {
+  color: var(--text-secondary);
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.dl-role-btn.active {
+  color: #a855f7;
+  border-color: #a855f7;
+  background: rgba(168, 85, 247, 0.08);
+}
+
+.dl-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.dl-hero-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s;
+}
+
+.dl-hero-card:hover {
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.dl-hero-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dl-hero-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dl-hero-role {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.dl-role-tank {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.dl-role-carry {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.dl-role-support {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.dl-hero-lane {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.dl-hero-card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+  line-height: 1.4;
+}
+
+/* ══════════════════════════════════════════
+   Builds Tab
+   ══════════════════════════════════════════ */
+.dl-builds {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+}
+
+.dl-builds-intro h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.dl-builds-intro p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.dl-build-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dl-build-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dl-build-card:hover {
+  border-color: rgba(168, 85, 247, 0.2);
+}
+
+.dl-build-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dl-build-hero {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dl-build-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.dl-build-items {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.dl-build-phase {
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  margin-right: 4px;
+}
+
+.dl-build-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+  font-style: italic;
+}
+

@@ -11,6 +11,7 @@ import { VoiceChannelView } from "@/components/voice/VoiceChannelView.js";
 import { DMChatView } from "@/components/chat/DMChatView.js";
 import { requestNotificationPermission } from "@/lib/notifications.js";
 import { ServerSettingsPage } from "@/components/ServerSettingsPage.js";
+import { GAME_CHANNEL_MAP } from "@/lib/gameChannels.js";
 import { RoomToasts } from "@/components/voice/RoomToasts.js";
 import { useKeybindListener } from "@/hooks/useKeybindListener.js";
 import { useIdleDetection } from "@/hooks/useIdleDetection.js";
@@ -53,9 +54,9 @@ function ResizeHandle({ onResize, side }: { onResize: (delta: number) => void; s
 export function MainLayout() {
   useKeybindListener();
   useIdleDetection();
-  const { loadServers, selectServer, servers, activeServerId, activeChannelId, channels } = useChatStore(useShallow((s) => ({
+  const { loadServers, selectServer, servers, activeServerId, activeChannelId, activeGameId, channels } = useChatStore(useShallow((s) => ({
     loadServers: s.loadServers, selectServer: s.selectServer, servers: s.servers,
-    activeServerId: s.activeServerId, activeChannelId: s.activeChannelId, channels: s.channels,
+    activeServerId: s.activeServerId, activeChannelId: s.activeChannelId, activeGameId: s.activeGameId, channels: s.channels,
   })));
   const { showingDMs, activeDMChannelId } = useDMStore(useShallow((s) => ({
     showingDMs: s.showingDMs, activeDMChannelId: s.activeDMChannelId,
@@ -173,6 +174,12 @@ export function MainLayout() {
               <p>Select a conversation or start a new one</p>
             </div>
           )
+        ) : activeGameId && GAME_CHANNEL_MAP.has(activeGameId) ? (
+          (() => {
+            const game = GAME_CHANNEL_MAP.get(activeGameId)!;
+            const GameComponent = game.component;
+            return <Suspense fallback={null}><GameComponent /></Suspense>;
+          })()
         ) : activeChannelId ? (
           activeChannel?.type === "voice" ? (
             <VoiceChannelView />

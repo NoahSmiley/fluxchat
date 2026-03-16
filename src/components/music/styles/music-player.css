@@ -24,8 +24,10 @@
 /* Voice/Music tab bar */
 .voice-channel-tabs {
   display: flex;
+  align-items: stretch;
   gap: 2px;
-  padding: 8px 12px 0;
+  padding: 0 12px;
+  height: 48px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -34,7 +36,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 0 16px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);

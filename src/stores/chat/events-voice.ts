@@ -2,6 +2,10 @@ import type { StoreApi, UseBoundStore } from "zustand";
 import type { ChatState } from "./types.js";
 import { API_BASE } from "@/lib/serverUrl.js";
 
+// Lazy ref to auth store (avoids circular import)
+let _authStore: { getState: () => { user?: { id: string } | null } } | null = null;
+import("@/stores/auth.js").then((m) => { _authStore = m.useAuthStore; });
+
 // ── Voice / room interaction event handlers ──
 
 export function handleRoomKnock(
@@ -63,26 +67,38 @@ export function handleVoiceJoinLeave(event: { channelId: string; userId: string;
     const store = mod.useVoiceStore.getState();
     // Only play sounds if we're in the same voice channel
     if (store.connectedChannelId !== event.channelId) return;
-    // Don't play sounds for ourselves
-    import("@/stores/auth.js").then(({ useAuthStore }) => {
-      const myId = useAuthStore.getState().user?.id;
-      if (event.userId === myId) return;
-      // Respect deafen state
-      if (store.isDeafened) return;
+    // Don't play sounds for ourselves — local sounds in connection.ts handle the self case.
+    // Use both auth store user ID and LiveKit local participant identity for robustness.
+    const myId = _authStore?.getState()?.user?.id;
+    const localIdentity = store.room?.localParticipant?.identity;
+    if (myId && event.userId === myId) return;
+    if (localIdentity && event.userId === localIdentity) return;
+    // Respect deafen state
+    if (store.isDeafened) return;
 
-      if (event.soundUrl) {
-        // Play custom sound
-        const audioUrl = `${API_BASE}${event.soundUrl}`;
-        const audio = new Audio(audioUrl);
-        audio.volume = 0.5;
-        audio.play().catch(() => {});
-      } else {
-        // Fall back to procedural sounds
-        import("@/lib/sounds.js").then((sounds) => {
-          if (event.action === "join") sounds.playJoinSound();
-          else sounds.playLeaveSound();
-        });
-      }
-    });
+    if (event.soundUrl) {
+      // Play custom sound — fetch as blob to avoid Tauri URL issues
+      const audioUrl = `${API_BASE}${event.soundUrl}`;
+      fetch(audioUrl)
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.blob();
+        })
+        .then((blob) => {
+          const blobUrl = URL.createObjectURL(blob);
+          const audio = new Audio(blobUrl);
+          audio.volume = 0.5;
+          audio.onended = () => URL.revokeObjectURL(blobUrl);
+          audio.onerror = () => URL.revokeObjectURL(blobUrl);
+          return audio.play();
+        })
+        .catch((err) => console.warn("Custom join/leave sound failed:", err));
+    } else {
+      // Fall back to procedural sounds for other users
+      import("@/lib/sounds.js").then((sounds) => {
+        if (event.action === "join") sounds.playJoinSound();
+        else sounds.playLeaveSound();
+      });
+    }
   });
 }

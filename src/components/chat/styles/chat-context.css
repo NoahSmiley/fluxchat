@@ -180,10 +180,12 @@
 /* ── Sender & Time (selectable text) ── */
 .message-sender {
   user-select: text;
+  -webkit-user-select: text;
 }
 
 .message-time {
   user-select: text;
+  -webkit-user-select: text;
 }
 
 /* ── Reactions ── */

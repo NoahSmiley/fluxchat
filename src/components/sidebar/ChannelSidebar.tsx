@@ -53,13 +53,13 @@ export function ChannelSidebar() {
 
   return (
     <div className="channel-sidebar">
-      {server && (
+      {/* {server && (
         <ChannelSidebarHeader
           serverName={server.name}
           isOwnerOrAdmin={isOwnerOrAdmin}
           onOpenSettings={openServerSettings}
         />
-      )}
+      )} */}
 
       {activeServerId && (
         <ChannelTree

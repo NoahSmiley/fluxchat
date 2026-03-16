@@ -17,6 +17,7 @@ export interface ChatState {
   userActivities: Record<string, ActivityInfo>;
   activeServerId: string | null;
   activeChannelId: string | null;
+  activeGameId: string | null;  // set when viewing a game channel page
   hasMoreMessages: boolean;
   messageCursor: string | null;
   loadingMessages: boolean;

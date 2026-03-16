@@ -3,7 +3,7 @@ import { useAuthStore } from "@/stores/auth.js";
 import { uploadFile } from "@/lib/api/messages.js";
 import { audioBufferToWav, WaveformCanvas } from "@/components/music/SoundboardWaveform.js";
 import { API_BASE } from "@/lib/serverUrl.js";
-import { Upload, Play, Trash2 } from "lucide-react";
+import { Upload, Play, Square, Trash2 } from "lucide-react";
 
 const MAX_DURATION = 10;
 const ACCEPTED_FORMATS = ".mp3,.wav,.ogg,.webm,.aac";
@@ -65,7 +65,7 @@ function SoundSection({ label, currentUrl, onSave, onRemove }: {
     }
   };
 
-  const handlePreview = () => {
+  const handlePreview = async () => {
     if (previewRef.current) {
       previewRef.current.pause();
       previewRef.current = null;
@@ -74,26 +74,42 @@ function SoundSection({ label, currentUrl, onSave, onRemove }: {
     }
     const url = currentUrl ? `${API_BASE}${currentUrl}` : null;
     if (!url) return;
-    const audio = new Audio(url);
-    audio.volume = 0.5;
-    audio.onended = () => { previewRef.current = null; setPreviewing(false); };
-    audio.play().catch(() => {});
-    previewRef.current = audio;
-    setPreviewing(true);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const audio = new Audio(blobUrl);
+      audio.volume = 0.5;
+      audio.onended = () => { URL.revokeObjectURL(blobUrl); previewRef.current = null; setPreviewing(false); };
+      audio.onerror = () => { URL.revokeObjectURL(blobUrl); previewRef.current = null; setPreviewing(false); };
+      previewRef.current = audio;
+      setPreviewing(true);
+      await audio.play();
+    } catch (err) {
+      console.error("Preview failed:", err);
+      previewRef.current = null;
+      setPreviewing(false);
+    }
   };
 
   return (
     <div className="settings-sound-section">
       <div className="settings-sound-header">
-        <span className="settings-row-label">{label}</span>
+        <div className="settings-sound-info">
+          <span className="settings-row-label">{label}</span>
+          <span className="settings-row-desc">
+            {currentUrl && !audioBuffer ? "Custom sound set" : !audioBuffer ? "Default chime" : null}
+          </span>
+        </div>
         <div className="settings-sound-actions">
           {currentUrl && (
             <>
-              <button className="btn-small" onClick={handlePreview} title="Preview">
-                <Play size={12} /> {previewing ? "Stop" : "Play"}
+              <button className="settings-sound-icon-btn" onClick={handlePreview} title={previewing ? "Stop" : "Preview"}>
+                {previewing ? <Square size={14} /> : <Play size={14} />}
               </button>
-              <button className="btn-small btn-danger" onClick={onRemove} title="Remove">
-                <Trash2 size={12} />
+              <button className="settings-sound-icon-btn settings-sound-icon-btn--danger" onClick={onRemove} title="Remove">
+                <Trash2 size={14} />
               </button>
             </>
           )}
@@ -102,12 +118,6 @@ function SoundSection({ label, currentUrl, onSave, onRemove }: {
           </button>
         </div>
       </div>
-      {currentUrl && !audioBuffer && (
-        <span className="settings-row-desc settings-sound-status">Custom sound set</span>
-      )}
-      {!currentUrl && !audioBuffer && (
-        <span className="settings-row-desc">No sound set — default chime will play</span>
-      )}
       <input
         ref={fileRef}
         type="file"

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Heart, Volume2, VolumeX } from "lucide-react";
+import { Heart, Volume2, VolumeX, Music } from "lucide-react";
 import * as api from "@/lib/api/index.js";
 import { gateway } from "@/lib/ws.js";
 import type { SoundboardSound } from "@/types/shared.js";
@@ -72,7 +72,17 @@ export function SoundboardPanel({ serverId, channelId }: { serverId: string; cha
   }
 
   if (sounds.length === 0) {
-    return <div className="soundboard-panel"><p className="soundboard-empty">No sounds added yet. Admins can add sounds in Server Settings → Soundboard.</p></div>;
+    return (
+      <div className="soundboard-panel">
+        <div className="streams-empty">
+          <div className="streams-empty-icon">
+            <Music size={48} />
+          </div>
+          <h3>No Sounds Yet</h3>
+          <p>Admins can add sounds in Server Settings → Soundboard.</p>
+        </div>
+      </div>
+    );
   }
 
   function renderSound(sound: SoundboardSound, keyPrefix: string) {

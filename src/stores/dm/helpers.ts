@@ -97,6 +97,7 @@ export function clearChatStoreForDM() {
   chatStoreRef?.setState({
     activeServerId: null,
     activeChannelId: null,
+    activeGameId: null,
     channels: [],
     messages: [],
     reactions: {},

@@ -1,5 +1,5 @@
 /* ── App Shell ── */
-.app-shell { display: flex; flex-direction: column; height: 100%; position: relative; }
+.app-shell { display: flex; flex-direction: column; height: 100%; position: relative; border-radius: 10px; overflow: hidden; }
 
 /* ── App Border Ring ── */
 .app-shell.app-border-chroma::before,
@@ -44,8 +44,9 @@
 .app-body { flex: 1; min-height: 0; position: relative; }
 
 /* ── Titlebar (drag region) ── */
-.titlebar { height: var(--titlebar-height); background: var(--bg-primary); border-bottom: 1px solid var(--border); -webkit-app-region: drag; display: flex; justify-content: flex-end; flex-shrink: 0; }
+.titlebar { height: var(--titlebar-height); background: var(--bg-primary); border-bottom: 1px solid var(--border); -webkit-app-region: drag; display: flex; justify-content: flex-end; flex-shrink: 0; position: relative; }
 .titlebar-mac { justify-content: flex-start; }
+.titlebar-logo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--text-muted); opacity: 0.4; pointer-events: none; display: flex; align-items: center; }
 
 /* ── macOS traffic light controls ── */
 .mac-window-controls { display: flex; align-items: center; gap: 6px; padding-left: 10px; -webkit-app-region: no-drag; }

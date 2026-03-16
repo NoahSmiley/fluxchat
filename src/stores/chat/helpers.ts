@@ -3,6 +3,7 @@ import type { ChatState } from "./types.js";
 import type { StoreApi } from "zustand";
 import * as api from "@/lib/api/index.js";
 import { gateway } from "@/lib/ws.js";
+import { isGameChannel } from "@/lib/gameChannels.js";
 import {
   channelMessageCache,
   serverCache,
@@ -157,6 +158,30 @@ export function createSelectChannelAction(set: Set, get: Get) {
   return async (channelId: string) => {
     // Skip if already viewing this channel
     if (get().activeChannelId === channelId) return;
+
+    // Game channels are client-only — set activeGameId so the game page persists
+    if (isGameChannel(channelId)) {
+      const prevChannel = get().activeChannelId;
+      if (prevChannel && !isGameChannel(prevChannel)) saveChannelCache(prevChannel, get());
+      set({
+        activeChannelId: channelId,
+        activeGameId: channelId,
+        messages: [],
+        reactions: {},
+        hasMoreMessages: false,
+        messageCursor: null,
+        loadingMessages: false,
+        searchQuery: "",
+        searchFilters: {},
+        searchResults: null,
+      });
+      return;
+    }
+
+    // Clear game view when navigating to a non-game channel
+    if (get().activeGameId) {
+      set({ activeGameId: null });
+    }
 
     const prevChannel = get().activeChannelId;
     if (prevChannel && prevChannel !== channelId) {

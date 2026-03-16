@@ -186,6 +186,11 @@
   color: var(--text-primary);
   word-break: break-word;
   user-select: text;
+  -webkit-user-select: text;
+}
+.message-body * {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* ── Typing Indicator ── */

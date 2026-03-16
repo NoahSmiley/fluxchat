@@ -25,7 +25,7 @@ export function DeleteConfirmDialog({
   deleting: boolean;
 }) {
   const [confirmText, setConfirmText] = useState("");
-  const matches = confirmText === channelName;
+  const matches = confirmText.toLowerCase() === channelName.toLowerCase();
 
   return (
     <div className="modal-overlay" style={{ zIndex: 9100 }} onClick={onCancel}>
@@ -43,7 +43,7 @@ export function DeleteConfirmDialog({
           This action cannot be undone.
         </p>
         <div className="delete-confirm-input">
-          <label>Type <strong>{channelName}</strong> to confirm</label>
+          <label>Type <strong style={{ userSelect: "text", WebkitUserSelect: "text" }}>{channelName}</strong> to confirm</label>
           <input
             type="text"
             value={confirmText}

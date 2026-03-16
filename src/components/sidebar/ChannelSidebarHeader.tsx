@@ -151,21 +151,19 @@ export function ChannelSidebarHeader({ serverName, isOwnerOrAdmin, onOpenSetting
   if (!galleryActive) {
     return (
       <div ref={wrapperRef} style={{ position: "relative" }}>
-        <div
-          className="channel-sidebar-header"
-          onClick={isOwnerOrAdmin ? onOpenSettings : undefined}
-          style={{ cursor: isOwnerOrAdmin ? "pointer" : "default" }}
-        >
-          <span className="channel-sidebar-header-title">{serverName}</span>
-          {isOwnerOrAdmin && (
-            <button
-              className="channel-sidebar-header-btn"
-              title="Server Settings"
-              onClick={(e) => { e.stopPropagation(); onOpenSettings(); }}
-            >
-              <Settings size={14} />
-            </button>
-          )}
+        <div className="channel-sidebar-header">
+          <span className="channel-sidebar-header-label">Channels</span>
+          <div className="channel-sidebar-header-actions">
+            {isOwnerOrAdmin && (
+              <button
+                className="channel-sidebar-header-btn always-visible"
+                title="Server Settings"
+                onClick={(e) => { e.stopPropagation(); onOpenSettings(); }}
+              >
+                <Settings size={14} />
+              </button>
+            )}
+          </div>
         </div>
         {popoverOpen && <GalleryPopover onClose={() => setPopoverOpen(false)} />}
       </div>

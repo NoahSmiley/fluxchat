@@ -1,7 +1,7 @@
 import type { Channel, ChannelType } from "@/types/shared.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
-import { MessageSquareText, Volume2, Settings, ChevronRight, Folder, Radio, Lock, LockOpen } from "lucide-react";
+import { MessageSquareText, Volume2, Settings, ChevronRight, Folder, Radio, Lock, LockOpen, Plus } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { TreeNode } from "@/lib/channel-tree.js";
@@ -26,6 +26,7 @@ export function SortableChannelItem({
   onSelect,
   onSettings,
   onContextMenu,
+  onCreateChild,
   isOwnerOrAdmin,
   voiceProps,
   isDragging,
@@ -41,6 +42,7 @@ export function SortableChannelItem({
   onSelect: () => void;
   onSettings: () => void;
   onContextMenu: (e: React.MouseEvent, ch: Channel) => void;
+  onCreateChild?: () => void;
   isOwnerOrAdmin: boolean;
   isMuted?: boolean;
   voiceProps?: {
@@ -88,6 +90,15 @@ export function SortableChannelItem({
             />
             <span className="channel-category-name">{channel.name}</span>
           </button>
+          {isOwnerOrAdmin && !isPinned && onCreateChild && (
+            <button
+              className="channel-settings-btn"
+              onClick={onCreateChild}
+              title="Create Channel"
+            >
+              <Plus size={13} />
+            </button>
+          )}
           {isOwnerOrAdmin && !isPinned && (
             <button
               className="channel-settings-btn"

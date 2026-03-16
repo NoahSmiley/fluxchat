@@ -76,6 +76,25 @@
   opacity: 0.8;
 }
 
+.channel-game-icon {
+  height: 24px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 4px 0;
+  opacity: 0.7;
+}
+
+.channel-item:hover .channel-game-icon,
+.channel-item.active .channel-game-icon {
+  opacity: 1;
+}
+
+.channel-game-icon.invert {
+  filter: invert(1);
+}
+
 /* ── Server Sidebar User ── */
 .server-sidebar-spacer {
   flex: 0;
@@ -168,6 +187,9 @@
 
 .channel-category-root {
   margin-top: 12px;
+}
+.channel-category-root:first-child {
+  margin-top: 0;
 }
 
 .channel-category-header:hover {

@@ -1,0 +1,375 @@
+/* ══════════════════════════════════════════
+   Game Page — shared base
+   ══════════════════════════════════════════ */
+.game-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════════════
+   Minecraft — Header Bar
+   ══════════════════════════════════════════ */
+.mc-header-bar {
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(76, 135, 60, 0.08) 0%, transparent 60%);
+}
+
+.mc-header-brand {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 16px;
+  border-right: 1px solid var(--border);
+}
+
+.mc-header-logo {
+  height: 22px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ── Tabs (same pattern as voice-channel-tabs) ── */
+.mc-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 100%;
+}
+
+.mc-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.mc-tab:hover {
+  color: var(--text-secondary);
+}
+
+.mc-tab.active {
+  color: #5da64a;
+  border-bottom-color: #5da64a;
+}
+
+/* ── Tab Content ── */
+.mc-tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ══════════════════════════════════════════
+   Home Tab
+   ══════════════════════════════════════════ */
+.mc-home {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Hero Banner ── */
+.mc-hero {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(76, 135, 60, 0.15) 0%, rgba(76, 135, 60, 0.02) 100%),
+    linear-gradient(135deg, rgba(60, 100, 50, 0.12) 0%, rgba(30, 60, 30, 0.06) 50%, transparent 100%);
+  border: 1px solid rgba(76, 135, 60, 0.15);
+}
+
+.mc-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 15px,
+      rgba(76, 135, 60, 0.03) 15px,
+      rgba(76, 135, 60, 0.03) 16px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 15px,
+      rgba(76, 135, 60, 0.03) 15px,
+      rgba(76, 135, 60, 0.03) 16px
+    );
+  pointer-events: none;
+}
+
+.mc-hero-content {
+  position: relative;
+  padding: 28px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mc-hero-logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  align-self: flex-start;
+}
+
+.mc-hero-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #5da64a;
+  opacity: 0.8;
+}
+
+.mc-hero-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+  max-width: 420px;
+}
+
+/* ── Connect Row ── */
+.mc-connect-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mc-connect-ip {
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(76, 135, 60, 0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+.mc-connect-copy {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(76, 135, 60, 0.3);
+  border-radius: 8px;
+  background: rgba(76, 135, 60, 0.12);
+  color: #5da64a;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.mc-connect-copy:hover {
+  background: rgba(76, 135, 60, 0.2);
+  border-color: rgba(76, 135, 60, 0.4);
+}
+
+.mc-connect-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Feature Cards ── */
+.mc-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.mc-feature-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 0.15s;
+}
+
+.mc-feature-card:hover {
+  border-color: rgba(76, 135, 60, 0.25);
+}
+
+.mc-feature-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(76, 135, 60, 0.1);
+  color: #5da64a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mc-feature-info h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.mc-feature-info p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ══════════════════════════════════════════
+   Info Tab
+   ══════════════════════════════════════════ */
+.mc-info {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 560px;
+}
+
+.mc-info-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.mc-info-card h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 14px;
+}
+
+/* ── Steps ── */
+.mc-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mc-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.mc-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(76, 135, 60, 0.12);
+  color: #5da64a;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.mc-steps code {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+.mc-steps strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ── Rules ── */
+.mc-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mc-rules li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding-left: 16px;
+  position: relative;
+}
+
+.mc-rules li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--text-muted);
+}
+
+/* ── Detail Grid ── */
+.mc-detail-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mc-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mc-detail-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  width: 90px;
+  flex-shrink: 0;
+}
+
+.mc-detail-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+

@@ -32,6 +32,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   userActivities: {},
   activeServerId: null,
   activeChannelId: null,
+  activeGameId: null,
   hasMoreMessages: false,
   messageCursor: null,
   loadingMessages: false,
@@ -136,7 +137,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       servers: state.servers.filter((s) => s.id !== serverId),
       ...(state.activeServerId === serverId
-        ? { activeServerId: null, activeChannelId: null, channels: [], messages: [], members: [] }
+        ? { activeServerId: null, activeChannelId: null, activeGameId: null, channels: [], messages: [], members: [] }
         : {}),
     }));
   },
