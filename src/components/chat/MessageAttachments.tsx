@@ -45,7 +45,21 @@ export function MessageAttachments({ attachments }: { attachments: Attachment[] 
         }
 
         return (
-          <a key={att.id} href={url} className="attachment-file" download={att.filename}>
+          <a
+            key={att.id}
+            href={url}
+            className="attachment-file"
+            download={att.filename}
+            onClick={async (e) => {
+              e.preventDefault();
+              try {
+                const { open } = await import("@tauri-apps/plugin-shell");
+                await open(url);
+              } catch {
+                window.open(url, "_blank");
+              }
+            }}
+          >
             <Download size={16} />
             <span className="attachment-file-name">{att.filename}</span>
             <span className="attachment-file-size">{formatFileSize(att.size)}</span>
