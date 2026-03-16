@@ -194,7 +194,7 @@ export function ProfileTab() {
 
         <div className="ring-preview-container">
           <div className={`ring-preview-avatar-ring ring-style-${user?.ringStyle ?? "default"} ${(user?.ringSpin) ? "ring-spin-active" : ""}`} style={{ "--ring-color": color } as React.CSSProperties}>
-            <div className="ring-preview-avatar" style={{ background: color }}>
+            <div className="ring-preview-avatar" style={{ background: user?.image ? "var(--bg-primary)" : color }}>
               {user?.image ? (
                 <img src={user.image} alt={user.username} className="ring-preview-img" />
               ) : (

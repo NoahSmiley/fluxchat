@@ -26,6 +26,9 @@ let cachedChatStore: any = null;
 // Monotonically increasing counter to detect stale joinVoiceChannel calls
 let joinNonce = 0;
 
+// Track which channel is currently being joined to prevent duplicate concurrent joins
+let joiningChannelId: string | null = null;
+
 // Adaptive bitrate ceiling
 export let adaptiveTargetBitrate = DEFAULT_BITRATE;
 export function setAdaptiveTargetBitrate(bitrate: number) {
@@ -72,6 +75,12 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       return;
     }
 
+    // Prevent duplicate concurrent joins to the same channel
+    if (joiningChannelId === channelId) {
+      dbg("voice", "joinVoiceChannel skipped — already joining this channel");
+      return;
+    }
+
     // Room switch: silently disconnect without sounds or full state reset
     const isSwitching = !!existingRoom && !!connectedChannelId;
     if (existingRoom) {
@@ -115,6 +124,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
     }
 
     const previousChannelId = isSwitching ? connectedChannelId : null;
+    joiningChannelId = channelId;
     const myNonce = ++joinNonce;
     const isStale = () => myNonce !== joinNonce;
 
@@ -127,6 +137,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
 
       if (isStale()) {
         dbg("voice", "joinVoiceChannel aborted after token fetch — newer join in progress");
+        if (joiningChannelId === channelId) joiningChannelId = null;
         set({ connecting: false });
         return;
       }
@@ -226,6 +237,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
 
       if (isStale()) {
         room.disconnect();
+        if (joiningChannelId === channelId) joiningChannelId = null;
         set({ connecting: false });
         return;
       }
@@ -291,6 +303,8 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         { userId: localIdentity, username: localName },
       ];
 
+      joiningChannelId = null;
+
       set({
         room,
         screenRoom,
@@ -325,6 +339,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       }
       gateway.send({ type: "voice_state_update", channelId, action: "join" });
     } catch (err) {
+      joiningChannelId = null;
       if (isStale()) return;
       set({
         connecting: false,
@@ -337,6 +352,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
 export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
   return () => {
     ++joinNonce;
+    joiningChannelId = null;
 
     const get = () => storeRef.getState();
     const set = (partial: Partial<VoiceState>) => { storeRef.setState(partial); };

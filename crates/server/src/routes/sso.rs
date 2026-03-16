@@ -135,10 +135,13 @@ pub async fn sso_poll(
         }
     };
 
-    let poll: AthionPollResponse = match res.json().await {
+    let poll_text = res.text().await.unwrap_or_default();
+    tracing::info!("Athion poll raw response: {}", poll_text);
+
+    let poll: AthionPollResponse = match serde_json::from_str(&poll_text) {
         Ok(b) => b,
         Err(e) => {
-            tracing::error!("Failed to parse Athion poll response: {}", e);
+            tracing::error!("Failed to parse Athion poll response: {} — raw: {}", e, poll_text);
             return (
                 StatusCode::BAD_GATEWAY,
                 Json(serde_json::json!({"error": "Invalid response from authentication service"})),
@@ -149,6 +152,7 @@ pub async fn sso_poll(
 
     // Still pending or expired — pass through
     if poll.status != "complete" {
+        tracing::info!("Athion poll status: {}", poll.status);
         return Json(serde_json::json!({ "status": poll.status })).into_response();
     }
 
@@ -164,6 +168,7 @@ pub async fn sso_poll(
     };
 
     // Validate the Athion JWT by calling /api/auth/ide/me
+    tracing::info!("Athion poll complete, validating token via /ide/me");
     let me_res = client
         .get(format!("{}/api/auth/ide/me", state.config.athion_url))
         .header("Authorization", format!("Bearer {}", athion_token))
@@ -173,7 +178,9 @@ pub async fn sso_poll(
     let me_res = match me_res {
         Ok(r) if r.status().is_success() => r,
         Ok(r) => {
-            tracing::error!("Athion /ide/me returned {}", r.status());
+            let status = r.status();
+            let body = r.text().await.unwrap_or_default();
+            tracing::error!("Athion /ide/me returned {} — body: {}", status, body);
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(serde_json::json!({"error": "Failed to validate authentication"})),

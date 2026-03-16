@@ -46,7 +46,7 @@ impl Config {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(120),
             athion_url: env::var("ATHION_URL")
-                .unwrap_or_else(|_| "https://liminull-site.vercel.app".into()),
+                .unwrap_or_else(|_| "https://www.athion.me".into()),
         }
     }
 
