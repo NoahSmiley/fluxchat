@@ -117,6 +117,38 @@ pub async fn search_tracks(
 
     let client = reqwest::Client::new();
 
+    // Detect Spotify track URL — resolve single track instead of searching
+    if q.contains("open.spotify.com/track/") {
+        let track_id = q
+            .split("/track/")
+            .nth(1)
+            .unwrap_or("")
+            .split('?')
+            .next()
+            .unwrap_or("");
+
+        if track_id.is_empty() {
+            return Json(serde_json::json!({"tracks": {"items": []}})).into_response();
+        }
+
+        let url = format!("https://api.spotify.com/v1/tracks/{}", track_id);
+        return match client.get(&url).bearer_auth(&token).send().await {
+            Ok(r) if r.status().is_success() => {
+                let track: serde_json::Value = r.json().await.unwrap_or_default();
+                Json(serde_json::json!({"tracks": {"items": [track]}})).into_response()
+            }
+            Ok(r) => {
+                let status = r.status();
+                tracing::error!("Spotify track lookup failed ({})", status);
+                Json(serde_json::json!({"tracks": {"items": []}})).into_response()
+            }
+            Err(e) => {
+                tracing::error!("Spotify track lookup error: {}", e);
+                Json(serde_json::json!({"tracks": {"items": []}})).into_response()
+            }
+        };
+    }
+
     match client
         .get("https://api.spotify.com/v1/search")
         .bearer_auth(&token)

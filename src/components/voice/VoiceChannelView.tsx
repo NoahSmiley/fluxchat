@@ -208,6 +208,7 @@ export function VoiceChannelView() {
                             <option value="720p60">720p 60fps</option>
                             <option value="1080p30">1080p 30fps</option>
                             <option value="1080p60">1080p 60fps</option>
+                            <option value="1080p144">1080p 144fps</option>
                             <option value="Lossless">Lossless</option>
                           </select>
                         </div>

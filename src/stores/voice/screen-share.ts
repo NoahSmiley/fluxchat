@@ -31,7 +31,7 @@ export function createToggleScreenShare(storeRef: StoreApi<VoiceState>) {
           {
             audio: true,
             contentHint: preset.contentHint,
-            resolution: { width: 3840, height: 2160, frameRate: 60 },
+            resolution: { width: 3840, height: 2160, frameRate: preset.frameRate },
             preferCurrentTab: false,
             selfBrowserSurface: "exclude",
             surfaceSwitching: "include",

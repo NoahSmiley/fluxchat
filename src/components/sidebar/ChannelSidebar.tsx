@@ -3,7 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { Channel, ChannelType } from "@/types/shared.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
-import { useUIStore } from "@/stores/ui.js";
+
 import { useAuthStore } from "@/stores/auth.js";
 import { VoiceStatusBar } from "@/components/voice/VoiceStatusBar.js";
 import { loadCollapsed, saveCollapsed } from "@/lib/channel-tree.js";
@@ -22,7 +22,7 @@ export function ChannelSidebar() {
     channelParticipants: s.channelParticipants, connectedChannelId: s.connectedChannelId,
     connecting: s.connecting, screenSharers: s.screenSharers, participants: s.participants,
   })));
-  const openServerSettings = useUIStore((s) => s.openServerSettings);
+
   const { user } = useAuthStore();
   const server = servers.find((s) => s.id === activeServerId);
   const isOwnerOrAdmin = !!(server && (server.role === "owner" || server.role === "admin"));

@@ -5,7 +5,7 @@ import { useKeybindsStore } from "@/stores/keybinds.js";
 import { useCryptoStore } from "@/stores/crypto.js";
 import { exportKeyAsBase64 } from "@/lib/crypto.js";
 import { dbg } from "@/lib/debug.js";
-import { playJoinSound, playLeaveSound, playJoinBeep, playLeaveBeep, playCustomSound } from "@/lib/sounds.js";
+import { playJoinSound, playLeaveSound, playCustomSound } from "@/lib/sounds.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { API_BASE } from "@/lib/serverUrl.js";
 import { detachNoiseFilter } from "@/lib/noiseProcessor.js";
@@ -323,7 +323,7 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       startStatsPolling();
       checkLobbyMusic();
       const introUrl = useAuthStore.getState().user?.introSoundUrl;
-      if (introUrl) { playJoinBeep(); playCustomSound(`${API_BASE}${introUrl}`); }
+      if (introUrl) playCustomSound(`${API_BASE}${introUrl}`);
       else playJoinSound();
 
       // If push-to-talk is configured, start muted
@@ -365,7 +365,7 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
 
     stopLobbyMusic();
     const exitUrl = useAuthStore.getState().user?.exitSoundUrl;
-    if (exitUrl) { playLeaveBeep(); playCustomSound(`${API_BASE}${exitUrl}`); }
+    if (exitUrl) playCustomSound(`${API_BASE}${exitUrl}`);
     else playLeaveSound();
 
     try {

@@ -1,7 +1,7 @@
 import { dbg } from "@/lib/debug.js";
 import { playMuteSound, playUnmuteSound, playDeafenSound, playUndeafenSound } from "@/lib/sounds.js";
 import { setAdaptiveTargetBitrate } from "./connection.js";
-import { setParticipantGain } from "./room-events.js";
+import { setParticipantGain, setAllParticipantGains } from "./room-events.js";
 import type { VoiceState } from "./types.js";
 import type { StoreApi } from "zustand";
 
@@ -47,6 +47,11 @@ export function createToggleDeafen(storeRef: StoreApi<VoiceState>) {
     } else {
       storeRef.setState({ isDeafened: newDeafened });
     }
+
+    // Mute/unmute all incoming participant audio
+    const { participantVolumes } = storeRef.getState();
+    setAllParticipantGains(newDeafened, participantVolumes);
+
     storeRef.getState()._updateParticipants();
     newDeafened ? playDeafenSound() : playUndeafenSound();
   };

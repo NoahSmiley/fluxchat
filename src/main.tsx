@@ -45,6 +45,11 @@ import "./components/music/styles/soundboard-panel.css";
 import "./components/music/styles/soundboard-tab.css";
 initThemeApplicator();
 
+// Prevent mouse back/forward buttons from navigating in the webview
+window.addEventListener("mouseup", (e) => {
+  if (e.button === 3 || e.button === 4) e.preventDefault();
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     {isPopout() ? (

@@ -10,7 +10,7 @@ import { ChatView } from "@/components/chat/ChatView.js";
 import { VoiceChannelView } from "@/components/voice/VoiceChannelView.js";
 import { DMChatView } from "@/components/chat/DMChatView.js";
 import { requestNotificationPermission } from "@/lib/notifications.js";
-import { ServerSettingsPage } from "@/components/ServerSettingsPage.js";
+
 import { GAME_CHANNEL_MAP } from "@/lib/gameChannels.js";
 import { RoomToasts } from "@/components/voice/RoomToasts.js";
 import { useKeybindListener } from "@/hooks/useKeybindListener.js";
@@ -62,7 +62,7 @@ export function MainLayout() {
     showingDMs: s.showingDMs, activeDMChannelId: s.activeDMChannelId,
   })));
   const { user } = useAuthStore();
-  const serverSettingsOpen = useUIStore((s) => s.serverSettingsOpen);
+
   const { screenSharers, pinnedScreenShare, connectedChannelId } = useVoiceStore(useShallow((s) => ({
     screenSharers: s.screenSharers, pinnedScreenShare: s.pinnedScreenShare, connectedChannelId: s.connectedChannelId,
   })));
@@ -198,7 +198,7 @@ export function MainLayout() {
       </main>
 
       <Suspense fallback={null}><SettingsModal /></Suspense>
-      {serverSettingsOpen && <ServerSettingsPage />}
+
       <RoomToasts />
 
       {/* Floating PiP when viewing a non-voice channel while connected to voice with screen sharers */}

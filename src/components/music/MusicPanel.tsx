@@ -72,13 +72,28 @@ export function MusicPanel({ voiceChannelId }: { voiceChannelId: string }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  function detectUrlSource(input: string): "youtube" | "spotify" | null {
+    if (/youtube\.com\/|youtu\.be\//.test(input)) return "youtube";
+    if (/open\.spotify\.com\/track\//.test(input)) return "spotify";
+    return null;
+  }
+
   function handleSearch(e: FormEvent) {
     e.preventDefault();
-    if (!searchInput.trim()) return;
-    if (searchSource === "youtube") {
-      searchYouTube(searchInput.trim());
+    const q = searchInput.trim();
+    if (!q) return;
+
+    // Auto-switch source tab when a URL is pasted
+    const urlSource = detectUrlSource(q);
+    if (urlSource && urlSource !== searchSource) {
+      setSearchSource(urlSource);
+    }
+
+    const source = urlSource ?? searchSource;
+    if (source === "youtube") {
+      searchYouTube(q);
     } else {
-      searchTracks(searchInput.trim());
+      searchTracks(q);
     }
   }
 

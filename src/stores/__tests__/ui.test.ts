@@ -5,7 +5,6 @@ describe("useUIStore", () => {
   beforeEach(() => {
     useUIStore.setState({
       settingsOpen: false,
-      serverSettingsOpen: false,
       sidebarPosition: "left",
       appBorderStyle: "none",
     });
@@ -14,7 +13,6 @@ describe("useUIStore", () => {
   it("initial state has correct defaults", () => {
     const state = useUIStore.getState();
     expect(state.settingsOpen).toBe(false);
-    expect(state.serverSettingsOpen).toBe(false);
     expect(state.sidebarPosition).toBe("left");
     expect(state.appBorderStyle).toBe("none");
   });
@@ -28,17 +26,6 @@ describe("useUIStore", () => {
     useUIStore.setState({ settingsOpen: true });
     useUIStore.getState().closeSettings();
     expect(useUIStore.getState().settingsOpen).toBe(false);
-  });
-
-  it("openServerSettings sets serverSettingsOpen to true", () => {
-    useUIStore.getState().openServerSettings();
-    expect(useUIStore.getState().serverSettingsOpen).toBe(true);
-  });
-
-  it("closeServerSettings sets serverSettingsOpen to false", () => {
-    useUIStore.setState({ serverSettingsOpen: true });
-    useUIStore.getState().closeServerSettings();
-    expect(useUIStore.getState().serverSettingsOpen).toBe(false);
   });
 
   it("setSidebarPosition changes position", () => {

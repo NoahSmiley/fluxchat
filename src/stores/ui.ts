@@ -8,7 +8,7 @@ export type AppBorderStyle = "none" | "chroma" | "pulse" | "wave" | "ember" | "f
 interface UIState {
   settingsOpen: boolean;
   settingsTab: string | null;
-  serverSettingsOpen: boolean;
+
   sidebarPosition: SidebarPosition;
   appBorderStyle: AppBorderStyle;
   highlightOwnMessages: boolean;
@@ -20,8 +20,7 @@ interface UIState {
   openSettings: () => void;
   openSettingsTab: (tab: string) => void;
   closeSettings: () => void;
-  openServerSettings: () => void;
-  closeServerSettings: () => void;
+
   setSidebarPosition: (pos: SidebarPosition) => void;
   setAppBorderStyle: (style: AppBorderStyle) => void;
   setHighlightOwnMessages: (val: boolean) => void;
@@ -39,7 +38,7 @@ export const useUIStore = create<UIState>()(
     (set, get) => ({
       settingsOpen: false,
       settingsTab: null,
-      serverSettingsOpen: false,
+
       sidebarPosition: "left",
       appBorderStyle: "none",
       highlightOwnMessages: true,
@@ -51,8 +50,7 @@ export const useUIStore = create<UIState>()(
       openSettings: () => set({ settingsOpen: true, settingsTab: null }),
       openSettingsTab: (tab) => set({ settingsOpen: true, settingsTab: tab }),
       closeSettings: () => set({ settingsOpen: false, settingsTab: null }),
-      openServerSettings: () => set({ serverSettingsOpen: true }),
-      closeServerSettings: () => set({ serverSettingsOpen: false }),
+
       setSidebarPosition: (pos) => set({ sidebarPosition: pos }),
       setAppBorderStyle: (style) => set({ appBorderStyle: style }),
       setHighlightOwnMessages: (val) => set({ highlightOwnMessages: val }),

@@ -60,7 +60,13 @@ pub async fn search(
         _ => return Json(serde_json::json!({"tracks": []})).into_response(),
     };
 
-    let search_query = format!("ytsearch5:{}", q);
+    // If the query is a YouTube URL, pass it directly to yt-dlp (no ytsearch prefix)
+    let is_url = q.contains("youtube.com/") || q.contains("youtu.be/");
+    let search_query = if is_url {
+        q.clone()
+    } else {
+        format!("ytsearch5:{}", q)
+    };
     tracing::info!("YouTube search: q=\"{}\"", q);
     let output = match tokio::time::timeout(
         Duration::from_secs(15),

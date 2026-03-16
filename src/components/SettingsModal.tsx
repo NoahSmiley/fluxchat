@@ -12,6 +12,12 @@ import { GalleryTab } from "./settings/GalleryTab.js";
 import { NotificationsTab } from "./settings/NotificationsTab.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import { IntroExitSoundsCard } from "./settings/IntroExitSoundsCard.js";
+import { SoundboardTab } from "./music/SoundboardTab.js";
+import { EmojiTab } from "./EmojiTab.js";
+import { useChatStore } from "@/stores/chat/index.js";
+import { useAuthStore } from "@/stores/auth.js";
+import * as api from "@/lib/api/index.js";
+import type { MemberWithUser } from "@/types/shared.js";
 
 function VoiceSettingsTab() {
   const { audioSettings, updateAudioSetting } = useVoiceStore(useShallow((s) => ({
@@ -188,7 +194,161 @@ function KeybindButton({ entry }: { entry: KeybindEntry }) {
   );
 }
 
-type SettingsTab = "profile" | "appearance" | "gallery" | "notifications" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "debug";
+function ServerOverviewTab({
+  server,
+  isOwner,
+  user,
+  updateServer,
+  leaveServer,
+  close,
+}: {
+  server: ReturnType<typeof useChatStore.getState>["servers"][0];
+  isOwner: boolean;
+  user: ReturnType<typeof useAuthStore.getState>["user"];
+  updateServer: (id: string, name: string) => Promise<void>;
+  leaveServer: (id: string) => Promise<void>;
+  close: () => void;
+}) {
+  const [editingServerName, setEditingServerName] = useState(false);
+  const [serverNameInput, setServerNameInput] = useState("");
+  const [serverNameSaving, setServerNameSaving] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function handleServerNameSave() {
+    if (!serverNameInput.trim()) return;
+    setServerNameSaving(true);
+    updateServer(server.id, serverNameInput.trim())
+      .then(() => { setEditingServerName(false); setServerNameSaving(false); })
+      .catch(() => setServerNameSaving(false));
+  }
+
+  async function handleLeave() {
+    setLeaving(true);
+    try {
+      await leaveServer(server.id);
+      close();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to leave server");
+      setLeaving(false);
+    }
+  }
+
+  return (
+    <>
+      {error && <div className="auth-error">{error}</div>}
+
+      <div className="settings-card">
+        <h3 className="settings-card-title">Server Management</h3>
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Server Name</span>
+            <span className="settings-row-desc">{server.name}</span>
+          </div>
+          {isOwner && !editingServerName && (
+            <button className="btn-small" onClick={() => { setServerNameInput(server.name); setEditingServerName(true); }}>Rename</button>
+          )}
+        </div>
+        {editingServerName && (
+          <div className="settings-row" style={{ gap: 8 }}>
+            <input
+              type="text"
+              value={serverNameInput}
+              onChange={(e) => setServerNameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleServerNameSave();
+                if (e.key === "Escape") setEditingServerName(false);
+              }}
+              autoFocus
+              style={{ flex: 1 }}
+            />
+            <button
+              className="btn-small btn-primary"
+              disabled={serverNameSaving}
+              onClick={handleServerNameSave}
+            >Save</button>
+            <button className="btn-small" onClick={() => setEditingServerName(false)}>Cancel</button>
+          </div>
+        )}
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Owner</span>
+            <span className="settings-row-desc">{isOwner ? `${user?.username} (you)` : server.ownerId.slice(0, 8)}</span>
+          </div>
+        </div>
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Created</span>
+            <span className="settings-row-desc">{new Date(server.createdAt).toLocaleDateString()}</span>
+          </div>
+        </div>
+      </div>
+
+      {!isOwner && (
+        <div className="settings-card">
+          <h3 className="settings-card-title">Danger Zone</h3>
+          <div className="settings-row">
+            <div className="settings-row-info">
+              <span className="settings-row-label">Leave Server</span>
+              <span className="settings-row-desc">You can rejoin with an invite code.</span>
+            </div>
+            <button className="btn-small btn-danger" onClick={handleLeave} disabled={leaving}>
+              {leaving ? "Leaving..." : "Leave"}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ServerMembersTab({
+  server,
+  user,
+  members,
+}: {
+  server: ReturnType<typeof useChatStore.getState>["servers"][0];
+  user: ReturnType<typeof useAuthStore.getState>["user"];
+  members: MemberWithUser[];
+}) {
+  async function handleToggleRole(member: { userId: string; role: string }) {
+    const newRole = member.role === "admin" ? "member" : "admin";
+    try {
+      await api.updateMemberRole(member.userId, newRole);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update role");
+    }
+  }
+
+  const serverMembers = members.filter((m) => m.serverId === server.id).sort((a, b) => {
+    const order: Record<string, number> = { owner: 0, admin: 1, member: 2 };
+    return (order[a.role] ?? 3) - (order[b.role] ?? 3);
+  });
+
+  return (
+    <>
+      <div className="settings-card">
+        <h3 className="settings-card-title">Members</h3>
+        <p className="settings-card-desc">Owner can demote any admin. Admins can promote members and demote admins within 72h of their promotion.</p>
+        {serverMembers.map((m) => (
+          <div key={m.userId} className="settings-row">
+            <div className="settings-row-info">
+              <span className="settings-row-label">{m.username}</span>
+              <span className="settings-row-desc">{m.role}</span>
+            </div>
+            {m.role !== "owner" && m.userId !== user?.id && (
+              <button className="btn-small" onClick={() => handleToggleRole(m)}>
+                {m.role === "admin" ? "Demote" : "Promote"}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+type SettingsTab = "profile" | "appearance" | "gallery" | "notifications" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "debug" | "server-overview" | "server-members" | "server-emojis" | "server-soundboard";
 
 const TAB_LABELS: Record<SettingsTab, string> = {
   profile: "Profile",
@@ -201,9 +361,14 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   spotify: "Spotify",
   cs2: "CS2 / Leetify",
   debug: "Debug",
+  "server-overview": "Overview",
+  "server-members": "Members",
+  "server-emojis": "Emojis",
+  "server-soundboard": "Soundboard",
 };
 
-const TABS = Object.keys(TAB_LABELS) as SettingsTab[];
+const APP_TABS: SettingsTab[] = ["profile", "appearance", "gallery", "notifications", "voice", "keybinds", "updates", "spotify", "cs2", "debug"];
+const SERVER_TABS: SettingsTab[] = ["server-overview", "server-members", "server-emojis", "server-soundboard"];
 
 export function SettingsModal() {
   const { settingsOpen, settingsTab, closeSettings } = useUIStore(useShallow((s) => ({
@@ -217,6 +382,13 @@ export function SettingsModal() {
   const { betaUpdates, setBetaUpdates } = useUIStore(useShallow((s) => ({
     betaUpdates: s.betaUpdates, setBetaUpdates: s.setBetaUpdates,
   })));
+  const { servers, activeServerId, updateServer, leaveServer, members } = useChatStore(useShallow((s) => ({
+    servers: s.servers, activeServerId: s.activeServerId, updateServer: s.updateServer,
+    leaveServer: s.leaveServer, members: s.members,
+  })));
+  const user = useAuthStore((s) => s.user);
+  const server = servers.find((s) => s.id === activeServerId);
+  const isOwner = server?.role === "owner";
   const updater = useUpdater(betaUpdates);
 
   const [debugMode, setDebugMode] = useState(getDebugEnabled);
@@ -245,7 +417,7 @@ export function SettingsModal() {
         <div className="settings-nav-header">
           <h2>Settings</h2>
         </div>
-        {TABS.map((tab) => (
+        {APP_TABS.map((tab) => (
           <button
             key={tab}
             className={`settings-nav-item ${activeTab === tab ? "active" : ""}`}
@@ -254,6 +426,20 @@ export function SettingsModal() {
             {TAB_LABELS[tab]}
           </button>
         ))}
+        {server && (
+          <>
+            <div className="settings-nav-divider">{server.name}</div>
+            {SERVER_TABS.map((tab) => (
+              <button
+                key={tab}
+                className={`settings-nav-item ${activeTab === tab ? "active" : ""}`}
+                onClick={() => setActiveTab(tab)}
+              >
+                {TAB_LABELS[tab]}
+              </button>
+            ))}
+          </>
+        )}
         <div className="settings-nav-spacer" />
         <button className="settings-nav-close" onClick={closeSettings}>
           <X size={16} />
@@ -391,6 +577,30 @@ export function SettingsModal() {
               </button>
             </div>
           </div>
+        )}
+
+        {activeTab === "server-overview" && server && (
+          <ServerOverviewTab
+            server={server}
+            isOwner={!!isOwner}
+            user={user}
+            updateServer={updateServer}
+            leaveServer={leaveServer}
+            close={closeSettings}
+          />
+        )}
+        {activeTab === "server-members" && server && (
+          <ServerMembersTab
+            server={server}
+            user={user}
+            members={members}
+          />
+        )}
+        {activeTab === "server-emojis" && server && (
+          <EmojiTab serverId={server.id} />
+        )}
+        {activeTab === "server-soundboard" && server && (
+          <SoundboardTab serverId={server.id} />
         )}
       </div>
     </div>

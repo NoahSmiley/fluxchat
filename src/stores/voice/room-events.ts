@@ -51,6 +51,18 @@ function cleanupAllParticipantAudio() {
   }
 }
 
+/** Mute or restore all participant audio (used by deafen toggle). */
+export function setAllParticipantGains(muted: boolean, volumes: Record<string, number>) {
+  for (const [identity, pipeline] of participantAudioPipelines) {
+    const vol = muted ? 0 : (volumes[identity] ?? 1.0);
+    if (pipeline.gain && pipeline.ctx) {
+      pipeline.gain.gain.setValueAtTime(vol, pipeline.ctx.currentTime);
+    } else {
+      pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
+    }
+  }
+}
+
 export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState>, isHybrid = false) {
   const get = () => storeRef.getState();
   const set = (partial: Partial<VoiceState> | ((state: VoiceState) => Partial<VoiceState>)) => {
@@ -259,7 +271,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
       }
 
       cleanupParticipantAudio(participant.identity);
-      const vol = get().participantVolumes[participant.identity] ?? 1.0;
+      const vol = get().isDeafened ? 0 : (get().participantVolumes[participant.identity] ?? 1.0);
 
       // Create a hidden <audio> element to satisfy browser autoplay with LiveKit's attach()
       const el = track.attach() as unknown;
