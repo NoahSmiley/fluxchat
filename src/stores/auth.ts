@@ -39,8 +39,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   ssoCode: null,
 
   initialize: async () => {
-    const session = await api.getSession();
-    set({ user: session?.user ?? null, loading: false });
+    try {
+      const session = await api.getSession();
+      set({ user: session?.user ?? null, loading: false });
+    } catch (err) {
+      console.error("[auth] initialize failed:", err);
+      set({ user: null, loading: false });
+    }
   },
 
   startSSO: async () => {

@@ -6,5 +6,10 @@
     <string>Flux needs microphone access for voice channels</string>
     <key>NSCameraUsageDescription</key>
     <string>Flux needs camera access for video calls</string>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
 </dict>
 </plist>
