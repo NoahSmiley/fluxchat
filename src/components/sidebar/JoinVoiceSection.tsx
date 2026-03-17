@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/auth.js";
 import { ChevronRight, Plus } from "lucide-react";
 import { gateway } from "@/lib/ws.js";
 import * as api from "@/lib/api/index.js";
+import { useChatStore } from "@/stores/chat/index.js";
 import { dbg } from "@/lib/debug.js";
 import { AnimatedList } from "@/components/AnimatedList.js";
 import type { VoiceUser } from "@/stores/voice/types.js";
@@ -234,6 +235,11 @@ export function JoinVoiceSection({
               const name = `Room ${n}`;
               try {
                 const newRoom = await api.createRoom(activeServerId, name);
+                // Optimistically add room to channels before WebSocket event arrives
+                useChatStore.setState((s) => {
+                  if (s.channels.some((c) => c.id === newRoom.id)) return s;
+                  return { channels: [...s.channels, newRoom] };
+                });
                 selectChannel(newRoom.id);
                 useVoiceStore.getState().joinVoiceChannel(newRoom.id);
               } catch (err) {
