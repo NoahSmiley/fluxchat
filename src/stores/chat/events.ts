@@ -65,10 +65,6 @@ import("@/stores/notifications.js").then((m) => { notifStoreRef = m.useNotifStor
 let dmStoreRef: DMStoreRef = null;
 import("@/stores/dm/store.js").then((m) => { dmStoreRef = m.useDMStore; });
 
-export type GalleryStoreRef = typeof import("@/stores/gallery.js").useGalleryStore | null;
-let galleryStoreRef: GalleryStoreRef = null;
-import("@/stores/gallery.js").then((m) => { galleryStoreRef = m.useGalleryStore; });
-
 // ── Shared helpers (exported for domain modules) ──
 
 export type IsChannelOrCategoryMutedFn = typeof isChannelOrCategoryMuted;
@@ -95,16 +91,6 @@ function isMentionMuted(
   if (!notif) return false;
   return notif.isChannelMentionMuted(channelId) ||
     (!!parentId && notif.isCategoryMentionMuted(parentId));
-}
-
-// ── Gallery handler ──
-
-function handleGallerySetUpdated(event: { setId: string }) {
-  if (!galleryStoreRef) return;
-  const gs = galleryStoreRef.getState();
-  if (gs.subscribedSets.some((s) => s.id === event.setId)) {
-    gs.refreshSubscribedSet(event.setId);
-  }
 }
 
 // ── Activity polling state ──
@@ -269,10 +255,6 @@ gateway.on((event) => {
       handleVoiceJoinLeave(event);
       break;
 
-    // Gallery
-    case "gallery_set_updated":
-      handleGallerySetUpdated(event);
-      break;
 
     // Orchestration
     case "orchestration_plan":

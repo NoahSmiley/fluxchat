@@ -293,6 +293,47 @@ pub async fn update_me(
         }
     }
 
+    // Banner CSS
+    if let Some(ref banner_val) = body.banner_css {
+        match banner_val {
+            serde_json::Value::Null => {
+                let now = chrono::Utc::now().to_rfc3339();
+                let _ = sqlx::query(
+                    r#"UPDATE "user" SET banner_css = NULL, updatedAt = ? WHERE id = ?"#,
+                )
+                .bind(&now)
+                .bind(&user.id)
+                .execute(&state.db)
+                .await;
+                has_updates = true;
+            }
+            serde_json::Value::String(css) => {
+                let valid_banners = [
+                    "sunset", "aurora", "cityscape", "space",
+                    "wyrm_manuscript", "doppler", "gamma_doppler",
+                ];
+                if !valid_banners.contains(&css.as_str()) {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({"error": "Invalid banner style"})),
+                    )
+                        .into_response();
+                }
+                let now = chrono::Utc::now().to_rfc3339();
+                let _ = sqlx::query(
+                    r#"UPDATE "user" SET banner_css = ?, updatedAt = ? WHERE id = ?"#,
+                )
+                .bind(css)
+                .bind(&now)
+                .bind(&user.id)
+                .execute(&state.db)
+                .await;
+                has_updates = true;
+            }
+            _ => {}
+        }
+    }
+
     // Intro sound
     if let Some(ref val) = body.intro_sound_attachment_id {
         match handle_sound_field(&state.db, &user.id, "intro_sound_attachment_id", val).await {

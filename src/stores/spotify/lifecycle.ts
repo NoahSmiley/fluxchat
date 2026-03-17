@@ -135,7 +135,14 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
         });
         persisted.addListener("player_state_changed", (state: import("./types.js").SpotifyPlayerState | null) => {
           set({ playerState: state });
-          if (state) get().updateActivity();
+          if (state) {
+            get().updateActivity();
+            // Detect end-of-track: paused + position near duration
+            if (state.paused && state.duration > 0 && state.position >= state.duration - 1000) {
+              dbg("spotify", "track ended (persisted player) — triggering skip");
+              get().skip();
+            }
+          }
         });
         return;
       }
@@ -204,7 +211,14 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
         trackArtist: track?.artists?.map((a) => a.name).join(", "),
       });
       set({ playerState: state });
-      if (state) get().updateActivity();
+      if (state) {
+        get().updateActivity();
+        // Detect end-of-track: paused + position near duration
+        if (state.paused && state.duration > 0 && state.position >= state.duration - 1000) {
+          dbg("spotify", "track ended — triggering skip");
+          get().skip();
+        }
+      }
     });
 
     console.log("[spotify] calling player.connect()...");

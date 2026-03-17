@@ -95,6 +95,8 @@ pub struct UpdateUserRequest {
     pub intro_sound_attachment_id: Option<serde_json::Value>,
     #[serde(default, deserialize_with = "nullable_value")]
     pub exit_sound_attachment_id: Option<serde_json::Value>,
+    #[serde(default, deserialize_with = "nullable_value")]
+    pub banner_css: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]

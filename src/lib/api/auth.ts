@@ -55,7 +55,7 @@ export async function getSession(): Promise<{ user: { id: string; email: string;
 
 // ── User Profile ──
 
-export async function updateUserProfile(data: { username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; steamId?: string | null; introSoundAttachmentId?: string | null; exitSoundAttachmentId?: string | null }) {
+export async function updateUserProfile(data: { username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; steamId?: string | null; introSoundAttachmentId?: string | null; exitSoundAttachmentId?: string | null; bannerCss?: string | null }) {
   return request<{ id: string; username: string; email: string; image: string | null; ringStyle: RingStyle; ringSpin: boolean; steamId: string | null; ringPatternSeed: number | null; bannerCss: string | null; bannerPatternSeed: number | null; introSoundUrl: string | null; exitSoundUrl: string | null }>("/users/me", {
     method: "PATCH",
     body: JSON.stringify(data),

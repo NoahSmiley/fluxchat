@@ -24,14 +24,18 @@ interface ParticipantAudio {
 }
 const participantAudioPipelines = new Map<string, ParticipantAudio>();
 
+// Current master speaker volume (updated by store action)
+let masterSpeakerVolume = 1.0;
+
 export function setParticipantGain(identity: string, volume: number) {
+  const effective = volume * masterSpeakerVolume;
   const pipeline = participantAudioPipelines.get(identity);
   if (!pipeline) return;
   if (pipeline.gain && pipeline.ctx) {
-    pipeline.gain.gain.setValueAtTime(volume, pipeline.ctx.currentTime);
+    pipeline.gain.gain.setValueAtTime(effective, pipeline.ctx.currentTime);
   } else {
     // Fallback: HTMLAudioElement.volume (0-1 range, no boost beyond 100%)
-    pipeline.audioEl.volume = Math.min(Math.max(volume, 0), 1);
+    pipeline.audioEl.volume = Math.min(Math.max(effective, 0), 1);
   }
 }
 
@@ -54,7 +58,7 @@ function cleanupAllParticipantAudio() {
 /** Mute or restore all participant audio (used by deafen toggle). */
 export function setAllParticipantGains(muted: boolean, volumes: Record<string, number>) {
   for (const [identity, pipeline] of participantAudioPipelines) {
-    const vol = muted ? 0 : (volumes[identity] ?? 1.0);
+    const vol = muted ? 0 : (volumes[identity] ?? 1.0) * masterSpeakerVolume;
     if (pipeline.gain && pipeline.ctx) {
       pipeline.gain.gain.setValueAtTime(vol, pipeline.ctx.currentTime);
     } else {
@@ -63,11 +67,58 @@ export function setAllParticipantGains(muted: boolean, volumes: Record<string, n
   }
 }
 
+/** Update master speaker volume and re-apply all gains. */
+export function setMasterSpeakerGain(volume: number, participantVolumes: Record<string, number>, isDeafened: boolean) {
+  masterSpeakerVolume = volume;
+  setAllParticipantGains(isDeafened, participantVolumes);
+}
+
+// ── Local mic gain pipeline ──
+let localMicCtx: AudioContext | null = null;
+let localMicGain: GainNode | null = null;
+let localMicSource: MediaStreamAudioSourceNode | null = null;
+
+export function setupLocalMicGain(mediaStreamTrack: MediaStreamTrack, micVolume: number): MediaStreamTrack | null {
+  cleanupLocalMicGain();
+  try {
+    localMicCtx = new AudioContext();
+    localMicSource = localMicCtx.createMediaStreamSource(new MediaStream([mediaStreamTrack]));
+    localMicGain = localMicCtx.createGain();
+    localMicGain.gain.value = micVolume;
+    const dest = localMicCtx.createMediaStreamDestination();
+    localMicSource.connect(localMicGain);
+    localMicGain.connect(dest);
+    return dest.stream.getAudioTracks()[0];
+  } catch (e) {
+    dbg("voice", "setupLocalMicGain failed", e);
+    cleanupLocalMicGain();
+    return null;
+  }
+}
+
+export function setLocalMicGain(volume: number) {
+  if (localMicGain && localMicCtx) {
+    localMicGain.gain.setValueAtTime(volume, localMicCtx.currentTime);
+  }
+}
+
+export function cleanupLocalMicGain() {
+  localMicSource?.disconnect();
+  localMicGain?.disconnect();
+  localMicCtx?.close().catch(() => {});
+  localMicCtx = null;
+  localMicGain = null;
+  localMicSource = null;
+}
+
 export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState>, isHybrid = false) {
   const get = () => storeRef.getState();
   const set = (partial: Partial<VoiceState> | ((state: VoiceState) => Partial<VoiceState>)) => {
     storeRef.setState(partial as any);
   };
+
+  // Initialize master speaker volume from saved settings
+  masterSpeakerVolume = get().audioSettings.speakerVolume;
 
   // ── Local mic audio level via Web Audio API (instant) ──
   let localAnalyser: AnalyserNode | null = null;
@@ -197,6 +248,7 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
     }
     cleanupLocalAnalyser();
     cleanupAllParticipantAudio();
+    cleanupLocalMicGain();
     speakingHoldTimers.clear();
     smoothedLevels.clear();
 
@@ -276,7 +328,8 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
       }
 
       cleanupParticipantAudio(participant.identity);
-      const vol = get().isDeafened ? 0 : (get().participantVolumes[participant.identity] ?? 1.0);
+      const partVol = get().participantVolumes[participant.identity] ?? 1.0;
+      const vol = get().isDeafened ? 0 : partVol * masterSpeakerVolume;
 
       // Create a hidden <audio> element to satisfy browser autoplay with LiveKit's attach()
       const el = track.attach() as unknown;
@@ -332,6 +385,19 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
   room.on(RoomEvent.LocalTrackPublished, async (pub) => {
     dbg("voice", `LocalTrackPublished source=${pub.source} sid=${pub.trackSid}`);
     if (pub.track?.sender && pub.source === Track.Source.Microphone) {
+      // ── Mic volume gain ──
+      const { audioSettings } = get();
+      if (audioSettings.micVolume !== 1.0) {
+        const mst = pub.track.mediaStreamTrack;
+        if (mst) {
+          const adjustedTrack = setupLocalMicGain(mst, audioSettings.micVolume);
+          if (adjustedTrack) {
+            await pub.track.sender.replaceTrack(adjustedTrack);
+            dbg("voice", `LocalTrackPublished mic gain applied vol=${audioSettings.micVolume}`);
+          }
+        }
+      }
+
       const params = pub.track.sender.getParameters();
       if (params.encodings && params.encodings.length > 0) {
         const br = adaptiveTargetBitrate;
@@ -342,7 +408,6 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
       }
 
       // ── Krisp noise suppression ──
-      const { audioSettings } = get();
       if (audioSettings.noiseSuppression) {
         const processor = await attachNoiseFilter(pub);
         if (processor) setActiveKrispProcessor(processor);

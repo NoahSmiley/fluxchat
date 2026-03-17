@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import { Play, Pause, SkipForward, Volume2, VolumeX } from "lucide-react";
 
 interface MusicNowPlayingProps {
@@ -37,13 +38,40 @@ export function MusicNowPlaying({
   seek,
   setVolume,
 }: MusicNowPlayingProps) {
-  const progressPct = durationMs > 0 ? (progressMs / durationMs) * 100 : 0;
+  // ── Client-side progress interpolation ──
+  // Spotify SDK only updates position on state-change events (not continuously).
+  // We interpolate by tracking when the last known position was received
+  // and adding elapsed wall-clock time while playing.
+  const [displayProgress, setDisplayProgress] = useState(progressMs);
+  const lastKnownRef = useRef({ progressMs, timestamp: Date.now() });
+
+  // Sync when the store's progressMs changes (new SDK event or YouTube timeupdate)
+  useEffect(() => {
+    lastKnownRef.current = { progressMs, timestamp: Date.now() };
+    setDisplayProgress(progressMs);
+  }, [progressMs]);
+
+  // Tick forward ~4x/sec while playing
+  useEffect(() => {
+    if (isPaused || durationMs <= 0) return;
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - lastKnownRef.current.timestamp;
+      const interpolated = Math.min(lastKnownRef.current.progressMs + elapsed, durationMs);
+      setDisplayProgress(interpolated);
+    }, 250);
+    return () => clearInterval(interval);
+  }, [isPaused, durationMs]);
+
+  const progressPct = durationMs > 0 ? (displayProgress / durationMs) * 100 : 0;
 
   function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
     if (durationMs <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    seek(Math.round(pct * durationMs));
+    const seekMs = Math.round(pct * durationMs);
+    lastKnownRef.current = { progressMs: seekMs, timestamp: Date.now() };
+    setDisplayProgress(seekMs);
+    seek(seekMs);
   }
 
   return (
@@ -65,7 +93,7 @@ export function MusicNowPlaying({
 
           {/* Progress bar */}
           <div className="music-progress-row">
-            <span className="music-progress-time">{formatTime(progressMs)}</span>
+            <span className="music-progress-time">{formatTime(displayProgress)}</span>
             <div className="music-progress-bar" onClick={handleSeek}>
               <div className="music-progress-fill" style={{ width: `${progressPct}%` }} />
             </div>

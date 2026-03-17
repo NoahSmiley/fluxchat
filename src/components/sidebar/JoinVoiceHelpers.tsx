@@ -46,18 +46,25 @@ export function CollapsedAvatars({ participants, members }: {
       {participants.map((p) => {
         const member = members.find((m) => m.userId === p.userId);
         const image = member?.image;
+        const rClass = ringClass(member?.ringStyle, member?.ringSpin, member?.role, false, member?.ringPatternSeed);
+        const rStyle = ringGradientStyle(member?.ringPatternSeed, member?.ringStyle);
         return (
           <span
             key={p.userId}
-            className="voice-room-avatar"
-            style={{ background: image ? "transparent" : avatarColor(p.username) }}
+            className={`voice-room-avatar-ring ${rClass}`}
+            style={rStyle as React.CSSProperties}
             title={p.username}
           >
-            {image ? (
-              <img src={image} alt={p.username} />
-            ) : (
-              p.username.charAt(0).toUpperCase()
-            )}
+            <span
+              className="voice-room-avatar"
+              style={{ background: image ? "transparent" : avatarColor(p.username) }}
+            >
+              {image ? (
+                <img src={image} alt={p.username} />
+              ) : (
+                p.username.charAt(0).toUpperCase()
+              )}
+            </span>
           </span>
         );
       })}

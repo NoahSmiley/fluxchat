@@ -8,9 +8,6 @@ export type {
   SoundboardSound,
   CustomEmoji,
   EmojiFavorites,
-  GallerySet,
-  GallerySetImage,
-  GallerySetDetail,
 } from "./server.js";
 
 export type {
@@ -106,7 +103,6 @@ export type WSServerEvent =
   | { type: "room_invite"; channelId: string; channelName: string; inviterUsername: string; serverId: string }
   | { type: "room_force_move"; targetChannelId: string; targetChannelName: string }
   | { type: "voice_join_leave"; channelId: string; userId: string; username: string; action: "join" | "leave"; soundUrl?: string }
-  | { type: "gallery_set_updated"; setId: string }
   | { type: "error"; message: string };
 
 // --- Constants ---

@@ -28,7 +28,7 @@ interface AuthState {
   startSSO: () => Promise<void>;
   cancelSSO: () => void;
   logout: () => Promise<void>;
-  updateProfile: (data: { username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; steamId?: string | null; introSoundAttachmentId?: string | null; exitSoundAttachmentId?: string | null }) => Promise<void>;
+  updateProfile: (data: { username?: string; image?: string | null; ringStyle?: RingStyle; ringSpin?: boolean; steamId?: string | null; introSoundAttachmentId?: string | null; exitSoundAttachmentId?: string | null; bannerCss?: string | null }) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({

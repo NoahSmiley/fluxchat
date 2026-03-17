@@ -16,6 +16,8 @@ export interface AudioSettings {
   voiceGating: boolean;
   sensitivity: number; // VAD threshold 0.0–1.0
   adaptiveBitrate: boolean;
+  micVolume: number;     // 0.0–2.0 (default 1.0 = 100%)
+  speakerVolume: number; // 0.0–2.0 (default 1.0 = 100%)
 }
 
 export interface VoiceUser {
@@ -65,6 +67,8 @@ export const DEFAULT_SETTINGS: AudioSettings = {
   voiceGating: true,
   sensitivity: 0.5,
   adaptiveBitrate: true,
+  micVolume: 1.0,
+  speakerVolume: 1.0,
 };
 
 export interface VoiceState {

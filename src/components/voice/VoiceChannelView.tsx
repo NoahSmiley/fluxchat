@@ -43,6 +43,8 @@ export function VoiceChannelView() {
     setParticipantVolume,
     screenShareQuality,
     setScreenShareQuality,
+    audioSettings,
+    updateAudioSetting,
   } = useVoiceStore(useShallow((s) => ({
     room: s.room, connectedChannelId: s.connectedChannelId, connecting: s.connecting,
     connectionError: s.connectionError, participants: s.participants, channelParticipants: s.channelParticipants, isMuted: s.isMuted,
@@ -52,6 +54,7 @@ export function VoiceChannelView() {
     leaveVoiceChannel: s.leaveVoiceChannel, toggleMute: s.toggleMute, toggleDeafen: s.toggleDeafen,
     toggleScreenShare: s.toggleScreenShare, setParticipantVolume: s.setParticipantVolume,
     screenShareQuality: s.screenShareQuality, setScreenShareQuality: s.setScreenShareQuality,
+    audioSettings: s.audioSettings, updateAudioSetting: s.updateAudioSetting,
   })));
   const { loadSession, playerState, session, queue, volume, setVolume } = useSpotifyStore(useShallow((s) => ({
     loadSession: s.loadSession, playerState: s.playerState, session: s.session,
@@ -269,10 +272,14 @@ export function VoiceChannelView() {
           isMuted={isMuted}
           isDeafened={isDeafened}
           isScreenSharing={isScreenSharing}
+          micVolume={audioSettings.micVolume}
+          speakerVolume={audioSettings.speakerVolume}
           toggleMute={toggleMute}
           toggleDeafen={toggleDeafen}
           toggleScreenShare={toggleScreenShare}
           leaveVoiceChannel={leaveVoiceChannel}
+          onMicVolumeChange={(v) => updateAudioSetting("micVolume", v)}
+          onSpeakerVolumeChange={(v) => updateAudioSetting("speakerVolume", v)}
         />
       )}
 

@@ -8,7 +8,6 @@ import { getDebugEnabled, setDebugEnabled, dumpLogs } from "@/lib/debug.js";
 import { X } from "lucide-react";
 import { ProfileTab } from "./settings/ProfileTab.js";
 import { AppearanceTab } from "./settings/AppearanceTab.js";
-import { GalleryTab } from "./settings/GalleryTab.js";
 import { NotificationsTab } from "./settings/NotificationsTab.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
 import { IntroExitSoundsCard } from "./settings/IntroExitSoundsCard.js";
@@ -38,6 +37,40 @@ function VoiceSettingsTab() {
 
   return (
     <>
+      <div className="settings-card">
+        <h3 className="settings-card-title">Volume</h3>
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Microphone Volume</span>
+            <span className="settings-row-desc">{Math.round((audioSettings.micVolume ?? 1) * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={200}
+            step={1}
+            value={Math.round((audioSettings.micVolume ?? 1) * 100)}
+            onChange={(e) => updateAudioSetting("micVolume", parseInt(e.target.value) / 100)}
+            className="settings-range"
+          />
+        </div>
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Speaker Volume</span>
+            <span className="settings-row-desc">{Math.round((audioSettings.speakerVolume ?? 1) * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={200}
+            step={1}
+            value={Math.round((audioSettings.speakerVolume ?? 1) * 100)}
+            onChange={(e) => updateAudioSetting("speakerVolume", parseInt(e.target.value) / 100)}
+            className="settings-range"
+          />
+        </div>
+      </div>
+
       <div className="settings-card">
         <h3 className="settings-card-title">Devices</h3>
         <div className="voice-device-row">
@@ -348,12 +381,11 @@ function ServerMembersTab({
   );
 }
 
-type SettingsTab = "profile" | "appearance" | "gallery" | "notifications" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "debug" | "server-overview" | "server-members" | "server-emojis" | "server-soundboard";
+type SettingsTab = "profile" | "appearance" | "notifications" | "voice" | "keybinds" | "updates" | "spotify" | "cs2" | "debug" | "server-overview" | "server-members" | "server-emojis" | "server-soundboard";
 
 const TAB_LABELS: Record<SettingsTab, string> = {
   profile: "Profile",
   appearance: "Appearance",
-  gallery: "Gallery",
   notifications: "Notifications",
   voice: "Voice & Audio",
   keybinds: "Keybinds",
@@ -367,7 +399,7 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   "server-soundboard": "Soundboard",
 };
 
-const APP_TABS: SettingsTab[] = ["profile", "appearance", "gallery", "notifications", "voice", "keybinds", "updates", "spotify", "cs2", "debug"];
+const APP_TABS: SettingsTab[] = ["profile", "appearance", "notifications", "voice", "keybinds", "updates", "spotify", "cs2", "debug"];
 const SERVER_TABS: SettingsTab[] = ["server-overview", "server-members", "server-emojis", "server-soundboard"];
 
 export function SettingsModal() {
@@ -453,8 +485,6 @@ export function SettingsModal() {
         {activeTab === "profile" && <ProfileTab />}
 
         {activeTab === "appearance" && <AppearanceTab />}
-
-        {activeTab === "gallery" && <GalleryTab />}
 
         {activeTab === "notifications" && <NotificationsTab />}
 

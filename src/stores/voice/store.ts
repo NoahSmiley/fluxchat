@@ -12,6 +12,7 @@ import { createToggleMute, createSetMuted, createToggleDeafen, createSetParticip
 import { createToggleScreenShare, createSetScreenShareQuality } from "./screen-share.js";
 import { createUpdateParticipants, createUpdateScreenSharers, createSetChannelParticipants } from "./participants.js";
 import { attachNoiseFilter, detachNoiseFilter } from "@/lib/noiseProcessor.js";
+import { setMasterSpeakerGain, setLocalMicGain, setupLocalMicGain } from "./room-events.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import { Track } from "livekit-client";
@@ -149,6 +150,28 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
           dbg("voice", "Live VAD toggle failed", e);
         }
       })();
+    }
+
+    // ── Live adjust: speaker volume ──
+    if (key === "speakerVolume" && typeof value === "number") {
+      const { participantVolumes, isDeafened } = storeApi.getState();
+      setMasterSpeakerGain(value, participantVolumes, isDeafened);
+    }
+
+    // ── Live adjust: mic volume ──
+    if (room && key === "micVolume" && typeof value === "number") {
+      setLocalMicGain(value);
+      // If mic gain pipeline doesn't exist yet (micVolume was 1.0 at connect time), set it up now
+      const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      const mst = micPub?.track?.mediaStreamTrack;
+      if (mst && micPub?.track?.sender) {
+        const adjustedTrack = setupLocalMicGain(mst, value);
+        if (adjustedTrack) {
+          micPub.track.sender.replaceTrack(adjustedTrack).catch((e) =>
+            dbg("voice", "mic gain replaceTrack failed", e)
+          );
+        }
+      }
     }
 
     // ── Live toggle: adaptive bitrate ──

@@ -1,6 +1,7 @@
 import type { Channel } from "@/types/shared.js";
 
 const COLLAPSE_KEY = "flux-collapsed-categories";
+const ROOM_COLLAPSE_KEY = "flux-collapsed-rooms";
 
 export function loadCollapsed(): Set<string> {
   try {
@@ -11,6 +12,17 @@ export function loadCollapsed(): Set<string> {
 
 export function saveCollapsed(set: Set<string>) {
   localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set]));
+}
+
+export function loadCollapsedRooms(): Set<string> {
+  try {
+    const raw = localStorage.getItem(ROOM_COLLAPSE_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+}
+
+export function saveCollapsedRooms(set: Set<string>) {
+  localStorage.setItem(ROOM_COLLAPSE_KEY, JSON.stringify([...set]));
 }
 
 export interface TreeNode {

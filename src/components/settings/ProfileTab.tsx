@@ -1,10 +1,21 @@
 import { useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useAuthStore } from "@/stores/auth.js";
-import { avatarColor } from "@/lib/avatarColor.js";
+import { avatarColor, bannerBackground } from "@/lib/avatarColor.js";
 import { AvatarCropModal } from "@/components/modals/AvatarCropModal.js";
 import { ToggleSwitch } from "@/components/SettingsModal.js";
 import type { RingStyle } from "@/types/shared.js";
+
+const BANNER_STYLES: { value: string | null; label: string }[] = [
+  { value: null, label: "None" },
+  { value: "sunset", label: "Sunset" },
+  { value: "aurora", label: "Aurora" },
+  { value: "cityscape", label: "Cityscape" },
+  { value: "space", label: "Space" },
+  { value: "wyrm_manuscript", label: "Wyrm" },
+  { value: "doppler", label: "Doppler" },
+  { value: "gamma_doppler", label: "Gamma" },
+];
 
 const RING_STYLES: { value: RingStyle; label: string }[] = [
   { value: "default", label: "Default" },
@@ -30,6 +41,7 @@ export function ProfileTab() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [ringSaving, setRingSaving] = useState(false);
+  const [bannerSaving, setBannerSaving] = useState(false);
   const [cropImage, setCropImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -141,6 +153,39 @@ export function ProfileTab() {
               style={{ display: "none" }}
             />
           </div>
+        </div>
+      </div>
+
+      <div className="settings-card">
+        <h3 className="settings-card-title">Profile Header</h3>
+        <p className="settings-card-desc">Choose a banner background for your profile card.</p>
+
+        {user?.bannerCss && (
+          <div
+            className="banner-preview"
+            style={{ background: bannerBackground(user.bannerCss, user.bannerPatternSeed) }}
+          />
+        )}
+
+        <div className="ring-style-picker">
+          {BANNER_STYLES.map((bs) => (
+            <button
+              key={bs.value ?? "none"}
+              className={`ring-style-option ${(user?.bannerCss ?? null) === bs.value ? "active" : ""}`}
+              disabled={bannerSaving}
+              onClick={async () => {
+                setBannerSaving(true);
+                try { await updateProfile({ bannerCss: bs.value }); } catch {}
+                setBannerSaving(false);
+              }}
+            >
+              <div
+                className="banner-swatch"
+                style={bs.value ? { background: bannerBackground(bs.value, null) ?? "var(--bg-tertiary)" } : undefined}
+              />
+              <span className="ring-style-label">{bs.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 

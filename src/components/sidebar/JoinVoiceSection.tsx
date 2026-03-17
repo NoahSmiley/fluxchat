@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/auth.js";
 import { ChevronRight, Plus } from "lucide-react";
 import { gateway } from "@/lib/ws.js";
 import * as api from "@/lib/api/index.js";
+import { loadCollapsedRooms, saveCollapsedRooms } from "@/lib/channel-tree.js";
 import { useChatStore } from "@/stores/chat/index.js";
 import { dbg } from "@/lib/debug.js";
 import { AnimatedList } from "@/components/AnimatedList.js";
@@ -79,7 +80,7 @@ export function JoinVoiceSection({
   setRenamingRoomId,
 }: JoinVoiceSectionProps) {
   const { user } = useAuthStore();
-  const [collapsedRooms, setCollapsedRooms] = useState<Set<string>>(new Set());
+  const [collapsedRooms, setCollapsedRooms] = useState<Set<string>>(loadCollapsedRooms);
   const [dragHighlightRoom, setDragHighlightRoom] = useState<string | null>(null);
 
   const isInVoice = !!connectedChannelId || connecting;
@@ -95,7 +96,7 @@ export function JoinVoiceSection({
   const screenSharerIds = useMemo(() => new Set(screenSharers.map((s) => s.participantId)), [screenSharers]);
 
   // Animate the Create Room button in/out
-  const showCreateBtn = !connectedChannelId;
+  const showCreateBtn = true;
   const [createBtnVisible, setCreateBtnVisible] = useState(showCreateBtn);
   const [createBtnAnim, setCreateBtnAnim] = useState("");
   const createBtnTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -177,6 +178,7 @@ export function JoinVoiceSection({
                         onClick={(e) => { e.stopPropagation(); setCollapsedRooms((prev) => {
                           const next = new Set(prev);
                           if (next.has(vc.id)) next.delete(vc.id); else next.add(vc.id);
+                          saveCollapsedRooms(next);
                           return next;
                         }); }}
                       >

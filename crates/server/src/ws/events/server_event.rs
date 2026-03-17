@@ -254,10 +254,6 @@ pub enum ServerEvent {
         #[serde(rename = "targetChannelName")]
         target_channel_name: String,
     },
-    GallerySetUpdated {
-        #[serde(rename = "setId")]
-        set_id: String,
-    },
     Error {
         message: String,
     },
