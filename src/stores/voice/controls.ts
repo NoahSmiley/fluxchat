@@ -53,7 +53,8 @@ export function createToggleDeafen(storeRef: StoreApi<VoiceState>) {
     setAllParticipantGains(newDeafened, participantVolumes);
 
     // Broadcast deafen state to other participants via metadata
-    room.localParticipant.setMetadata(JSON.stringify({ deafened: newDeafened }));
+    room.localParticipant.setMetadata(JSON.stringify({ deafened: newDeafened }))
+      .catch((e) => dbg("voice", "setMetadata failed (non-fatal)", e));
 
     storeRef.getState()._updateParticipants();
     newDeafened ? playDeafenSound() : playUndeafenSound();

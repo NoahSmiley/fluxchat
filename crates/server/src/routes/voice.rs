@@ -98,6 +98,7 @@ pub async fn get_token(
         room: body.channel_id.clone(),
         can_publish: !is_viewer,
         can_subscribe: true,
+        can_update_own_metadata: true,
         ..Default::default()
     })
     .to_jwt();
@@ -117,6 +118,7 @@ pub async fn get_token(
                     room: body.channel_id.clone(),
                     can_publish: !is_viewer,
                     can_subscribe: true,
+                    can_update_own_metadata: true,
                     ..Default::default()
                 })
                 .to_jwt();

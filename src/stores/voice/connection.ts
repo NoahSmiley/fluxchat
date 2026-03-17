@@ -338,6 +338,14 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         gateway.send({ type: "voice_state_update", channelId: previousChannelId, action: "leave" });
       }
       gateway.send({ type: "voice_state_update", channelId, action: "join" });
+
+      // Retry voice_state_update after a short delay in case the WS message was dropped
+      // (e.g. WebSocket briefly disconnected during the join flow)
+      setTimeout(() => {
+        if (storeRef.getState().connectedChannelId === channelId) {
+          gateway.send({ type: "voice_state_update", channelId, action: "join" });
+        }
+      }, 2000);
     } catch (err) {
       joiningChannelId = null;
       if (isStale()) return;
