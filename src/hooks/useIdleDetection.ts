@@ -3,23 +3,26 @@ import { useChatStore } from "@/stores/chat/index.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { useVoiceStore } from "@/stores/voice/index.js";
 
-// How long without any system-wide input (keyboard/mouse or voice) before marking idle
 const IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const POLL_INTERVAL_MS = 30 * 1000;
+const IPC_READY_DELAY_MS = 5_000;
 
-// How often to poll GetLastInputInfo while app may be in background
-const POLL_INTERVAL_MS = 30 * 1000; // 30 seconds
+// Module-level flag — set on beforeunload so in-flight invoke() calls bail out.
+// This prevents the uncatchable ipc:// fetch error during page refresh.
+let unloading = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", () => { unloading = true; });
+}
 
-/**
- * Polls OS-level idle time via GetLastInputInfo (Windows) to auto-set status
- * to "idle" after IDLE_TIMEOUT_MS of inactivity across the whole machine.
- * Also treats recent mic transmission as activity, so talking in voice
- * without touching keyboard/mouse keeps the user online.
- * Restores to "online" near-instantly when the user focuses the window.
- */
 export function useIdleDetection() {
   const isAutoIdleRef = useRef(false);
 
   useEffect(() => {
+    if (!(window as any).__TAURI_INTERNALS__) return;
+
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
     function getMyStatus() {
       const userId = useAuthStore.getState().user?.id;
       if (!userId) return undefined;
@@ -27,7 +30,12 @@ export function useIdleDetection() {
     }
 
     async function checkIdle() {
+      if (cancelled || unloading) return;
+
       const { invoke } = await import("@tauri-apps/api/core");
+
+      if (cancelled || unloading) return;
+
       let idleMs: number;
       try {
         idleMs = await invoke<number>("get_system_idle_ms");
@@ -35,7 +43,8 @@ export function useIdleDetection() {
         return;
       }
 
-      // Also treat recent voice transmission as activity
+      if (cancelled || unloading) return;
+
       const { lastSpokeAt } = useVoiceStore.getState();
       const voiceIdleMs = lastSpokeAt > 0 ? Date.now() - lastSpokeAt : Infinity;
       const effectiveIdleMs = Math.min(idleMs, voiceIdleMs);
@@ -51,16 +60,18 @@ export function useIdleDetection() {
       }
     }
 
-    // Poll to detect going idle (works even when app is in background)
-    checkIdle();
-    const interval = setInterval(checkIdle, POLL_INTERVAL_MS);
-
-    // Instant return-to-active detection when user focuses the window
-    window.addEventListener("focus", checkIdle);
-    document.addEventListener("visibilitychange", checkIdle);
+    const startupTimer = setTimeout(() => {
+      if (cancelled || unloading) return;
+      checkIdle();
+      interval = setInterval(checkIdle, POLL_INTERVAL_MS);
+      window.addEventListener("focus", checkIdle);
+      document.addEventListener("visibilitychange", checkIdle);
+    }, IPC_READY_DELAY_MS);
 
     return () => {
-      clearInterval(interval);
+      cancelled = true;
+      clearTimeout(startupTimer);
+      if (interval) clearInterval(interval);
       window.removeEventListener("focus", checkIdle);
       document.removeEventListener("visibilitychange", checkIdle);
     };

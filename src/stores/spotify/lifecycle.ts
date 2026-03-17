@@ -88,9 +88,9 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
     const set = storeApi.setState.bind(storeApi);
     const get = storeApi.getState.bind(storeApi);
 
-    console.log("[spotify] connectPlayer", { hasSpotifyGlobal: !!window.Spotify, hasPlayer: !!get().player });
+    dbg("spotify", "connectPlayer", { hasSpotifyGlobal: !!window.Spotify, hasPlayer: !!get().player });
     if (!window.Spotify) {
-      console.warn("[spotify] connectPlayer aborted — window.Spotify not available");
+      dbg("spotify", "connectPlayer aborted — window.Spotify not available");
       return;
     }
 
@@ -99,7 +99,7 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
     if (persisted && !get().player) {
       if (persistedDeviceId) {
         // Persisted player was previously functional — restore it
-        console.log("[spotify] restoring persisted player, deviceId:", persistedDeviceId);
+        dbg("spotify", "restoring persisted player", { deviceId: persistedDeviceId });
         set({ player: persisted, deviceId: persistedDeviceId });
 
         persisted.removeListener("player_state_changed");
@@ -111,27 +111,27 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
         persisted.removeListener("playback_error");
 
         persisted.addListener("ready", ({ device_id }: { device_id: string }) => {
-          console.log("[spotify] persisted player ready, deviceId:", device_id);
+          dbg("spotify", "persisted player ready", { deviceId: device_id });
           set({ deviceId: device_id });
           persistPlayer(persisted, device_id);
         });
         persisted.addListener("not_ready", () => {
-          console.warn("[spotify] persisted player not_ready — reconnecting in 1s");
+          dbg("spotify", "persisted player not_ready — reconnecting in 1s");
           set({ deviceId: null });
           persistPlayer(persisted, null);
           setTimeout(() => persisted.connect(), 1000);
         });
         persisted.addListener("initialization_error", ({ message }: { message: string }) => {
-          console.warn("[spotify] initialization_error:", message);
+          dbg("spotify", "initialization_error", { message });
         });
         persisted.addListener("authentication_error", ({ message }: { message: string }) => {
-          console.warn("[spotify] authentication_error:", message);
+          dbg("spotify", "authentication_error", { message });
         });
         persisted.addListener("account_error", ({ message }: { message: string }) => {
-          console.warn("[spotify] account_error (Premium required):", message);
+          dbg("spotify", "account_error (Premium required)", { message });
         });
         persisted.addListener("playback_error", ({ message }: { message: string }) => {
-          console.warn("[spotify] playback_error:", message);
+          dbg("spotify", "playback_error", { message });
         });
         persisted.addListener("player_state_changed", (state: import("./types.js").SpotifyPlayerState | null) => {
           set({ playerState: state });
@@ -148,7 +148,7 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
       }
 
       // Persisted player never connected — discard it and create fresh
-      console.log("[spotify] discarding stale persisted player (never had deviceId)");
+      dbg("spotify", "discarding stale persisted player (never had deviceId)");
       try { persisted.disconnect(); } catch { /* ignore */ }
       persistPlayer(null, null);
     }
@@ -160,47 +160,47 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
       player = new window.Spotify.Player({
         name: "Flux",
         getOAuthToken: async (cb) => {
-          console.log("[spotify] getOAuthToken callback fired");
+          dbg("spotify", "getOAuthToken callback fired");
           try {
             const { accessToken } = await api.getSpotifyToken();
-            console.log("[spotify] got token, length:", accessToken?.length ?? 0);
+            dbg("spotify", "got token", { length: accessToken?.length ?? 0 });
             cb(accessToken);
           } catch (e) {
-            console.warn("[spotify] Failed to get OAuth token from backend:", e);
+            dbg("spotify", "Failed to get OAuth token from backend", e);
           }
         },
         volume: get().volume,
       });
-      console.log("[spotify] Player constructed OK");
+      dbg("spotify", "Player constructed OK");
     } catch (e) {
-      console.error("[spotify] Player constructor THREW:", e);
+      dbg("spotify", "Player constructor THREW", e);
       return;
     }
 
     player.addListener("ready", ({ device_id }: { device_id: string }) => {
-      console.log("[spotify] player ready, deviceId:", device_id);
+      dbg("spotify", "player ready", { deviceId: device_id });
       set({ deviceId: device_id });
       persistPlayer(player, device_id);
     });
 
     player.addListener("not_ready", () => {
-      console.warn("[spotify] player not_ready — will reconnect in 1s");
+      dbg("spotify", "player not_ready — will reconnect in 1s");
       set({ deviceId: null });
       persistPlayer(player, null);
       setTimeout(() => player.connect(), 1000);
     });
 
     player.addListener("initialization_error", ({ message }: { message: string }) => {
-      console.warn("[spotify] initialization_error:", message);
+      dbg("spotify", "initialization_error", { message });
     });
     player.addListener("authentication_error", ({ message }: { message: string }) => {
-      console.warn("[spotify] authentication_error:", message);
+      dbg("spotify", "authentication_error", { message });
     });
     player.addListener("account_error", ({ message }: { message: string }) => {
-      console.warn("[spotify] account_error (Premium required):", message);
+      dbg("spotify", "account_error (Premium required)", { message });
     });
     player.addListener("playback_error", ({ message }: { message: string }) => {
-      console.warn("[spotify] playback_error:", message);
+      dbg("spotify", "playback_error", { message });
     });
 
     player.addListener("player_state_changed", (state: import("./types.js").SpotifyPlayerState | null) => {
@@ -221,22 +221,14 @@ export function createConnectPlayer(storeApi: StoreApi<SpotifyState>) {
       }
     });
 
-    console.log("[spotify] calling player.connect()...");
+    dbg("spotify", "calling player.connect()...");
     player.connect().then((success: boolean) => {
-      console.log("[spotify] player.connect() result:", success);
-      if (!success) console.warn("[spotify] player.connect() returned false — check Premium status and token");
+      dbg("spotify", "player.connect() result", { success });
+      if (!success) dbg("spotify", "player.connect() returned false — check Premium status and token");
     }).catch((err: unknown) => {
-      console.error("[spotify] player.connect() REJECTED:", err);
+      dbg("spotify", "player.connect() REJECTED", err);
     });
     set({ player });
     persistPlayer(player, null);
-
-    // Diagnostic: check if the SDK created its internal iframe
-    setTimeout(() => {
-      const iframes = document.querySelectorAll("iframe");
-      const spotifyIframes = [...iframes].filter(f => f.src.includes("spotify") || f.src.includes("scdn"));
-      console.log("[spotify] iframes after 3s:", iframes.length, "total,", spotifyIframes.length, "spotify-related",
-        [...iframes].map(f => f.src || "(no src)"));
-    }, 3000);
   };
 }

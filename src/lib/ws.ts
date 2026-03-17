@@ -77,8 +77,15 @@ class FluxWebSocket {
     this.shouldReconnect = false;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.stopHeartbeat();
-    this.ws?.close();
-    this.ws = null;
+    if (this.ws) {
+      if (this.ws.readyState === WebSocket.OPEN) {
+        this.ws.close();
+      }
+      // If CONNECTING, don't call close() — it triggers a browser error.
+      // Just null the ref; the stale-socket guards (this.ws !== ws) in
+      // onopen/onmessage/onclose/onerror will ignore the orphaned socket.
+      this.ws = null;
+    }
   }
 
   send(event: WSClientEvent) {

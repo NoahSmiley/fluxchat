@@ -75,7 +75,7 @@ export function playCustomSound(url: string) {
       audio.onerror = () => URL.revokeObjectURL(blobUrl);
       return audio.play();
     })
-    .catch((err) => console.warn("Custom sound playback failed:", err));
+    .catch(() => {});
 }
 
 /** Short low click — someone muted */

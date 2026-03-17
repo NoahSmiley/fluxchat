@@ -77,22 +77,30 @@ export function handleVoiceJoinLeave(event: { channelId: string; userId: string;
     if (store.isDeafened) return;
 
     if (event.soundUrl) {
-      // Play custom sound — fetch as blob to avoid Tauri URL issues
-      const audioUrl = `${API_BASE}${event.soundUrl}`;
-      fetch(audioUrl)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.blob();
-        })
-        .then((blob) => {
-          const blobUrl = URL.createObjectURL(blob);
-          const audio = new Audio(blobUrl);
-          audio.volume = 0.5;
-          audio.onended = () => URL.revokeObjectURL(blobUrl);
-          audio.onerror = () => URL.revokeObjectURL(blobUrl);
-          return audio.play();
-        })
-        .catch((err) => console.warn("Custom join/leave sound failed:", err));
+      // Play beep/boop indicator first, then the custom sound after a short gap
+      // to avoid simultaneous playback causing audio artifacts
+      import("@/lib/sounds.js").then((sounds) => {
+        if (event.action === "join") sounds.playJoinBeep();
+        else sounds.playLeaveBeep();
+      });
+      // Delay custom sound so the beep finishes cleanly before it starts
+      setTimeout(() => {
+        const audioUrl = `${API_BASE}${event.soundUrl}`;
+        fetch(audioUrl)
+          .then((res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.blob();
+          })
+          .then((blob) => {
+            const blobUrl = URL.createObjectURL(blob);
+            const audio = new Audio(blobUrl);
+            audio.volume = 0.5;
+            audio.onended = () => URL.revokeObjectURL(blobUrl);
+            audio.onerror = () => URL.revokeObjectURL(blobUrl);
+            return audio.play();
+          })
+          .catch(() => {});
+      }, 180);
     } else {
       // Fall back to procedural sounds for other users
       import("@/lib/sounds.js").then((sounds) => {

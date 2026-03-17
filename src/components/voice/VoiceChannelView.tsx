@@ -272,14 +272,10 @@ export function VoiceChannelView() {
           isMuted={isMuted}
           isDeafened={isDeafened}
           isScreenSharing={isScreenSharing}
-          micVolume={audioSettings.micVolume}
-          speakerVolume={audioSettings.speakerVolume}
           toggleMute={toggleMute}
           toggleDeafen={toggleDeafen}
           toggleScreenShare={toggleScreenShare}
           leaveVoiceChannel={leaveVoiceChannel}
-          onMicVolumeChange={(v) => updateAudioSetting("micVolume", v)}
-          onSpeakerVolumeChange={(v) => updateAudioSetting("speakerVolume", v)}
         />
       )}
 

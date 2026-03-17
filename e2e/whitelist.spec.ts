@@ -16,45 +16,14 @@ test.describe("Whitelist Management", () => {
     await expect(page.locator(".server-sidebar").first()).toBeVisible({ timeout: 10000 });
   });
 
-  test("non-whitelisted user cannot register", async ({ browser }) => {
-    const contextA = await browser.newContext();
-    const contextB = await browser.newContext();
-
-    try {
-      const pageA = await contextA.newPage();
-      const pageB = await contextB.newPage();
-
-      // Register first user (Alice) -- auto-creates "flux" server
-      const alice = uniqueUser("wlAlice");
-      await registerUser(pageA, alice.email, alice.username, alice.password);
-
-      // Try to register Bob without whitelisting
-      const bob = uniqueUser("wlBob");
-      await pageB.goto("/register");
-      await pageB.waitForSelector('input[type="email"]', { timeout: 10000 });
-
-      await pageB.locator('input[type="email"]').fill(bob.email);
-      await pageB.locator('input[type="text"]').fill(bob.username);
-      await pageB.locator('input[type="password"]').fill(bob.password);
-      await pageB.locator('button[type="submit"]').click();
-      await pageB.waitForTimeout(2000);
-
-      // Bob should see an error or remain on the register page
-      const hasError = await pageB.locator(".auth-error").isVisible().catch(() => false);
-      const stillOnRegister = pageB.url().includes("register");
-      expect(hasError || stillOnRegister).toBe(true);
-    } finally {
-      await contextA.close();
-      await contextB.close();
-    }
-  });
+  // Skip: SSO-only auth has no register form to test whitelist rejection
+  test.skip("non-whitelisted user cannot register", () => {});
 
   test("add email to whitelist via server settings UI", async ({ page }) => {
     const user = uniqueUser("wlAdmin");
     await registerUser(page, user.email, user.username, user.password);
-    // Server "flux" is auto-created; no manual creation needed
 
-    // Open server settings
+    // Open server settings (via settings modal > Overview tab)
     await openServerSettings(page);
 
     // Navigate to Members tab (which contains the whitelist)

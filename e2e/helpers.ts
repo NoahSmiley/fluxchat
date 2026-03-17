@@ -21,36 +21,18 @@ async function bootstrapAdmin(): Promise<void> {
   const adminPassword = "TestPass123!";
 
   try {
-    // Try to register (works if this is the first user in a fresh DB)
-    const signUpRes = await fetch(`${API_BASE}/api/auth/sign-up/email`, {
+    // Register or get existing user via test-only endpoint
+    const signUpRes = await fetch(`${API_BASE}/api/auth/test-signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: adminEmail,
-        password: adminPassword,
-        name: adminUsername,
         username: adminUsername,
       }),
     });
 
     if (signUpRes.ok) {
       const data = await signUpRes.json();
-      adminToken = data.token;
-      return;
-    }
-
-    // Admin might already exist (reused server). Try signing in.
-    const signInRes = await fetch(`${API_BASE}/api/auth/sign-in/email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: adminEmail,
-        password: adminPassword,
-      }),
-    });
-
-    if (signInRes.ok) {
-      const data = await signInRes.json();
       adminToken = data.token;
     }
   } catch {
@@ -114,13 +96,11 @@ export function uniqueUser(prefix = "user") {
 }
 
 /**
- * Register a new user via the /register page.
+ * Register a new user via direct API call and inject the session token.
  *
- * Before registration, the email is automatically whitelisted using an admin
- * token (the admin is auto-bootstrapped as the first user in the DB).
- *
- * After registration, the user auto-joins the "flux" server with
- * "general" text and voice channels.
+ * The SSO-only UI doesn't have email/password fields, so e2e tests bypass
+ * the UI and use the backend sign-up API directly, then set the token in
+ * localStorage and navigate to the app.
  */
 export async function registerUser(
   page: Page,
@@ -131,48 +111,63 @@ export async function registerUser(
   // Pre-whitelist this email so registration succeeds
   await ensureWhitelisted(email);
 
-  await page.goto("/register");
-  await page.waitForSelector('input[type="email"]', { timeout: 10000 });
+  // Register via test-only API endpoint (bypasses SSO)
+  const signUpRes = await fetch(`${API_BASE}/api/auth/test-signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, username, password }),
+  });
 
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('input[type="text"]').fill(username);
-  await page.locator('input[type="password"]').fill(password);
+  let token: string | null = null;
+  let userId: string | null = null;
 
-  await page.locator('button[type="submit"]').click();
+  if (signUpRes.ok) {
+    const data = await signUpRes.json();
+    token = data.token;
+    userId = data.user?.id ?? null;
+  }
 
-  // Wait for the main app UI to appear (server sidebar proves we're fully loaded)
+  // Inject session token into the browser and navigate to the app
+  await page.goto("/");
+  if (token) {
+    await page.evaluate((t) => localStorage.setItem("flux-session-token", t), token);
+    await page.reload();
+  }
+
+  // Wait for the main app UI to appear
   await page.locator(".server-sidebar").first().waitFor({ state: "visible", timeout: 15000 });
   await page.waitForTimeout(500);
 
   // Promote this user to admin so they can create channels, manage server, etc.
-  const userId = await page.evaluate(async () => {
-    const token = localStorage.getItem("flux-session-token");
-    if (!token) return null;
-    const res = await fetch("/api/auth/get-session", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.user?.id || null;
-  });
   if (userId) {
     await promoteToAdmin(userId);
   }
 }
 
 /**
- * Login an existing user via the /login page.
+ * Login an existing user via test-only API and inject the session token.
  */
-export async function loginUser(page: Page, email: string, password: string) {
-  await page.goto("/login");
-  await page.waitForSelector('input[type="email"]', { timeout: 10000 });
+export async function loginUser(page: Page, email: string, _password: string) {
+  // test-signup returns a fresh session for existing users too
+  const signInRes = await fetch(`${API_BASE}/api/auth/test-signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, username: email.split("@")[0] }),
+  });
 
-  await page.locator('input[type="email"]').fill(email);
-  await page.locator('input[type="password"]').fill(password);
+  let token: string | null = null;
+  if (signInRes.ok) {
+    const data = await signInRes.json();
+    token = data.token;
+  }
 
-  await page.locator('button[type="submit"]').click();
+  await page.goto("/");
+  if (token) {
+    await page.evaluate((t) => localStorage.setItem("flux-session-token", t), token);
+    await page.reload();
+  }
 
-  // Wait for the main app UI to appear (server sidebar proves we're fully loaded)
+  // Wait for the main app UI to appear
   await page.locator(".server-sidebar").first().waitFor({ state: "visible", timeout: 15000 });
   await page.waitForTimeout(500);
 }
@@ -263,11 +258,13 @@ export async function closeSettings(page: Page) {
 }
 
 /**
- * Open server settings by clicking the server name header or the settings icon in the channel sidebar.
+ * Open server settings via the settings modal (sidebar header was removed).
  */
 export async function openServerSettings(page: Page) {
-  await page.locator('.channel-sidebar-header-btn[title="Server Settings"]').first().click();
+  await page.locator('button[title="User Settings"]').click();
   await page.waitForTimeout(500);
+  await page.locator('.settings-nav-item:has-text("Overview")').click();
+  await page.waitForTimeout(300);
 }
 
 /**

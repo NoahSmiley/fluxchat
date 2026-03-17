@@ -127,7 +127,22 @@ fn get_system_idle_ms() -> u64 {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn get_system_idle_ms() -> u64 {
+    // CGEventSourceSecondsSinceLastEventType returns seconds since last HID event
+    extern "C" {
+        fn CGEventSourceSecondsSinceLastEventType(
+            source_state_id: i32,
+            event_type: u32,
+        ) -> f64;
+    }
+    // kCGEventSourceStateCombinedSessionState = 0, kCGAnyInputEventType = ~0
+    let secs = unsafe { CGEventSourceSecondsSinceLastEventType(0, u32::MAX) };
+    if secs < 0.0 { 0 } else { (secs * 1000.0) as u64 }
+}
+
+#[cfg(not(any(windows, target_os = "macos")))]
 #[tauri::command]
 fn get_system_idle_ms() -> u64 {
     0

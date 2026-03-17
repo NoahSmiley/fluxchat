@@ -397,6 +397,143 @@ pub async fn sso_poll(
     (StatusCode::OK, headers, Json(body)).into_response()
 }
 
+// ── Test-only direct signup (no SSO) ──
+
+#[derive(Deserialize)]
+pub struct TestSignupRequest {
+    pub email: String,
+    pub username: String,
+    #[allow(dead_code)]
+    pub password: Option<String>,
+}
+
+/// POST /api/auth/test-signup
+/// Creates a user and session directly, bypassing SSO.
+/// Only available when BETTER_AUTH_SECRET contains "e2e" or "test".
+pub async fn test_signup(
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<TestSignupRequest>,
+) -> impl IntoResponse {
+    // Gate: only allow in test environments
+    let secret = &state.config.auth_secret;
+    if !secret.contains("e2e") && !secret.contains("test") {
+        return (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not found"}))).into_response();
+    }
+
+    let email = body.email.trim().to_lowercase();
+    let username = body.username.trim().to_string();
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Check if user already exists
+    let existing = sqlx::query_as::<_, (String, String, Option<String>)>(
+        r#"SELECT id, username, image FROM "user" WHERE LOWER(email) = ?"#,
+    )
+    .bind(&email)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let (user_id, username, image) = if let Some((id, uname, img)) = existing {
+        (id, uname, img)
+    } else {
+        let user_id = uuid::Uuid::new_v4().to_string();
+
+        let _ = sqlx::query(
+            r#"INSERT INTO "user" (id, name, username, email, emailVerified, createdAt, updatedAt)
+               VALUES (?, ?, ?, ?, 1, ?, ?)"#,
+        )
+        .bind(&user_id)
+        .bind(&username)
+        .bind(&username)
+        .bind(&email)
+        .bind(&now)
+        .bind(&now)
+        .execute(&state.db)
+        .await;
+
+        // Auto-join default server (or create one if first user)
+        let existing_server = sqlx::query_scalar::<_, String>(
+            "SELECT id FROM servers ORDER BY created_at ASC LIMIT 1",
+        )
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
+
+        let (server_id, role) = if let Some(id) = existing_server {
+            (id, "member")
+        } else {
+            let sid = uuid::Uuid::new_v4().to_string();
+            sqlx::query(
+                "INSERT INTO servers (id, name, owner_id, invite_code, created_at) VALUES (?, 'flux', ?, 'none', ?)",
+            )
+            .bind(&sid)
+            .bind(&user_id)
+            .bind(&now)
+            .execute(&state.db)
+            .await
+            .ok();
+
+            sqlx::query(
+                "INSERT INTO channels (id, server_id, name, type, parent_id, position, created_at) VALUES (?, ?, 'general', 'text', NULL, 0, ?)",
+            )
+            .bind(uuid::Uuid::new_v4().to_string())
+            .bind(&sid)
+            .bind(&now)
+            .execute(&state.db)
+            .await
+            .ok();
+
+            (sid, "owner")
+        };
+
+        sqlx::query(
+            "INSERT OR IGNORE INTO memberships (user_id, server_id, role, joined_at, role_updated_at) VALUES (?, ?, ?, ?, ?)",
+        )
+        .bind(&user_id)
+        .bind(&server_id)
+        .bind(role)
+        .bind(&now)
+        .bind(&now)
+        .execute(&state.db)
+        .await
+        .ok();
+
+        (user_id, username, None)
+    };
+
+    // Create session
+    let session_token = uuid::Uuid::new_v4().to_string();
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let expires_at = (chrono::Utc::now() + chrono::Duration::days(30)).to_rfc3339();
+
+    let _ = sqlx::query(
+        r#"INSERT INTO "session" (id, userId, token, expiresAt, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?)"#,
+    )
+    .bind(&session_id)
+    .bind(&user_id)
+    .bind(&session_token)
+    .bind(&expires_at)
+    .bind(&now)
+    .bind(&now)
+    .execute(&state.db)
+    .await;
+
+    let body = SessionResponse {
+        user: SessionUser {
+            id: user_id,
+            email,
+            username,
+            image,
+        },
+        token: Some(session_token),
+    };
+
+    Json(body).into_response()
+}
+
 // ── Helpers ──
 
 /// Sanitize a display name into a valid Flux username (2-32 chars, alphanumeric + hyphens/underscores).

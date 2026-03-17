@@ -28,6 +28,8 @@ export class VadProcessor {
     const threshold = 0.3 + sensitivity * 0.6;
 
     this.vad = await MicVAD.new({
+      baseAssetPath: "/",
+      onnxWASMBasePath: "/",
       getStream: async () => stream,
       pauseStream: async () => {},    // We manage the stream — don't stop it
       resumeStream: async () => stream,

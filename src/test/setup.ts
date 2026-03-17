@@ -64,14 +64,14 @@ if (typeof globalThis.BroadcastChannel === "undefined") {
 if (typeof globalThis.AudioContext === "undefined") {
   const mockOsc = {
     type: "",
-    frequency: { value: 0 },
+    frequency: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} },
     connect() {},
     start() {},
     stop() {},
   };
   const mockGain = {
     connect() {},
-    gain: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {} },
+    gain: { value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} },
   };
   Object.defineProperty(globalThis, "AudioContext", {
     value: class {

@@ -59,7 +59,7 @@ function SoundSection({ label, currentUrl, onSave, onRemove }: {
       await onSave(attachment.id);
       setAudioBuffer(null);
     } catch (err) {
-      console.error("Failed to save sound:", err);
+      /* save failed */
     } finally {
       setSaving(false);
     }
@@ -87,7 +87,7 @@ function SoundSection({ label, currentUrl, onSave, onRemove }: {
       setPreviewing(true);
       await audio.play();
     } catch (err) {
-      console.error("Preview failed:", err);
+      /* preview failed */
       previewRef.current = null;
       setPreviewing(false);
     }

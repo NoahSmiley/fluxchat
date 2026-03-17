@@ -12,38 +12,10 @@ test.describe("Authentication", () => {
     await expect(page.locator(".server-sidebar").first()).toBeVisible({ timeout: 10000 });
   });
 
-  test("sign-up with existing email shows error", async ({ page }) => {
-    const user = uniqueUser("dup");
-    await registerUser(page, user.email, user.username, user.password);
-
-    // Clear session and navigate to register page
-    await page.evaluate(() => {
-      localStorage.removeItem("flux-session-token");
-    });
-    await page.goto("/register", { waitUntil: "networkidle" });
-    await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-
-    await page.locator('input[type="email"]').fill(user.email);
-    await page.locator('input[type="text"]').fill("othername123");
-    await page.locator('input[type="password"]').fill(user.password);
-    await page.locator('button[type="submit"]').click();
-
-    // Should see an error message in the auth-error div
-    await expect(page.locator(".auth-error").first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test("sign-up with short username shows validation error", async ({ page }) => {
-    await page.goto("/register");
-    await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-
-    await page.locator('input[type="email"]').fill("short@test.com");
-    await page.locator('input[type="text"]').fill("a");
-    await page.locator('input[type="password"]').fill("TestPass123!");
-    await page.locator('button[type="submit"]').click();
-
-    // Validation error should appear (the RegisterPage shows validationError in auth-error div)
-    await expect(page.locator(".auth-error").first()).toBeVisible({ timeout: 5000 });
-  });
+  // Skip: SSO-only auth has no email/password registration form
+  test.skip("sign-up with existing email shows error", () => {});
+  test.skip("sign-up with short username shows validation error", () => {});
+  test.skip("sign-in with wrong password shows error", () => {});
 
   test("sign-in with valid credentials", async ({ page }) => {
     const user = uniqueUser("signin");
@@ -53,30 +25,10 @@ test.describe("Authentication", () => {
     await page.evaluate(() => {
       localStorage.removeItem("flux-session-token");
     });
-    await page.goto("/login");
 
     await loginUser(page, user.email, user.password);
     await expect(page).not.toHaveURL(/login|register/);
     await expect(page.locator(".server-sidebar").first()).toBeVisible({ timeout: 10000 });
-  });
-
-  test("sign-in with wrong password shows error", async ({ page }) => {
-    const user = uniqueUser("wrongpw");
-    await registerUser(page, user.email, user.username, user.password);
-
-    // Clear session
-    await page.evaluate(() => {
-      localStorage.removeItem("flux-session-token");
-    });
-    await page.goto("/login");
-    await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-
-    await page.locator('input[type="email"]').fill(user.email);
-    await page.locator('input[type="password"]').fill("wrongpassword");
-    await page.locator('button[type="submit"]').click();
-
-    // Should see an error message
-    await expect(page.locator(".auth-error").first()).toBeVisible({ timeout: 5000 });
   });
 
   test("sign-out returns to login page", async ({ page }) => {
@@ -91,8 +43,8 @@ test.describe("Authentication", () => {
     await page.locator('button:has-text("Sign Out")').click();
     await page.waitForTimeout(1000);
 
-    // Should be back on login page
-    await expect(page.locator('input[type="email"]').first()).toBeVisible({ timeout: 10000 });
+    // Should be back on login page (SSO page shows "Sign in with Athion")
+    await expect(page.locator('button:has-text("Sign in")').first()).toBeVisible({ timeout: 10000 });
   });
 
   test("session persists after page reload", async ({ page }) => {

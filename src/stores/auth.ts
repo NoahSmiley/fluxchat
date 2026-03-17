@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import * as api from "@/lib/api/index.js";
+import { dbg } from "@/lib/debug.js";
 import type { RingStyle } from "@/types/shared.js";
 
 interface AuthUser {
@@ -43,7 +44,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const session = await api.getSession();
       set({ user: session?.user ?? null, loading: false });
     } catch (err) {
-      console.error("[auth] initialize failed:", err);
+      dbg("auth", "initialize failed", err);
       set({ user: null, loading: false });
     }
   },

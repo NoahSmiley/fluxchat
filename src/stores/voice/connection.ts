@@ -5,7 +5,7 @@ import { useKeybindsStore } from "@/stores/keybinds.js";
 import { useCryptoStore } from "@/stores/crypto.js";
 import { exportKeyAsBase64 } from "@/lib/crypto.js";
 import { dbg } from "@/lib/debug.js";
-import { playJoinSound, playLeaveSound, playCustomSound } from "@/lib/sounds.js";
+import { playJoinSound, playLeaveSound, playJoinBeep, playLeaveBeep, playCustomSound } from "@/lib/sounds.js";
 import { useAuthStore } from "@/stores/auth.js";
 import { API_BASE } from "@/lib/serverUrl.js";
 import { detachNoiseFilter } from "@/lib/noiseProcessor.js";
@@ -242,15 +242,11 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         return;
       }
 
-      const micDeviceId = audioSettings.audioInputDeviceId;
-      if (micDeviceId) {
-        await room.switchActiveDevice("audioinput", micDeviceId);
-      }
+      const micDeviceId = audioSettings.audioInputDeviceId || "default";
+      await room.switchActiveDevice("audioinput", micDeviceId);
       await room.localParticipant.setMicrophoneEnabled(true);
-      const outputDeviceId = audioSettings.audioOutputDeviceId;
-      if (outputDeviceId) {
-        await room.switchActiveDevice("audiooutput", outputDeviceId).catch(() => {});
-      }
+      const outputDeviceId = audioSettings.audioOutputDeviceId || "default";
+      await room.switchActiveDevice("audiooutput", outputDeviceId).catch(() => {});
 
       // Krisp noise suppression is set up inside the LocalTrackPublished handler
       // (room-events.ts) to match the official LiveKit integration pattern.
@@ -323,8 +319,12 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
       startStatsPolling();
       checkLobbyMusic();
       const introUrl = useAuthStore.getState().user?.introSoundUrl;
-      if (introUrl) playCustomSound(`${API_BASE}${introUrl}`);
-      else playJoinSound();
+      if (introUrl) {
+        playJoinBeep();
+        setTimeout(() => playCustomSound(`${API_BASE}${introUrl}`), 180);
+      } else {
+        playJoinSound();
+      }
 
       // If push-to-talk is configured, start muted
       const { keybinds } = useKeybindsStore.getState();
@@ -373,8 +373,12 @@ export function createLeaveVoiceChannel(storeRef: StoreApi<VoiceState>) {
 
     stopLobbyMusic();
     const exitUrl = useAuthStore.getState().user?.exitSoundUrl;
-    if (exitUrl) playCustomSound(`${API_BASE}${exitUrl}`);
-    else playLeaveSound();
+    if (exitUrl) {
+      playLeaveBeep();
+      setTimeout(() => playCustomSound(`${API_BASE}${exitUrl}`), 180);
+    } else {
+      playLeaveSound();
+    }
 
     try {
       import("@/stores/spotify/store.js").then(({ useSpotifyStore }) => {

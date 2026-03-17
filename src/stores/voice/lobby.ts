@@ -59,7 +59,10 @@ export function checkLobbyMusic() {
 function startLobbyMusic() {
   if (lobbyMusicState.audio) return;
 
-  const vol = getStore().getState().lobbyMusicVolume;
+  const state = getStore().getState();
+  const vol = state.lobbyMusicVolume;
+  const speakerVol = state.audioSettings.speakerVolume;
+  const effectiveVol = vol * speakerVol;
   const audio = new Audio("/lobby-music.mp3");
   audio.loop = true;
 
@@ -67,7 +70,7 @@ function startLobbyMusic() {
   const source = ctx.createMediaElementSource(audio);
   const gain = ctx.createGain();
   gain.gain.setValueAtTime(0, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + LOBBY_FADE_IN_S);
+  gain.gain.linearRampToValueAtTime(effectiveVol, ctx.currentTime + LOBBY_FADE_IN_S);
 
   source.connect(gain);
   gain.connect(ctx.destination);
@@ -127,9 +130,22 @@ export function stopLobbyMusic() {
 // Clean up lobby music on app close
 window.addEventListener("beforeunload", stopLobbyMusic);
 
+/** Apply lobby music gain, scaled by master speaker volume. */
 export function setLobbyMusicGain(volume: number) {
   if (lobbyMusicState.gain && lobbyMusicState.ctx) {
+    const speakerVol = storeRef ? storeRef.getState().audioSettings.speakerVolume : 1.0;
+    const effective = volume * speakerVol;
     lobbyMusicState.gain.gain.setValueAtTime(lobbyMusicState.gain.gain.value, lobbyMusicState.ctx.currentTime);
-    lobbyMusicState.gain.gain.linearRampToValueAtTime(volume, lobbyMusicState.ctx.currentTime + 0.1);
+    lobbyMusicState.gain.gain.linearRampToValueAtTime(effective, lobbyMusicState.ctx.currentTime + 0.1);
   }
+}
+
+/** Re-apply lobby music gain when master speaker volume changes. */
+export function updateLobbyMusicSpeakerGain() {
+  if (!storeRef || !lobbyMusicState.gain || !lobbyMusicState.ctx) return;
+  const lobbyVol = storeRef.getState().lobbyMusicVolume;
+  const speakerVol = storeRef.getState().audioSettings.speakerVolume;
+  const effective = lobbyVol * speakerVol;
+  lobbyMusicState.gain.gain.setValueAtTime(lobbyMusicState.gain.gain.value, lobbyMusicState.ctx.currentTime);
+  lobbyMusicState.gain.gain.linearRampToValueAtTime(effective, lobbyMusicState.ctx.currentTime + 0.1);
 }

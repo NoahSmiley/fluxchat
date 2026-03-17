@@ -22,6 +22,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let auth_routes = Router::new()
         .route("/sso/initiate", post(sso::sso_initiate))
         .route("/sso/poll", post(sso::sso_poll))
+        .route("/test-signup", post(sso::test_signup))
         .route("/sign-out", post(auth::sign_out))
         .route("/get-session", get(auth::get_session));
 

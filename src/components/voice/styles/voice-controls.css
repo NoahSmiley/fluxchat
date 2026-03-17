@@ -238,17 +238,6 @@
   flex-shrink: 0;
 }
 
-.voice-master-slider {
-  display: flex;
-  align-items: center;
-  width: 72px;
-  flex-shrink: 0;
-}
-
-.voice-master-range {
-  width: 100%;
-}
-
 .voice-ctrl-btn {
   width: 36px;
   height: 36px;

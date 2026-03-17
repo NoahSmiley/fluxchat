@@ -30,6 +30,12 @@ export function createStartSession(store: StoreApi<SpotifyState>) {
 let lastLoadSessionChannel: string | null = null;
 let lastLoadSessionTime = 0;
 
+/** Reset debounce state (used by tests). */
+export function resetLoadSessionDebounce() {
+  lastLoadSessionChannel = null;
+  lastLoadSessionTime = 0;
+}
+
 export function createLoadSession(store: StoreApi<SpotifyState>) {
   return async (voiceChannelId: string) => {
     // Debounce duplicate calls for the same channel within 2 seconds

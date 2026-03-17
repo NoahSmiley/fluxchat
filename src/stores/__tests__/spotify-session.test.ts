@@ -63,6 +63,7 @@ vi.mock("../voice/store.js", () => ({
 }));
 
 import { useSpotifyStore } from "@/stores/spotify/index.js";
+import { resetLoadSessionDebounce } from "@/stores/spotify/session.js";
 import { useYouTubeStore } from "@/stores/youtube.js";
 import * as api from "@/lib/api/index.js";
 import { gateway } from "@/lib/ws.js";
@@ -110,6 +111,7 @@ function makeSession(overrides?: Partial<ListeningSession>): ListeningSession {
 describe("useSpotifyStore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetLoadSessionDebounce();
     useSpotifyStore.setState({
       account: null,
 

@@ -4,7 +4,7 @@ import { create } from "zustand";
 
 import type { VoiceState, ScreenShareQuality, AudioSettings } from "./types.js";
 import { DEFAULT_SETTINGS } from "./types.js";
-import { initLobbyMusic, setLobbyMusicGain, stopLobbyMusic } from "./lobby.js";
+import { initLobbyMusic, setLobbyMusicGain, stopLobbyMusic, updateLobbyMusicSpeakerGain } from "./lobby.js";
 import { initStatsPolling } from "./stats.js";
 import { initVoiceEvents } from "./events.js";
 import { createJoinVoiceChannel, createLeaveVoiceChannel, activeKrispProcessor, activeVadProcessor, setActiveKrispProcessor, setActiveVadProcessor, adaptiveTargetBitrate } from "./connection.js";
@@ -62,7 +62,29 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
 
     // Switch audio device live if connected
     if (room && key === "audioInputDeviceId" && typeof value === "string") {
-      room.switchActiveDevice("audioinput", value).catch(() => {});
+      (async () => {
+        try {
+          await room.switchActiveDevice("audioinput", value);
+
+          // Re-attach Krisp noise filter to the new mic track
+          if (updated.noiseSuppression) {
+            const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+            if (activeKrispProcessor) {
+              await detachNoiseFilter(activeKrispProcessor, micPub);
+              setActiveKrispProcessor(null);
+            }
+            if (micPub) {
+              const processor = await attachNoiseFilter(micPub);
+              if (processor) {
+                setActiveKrispProcessor(processor);
+                dbg("voice", "Krisp re-attached after input device switch");
+              }
+            }
+          }
+        } catch (e) {
+          dbg("voice", "Input device switch failed", e);
+        }
+      })();
     }
     if (room && key === "audioOutputDeviceId" && typeof value === "string") {
       room.switchActiveDevice("audiooutput", value).catch(() => {});
@@ -156,6 +178,7 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
     if (key === "speakerVolume" && typeof value === "number") {
       const { participantVolumes, isDeafened } = storeApi.getState();
       setMasterSpeakerGain(value, participantVolumes, isDeafened);
+      updateLobbyMusicSpeakerGain();
     }
 
     // ── Live adjust: mic volume ──
