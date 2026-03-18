@@ -7,7 +7,6 @@ export interface GameChannelDef {
   id: string;              // e.g. "game:minecraft"
   name: string;            // Display name in sidebar
   iconImage: string;       // Path to logo image
-  iconInvert?: boolean;    // true to invert black logos to white
   component: React.LazyExoticComponent<ComponentType>;
 }
 
@@ -23,7 +22,6 @@ export const GAME_CHANNELS: GameChannelDef[] = [
     id: "game:cs",
     name: "Counter-Strike",
     iconImage: csLogo,
-    iconInvert: true,
     component: lazy(() => import("@/components/games/cs/CSChannel.js")),
   },
   {

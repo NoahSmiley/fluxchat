@@ -1,21 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useAuthStore } from "@/stores/auth.js";
-import { avatarColor, bannerBackground } from "@/lib/avatarColor.js";
+import { avatarColor } from "@/lib/avatarColor.js";
 import { AvatarCropModal } from "@/components/modals/AvatarCropModal.js";
+import { BannerCropModal } from "@/components/modals/BannerCropModal.js";
 import { ToggleSwitch } from "@/components/SettingsModal.js";
 import type { RingStyle } from "@/types/shared.js";
-
-const BANNER_STYLES: { value: string | null; label: string }[] = [
-  { value: null, label: "None" },
-  { value: "sunset", label: "Sunset" },
-  { value: "aurora", label: "Aurora" },
-  { value: "cityscape", label: "Cityscape" },
-  { value: "space", label: "Space" },
-  { value: "wyrm_manuscript", label: "Wyrm" },
-  { value: "doppler", label: "Doppler" },
-  { value: "gamma_doppler", label: "Gamma" },
-];
 
 const RING_STYLES: { value: RingStyle; label: string }[] = [
   { value: "default", label: "Default" },
@@ -43,7 +33,9 @@ export function ProfileTab() {
   const [ringSaving, setRingSaving] = useState(false);
   const [bannerSaving, setBannerSaving] = useState(false);
   const [cropImage, setCropImage] = useState<string | null>(null);
+  const [bannerCropImage, setBannerCropImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   async function handleUsernameSubmit() {
     if (!usernameInput.trim() || usernameInput.trim() === user?.username) {
@@ -158,34 +150,53 @@ export function ProfileTab() {
 
       <div className="settings-card">
         <h3 className="settings-card-title">Profile Header</h3>
-        <p className="settings-card-desc">Choose a banner background for your profile card.</p>
-
         {user?.bannerCss && (
           <div
             className="banner-preview"
-            style={{ background: bannerBackground(user.bannerCss, user.bannerPatternSeed) }}
+            style={{ backgroundImage: `url(${user.bannerCss})` }}
           />
         )}
-
-        <div className="ring-style-picker">
-          {BANNER_STYLES.map((bs) => (
+        <div className="profile-avatar-actions">
+          <button
+            className="btn-small btn-primary"
+            onClick={() => bannerInputRef.current?.click()}
+            disabled={bannerSaving}
+          >
+            Upload Header
+          </button>
+          {user?.bannerCss && (
             <button
-              key={bs.value ?? "none"}
-              className={`ring-style-option ${(user?.bannerCss ?? null) === bs.value ? "active" : ""}`}
+              className="btn-small"
               disabled={bannerSaving}
               onClick={async () => {
                 setBannerSaving(true);
-                try { await updateProfile({ bannerCss: bs.value }); } catch {}
+                try { await updateProfile({ bannerCss: null }); } catch {}
                 setBannerSaving(false);
               }}
             >
-              <div
-                className="banner-swatch"
-                style={bs.value ? { background: bannerBackground(bs.value, null) ?? "var(--bg-tertiary)" } : undefined}
-              />
-              <span className="ring-style-label">{bs.label}</span>
+              Remove
             </button>
-          ))}
+          )}
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              if (!file.type.startsWith("image/")) {
+                setProfileError("Please select an image file");
+                return;
+              }
+              setProfileError(null);
+              const reader = new FileReader();
+              reader.onload = () => setBannerCropImage(reader.result as string);
+              reader.onerror = () => setProfileError("Failed to read image");
+              reader.readAsDataURL(file);
+              if (bannerInputRef.current) bannerInputRef.current.value = "";
+            }}
+            style={{ display: "none" }}
+          />
         </div>
       </div>
 
@@ -303,6 +314,24 @@ export function ProfileTab() {
           imageUrl={cropImage}
           onConfirm={handleCropConfirm}
           onCancel={() => setCropImage(null)}
+        />
+      )}
+
+      {bannerCropImage && (
+        <BannerCropModal
+          imageUrl={bannerCropImage}
+          onConfirm={async (croppedDataUrl) => {
+            setBannerCropImage(null);
+            setBannerSaving(true);
+            setProfileError(null);
+            try {
+              await updateProfile({ bannerCss: croppedDataUrl });
+            } catch (err) {
+              setProfileError(err instanceof Error ? err.message : "Failed to upload header");
+            }
+            setBannerSaving(false);
+          }}
+          onCancel={() => setBannerCropImage(null)}
         />
       )}
     </>

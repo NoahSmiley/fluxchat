@@ -139,7 +139,7 @@
   align-items: center;
   justify-content: center;
   min-height: 40px;
-  padding-bottom: 12px;
+  padding: 4px 0 12px;
 }
 
 @keyframes create-btn-enter {
@@ -247,8 +247,8 @@
 }
 .voice-room-current {
   background: var(--bg-secondary);
-  border-color: rgba(74, 222, 128, 0.15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(74, 222, 128, 0.1);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 .voice-room-group-header {
   display: flex;
@@ -343,6 +343,8 @@
   flex-shrink: 0;
 }
 .voice-room-avatar {
+  position: relative;
+  z-index: 1;
   width: 28px;
   height: 28px;
   border-radius: 50%;

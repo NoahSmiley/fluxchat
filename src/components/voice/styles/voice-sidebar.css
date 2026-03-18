@@ -222,7 +222,7 @@
 .voice-status-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--accent);
+  color: #4ade80;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

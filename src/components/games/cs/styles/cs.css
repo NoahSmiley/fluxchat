@@ -1,353 +1,321 @@
 /* ══════════════════════════════════════════
-   Counter-Strike — Header Bar
+   Counter-Strike — Dashboard/briefing layout
+   Top status bar, banner, two-column content
    ══════════════════════════════════════════ */
-.cs-header-bar {
-  height: 48px;
-  flex-shrink: 0;
+.cs-page {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(135deg, rgba(245, 166, 35, 0.06) 0%, transparent 60%);
-}
-
-.cs-header-brand {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  padding-right: 16px;
-  border-right: 1px solid var(--border);
-}
-
-.cs-header-logo {
-  height: 20px;
-  width: auto;
-  object-fit: contain;
-  filter: invert(1);
-}
-
-/* ── Tabs ── */
-.cs-tabs {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
+  flex-direction: column;
   height: 100%;
+  overflow: hidden;
+  background: #141210;
+  color: #e8e2d8;
 }
 
-.cs-tab {
+/* ── Top status bar ── */
+.cs-topbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.cs-tab:hover {
-  color: var(--text-secondary);
-}
-
-.cs-tab.active {
-  color: #f5a623;
-  border-bottom-color: #f5a623;
-}
-
-/* ── Tab Content ── */
-.cs-tab-content {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* ══════════════════════════════════════════
-   Home Tab
-   ══════════════════════════════════════════ */
-.cs-home {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.cs-hero {
-  position: relative;
-  border-radius: 12px;
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(245, 166, 35, 0.12) 0%, rgba(245, 166, 35, 0.02) 100%),
-    linear-gradient(135deg, rgba(200, 130, 20, 0.08) 0%, rgba(100, 60, 10, 0.04) 50%, transparent 100%);
-  border: 1px solid rgba(245, 166, 35, 0.12);
-}
-
-.cs-hero-content {
-  position: relative;
-  padding: 28px 28px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.cs-hero-logo {
-  height: 36px;
-  width: auto;
-  object-fit: contain;
-  align-self: flex-start;
-  filter: invert(1);
-}
-
-.cs-hero-badge {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #f5a623;
-  opacity: 0.8;
-}
-
-.cs-hero-desc {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
-  line-height: 1.5;
-  max-width: 420px;
-}
-
-/* ── Cards ── */
-.cs-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
+  padding: 0 24px;
+  height: 44px;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(245, 166, 35, 0.12);
 }
 
-.cs-card {
-  padding: 16px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  transition: border-color 0.15s;
+.cs-topbar-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
 }
 
-.cs-card:hover {
-  border-color: rgba(245, 166, 35, 0.2);
-}
-
-.cs-card h4 {
+.cs-topbar-title {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 6px;
+  font-weight: 800;
+  color: #f5a623;
+  letter-spacing: 0.04em;
 }
 
-.cs-card p {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0;
-  line-height: 1.4;
+.cs-topbar-sep {
+  color: rgba(245, 166, 35, 0.2);
+  font-weight: 300;
+}
+
+.cs-topbar-sub {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: "SF Mono", "Fira Code", monospace;
+  color: rgba(232, 226, 216, 0.35);
+  letter-spacing: 0.08em;
+}
+
+/* ── Scroll container ── */
+.cs-scroll {
+  flex: 1;
+  overflow-y: auto;
 }
 
 /* ══════════════════════════════════════════
-   Commands Tab
+   Featured ops banner
    ══════════════════════════════════════════ */
-.cs-commands {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 600px;
-}
-
-.cs-cmd-section h3 {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 4px;
-}
-
-.cs-cmd-section-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0 0 12px;
-}
-
-.cs-cmd-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cs-cmd-row {
+.cs-banner {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  background: var(--bg-secondary);
-}
-
-.cs-cmd-row:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.cs-cmd-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.cs-cmd {
-  font-family: "SF Mono", "Fira Code", monospace;
-  font-size: 12px;
-  color: #f5a623;
-  white-space: nowrap;
-}
-
-.cs-cmd-desc {
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
+  padding: 40px 40px;
+  background: linear-gradient(135deg, #3d2800 0%, #261900 50%, #1a1100 100%);
+  border-bottom: 2px solid rgba(245, 166, 35, 0.2);
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.cs-copy-btn {
+.cs-banner-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
+  pointer-events: none;
+}
+
+.cs-banner-content {
+  position: relative;
+  flex: 1;
+}
+
+.cs-banner-label {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "SF Mono", "Fira Code", monospace;
+  color: #f5a623;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+
+.cs-banner-title {
+  font-size: 32px;
+  font-weight: 900;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 20px rgba(245, 166, 35, 0.2);
+}
+
+.cs-banner-desc {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 8px 0 0;
+  max-width: 420px;
+  line-height: 1.5;
+}
+
+.cs-banner-stats {
+  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
+  gap: 28px;
   flex-shrink: 0;
-  transition: color 0.15s, background 0.15s;
 }
 
-.cs-copy-btn:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
+.cs-banner-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.cs-banner-stat strong {
+  font-size: 28px;
+  font-weight: 900;
+  color: #fff;
+}
+
+.cs-banner-stat span {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* ══════════════════════════════════════════
-   Surf Tab
+   Two-column layout
    ══════════════════════════════════════════ */
-.cs-surf {
+.cs-columns {
+  display: flex;
+  gap: 0;
+  min-height: 0;
+}
+
+.cs-col-main {
   flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 600px;
+  padding: 28px 32px;
+  min-width: 0;
+  border-right: 1px solid rgba(245, 166, 35, 0.06);
 }
 
-.cs-surf-intro h3 {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 4px;
+.cs-col-side {
+  width: 320px;
+  flex-shrink: 0;
+  padding: 28px 24px;
+  background: rgba(0, 0, 0, 0.15);
 }
 
-.cs-surf-intro p {
+.cs-col-heading {
   font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.cs-surf-list {
+  font-weight: 800;
+  color: #f5a623;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 16px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.cs-surf-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 8px;
 }
 
-.cs-surf-card:hover {
-  border-color: rgba(245, 166, 35, 0.2);
+/* ══════════════════════════════════════════
+   Game modes — row list (not cards)
+   ══════════════════════════════════════════ */
+.cs-mode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.cs-surf-header {
+.cs-mode-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 6px;
+  transition: background 0.15s;
 }
 
-.cs-surf-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+.cs-mode-row:hover {
+  background: rgba(245, 166, 35, 0.04);
 }
 
-.cs-surf-tier {
-  font-size: 11px;
-  font-weight: 600;
+.cs-mode-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: rgba(245, 166, 35, 0.08);
   color: #f5a623;
-  background: rgba(245, 166, 35, 0.1);
-  padding: 2px 8px;
-  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.cs-surf-desc {
-  font-size: 12px;
-  color: var(--text-muted);
+.cs-mode-info h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e8e2d8;
   margin: 0;
 }
 
-.cs-surf-connect {
+.cs-mode-info p {
+  font-size: 12px;
+  color: rgba(232, 226, 216, 0.4);
+  margin: 2px 0 0;
+}
+
+/* ══════════════════════════════════════════
+   Surf servers — compact table
+   ══════════════════════════════════════════ */
+.cs-surf-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+
+.cs-surf-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(40, 32, 20, 0.4);
+  border: 1px solid rgba(245, 166, 35, 0.06);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+
+.cs-surf-row:hover {
+  border-color: rgba(245, 166, 35, 0.15);
+}
+
+.cs-surf-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cs-surf-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8e2d8;
+}
+
+.cs-surf-map {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 11px;
+  color: rgba(232, 226, 216, 0.3);
+}
+
+.cs-surf-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.cs-surf-easy { color: #5da64a; background: rgba(93, 166, 74, 0.12); }
+.cs-surf-medium { color: #f5a623; background: rgba(245, 166, 35, 0.12); }
+.cs-surf-hard { color: #ed4245; background: rgba(237, 66, 69, 0.12); }
+
+.cs-connect-btn {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  border: none;
+  border-radius: 4px;
+  background: rgba(245, 166, 35, 0.1);
+  color: #f5a623;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.cs-connect-btn:hover {
+  background: rgba(245, 166, 35, 0.2);
+}
+
+/* ══════════════════════════════════════════
+   Tips box
+   ══════════════════════════════════════════ */
+.cs-tips-box {
+  background: rgba(40, 32, 20, 0.4);
+  border: 1px solid rgba(245, 166, 35, 0.08);
+  border-left: 3px solid #f5a623;
+  border-radius: 0 6px 6px 0;
+  padding: 16px 20px;
+}
+
+.cs-tips-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f5a623;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 2px;
+  margin-bottom: 10px;
 }
 
-.cs-surf-connect code {
-  font-family: "SF Mono", "Fira Code", monospace;
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 4px 10px;
-  border-radius: 6px;
-  flex: 1;
-}
-
-/* ── Surf Tips ── */
-.cs-surf-tips {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-}
-
-.cs-surf-tips h4 {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 10px;
-}
-
-.cs-surf-tips ul {
+.cs-tips-box ul {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -356,35 +324,92 @@
   gap: 6px;
 }
 
-.cs-surf-tips li {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.5;
+.cs-tips-box li {
+  font-size: 13px;
+  color: rgba(232, 226, 216, 0.55);
+  line-height: 1.4;
   padding-left: 14px;
   position: relative;
 }
 
-.cs-surf-tips li::before {
-  content: "•";
+.cs-tips-box li::before {
+  content: "›";
   position: absolute;
   left: 0;
-  color: var(--text-muted);
+  color: #f5a623;
+  font-weight: 700;
 }
 
-.cs-surf-tips kbd {
-  display: inline-block;
+/* ══════════════════════════════════════════
+   Console commands (right sidebar)
+   ══════════════════════════════════════════ */
+.cs-cmd-group {
+  margin-bottom: 16px;
+}
+
+.cs-cmd-label {
+  font-size: 10px;
+  font-weight: 700;
   font-family: "SF Mono", "Fira Code", monospace;
-  font-size: 11px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 1px 5px;
-  color: var(--text-primary);
+  color: #f5a623;
+  letter-spacing: 0.04em;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(245, 166, 35, 0.08);
+  margin-bottom: 4px;
 }
 
-.cs-surf-tips code {
+.cs-cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  transition: background 0.1s;
+}
+
+.cs-cmd-row:hover {
+  background: rgba(245, 166, 35, 0.04);
+}
+
+.cs-cmd-code {
   font-family: "SF Mono", "Fira Code", monospace;
   font-size: 11px;
   color: #f5a623;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
+.cs-cmd-desc {
+  font-size: 10px;
+  color: rgba(232, 226, 216, 0.3);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.cs-copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: rgba(232, 226, 216, 0.25);
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.cs-cmd-row:hover .cs-copy-btn {
+  opacity: 1;
+}
+
+.cs-copy-btn:hover {
+  color: #f5a623;
+  background: rgba(245, 166, 35, 0.1);
+}

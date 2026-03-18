@@ -293,7 +293,7 @@ pub async fn update_me(
         }
     }
 
-    // Banner CSS
+    // Banner image (data URL)
     if let Some(ref banner_val) = body.banner_css {
         match banner_val {
             serde_json::Value::Null => {
@@ -307,15 +307,11 @@ pub async fn update_me(
                 .await;
                 has_updates = true;
             }
-            serde_json::Value::String(css) => {
-                let valid_banners = [
-                    "sunset", "aurora", "cityscape", "space",
-                    "wyrm_manuscript", "doppler", "gamma_doppler",
-                ];
-                if !valid_banners.contains(&css.as_str()) {
+            serde_json::Value::String(img) => {
+                if img.len() > 5_000_000 {
                     return (
                         StatusCode::BAD_REQUEST,
-                        Json(serde_json::json!({"error": "Invalid banner style"})),
+                        Json(serde_json::json!({"error": "Banner image too large (max ~4MB)"})),
                     )
                         .into_response();
                 }
@@ -323,7 +319,7 @@ pub async fn update_me(
                 let _ = sqlx::query(
                     r#"UPDATE "user" SET banner_css = ?, updatedAt = ? WHERE id = ?"#,
                 )
-                .bind(css)
+                .bind(img)
                 .bind(&now)
                 .bind(&user.id)
                 .execute(&state.db)

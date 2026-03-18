@@ -86,7 +86,8 @@ function SortableGamesItem({
             className={`channel-item ${isActive ? "active" : ""}`}
             onClick={() => selectChannel(item.game.id)}
           >
-            <img src={item.game.iconImage} alt={item.game.name} className={`channel-game-icon${item.game.iconInvert ? " invert" : ""}`} />
+            <img src={item.game.iconImage} alt={item.game.name} className="channel-game-icon" />
+            <span className="channel-item-name">{item.game.name}</span>
           </button>
         </div>
       </div>
@@ -389,7 +390,7 @@ export function ChannelTree({
                 {gamesDraggedItem ? (
                   <div className="channel-drag-overlay">
                     {gamesDraggedItem.kind === "game"
-                      ? <img src={gamesDraggedItem.game.iconImage} alt={gamesDraggedItem.game.name} className={`channel-game-icon${gamesDraggedItem.game.iconInvert ? " invert" : ""}`} style={{ height: 20 }} />
+                      ? <img src={gamesDraggedItem.game.iconImage} alt={gamesDraggedItem.game.name} className="channel-game-icon" style={{ height: 20 }} />
                       : getChannelIcon("text")}
                     <span>{gamesDraggedItem.kind === "game" ? gamesDraggedItem.game.name : gamesDraggedItem.channel.name}</span>
                   </div>
@@ -405,7 +406,8 @@ export function ChannelTree({
               <div className="channel-sortable-active">
                 <div className="channel-item-wrapper">
                   <button className="channel-item active" onClick={() => selectChannel(game.id)}>
-                    <img src={game.iconImage} alt={game.name} className={`channel-game-icon${game.iconInvert ? " invert" : ""}`} />
+                    <img src={game.iconImage} alt={game.name} className="channel-game-icon" />
+                    <span className="channel-item-name">{game.name}</span>
                   </button>
                 </div>
               </div>

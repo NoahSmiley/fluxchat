@@ -131,6 +131,8 @@
   border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 16px;
+  isolation: isolate;
+  overflow: hidden;
 }
 
 .settings-card-title {

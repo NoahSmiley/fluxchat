@@ -19,6 +19,12 @@ export class VadProcessor {
   ): Promise<void> {
     await this.destroy();
 
+    // Disable ONNX multi-threading — SharedArrayBuffer requires COEP headers
+    // which conflict with Spotify SDK. Single-threaded WASM avoids loading the
+    // ort-wasm-simd-threaded.mjs file that Vite can't serve from public/.
+    const ort = await import("onnxruntime-web");
+    ort.env.wasm.numThreads = 1;
+
     const { MicVAD } = await import("@ricky0123/vad-web");
 
     // Map sensitivity 0–1 to positiveSpeechThreshold:
