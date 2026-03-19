@@ -12,7 +12,7 @@ import { createToggleMute, createSetMuted, createToggleDeafen, createSetParticip
 import { createToggleScreenShare, createSetScreenShareQuality } from "./screen-share.js";
 import { createUpdateParticipants, createUpdateScreenSharers, createSetChannelParticipants } from "./participants.js";
 import { attachNoiseFilter, detachNoiseFilter } from "@/lib/noiseProcessor.js";
-import { setMasterSpeakerGain, setLocalMicGain, setupLocalMicGain } from "./room-events.js";
+import { setMasterSpeakerGain, setLocalMicGain, setupLocalMicGain, setAllParticipantOutputDevice } from "./room-events.js";
 import { VadProcessor } from "@/lib/vadProcessor.js";
 import { initAdaptiveBitrate, resetAdaptiveBitrate } from "@/lib/adaptiveBitrate.js";
 import { Track } from "livekit-client";
@@ -88,6 +88,8 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
     }
     if (room && key === "audioOutputDeviceId" && typeof value === "string") {
       room.switchActiveDevice("audiooutput", value).catch(() => {});
+      // Also update setSinkId on all participant AudioContexts (GainNode pipeline)
+      setAllParticipantOutputDevice(value);
     }
 
     // ── Live toggle: noise suppression (Krisp) ──

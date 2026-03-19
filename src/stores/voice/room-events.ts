@@ -78,6 +78,17 @@ export function setMasterSpeakerGain(volume: number, participantVolumes: Record<
   setAllParticipantGains(isDeafened, participantVolumes);
 }
 
+/** Update the output device (setSinkId) on all participant AudioContexts. */
+export function setAllParticipantOutputDevice(deviceId: string) {
+  for (const [identity, pipeline] of participantAudioPipelines) {
+    if (pipeline.ctx && "setSinkId" in pipeline.ctx) {
+      (pipeline.ctx as any).setSinkId(deviceId).catch(() => {
+        dbg("voice", `setSinkId failed for ${identity}`);
+      });
+    }
+  }
+}
+
 // ── Local mic gain pipeline ──
 let localMicCtx: AudioContext | null = null;
 let localMicGain: GainNode | null = null;
@@ -336,29 +347,34 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
       const partVol = get().participantVolumes[participant.identity] ?? 1.0;
       const vol = get().isDeafened ? 0 : partVol * masterSpeakerVolume;
 
-      // Create a hidden <audio> element to satisfy browser autoplay with LiveKit's attach()
+      // Create audio element via LiveKit's attach() for WebRTC playback
       const el = track.attach() as unknown;
       const audioEl = el instanceof HTMLAudioElement ? el : null;
-      // Mute the element IMMEDIATELY to prevent double audio during async GainNode setup
-      if (audioEl) audioEl.volume = 0;
 
       const pipeline: ParticipantAudio = { audioEl: audioEl ?? new Audio() };
       try {
-        // Use createMediaStreamSource (more reliable for WebRTC than createMediaElementSource)
+        // Use createMediaElementSource to capture the element's output through a GainNode.
+        // This ensures speaker volume control actually works — the GainNode is inline
+        // with the audio path rather than a parallel stream that may not produce output.
         const ctx = new AudioContext();
         await ctx.resume();
-        const source = ctx.createMediaStreamSource(new MediaStream([mst]));
+        // Match the AudioContext output device to the user's selected output device
+        const outputDeviceId = get().audioSettings.audioOutputDeviceId;
+        if (outputDeviceId && "setSinkId" in ctx) {
+          await (ctx as any).setSinkId(outputDeviceId).catch(() => {});
+        }
+        const source = ctx.createMediaElementSource(pipeline.audioEl);
         const gain = ctx.createGain();
         gain.gain.setValueAtTime(vol, ctx.currentTime);
         source.connect(gain);
         gain.connect(ctx.destination);
         pipeline.ctx = ctx;
         pipeline.gain = gain;
-        pipeline.source = source as unknown as MediaElementAudioSourceNode;
-        dbg("voice", `TrackSubscribed attached audio with GainNode (MediaStreamSource) for ${participant.identity} vol=${vol}`);
+        pipeline.source = source;
+        dbg("voice", `TrackSubscribed attached audio with GainNode (MediaElementSource) for ${participant.identity} vol=${vol}`);
       } catch (e) {
         // Fallback: audio plays through raw element, volume limited to 0-100%
-        if (pipeline.audioEl) pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
+        pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
         dbg("voice", `TrackSubscribed GainNode failed for ${participant.identity}, using element volume`, e);
       }
       participantAudioPipelines.set(participant.identity, pipeline);
