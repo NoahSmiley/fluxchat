@@ -267,7 +267,13 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
                 const { keybinds } = useKeybindsStore.getState();
                 const hasPTT = keybinds.some((kb) => kb.action === "push-to-talk" && kb.key !== null);
                 if (isMuted || isDeafened || hasPTT) return;
-                room.localParticipant.setMicrophoneEnabled(speaking);
+                // Toggle the mediaStreamTrack directly instead of setMicrophoneEnabled()
+                // to avoid sending TrackMuted/TrackUnmuted signals to remote participants.
+                // Voice gating should be transparent — others see "unmuted" but hear silence
+                // when the user isn't speaking.
+                const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+                const track = micPub?.track?.mediaStreamTrack;
+                if (track) track.enabled = speaking;
               },
             );
             activeVadProcessor = vadProc;

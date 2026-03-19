@@ -142,8 +142,10 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
           if (activeVadProcessor) {
             await activeVadProcessor.destroy();
             setActiveVadProcessor(null);
-            // Re-enable mic if it was gated off
-            room.localParticipant.setMicrophoneEnabled(true);
+            // Re-enable mic track if it was gated off (direct toggle, no signal)
+            const micPubRestore = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+            const mstRestore = micPubRestore?.track?.mediaStreamTrack;
+            if (mstRestore) mstRestore.enabled = true;
           }
 
           if (updated.voiceGating) {
@@ -159,7 +161,10 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
                   const { keybinds } = useKeybindsStore.getState();
                   const hasPTT = keybinds.some((kb) => kb.action === "push-to-talk" && kb.key !== null);
                   if (isMuted || isDeafened || hasPTT) return;
-                  room.localParticipant.setMicrophoneEnabled(speaking);
+                  // Toggle mediaStreamTrack directly — don't send TrackMuted/TrackUnmuted
+                  // signals to remote participants. Voice gating is transparent.
+                  const track = micPub?.track?.mediaStreamTrack;
+                  if (track) track.enabled = speaking;
                 },
               );
               setActiveVadProcessor(vadProc);

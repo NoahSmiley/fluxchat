@@ -45,6 +45,11 @@ function cleanupParticipantAudio(identity: string) {
     pipeline.source?.disconnect();
     pipeline.gain?.disconnect();
     pipeline.ctx?.close().catch(() => {});
+    // Fully stop the audio element to prevent leaked playback
+    pipeline.audioEl.pause();
+    pipeline.audioEl.volume = 0;
+    pipeline.audioEl.srcObject = null;
+    pipeline.audioEl.remove();
     participantAudioPipelines.delete(identity);
   }
 }
@@ -334,6 +339,8 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
       // Create a hidden <audio> element to satisfy browser autoplay with LiveKit's attach()
       const el = track.attach() as unknown;
       const audioEl = el instanceof HTMLAudioElement ? el : null;
+      // Mute the element IMMEDIATELY to prevent double audio during async GainNode setup
+      if (audioEl) audioEl.volume = 0;
 
       const pipeline: ParticipantAudio = { audioEl: audioEl ?? new Audio() };
       try {
@@ -345,15 +352,13 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
         gain.gain.setValueAtTime(vol, ctx.currentTime);
         source.connect(gain);
         gain.connect(ctx.destination);
-        // Mute the original element to avoid double audio output
-        if (audioEl) audioEl.volume = 0;
         pipeline.ctx = ctx;
         pipeline.gain = gain;
         pipeline.source = source as unknown as MediaElementAudioSourceNode;
         dbg("voice", `TrackSubscribed attached audio with GainNode (MediaStreamSource) for ${participant.identity} vol=${vol}`);
       } catch (e) {
         // Fallback: audio plays through raw element, volume limited to 0-100%
-        if (audioEl) audioEl.volume = Math.min(Math.max(vol, 0), 1);
+        if (pipeline.audioEl) pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
         dbg("voice", `TrackSubscribed GainNode failed for ${participant.identity}, using element volume`, e);
       }
       participantAudioPipelines.set(participant.identity, pipeline);
