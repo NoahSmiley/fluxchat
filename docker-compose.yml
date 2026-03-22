@@ -14,10 +14,10 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       LIVEKIT_API_KEY: fluxdevkey
       LIVEKIT_API_SECRET: fluxdevsecret_that_is_at_least_32chars_long
-      LIVEKIT_URL: "ws://76.181.222.33:7880"
+      LIVEKIT_URL: "ws://192.168.0.93:7880"
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET}
-      SPOTIFY_REDIRECT_URI: "http://76.181.222.33:3001/api/spotify/callback"
+      SPOTIFY_REDIRECT_URI: "http://192.168.0.93:3001/api/spotify/callback"
       # ── LiveKit Cloud (optional — enables Krisp noise cancellation) ──
       # When set, these take priority over the self-hosted vars above.
       LIVEKIT_CLOUD_API_KEY: ${LIVEKIT_CLOUD_API_KEY}
