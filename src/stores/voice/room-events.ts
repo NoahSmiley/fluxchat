@@ -31,11 +31,12 @@ export function setParticipantGain(identity: string, volume: number) {
   const effective = volume * masterSpeakerVolume;
   const pipeline = participantAudioPipelines.get(identity);
   if (!pipeline) return;
+  // Always set element volume as fallback (clamped 0-1).
+  // When createMediaElementSource captures properly, audioEl.volume is a no-op.
+  // When capture silently fails (e.g. WebView2), this controls the raw element output.
+  pipeline.audioEl.volume = Math.min(Math.max(effective, 0), 1);
   if (pipeline.gain && pipeline.ctx) {
     pipeline.gain.gain.setValueAtTime(effective, pipeline.ctx.currentTime);
-  } else {
-    // Fallback: HTMLAudioElement.volume (0-1 range, no boost beyond 100%)
-    pipeline.audioEl.volume = Math.min(Math.max(effective, 0), 1);
   }
 }
 
@@ -64,10 +65,9 @@ function cleanupAllParticipantAudio() {
 export function setAllParticipantGains(muted: boolean, volumes: Record<string, number>) {
   for (const [identity, pipeline] of participantAudioPipelines) {
     const vol = muted ? 0 : (volumes[identity] ?? 1.0) * masterSpeakerVolume;
+    pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
     if (pipeline.gain && pipeline.ctx) {
       pipeline.gain.gain.setValueAtTime(vol, pipeline.ctx.currentTime);
-    } else {
-      pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
     }
   }
 }
@@ -352,6 +352,9 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
       const audioEl = el instanceof HTMLAudioElement ? el : null;
 
       const pipeline: ParticipantAudio = { audioEl: audioEl ?? new Audio() };
+      // Always set element volume (safe no-op when createMediaElementSource captures properly;
+      // provides volume control when capture silently fails in WebView2 environments).
+      pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
       try {
         // Use createMediaElementSource to capture the element's output through a GainNode.
         // This ensures speaker volume control actually works — the GainNode is inline
@@ -373,8 +376,6 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
         pipeline.source = source;
         dbg("voice", `TrackSubscribed attached audio with GainNode (MediaElementSource) for ${participant.identity} vol=${vol}`);
       } catch (e) {
-        // Fallback: audio plays through raw element, volume limited to 0-100%
-        pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
         dbg("voice", `TrackSubscribed GainNode failed for ${participant.identity}, using element volume`, e);
       }
       participantAudioPipelines.set(participant.identity, pipeline);
