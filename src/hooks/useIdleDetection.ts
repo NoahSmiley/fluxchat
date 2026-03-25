@@ -14,20 +14,21 @@ if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", () => { unloading = true; });
 }
 
+function getMyStatus() {
+  const userId = useAuthStore.getState().user?.id;
+  if (!userId) return undefined;
+  return useChatStore.getState().userStatuses[userId];
+}
+
 export function useIdleDetection() {
   const isAutoIdleRef = useRef(false);
 
+  // Tauri desktop: uses native system idle time via IPC
   useEffect(() => {
     if (!(window as any).__TAURI_INTERNALS__) return;
 
     let cancelled = false;
     let interval: ReturnType<typeof setInterval> | null = null;
-
-    function getMyStatus() {
-      const userId = useAuthStore.getState().user?.id;
-      if (!userId) return undefined;
-      return useChatStore.getState().userStatuses[userId];
-    }
 
     async function checkIdle() {
       if (cancelled || unloading) return;
@@ -74,6 +75,51 @@ export function useIdleDetection() {
       if (interval) clearInterval(interval);
       window.removeEventListener("focus", checkIdle);
       document.removeEventListener("visibilitychange", checkIdle);
+    };
+  }, []);
+
+  // Browser fallback: track last user interaction via DOM events
+  useEffect(() => {
+    if ((window as any).__TAURI_INTERNALS__) return;
+
+    let lastActivity = Date.now();
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    function onActivity() {
+      lastActivity = Date.now();
+      // If we auto-set idle, immediately restore to online on any interaction
+      if (isAutoIdleRef.current) {
+        isAutoIdleRef.current = false;
+        useChatStore.getState().setMyStatus("online");
+      }
+    }
+
+    function checkIdle() {
+      const idleMs = Date.now() - lastActivity;
+
+      const { lastSpokeAt } = useVoiceStore.getState();
+      const voiceIdleMs = lastSpokeAt > 0 ? Date.now() - lastSpokeAt : Infinity;
+      const effectiveIdleMs = Math.min(idleMs, voiceIdleMs);
+
+      const currentStatus = getMyStatus();
+
+      if (effectiveIdleMs >= IDLE_TIMEOUT_MS && currentStatus === "online") {
+        isAutoIdleRef.current = true;
+        useChatStore.getState().setMyStatus("idle");
+      }
+    }
+
+    const events = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"] as const;
+    events.forEach((e) => document.addEventListener(e, onActivity, { passive: true }));
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") onActivity();
+    });
+
+    interval = setInterval(checkIdle, POLL_INTERVAL_MS);
+
+    return () => {
+      events.forEach((e) => document.removeEventListener(e, onActivity));
+      if (interval) clearInterval(interval);
     };
   }, []);
 }

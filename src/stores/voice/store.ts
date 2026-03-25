@@ -104,16 +104,22 @@ export const useVoiceStore = create<VoiceState>()((set, get, storeApi) => {
             setActiveKrispProcessor(null);
           }
 
+          // Toggle browser NS inversely — off when Krisp is on, on when Krisp is off
+          const mst = micPub?.track?.mediaStreamTrack;
+          if (mst) {
+            mst.applyConstraints({ noiseSuppression: !value }).catch(() => {});
+          }
+
           if (value && micPub) {
             const processor = await attachNoiseFilter(micPub);
             if (processor) {
               setActiveKrispProcessor(processor);
-              dbg("voice", "Noise suppression enabled");
+              dbg("voice", "Noise suppression enabled (Krisp on, browser NS off)");
             } else {
               throw new Error("NoiseFilter attach returned null");
             }
           } else {
-            dbg("voice", "Noise suppression disabled");
+            dbg("voice", "Noise suppression disabled (Krisp off, browser NS on)");
           }
         } catch (e) {
           dbg("voice", "Noise suppression toggle failed — mic continues without it", e);

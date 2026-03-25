@@ -37,7 +37,7 @@ export async function attachNoiseFilter(micPub: any): Promise<any | null> {
       return null;
     }
 
-    const processor = KrispNoiseFilter({ useBVC: true });
+    const processor = KrispNoiseFilter({ useBVC: false });
     await micPub.track.setProcessor(processor);
     await processor.setEnabled(true);
     const isEnabled = processor.isEnabled?.();

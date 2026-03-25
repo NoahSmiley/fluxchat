@@ -1,7 +1,5 @@
 import { lazy, type ComponentType } from "react";
 import minecraftLogo from "@/assets/games/minecraft-logo.png";
-import csLogo from "@/assets/games/cs-logo.png";
-import deadlockLogo from "@/assets/games/deadlock-logo.png";
 
 export interface GameChannelDef {
   id: string;              // e.g. "game:minecraft"
@@ -17,18 +15,6 @@ export const GAME_CHANNELS: GameChannelDef[] = [
     name: "Minecraft",
     iconImage: minecraftLogo,
     component: lazy(() => import("@/components/games/minecraft/MinecraftChannel.js")),
-  },
-  {
-    id: "game:cs",
-    name: "Counter-Strike",
-    iconImage: csLogo,
-    component: lazy(() => import("@/components/games/cs/CSChannel.js")),
-  },
-  {
-    id: "game:deadlock",
-    name: "Deadlock",
-    iconImage: deadlockLogo,
-    component: lazy(() => import("@/components/games/deadlock/DeadlockChannel.js")),
   },
 ];
 

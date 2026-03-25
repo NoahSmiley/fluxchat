@@ -31,12 +31,12 @@ export function setParticipantGain(identity: string, volume: number) {
   const effective = volume * masterSpeakerVolume;
   const pipeline = participantAudioPipelines.get(identity);
   if (!pipeline) return;
-  // Always set element volume as fallback (clamped 0-1).
-  // When createMediaElementSource captures properly, audioEl.volume is a no-op.
-  // When capture silently fails (e.g. WebView2), this controls the raw element output.
-  pipeline.audioEl.volume = Math.min(Math.max(effective, 0), 1);
   if (pipeline.gain && pipeline.ctx) {
+    // GainNode controls volume — keep audioEl at 1.0
     pipeline.gain.gain.setValueAtTime(effective, pipeline.ctx.currentTime);
+  } else {
+    // No GainNode — fall back to element volume (clamped 0-1)
+    pipeline.audioEl.volume = Math.min(Math.max(effective, 0), 1);
   }
 }
 
@@ -65,9 +65,10 @@ function cleanupAllParticipantAudio() {
 export function setAllParticipantGains(muted: boolean, volumes: Record<string, number>) {
   for (const [identity, pipeline] of participantAudioPipelines) {
     const vol = muted ? 0 : (volumes[identity] ?? 1.0) * masterSpeakerVolume;
-    pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
     if (pipeline.gain && pipeline.ctx) {
       pipeline.gain.gain.setValueAtTime(vol, pipeline.ctx.currentTime);
+    } else {
+      pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
     }
   }
 }
@@ -352,16 +353,12 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
       const audioEl = el instanceof HTMLAudioElement ? el : null;
 
       const pipeline: ParticipantAudio = { audioEl: audioEl ?? new Audio() };
-      // Always set element volume (safe no-op when createMediaElementSource captures properly;
-      // provides volume control when capture silently fails in WebView2 environments).
+      // Set element volume as initial fallback (used when GainNode pipeline fails)
       pipeline.audioEl.volume = Math.min(Math.max(vol, 0), 1);
       try {
         // Use createMediaElementSource to capture the element's output through a GainNode.
-        // This ensures speaker volume control actually works — the GainNode is inline
-        // with the audio path rather than a parallel stream that may not produce output.
         const ctx = new AudioContext();
         await ctx.resume();
-        // Match the AudioContext output device to the user's selected output device
         const outputDeviceId = get().audioSettings.audioOutputDeviceId;
         if (outputDeviceId && "setSinkId" in ctx) {
           await (ctx as any).setSinkId(outputDeviceId).catch(() => {});
@@ -374,7 +371,9 @@ export function setupRoomEventHandlers(room: Room, storeRef: StoreApi<VoiceState
         pipeline.ctx = ctx;
         pipeline.gain = gain;
         pipeline.source = source;
-        dbg("voice", `TrackSubscribed attached audio with GainNode (MediaElementSource) for ${participant.identity} vol=${vol}`);
+        // GainNode now controls volume — set element to 1.0 so it doesn't double-apply
+        pipeline.audioEl.volume = 1.0;
+        dbg("voice", `TrackSubscribed attached audio with GainNode for ${participant.identity} vol=${vol}`);
       } catch (e) {
         dbg("voice", `TrackSubscribed GainNode failed for ${participant.identity}, using element volume`, e);
       }

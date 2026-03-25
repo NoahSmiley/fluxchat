@@ -182,10 +182,10 @@ export function createJoinVoiceChannel(storeRef: StoreApi<VoiceState>) {
         dynacast: true,
         audioCaptureDefaults: {
           echoCancellation: audioSettings.echoCancellation,
-          noiseSuppression: true, // Browser NS as baseline; Krisp disables it during init and uses WASM instead
+          // Disable browser NS when Krisp is active — stacking both cuts high frequencies
+          noiseSuppression: !audioSettings.noiseSuppression,
           autoGainControl: audioSettings.autoGainControl,
           sampleRate: 48000,
-          // Krisp outputs mono — don't force stereo capture or it produces silent/garbled audio
           channelCount: 1,
         },
         publishDefaults: {
